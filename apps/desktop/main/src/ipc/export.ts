@@ -284,4 +284,169 @@ export function registerExportIpcHandlers(deps: {
       }
     },
   );
+
+  // ── P3: ProseMirror export handlers ──
+
+  deps.ipcMain.handle(
+    "export:document:prosemirror",
+    async (
+      event,
+      payload: unknown,
+    ): Promise<IpcResponse<{ documentId: string; content: string }>> => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response;
+      }
+
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      if (!payload || typeof payload !== "object") {
+        return {
+          ok: false,
+          error: invalidPayload("payload must be an object"),
+        };
+      }
+
+      const projectId = (payload as { projectId?: unknown }).projectId;
+      if (typeof projectId !== "string" || projectId.trim().length === 0) {
+        return {
+          ok: false,
+          error: invalidPayload("projectId is required"),
+        };
+      }
+
+      const documentId = (payload as { documentId?: unknown }).documentId;
+      if (typeof documentId !== "string" || documentId.trim().length === 0) {
+        return {
+          ok: false,
+          error: invalidPayload("documentId is required"),
+        };
+      }
+
+      try {
+        const row = deps.db.prepare(
+          "SELECT content_json as contentJson FROM documents WHERE project_id = ? AND document_id = ?",
+        ).get(projectId, documentId) as { contentJson?: string } | undefined;
+
+        if (!row || !row.contentJson) {
+          return {
+            ok: false,
+            error: { code: "EXPORT_EMPTY_DOCUMENT", message: "Document not found or empty" },
+          };
+        }
+
+        return {
+          ok: true,
+          data: { documentId, content: row.contentJson },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_export_prosemirror_error", {
+          channel: "export:document:prosemirror",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "EXPORT_WRITE_ERROR", message: "Failed to read document content" },
+        };
+      }
+    },
+  );
+
+  deps.ipcMain.handle(
+    "export:project:prosemirror",
+    async (
+      event,
+      payload: unknown,
+    ): Promise<
+      IpcResponse<{
+        items: Array<{ documentId: string; title: string; content: string }>;
+      }>
+    > => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response;
+      }
+
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      const parsed = parseProjectBundlePayload(payload);
+      if (!parsed.ok) {
+        return { ok: false, error: parsed.error };
+      }
+
+      try {
+        const rows = deps.db.prepare(
+          "SELECT document_id as documentId, title, content_json as contentJson FROM documents WHERE project_id = ?",
+        ).all(parsed.data.projectId) as Array<{
+          documentId: string;
+          title: string;
+          contentJson: string;
+        }>;
+
+        const items = rows.map((row) => ({
+          documentId: row.documentId,
+          title: row.title ?? "",
+          content: row.contentJson ?? "{}",
+        }));
+
+        return { ok: true, data: { items } };
+      } catch (error) {
+        deps.logger.error("ipc_export_prosemirror_error", {
+          channel: "export:project:prosemirror",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "EXPORT_WRITE_ERROR", message: "Failed to read project documents" },
+        };
+      }
+    },
+  );
+
+  // ── P3: Export progress (stub — TODO: push notification) ──
+
+  deps.ipcMain.handle(
+    "export:progress:get",
+    async (
+      event,
+      payload: unknown,
+    ): Promise<
+      IpcResponse<{ exportId: string; status: string; progress: number }>
+    > => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response;
+      }
+
+      // TODO: integrate with real export progress tracking
+      const exportId =
+        (payload as { exportId?: string } | null)?.exportId ?? "none";
+      return {
+        ok: true,
+        data: { exportId, status: "idle", progress: 0 },
+      };
+    },
+  );
 }

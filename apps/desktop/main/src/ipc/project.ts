@@ -5,6 +5,15 @@ import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { createProjectService } from "../services/projects/projectService";
 import type { ProjectLifecycle } from "../services/projects/projectLifecycle";
+import {
+  createProjectManager,
+  type ProjectConfig,
+  type ProjectDocument,
+  type ProjectManager,
+  type ProjectOverview,
+  type ProjectStyleConfig,
+} from "../services/project/projectManager";
+import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type ProjectHandlerDeps = {
@@ -560,6 +569,318 @@ function registerProjectSessionAndLifecycleHandlers(
   );
 }
 
+// ─── P3: Project Config IPC types ──
+
+type ProjectConfigResponse = {
+  id: string;
+  name: string;
+  type: string;
+  description: string;
+  stage: string;
+  genre: string;
+  wordCountGoal?: number;
+  autoSave: boolean;
+  narrativePerson: string;
+  languageStyle: string;
+  targetAudience: string;
+  updatedAt: number;
+};
+
+type ConfigUpdatePatch = {
+  genre?: string;
+  wordCountGoal?: number;
+  autoSave?: boolean;
+  narrativePerson?: string;
+  languageStyle?: string;
+  targetAudience?: string;
+};
+
+// ─── Helpers ──
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validateNonEmptyString(
+  value: unknown,
+  fieldName: string,
+): string | null {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return `${fieldName} is required`;
+  }
+  return null;
+}
+
+function notReady<T>(): IpcResponse<T> {
+  return {
+    ok: false,
+    error: { code: "DB_ERROR", message: "Database not ready" },
+  };
+}
+
+interface EventBusLike {
+  emit(event: Record<string, unknown>): void;
+  on(event: string, handler: (payload: Record<string, unknown>) => void): void;
+  off(event: string, handler: (payload: Record<string, unknown>) => void): void;
+}
+
+function projectConfigFromManager(config: ProjectConfig): ProjectConfigResponse {
+  return {
+    id: config.id,
+    name: config.name,
+    type: config.type,
+    description: config.description,
+    stage: config.stage,
+    genre: config.style.genre,
+    wordCountGoal: config.goals.targetWordCount,
+    autoSave: true,
+    narrativePerson: config.style.narrativePerson,
+    languageStyle: config.style.languageStyle,
+    targetAudience: config.style.targetAudience,
+    updatedAt: config.updatedAt,
+  };
+}
+
+function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
+  let manager: ProjectManager | null = null;
+
+  const noopEventBus: EventBusLike = {
+    emit: () => {},
+    on: () => {},
+    off: () => {},
+  };
+
+  function getManager(): ProjectManager | null {
+    if (!deps.db) return null;
+    if (!manager) {
+      manager = createProjectManager({
+        db: deps.db as never,
+        eventBus: noopEventBus,
+      });
+    }
+    return manager;
+  }
+
+  function handleWithProjectAccess<TPayload, TResponse>(
+    channel: string,
+    listener: (
+      event: unknown,
+      payload: TPayload,
+    ) => Promise<IpcResponse<TResponse>>,
+  ): void {
+    deps.ipcMain.handle(channel, async (event, payload) => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding: deps.projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response as IpcResponse<TResponse>;
+      }
+      return listener(event, payload as TPayload);
+    });
+  }
+
+  // ── project:config:get ──
+
+  handleWithProjectAccess(
+    "project:config:get",
+    async (
+      _event,
+      payload: { projectId: string },
+    ): Promise<IpcResponse<ProjectConfigResponse>> => {
+      if (!isRecord(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "payload must be an object" },
+        };
+      }
+
+      const mgr = getManager();
+      if (!mgr) return notReady<ProjectConfigResponse>();
+
+      const res = await mgr.getProject(payload.projectId);
+      if (res.success && res.data) {
+        return { ok: true, data: projectConfigFromManager(res.data) };
+      }
+      return {
+        ok: false,
+        error: {
+          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+          message: res.error?.message ?? "Project not found",
+        },
+      };
+    },
+  );
+
+  // ── project:config:update ──
+
+  handleWithProjectAccess(
+    "project:config:update",
+    async (
+      _event,
+      payload: { projectId: string; patch: ConfigUpdatePatch },
+    ): Promise<IpcResponse<ProjectConfigResponse>> => {
+      if (!isRecord(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "payload must be an object" },
+        };
+      }
+
+      const mgr = getManager();
+      if (!mgr) return notReady<ProjectConfigResponse>();
+
+      if (!isRecord(payload.patch)) {
+        return {
+          ok: false,
+          error: { code: "PROJECT_CONFIG_INVALID", message: "patch must be an object" },
+        };
+      }
+
+      const updates: Partial<ProjectConfig> = {};
+      if (payload.patch.genre !== undefined) {
+        updates.style = { ...updates.style } as ProjectStyleConfig;
+        updates.style.genre = payload.patch.genre;
+      }
+      if (payload.patch.narrativePerson !== undefined) {
+        updates.style = { ...(updates.style ?? {}) } as ProjectStyleConfig;
+        updates.style.narrativePerson = payload.patch.narrativePerson as ProjectStyleConfig["narrativePerson"];
+      }
+      if (payload.patch.languageStyle !== undefined) {
+        updates.style = { ...(updates.style ?? {}) } as ProjectStyleConfig;
+        updates.style.languageStyle = payload.patch.languageStyle;
+      }
+      if (payload.patch.targetAudience !== undefined) {
+        updates.style = { ...(updates.style ?? {}) } as ProjectStyleConfig;
+        updates.style.targetAudience = payload.patch.targetAudience;
+      }
+      if (payload.patch.wordCountGoal !== undefined) {
+        updates.goals = { ...(updates.goals ?? {}) } as ProjectConfig["goals"];
+        updates.goals.targetWordCount = payload.patch.wordCountGoal;
+      }
+
+      const res = await mgr.updateProject(payload.projectId, updates);
+      if (res.success && res.data) {
+        return { ok: true, data: projectConfigFromManager(res.data) };
+      }
+      return {
+        ok: false,
+        error: {
+          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+          message: res.error?.message ?? "Update failed",
+        },
+      };
+    },
+  );
+
+  // ── project:style:get ──
+
+  handleWithProjectAccess(
+    "project:style:get",
+    async (
+      _event,
+      payload: { projectId: string },
+    ): Promise<IpcResponse<ProjectStyleConfig>> => {
+      if (!isRecord(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "payload must be an object" },
+        };
+      }
+
+      const mgr = getManager();
+      if (!mgr) return notReady<ProjectStyleConfig>();
+
+      const res = await mgr.getStyleConfig(payload.projectId);
+      if (res.success && res.data) {
+        return { ok: true, data: res.data };
+      }
+      return {
+        ok: false,
+        error: {
+          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+          message: res.error?.message ?? "Style config not found",
+        },
+      };
+    },
+  );
+
+  // ── project:documents:list ──
+
+  handleWithProjectAccess(
+    "project:documents:list",
+    async (
+      _event,
+      payload: { projectId: string; type?: string },
+    ): Promise<IpcResponse<{ items: ProjectDocument[] }>> => {
+      if (!isRecord(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "payload must be an object" },
+        };
+      }
+
+      const mgr = getManager();
+      if (!mgr) return notReady<{ items: ProjectDocument[] }>();
+
+      const res = await mgr.listDocuments(payload.projectId, {
+        type: payload.type,
+      });
+      if (res.success) {
+        return { ok: true, data: { items: res.data ?? [] } };
+      }
+      return {
+        ok: false,
+        error: {
+          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+          message: res.error?.message ?? "List failed",
+        },
+      };
+    },
+  );
+
+  // ── project:overview:get ──
+
+  handleWithProjectAccess(
+    "project:overview:get",
+    async (
+      _event,
+      payload: { projectId: string },
+    ): Promise<IpcResponse<ProjectOverview>> => {
+      if (!isRecord(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "payload must be an object" },
+        };
+      }
+
+      const mgr = getManager();
+      if (!mgr) return notReady<ProjectOverview>();
+
+      const pidErr = validateNonEmptyString(payload.projectId, "projectId");
+      if (pidErr) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: pidErr },
+        };
+      }
+
+      const res = await mgr.getOverview(payload.projectId);
+      if (res.success && res.data) {
+        return { ok: true, data: res.data };
+      }
+      return {
+        ok: false,
+        error: {
+          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+          message: res.error?.message ?? "Overview unavailable",
+        },
+      };
+    },
+  );
+}
+
 /**
  * Register `project:*` IPC handlers.
  *
@@ -568,4 +889,5 @@ function registerProjectSessionAndLifecycleHandlers(
 export function registerProjectIpcHandlers(deps: ProjectHandlerDeps): void {
   registerProjectCrudHandlers(deps);
   registerProjectSessionAndLifecycleHandlers(deps);
+  registerProjectConfigHandlers(deps);
 }

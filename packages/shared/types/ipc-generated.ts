@@ -41,6 +41,12 @@ export type IpcErrorCode =
   | "DOCUMENT_SIZE_EXCEEDED"
   | "EMBEDDING_PROVIDER_UNAVAILABLE"
   | "ENCODING_FAILED"
+  | "EXPORT_EMPTY_DOCUMENT"
+  | "EXPORT_FORMAT_UNSUPPORTED"
+  | "EXPORT_INTERRUPTED"
+  | "EXPORT_SIZE_EXCEEDED"
+  | "EXPORT_UNSUPPORTED_NODE"
+  | "EXPORT_WRITE_ERROR"
   | "FORBIDDEN"
   | "INTERNAL"
   | "INTERNAL_ERROR"
@@ -73,8 +79,13 @@ export type IpcErrorCode =
   | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
   | "MEMORY_DISTILL_LLM_UNAVAILABLE"
   | "MEMORY_EPISODE_WRITE_FAILED"
+  | "MEMORY_KEY_REQUIRED"
+  | "MEMORY_KEY_TOO_LONG"
+  | "MEMORY_NOT_FOUND"
   | "MEMORY_SCOPE_DENIED"
+  | "MEMORY_SERVICE_UNAVAILABLE"
   | "MEMORY_TRACE_MISMATCH"
+  | "MEMORY_VALUE_TOO_LONG"
   | "MODEL_NOT_READY"
   | "NOT_FOUND"
   | "PERMISSION_DENIED"
@@ -83,10 +94,13 @@ export type IpcErrorCode =
   | "PREFLIGHT_MISSING_MODEL"
   | "PREFLIGHT_MODEL_PROVIDER_MISMATCH"
   | "PROJECT_CAPACITY_EXCEEDED"
+  | "PROJECT_CONFIG_INVALID"
   | "PROJECT_DELETE_REQUIRES_ARCHIVE"
+  | "PROJECT_GENRE_REQUIRED"
   | "PROJECT_IPC_SCHEMA_INVALID"
   | "PROJECT_LIFECYCLE_WRITE_FAILED"
   | "PROJECT_METADATA_INVALID_ENUM"
+  | "PROJECT_NOT_FOUND"
   | "PROJECT_PURGE_PERMISSION_DENIED"
   | "PROJECT_SWITCH_TIMEOUT"
   | "RATE_LIMITED"
@@ -94,7 +108,12 @@ export type IpcErrorCode =
   | "SEARCH_CAPACITY_EXCEEDED"
   | "SEARCH_CONCURRENT_WRITE_CONFLICT"
   | "SEARCH_DATA_CORRUPTED"
+  | "SEARCH_INDEX_CORRUPTED"
+  | "SEARCH_INDEX_NOT_FOUND"
   | "SEARCH_PROJECT_FORBIDDEN"
+  | "SEARCH_PROJECT_NOT_FOUND"
+  | "SEARCH_QUERY_EMPTY"
+  | "SEARCH_QUERY_TOO_LONG"
   | "SEARCH_REINDEX_IO_ERROR"
   | "SEARCH_TIMEOUT"
   | "SKILL_CAPACITY_EXCEEDED"
@@ -102,6 +121,7 @@ export type IpcErrorCode =
   | "SKILL_INPUT_EMPTY"
   | "SKILL_INPUT_INVALID"
   | "SKILL_OUTPUT_INVALID"
+  | "SKILL_PARSE_FAILED"
   | "SKILL_QUEUE_OVERFLOW"
   | "SKILL_SCOPE_VIOLATION"
   | "SKILL_TIMEOUT"
@@ -199,8 +219,11 @@ export const IPC_CHANNELS = [
   "export:document:docx",
   "export:document:markdown",
   "export:document:pdf",
+  "export:document:prosemirror",
   "export:document:txt",
+  "export:progress:get",
   "export:project:bundle",
+  "export:project:prosemirror",
   "file:document:create",
   "file:document:delete",
   "file:document:getcurrent",
@@ -253,12 +276,22 @@ export const IPC_CHANNELS = [
   "memory:semantic:update",
   "memory:settings:get",
   "memory:settings:update",
+  "memory:simple:clearproject",
+  "memory:simple:delete",
+  "memory:simple:inject",
+  "memory:simple:list",
+  "memory:simple:read",
+  "memory:simple:write",
   "memory:trace:feedback",
   "memory:trace:get",
+  "project:config:get",
+  "project:config:update",
+  "project:documents:list",
   "project:lifecycle:archive",
   "project:lifecycle:get",
   "project:lifecycle:purge",
   "project:lifecycle:restore",
+  "project:overview:get",
   "project:project:archive",
   "project:project:create",
   "project:project:createaiassist",
@@ -271,11 +304,15 @@ export const IPC_CHANNELS = [
   "project:project:stats",
   "project:project:switch",
   "project:project:update",
+  "project:style:get",
   "rag:config:get",
   "rag:config:update",
   "rag:context:retrieve",
   "search:fts:query",
   "search:fts:reindex",
+  "search:project:indexstatus",
+  "search:project:query",
+  "search:project:reindex",
   "search:query:strategy",
   "search:rank:explain",
   "search:replace:execute",
@@ -505,7 +542,27 @@ export type IpcChannelSpec = {
           | "LOCATION_NOT_FOUND"
           | "LOCATION_ATTR_KEY_TOO_LONG"
           | "LOCATION_ATTR_LIMIT_EXCEEDED"
-          | "LOCATION_CAPACITY_EXCEEDED";
+          | "LOCATION_CAPACITY_EXCEEDED"
+          | "PROJECT_NOT_FOUND"
+          | "PROJECT_CONFIG_INVALID"
+          | "PROJECT_GENRE_REQUIRED"
+          | "MEMORY_KEY_REQUIRED"
+          | "MEMORY_KEY_TOO_LONG"
+          | "MEMORY_VALUE_TOO_LONG"
+          | "MEMORY_NOT_FOUND"
+          | "MEMORY_SERVICE_UNAVAILABLE"
+          | "SKILL_PARSE_FAILED"
+          | "SEARCH_QUERY_EMPTY"
+          | "SEARCH_QUERY_TOO_LONG"
+          | "SEARCH_INDEX_NOT_FOUND"
+          | "SEARCH_INDEX_CORRUPTED"
+          | "SEARCH_PROJECT_NOT_FOUND"
+          | "EXPORT_FORMAT_UNSUPPORTED"
+          | "EXPORT_WRITE_ERROR"
+          | "EXPORT_EMPTY_DOCUMENT"
+          | "EXPORT_UNSUPPORTED_NODE"
+          | "EXPORT_SIZE_EXCEEDED"
+          | "EXPORT_INTERRUPTED";
         message: string;
       };
       latencyMs: number;
@@ -1295,6 +1352,16 @@ export type IpcChannelSpec = {
       relativePath: string;
     };
   };
+  "export:document:prosemirror": {
+    request: {
+      documentId: string;
+      projectId: string;
+    };
+    response: {
+      content: string;
+      documentId: string;
+    };
+  };
   "export:document:txt": {
     request: {
       documentId?: string;
@@ -1305,6 +1372,17 @@ export type IpcChannelSpec = {
       relativePath: string;
     };
   };
+  "export:progress:get": {
+    request: {
+      exportId?: string;
+      projectId: string;
+    };
+    response: {
+      exportId: string;
+      progress: number;
+      status: string;
+    };
+  };
   "export:project:bundle": {
     request: {
       projectId: string;
@@ -1312,6 +1390,18 @@ export type IpcChannelSpec = {
     response: {
       bytesWritten: number;
       relativePath: string;
+    };
+  };
+  "export:project:prosemirror": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        content: string;
+        documentId: string;
+        title: string;
+      }>;
     };
   };
   "file:document:create": {
@@ -1575,7 +1665,27 @@ export type IpcChannelSpec = {
                 | "LOCATION_NOT_FOUND"
                 | "LOCATION_ATTR_KEY_TOO_LONG"
                 | "LOCATION_ATTR_LIMIT_EXCEEDED"
-                | "LOCATION_CAPACITY_EXCEEDED";
+                | "LOCATION_CAPACITY_EXCEEDED"
+                | "PROJECT_NOT_FOUND"
+                | "PROJECT_CONFIG_INVALID"
+                | "PROJECT_GENRE_REQUIRED"
+                | "MEMORY_KEY_REQUIRED"
+                | "MEMORY_KEY_TOO_LONG"
+                | "MEMORY_VALUE_TOO_LONG"
+                | "MEMORY_NOT_FOUND"
+                | "MEMORY_SERVICE_UNAVAILABLE"
+                | "SKILL_PARSE_FAILED"
+                | "SEARCH_QUERY_EMPTY"
+                | "SEARCH_QUERY_TOO_LONG"
+                | "SEARCH_INDEX_NOT_FOUND"
+                | "SEARCH_INDEX_CORRUPTED"
+                | "SEARCH_PROJECT_NOT_FOUND"
+                | "EXPORT_FORMAT_UNSUPPORTED"
+                | "EXPORT_WRITE_ERROR"
+                | "EXPORT_EMPTY_DOCUMENT"
+                | "EXPORT_UNSUPPORTED_NODE"
+                | "EXPORT_SIZE_EXCEEDED"
+                | "EXPORT_INTERRUPTED";
               message: string;
             };
             status: "error";
@@ -1706,7 +1816,27 @@ export type IpcChannelSpec = {
                 | "LOCATION_NOT_FOUND"
                 | "LOCATION_ATTR_KEY_TOO_LONG"
                 | "LOCATION_ATTR_LIMIT_EXCEEDED"
-                | "LOCATION_CAPACITY_EXCEEDED";
+                | "LOCATION_CAPACITY_EXCEEDED"
+                | "PROJECT_NOT_FOUND"
+                | "PROJECT_CONFIG_INVALID"
+                | "PROJECT_GENRE_REQUIRED"
+                | "MEMORY_KEY_REQUIRED"
+                | "MEMORY_KEY_TOO_LONG"
+                | "MEMORY_VALUE_TOO_LONG"
+                | "MEMORY_NOT_FOUND"
+                | "MEMORY_SERVICE_UNAVAILABLE"
+                | "SKILL_PARSE_FAILED"
+                | "SEARCH_QUERY_EMPTY"
+                | "SEARCH_QUERY_TOO_LONG"
+                | "SEARCH_INDEX_NOT_FOUND"
+                | "SEARCH_INDEX_CORRUPTED"
+                | "SEARCH_PROJECT_NOT_FOUND"
+                | "EXPORT_FORMAT_UNSUPPORTED"
+                | "EXPORT_WRITE_ERROR"
+                | "EXPORT_EMPTY_DOCUMENT"
+                | "EXPORT_UNSUPPORTED_NODE"
+                | "EXPORT_SIZE_EXCEEDED"
+                | "EXPORT_INTERRUPTED";
               message: string;
             };
             status: "error";
@@ -2271,7 +2401,27 @@ export type IpcChannelSpec = {
         | "LOCATION_NOT_FOUND"
         | "LOCATION_ATTR_KEY_TOO_LONG"
         | "LOCATION_ATTR_LIMIT_EXCEEDED"
-        | "LOCATION_CAPACITY_EXCEEDED";
+        | "LOCATION_CAPACITY_EXCEEDED"
+        | "PROJECT_NOT_FOUND"
+        | "PROJECT_CONFIG_INVALID"
+        | "PROJECT_GENRE_REQUIRED"
+        | "MEMORY_KEY_REQUIRED"
+        | "MEMORY_KEY_TOO_LONG"
+        | "MEMORY_VALUE_TOO_LONG"
+        | "MEMORY_NOT_FOUND"
+        | "MEMORY_SERVICE_UNAVAILABLE"
+        | "SKILL_PARSE_FAILED"
+        | "SEARCH_QUERY_EMPTY"
+        | "SEARCH_QUERY_TOO_LONG"
+        | "SEARCH_INDEX_NOT_FOUND"
+        | "SEARCH_INDEX_CORRUPTED"
+        | "SEARCH_PROJECT_NOT_FOUND"
+        | "EXPORT_FORMAT_UNSUPPORTED"
+        | "EXPORT_WRITE_ERROR"
+        | "EXPORT_EMPTY_DOCUMENT"
+        | "EXPORT_UNSUPPORTED_NODE"
+        | "EXPORT_SIZE_EXCEEDED"
+        | "EXPORT_INTERRUPTED";
       message?: string;
       progress: number;
       projectId: string;
@@ -2395,7 +2545,27 @@ export type IpcChannelSpec = {
         | "LOCATION_NOT_FOUND"
         | "LOCATION_ATTR_KEY_TOO_LONG"
         | "LOCATION_ATTR_LIMIT_EXCEEDED"
-        | "LOCATION_CAPACITY_EXCEEDED";
+        | "LOCATION_CAPACITY_EXCEEDED"
+        | "PROJECT_NOT_FOUND"
+        | "PROJECT_CONFIG_INVALID"
+        | "PROJECT_GENRE_REQUIRED"
+        | "MEMORY_KEY_REQUIRED"
+        | "MEMORY_KEY_TOO_LONG"
+        | "MEMORY_VALUE_TOO_LONG"
+        | "MEMORY_NOT_FOUND"
+        | "MEMORY_SERVICE_UNAVAILABLE"
+        | "SKILL_PARSE_FAILED"
+        | "SEARCH_QUERY_EMPTY"
+        | "SEARCH_QUERY_TOO_LONG"
+        | "SEARCH_INDEX_NOT_FOUND"
+        | "SEARCH_INDEX_CORRUPTED"
+        | "SEARCH_PROJECT_NOT_FOUND"
+        | "EXPORT_FORMAT_UNSUPPORTED"
+        | "EXPORT_WRITE_ERROR"
+        | "EXPORT_EMPTY_DOCUMENT"
+        | "EXPORT_UNSUPPORTED_NODE"
+        | "EXPORT_SIZE_EXCEEDED"
+        | "EXPORT_INTERRUPTED";
       message?: string;
       progress: number;
       projectId: string;
@@ -2771,6 +2941,100 @@ export type IpcChannelSpec = {
       privacyModeEnabled: boolean;
     };
   };
+  "memory:simple:clearproject": {
+    request: {
+      confirmed?: boolean;
+      projectId: string;
+    };
+    response: {
+      cleared: true;
+    };
+  };
+  "memory:simple:delete": {
+    request: {
+      id: string;
+      projectId: string;
+    };
+    response: {
+      deleted: true;
+    };
+  };
+  "memory:simple:inject": {
+    request: {
+      documentText: string;
+      projectId: string;
+      tokenBudget?: number;
+    };
+    response: {
+      degraded: boolean;
+      injectedText: string;
+      records: Array<{
+        category: string;
+        createdAt: number;
+        id: string;
+        key: string;
+        projectId?: string;
+        source: string;
+        updatedAt: number;
+        value: string;
+      }>;
+      tokenCount: number;
+    };
+  };
+  "memory:simple:list": {
+    request: {
+      category?: string;
+      keyPrefix?: string;
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        category: string;
+        createdAt: number;
+        id: string;
+        key: string;
+        projectId?: string;
+        source: string;
+        updatedAt: number;
+        value: string;
+      }>;
+    };
+  };
+  "memory:simple:read": {
+    request: {
+      id: string;
+      projectId: string;
+    };
+    response: {
+      category: string;
+      createdAt: number;
+      id: string;
+      key: string;
+      projectId?: string;
+      source: string;
+      updatedAt: number;
+      value: string;
+    };
+  };
+  "memory:simple:write": {
+    request: {
+      category?: string;
+      key: string;
+      projectId: string;
+      source?: string;
+      value: string;
+    };
+    response: {
+      category: string;
+      createdAt: number;
+      id: string;
+      key: string;
+      projectId?: string;
+      source: string;
+      updatedAt: number;
+      value: string;
+    };
+  };
   "memory:trace:feedback": {
     request: {
       generationId: string;
@@ -2805,6 +3069,72 @@ export type IpcChannelSpec = {
         projectId: string;
         updatedAt: number;
       };
+    };
+  };
+  "project:config:get": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      autoSave: boolean;
+      description: string;
+      genre: string;
+      id: string;
+      languageStyle: string;
+      name: string;
+      narrativePerson: string;
+      stage: string;
+      targetAudience: string;
+      type: string;
+      updatedAt: number;
+      wordCountGoal?: number;
+    };
+  };
+  "project:config:update": {
+    request: {
+      patch: {
+        autoSave?: boolean;
+        genre?: string;
+        languageStyle?: string;
+        narrativePerson?: string;
+        targetAudience?: string;
+        wordCountGoal?: number;
+      };
+      projectId: string;
+    };
+    response: {
+      autoSave: boolean;
+      description: string;
+      genre: string;
+      id: string;
+      languageStyle: string;
+      name: string;
+      narrativePerson: string;
+      stage: string;
+      targetAudience: string;
+      type: string;
+      updatedAt: number;
+      wordCountGoal?: number;
+    };
+  };
+  "project:documents:list": {
+    request: {
+      projectId: string;
+      type?: string;
+    };
+    response: {
+      items: Array<{
+        createdAt: number;
+        id: string;
+        order: number;
+        parentId?: string;
+        projectId: string;
+        status: string;
+        title: string;
+        type: string;
+        updatedAt: number;
+        wordCount: number;
+      }>;
     };
   };
   "project:lifecycle:archive": {
@@ -2846,6 +3176,20 @@ export type IpcChannelSpec = {
     response: {
       projectId: string;
       state: "active" | "archived" | "deleted";
+    };
+  };
+  "project:overview:get": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      chapterCount: number;
+      characterCount: number;
+      documentCount: number;
+      lastEditedAt: number;
+      locationCount: number;
+      projectId: string;
+      totalWordCount: number;
     };
   };
   "project:project:archive": {
@@ -2998,6 +3342,18 @@ export type IpcChannelSpec = {
       updated: true;
     };
   };
+  "project:style:get": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      genre: string;
+      languageStyle: string;
+      narrativePerson: string;
+      targetAudience: string;
+      tone: string;
+    };
+  };
   "rag:config:get": {
     request: Record<string, never>;
     response: {
@@ -3085,6 +3441,51 @@ export type IpcChannelSpec = {
     response: {
       indexState: "ready";
       reindexed: number;
+    };
+  };
+  "search:project:indexstatus": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      status: string;
+    };
+  };
+  "search:project:query": {
+    request: {
+      limit?: number;
+      offset?: number;
+      projectId: string;
+      query: string;
+    };
+    response: {
+      hasMore: boolean;
+      indexState: string;
+      results: Array<{
+        anchor: {
+          end: number;
+          start: number;
+        };
+        documentId: string;
+        documentOffset: number;
+        documentTitle: string;
+        documentType: string;
+        highlights: Array<{
+          end: number;
+          start: number;
+        }>;
+        projectId: string;
+        snippet: string;
+      }>;
+      total: number;
+    };
+  };
+  "search:project:reindex": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      rebuilt: true;
     };
   };
   "search:query:strategy": {
@@ -3535,7 +3936,27 @@ export type IpcChannelSpec = {
           | "LOCATION_NOT_FOUND"
           | "LOCATION_ATTR_KEY_TOO_LONG"
           | "LOCATION_ATTR_LIMIT_EXCEEDED"
-          | "LOCATION_CAPACITY_EXCEEDED";
+          | "LOCATION_CAPACITY_EXCEEDED"
+          | "PROJECT_NOT_FOUND"
+          | "PROJECT_CONFIG_INVALID"
+          | "PROJECT_GENRE_REQUIRED"
+          | "MEMORY_KEY_REQUIRED"
+          | "MEMORY_KEY_TOO_LONG"
+          | "MEMORY_VALUE_TOO_LONG"
+          | "MEMORY_NOT_FOUND"
+          | "MEMORY_SERVICE_UNAVAILABLE"
+          | "SKILL_PARSE_FAILED"
+          | "SEARCH_QUERY_EMPTY"
+          | "SEARCH_QUERY_TOO_LONG"
+          | "SEARCH_INDEX_NOT_FOUND"
+          | "SEARCH_INDEX_CORRUPTED"
+          | "SEARCH_PROJECT_NOT_FOUND"
+          | "EXPORT_FORMAT_UNSUPPORTED"
+          | "EXPORT_WRITE_ERROR"
+          | "EXPORT_EMPTY_DOCUMENT"
+          | "EXPORT_UNSUPPORTED_NODE"
+          | "EXPORT_SIZE_EXCEEDED"
+          | "EXPORT_INTERRUPTED";
         error_message?: string;
         id: string;
         name: string;

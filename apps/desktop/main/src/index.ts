@@ -33,6 +33,8 @@ import { registerDiffIpcHandlers } from "./ipc/diff";
 import { registerWindowIpcHandlers } from "./ipc/window";
 import { registerRendererLogIpcHandlers } from "./ipc/rendererLog";
 import { registerSettingsIpcHandlers } from "./ipc/settings";
+import { registerSimpleMemoryIpcHandlers } from "./ipc/simpleMemory";
+import { registerProjectSearchIpcHandlers } from "./ipc/projectSearch";
 import { createProjectSessionBindingRegistry } from "./ipc/projectSessionBinding";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
@@ -573,6 +575,20 @@ function registerIpcHandlers(deps: {
   });
 
   registerSettingsIpcHandlers({
+    ipcMain: guardedIpcMain,
+    db: deps.db,
+    logger: deps.logger,
+    projectSessionBinding,
+  });
+
+  registerSimpleMemoryIpcHandlers({
+    ipcMain: guardedIpcMain,
+    db: deps.db,
+    logger: deps.logger,
+    projectSessionBinding,
+  });
+
+  registerProjectSearchIpcHandlers({
     ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,

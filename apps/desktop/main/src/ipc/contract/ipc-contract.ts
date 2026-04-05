@@ -110,6 +110,26 @@ export const IPC_ERROR_CODES = [
   "LOCATION_ATTR_KEY_TOO_LONG",
   "LOCATION_ATTR_LIMIT_EXCEEDED",
   "LOCATION_CAPACITY_EXCEEDED",
+  "PROJECT_NOT_FOUND",
+  "PROJECT_CONFIG_INVALID",
+  "PROJECT_GENRE_REQUIRED",
+  "MEMORY_KEY_REQUIRED",
+  "MEMORY_KEY_TOO_LONG",
+  "MEMORY_VALUE_TOO_LONG",
+  "MEMORY_NOT_FOUND",
+  "MEMORY_SERVICE_UNAVAILABLE",
+  "SKILL_PARSE_FAILED",
+  "SEARCH_QUERY_EMPTY",
+  "SEARCH_QUERY_TOO_LONG",
+  "SEARCH_INDEX_NOT_FOUND",
+  "SEARCH_INDEX_CORRUPTED",
+  "SEARCH_PROJECT_NOT_FOUND",
+  "EXPORT_FORMAT_UNSUPPORTED",
+  "EXPORT_WRITE_ERROR",
+  "EXPORT_EMPTY_DOCUMENT",
+  "EXPORT_UNSUPPORTED_NODE",
+  "EXPORT_SIZE_EXCEEDED",
+  "EXPORT_INTERRUPTED",
 ] as const;
 
 export type IpcErrorCode = (typeof IPC_ERROR_CODES)[number];
@@ -925,6 +945,86 @@ const SETTINGS_LOCATION_SCHEMA = s.object({
   attributes: s.record(s.string()),
   createdAt: s.number(),
   updatedAt: s.number(),
+});
+
+const PROJECT_CONFIG_SCHEMA = s.object({
+  id: s.string(),
+  name: s.string(),
+  type: s.string(),
+  description: s.string(),
+  stage: s.string(),
+  genre: s.string(),
+  wordCountGoal: s.optional(s.number()),
+  autoSave: s.boolean(),
+  narrativePerson: s.string(),
+  languageStyle: s.string(),
+  targetAudience: s.string(),
+  updatedAt: s.number(),
+});
+
+const PROJECT_STYLE_SCHEMA = s.object({
+  narrativePerson: s.string(),
+  genre: s.string(),
+  languageStyle: s.string(),
+  tone: s.string(),
+  targetAudience: s.string(),
+});
+
+const PROJECT_DOCUMENT_SCHEMA = s.object({
+  id: s.string(),
+  projectId: s.string(),
+  title: s.string(),
+  type: s.string(),
+  order: s.number(),
+  parentId: s.optional(s.string()),
+  status: s.string(),
+  wordCount: s.number(),
+  createdAt: s.number(),
+  updatedAt: s.number(),
+});
+
+const PROJECT_OVERVIEW_SCHEMA = s.object({
+  projectId: s.string(),
+  totalWordCount: s.number(),
+  documentCount: s.number(),
+  chapterCount: s.number(),
+  characterCount: s.number(),
+  locationCount: s.number(),
+  lastEditedAt: s.number(),
+});
+
+const SIMPLE_MEMORY_RECORD_SCHEMA = s.object({
+  id: s.string(),
+  projectId: s.optional(s.string()),
+  key: s.string(),
+  value: s.string(),
+  source: s.string(),
+  category: s.string(),
+  createdAt: s.number(),
+  updatedAt: s.number(),
+});
+
+const MEMORY_INJECTION_SCHEMA = s.object({
+  records: s.array(SIMPLE_MEMORY_RECORD_SCHEMA),
+  injectedText: s.string(),
+  tokenCount: s.number(),
+  degraded: s.boolean(),
+});
+
+const SEARCH_HIGHLIGHT_SCHEMA = s.object({
+  start: s.number(),
+  end: s.number(),
+});
+
+const PROJECT_SEARCH_RESULT_SCHEMA = s.object({
+  projectId: s.string(),
+  documentId: s.string(),
+  documentTitle: s.string(),
+  documentType: s.string(),
+  snippet: s.string(),
+  highlights: s.array(SEARCH_HIGHLIGHT_SCHEMA),
+  anchor: SEARCH_HIGHLIGHT_SCHEMA,
+  documentOffset: s.number(),
 });
 
 export const ipcContract = {
@@ -2611,6 +2711,159 @@ export const ipcContract = {
     "cost:pricing:update": {
       request: COST_MODEL_PRICING_TABLE_SCHEMA,
       response: COST_MODEL_PRICING_TABLE_SCHEMA,
+    },
+    "project:config:get": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: PROJECT_CONFIG_SCHEMA,
+    },
+    "project:config:update": {
+      request: s.object({
+        projectId: s.string(),
+        patch: s.object({
+          genre: s.optional(s.string()),
+          wordCountGoal: s.optional(s.number()),
+          autoSave: s.optional(s.boolean()),
+          narrativePerson: s.optional(s.string()),
+          languageStyle: s.optional(s.string()),
+          targetAudience: s.optional(s.string()),
+        }),
+      }),
+      response: PROJECT_CONFIG_SCHEMA,
+    },
+    "project:style:get": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: PROJECT_STYLE_SCHEMA,
+    },
+    "project:documents:list": {
+      request: s.object({
+        projectId: s.string(),
+        type: s.optional(s.string()),
+      }),
+      response: s.object({
+        items: s.array(PROJECT_DOCUMENT_SCHEMA),
+      }),
+    },
+    "project:overview:get": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: PROJECT_OVERVIEW_SCHEMA,
+    },
+    "memory:simple:write": {
+      request: s.object({
+        projectId: s.string(),
+        key: s.string(),
+        value: s.string(),
+        source: s.optional(s.string()),
+        category: s.optional(s.string()),
+      }),
+      response: SIMPLE_MEMORY_RECORD_SCHEMA,
+    },
+    "memory:simple:read": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: SIMPLE_MEMORY_RECORD_SCHEMA,
+    },
+    "memory:simple:delete": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: s.object({ deleted: s.literal(true) }),
+    },
+    "memory:simple:list": {
+      request: s.object({
+        projectId: s.string(),
+        category: s.optional(s.string()),
+        keyPrefix: s.optional(s.string()),
+      }),
+      response: s.object({
+        items: s.array(SIMPLE_MEMORY_RECORD_SCHEMA),
+      }),
+    },
+    "memory:simple:inject": {
+      request: s.object({
+        projectId: s.string(),
+        documentText: s.string(),
+        tokenBudget: s.optional(s.number()),
+      }),
+      response: MEMORY_INJECTION_SCHEMA,
+    },
+    "memory:simple:clearproject": {
+      request: s.object({
+        projectId: s.string(),
+        confirmed: s.optional(s.boolean()),
+      }),
+      response: s.object({ cleared: s.literal(true) }),
+    },
+    "search:project:query": {
+      request: s.object({
+        projectId: s.string(),
+        query: s.string(),
+        offset: s.optional(s.number()),
+        limit: s.optional(s.number()),
+      }),
+      response: s.object({
+        results: s.array(PROJECT_SEARCH_RESULT_SCHEMA),
+        total: s.number(),
+        hasMore: s.boolean(),
+        indexState: s.string(),
+      }),
+    },
+    "search:project:reindex": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({ rebuilt: s.literal(true) }),
+    },
+    "search:project:indexstatus": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        status: s.string(),
+      }),
+    },
+    "export:document:prosemirror": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.string(),
+      }),
+      response: s.object({
+        documentId: s.string(),
+        content: s.string(),
+      }),
+    },
+    "export:project:prosemirror": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        items: s.array(
+          s.object({
+            documentId: s.string(),
+            title: s.string(),
+            content: s.string(),
+          }),
+        ),
+      }),
+    },
+    "export:progress:get": {
+      request: s.object({
+        projectId: s.string(),
+        exportId: s.optional(s.string()),
+      }),
+      response: s.object({
+        exportId: s.string(),
+        status: s.string(),
+        progress: s.number(),
+      }),
     },
   },
 } as const;
