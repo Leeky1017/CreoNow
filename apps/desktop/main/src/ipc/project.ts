@@ -13,7 +13,6 @@ import {
   type ProjectOverview,
   type ProjectStyleConfig,
 } from "../services/project/projectManager";
-import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type ProjectHandlerDeps = {
@@ -597,32 +596,13 @@ type ConfigUpdatePatch = {
 
 // ─── Helpers ──
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function validateNonEmptyString(
-  value: unknown,
-  fieldName: string,
-): string | null {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return `${fieldName} is required`;
-  }
-  return null;
-}
-
-function notReady<T>(): IpcResponse<T> {
-  return {
-    ok: false,
-    error: { code: "DB_ERROR", message: "Database not ready" },
-  };
-}
-
-interface EventBusLike {
-  emit(event: Record<string, unknown>): void;
-  on(event: string, handler: (payload: Record<string, unknown>) => void): void;
-  off(event: string, handler: (payload: Record<string, unknown>) => void): void;
-}
+import {
+  createProjectAccessHandler,
+  isRecord,
+  notReady,
+  validateNonEmptyString,
+  NOOP_EVENT_BUS,
+} from "./helpers";
 
 function projectConfigFromManager(config: ProjectConfig): ProjectConfigResponse {
   return {
@@ -644,41 +624,20 @@ function projectConfigFromManager(config: ProjectConfig): ProjectConfigResponse 
 function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
   let manager: ProjectManager | null = null;
 
-  const noopEventBus: EventBusLike = {
-    emit: () => {},
-    on: () => {},
-    off: () => {},
-  };
+  const handleWithProjectAccess = createProjectAccessHandler({
+    ipcMain: deps.ipcMain,
+    projectSessionBinding: deps.projectSessionBinding,
+  });
 
   function getManager(): ProjectManager | null {
     if (!deps.db) return null;
     if (!manager) {
       manager = createProjectManager({
-        db: deps.db as never,
-        eventBus: noopEventBus,
+        db: deps.db,
+        eventBus: NOOP_EVENT_BUS,
       });
     }
     return manager;
-  }
-
-  function handleWithProjectAccess<TPayload, TResponse>(
-    channel: string,
-    listener: (
-      event: unknown,
-      payload: TPayload,
-    ) => Promise<IpcResponse<TResponse>>,
-  ): void {
-    deps.ipcMain.handle(channel, async (event, payload) => {
-      const guarded = guardAndNormalizeProjectAccess({
-        event,
-        payload,
-        projectSessionBinding: deps.projectSessionBinding,
-      });
-      if (!guarded.ok) {
-        return guarded.response as IpcResponse<TResponse>;
-      }
-      return listener(event, payload as TPayload);
-    });
   }
 
   // ── project:config:get ──
@@ -699,17 +658,28 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
       const mgr = getManager();
       if (!mgr) return notReady<ProjectConfigResponse>();
 
-      const res = await mgr.getProject(payload.projectId);
-      if (res.success && res.data) {
-        return { ok: true, data: projectConfigFromManager(res.data) };
+      try {
+        const res = await mgr.getProject(payload.projectId);
+        if (res.success && res.data) {
+          return { ok: true, data: projectConfigFromManager(res.data) };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+            message: res.error?.message ?? "Project not found",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_project_config_unexpected_error", {
+          channel: "project:config:get",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected config get error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
-          message: res.error?.message ?? "Project not found",
-        },
-      };
     },
   );
 
@@ -740,6 +710,12 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
 
       const updates: Partial<ProjectConfig> = {};
       if (payload.patch.genre !== undefined) {
+        if (typeof payload.patch.genre === "string" && payload.patch.genre.trim().length === 0) {
+          return {
+            ok: false,
+            error: { code: "PROJECT_GENRE_REQUIRED", message: "genre cannot be empty" },
+          };
+        }
         updates.style = { ...updates.style } as ProjectStyleConfig;
         updates.style.genre = payload.patch.genre;
       }
@@ -760,17 +736,28 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
         updates.goals.targetWordCount = payload.patch.wordCountGoal;
       }
 
-      const res = await mgr.updateProject(payload.projectId, updates);
-      if (res.success && res.data) {
-        return { ok: true, data: projectConfigFromManager(res.data) };
+      try {
+        const res = await mgr.updateProject(payload.projectId, updates);
+        if (res.success && res.data) {
+          return { ok: true, data: projectConfigFromManager(res.data) };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+            message: res.error?.message ?? "Update failed",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_project_config_unexpected_error", {
+          channel: "project:config:update",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected config update error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
-          message: res.error?.message ?? "Update failed",
-        },
-      };
     },
   );
 
@@ -792,17 +779,28 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
       const mgr = getManager();
       if (!mgr) return notReady<ProjectStyleConfig>();
 
-      const res = await mgr.getStyleConfig(payload.projectId);
-      if (res.success && res.data) {
-        return { ok: true, data: res.data };
+      try {
+        const res = await mgr.getStyleConfig(payload.projectId);
+        if (res.success && res.data) {
+          return { ok: true, data: res.data };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+            message: res.error?.message ?? "Style config not found",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_project_config_unexpected_error", {
+          channel: "project:style:get",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected style get error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
-          message: res.error?.message ?? "Style config not found",
-        },
-      };
     },
   );
 
@@ -824,19 +822,30 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
       const mgr = getManager();
       if (!mgr) return notReady<{ items: ProjectDocument[] }>();
 
-      const res = await mgr.listDocuments(payload.projectId, {
-        type: payload.type,
-      });
-      if (res.success) {
-        return { ok: true, data: { items: res.data ?? [] } };
+      try {
+        const res = await mgr.listDocuments(payload.projectId, {
+          type: payload.type,
+        });
+        if (res.success) {
+          return { ok: true, data: { items: res.data ?? [] } };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+            message: res.error?.message ?? "List failed",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_project_config_unexpected_error", {
+          channel: "project:documents:list",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected documents list error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
-          message: res.error?.message ?? "List failed",
-        },
-      };
     },
   );
 
@@ -866,17 +875,28 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
         };
       }
 
-      const res = await mgr.getOverview(payload.projectId);
-      if (res.success && res.data) {
-        return { ok: true, data: res.data };
+      try {
+        const res = await mgr.getOverview(payload.projectId);
+        if (res.success && res.data) {
+          return { ok: true, data: res.data };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+            message: res.error?.message ?? "Overview unavailable",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_project_config_unexpected_error", {
+          channel: "project:overview:get",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected overview error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
-          message: res.error?.message ?? "Overview unavailable",
-        },
-      };
     },
   );
 }

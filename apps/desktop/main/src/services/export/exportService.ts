@@ -43,6 +43,15 @@ export type ExportService = {
     projectId: string;
     documentId?: string;
   }) => Promise<ServiceResult<ExportResult>>;
+  getDocumentProsemirror: (args: {
+    projectId: string;
+    documentId: string;
+  }) => ServiceResult<{ documentId: string; content: string }>;
+  getProjectProsemirror: (args: {
+    projectId: string;
+  }) => ServiceResult<{
+    items: Array<{ documentId: string; title: string; content: string }>;
+  }>;
 };
 
 const MAX_EXPORT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
@@ -622,9 +631,48 @@ export function createExportService(deps: ExportDeps): ExportService {
     }
   }
 
+  function getDocumentProsemirror(args: {
+    projectId: string;
+    documentId: string;
+  }): ServiceResult<{ documentId: string; content: string }> {
+    const row = deps.db.prepare(
+      "SELECT content_json as contentJson FROM documents WHERE project_id = ? AND document_id = ?",
+    ).get(args.projectId, args.documentId) as { contentJson?: string } | undefined;
+
+    if (!row || !row.contentJson) {
+      return ipcError("EXPORT_EMPTY_DOCUMENT", "Document not found or empty");
+    }
+
+    return { ok: true, data: { documentId: args.documentId, content: row.contentJson } };
+  }
+
+  function getProjectProsemirror(args: {
+    projectId: string;
+  }): ServiceResult<{
+    items: Array<{ documentId: string; title: string; content: string }>;
+  }> {
+    const rows = deps.db.prepare(
+      "SELECT document_id as documentId, title, content_json as contentJson FROM documents WHERE project_id = ?",
+    ).all(args.projectId) as Array<{
+      documentId: string;
+      title: string;
+      contentJson: string;
+    }>;
+
+    const items = rows.map((row) => ({
+      documentId: row.documentId,
+      title: row.title ?? "",
+      content: row.contentJson ?? "{}",
+    }));
+
+    return { ok: true, data: { items } };
+  }
+
   return {
     ...createTextExportOps(deps, resolve),
     ...createBinaryExportOps(deps, resolve),
     exportProjectBundle,
+    getDocumentProsemirror,
+    getProjectProsemirror,
   };
 }

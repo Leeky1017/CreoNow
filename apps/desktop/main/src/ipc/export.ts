@@ -333,21 +333,15 @@ export function registerExportIpcHandlers(deps: {
       }
 
       try {
-        const row = deps.db.prepare(
-          "SELECT content_json as contentJson FROM documents WHERE project_id = ? AND document_id = ?",
-        ).get(projectId, documentId) as { contentJson?: string } | undefined;
-
-        if (!row || !row.contentJson) {
-          return {
-            ok: false,
-            error: { code: "EXPORT_EMPTY_DOCUMENT", message: "Document not found or empty" },
-          };
-        }
-
-        return {
-          ok: true,
-          data: { documentId, content: row.contentJson },
-        };
+        const svc = createExportService({
+          db: deps.db,
+          logger: deps.logger,
+          userDataDir: deps.userDataDir,
+        });
+        const result = svc.getDocumentProsemirror({ projectId, documentId });
+        return result.ok
+          ? { ok: true, data: result.data }
+          : { ok: false, error: result.error };
       } catch (error) {
         deps.logger.error("ipc_export_prosemirror_error", {
           channel: "export:document:prosemirror",
@@ -393,21 +387,15 @@ export function registerExportIpcHandlers(deps: {
       }
 
       try {
-        const rows = deps.db.prepare(
-          "SELECT document_id as documentId, title, content_json as contentJson FROM documents WHERE project_id = ?",
-        ).all(parsed.data.projectId) as Array<{
-          documentId: string;
-          title: string;
-          contentJson: string;
-        }>;
-
-        const items = rows.map((row) => ({
-          documentId: row.documentId,
-          title: row.title ?? "",
-          content: row.contentJson ?? "{}",
-        }));
-
-        return { ok: true, data: { items } };
+        const svc = createExportService({
+          db: deps.db,
+          logger: deps.logger,
+          userDataDir: deps.userDataDir,
+        });
+        const result = svc.getProjectProsemirror({ projectId: parsed.data.projectId });
+        return result.ok
+          ? { ok: true, data: result.data }
+          : { ok: false, error: result.error };
       } catch (error) {
         deps.logger.error("ipc_export_prosemirror_error", {
           channel: "export:project:prosemirror",
@@ -422,6 +410,10 @@ export function registerExportIpcHandlers(deps: {
   );
 
   // ── P3: Export progress (stub — TODO: push notification) ──
+  // TODO: P3 阶段为 stub，完整 Push Notification 实现在 P4/P5。
+  // 当前使用 Request-Response 轮询作为过渡方案。
+  // NOTE: Spec 定义为 Push Notification，但合约生成器要求 3 段 <domain>:<resource>:<action>，
+  // 故保持 export:progress:get。
 
   deps.ipcMain.handle(
     "export:progress:get",
@@ -440,7 +432,15 @@ export function registerExportIpcHandlers(deps: {
         return guarded.response;
       }
 
-      // TODO: integrate with real export progress tracking
+      if (!payload || typeof payload !== "object") {
+        return {
+          ok: false,
+          error: invalidPayload("payload must be an object"),
+        };
+      }
+
+      // TODO: P3 阶段为 stub，完整 Push Notification 实现在 P4/P5。
+      // 当前使用 Request-Response 轮询作为过渡方案。
       const exportId =
         (payload as { exportId?: string } | null)?.exportId ?? "none";
       return {

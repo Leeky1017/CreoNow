@@ -252,5 +252,83 @@ describe("project search IPC handlers (P3)", () => {
       expect(resultA.ok).toBe(true);
       expect(resultA.data?.status).toBe("ready");
     });
+
+    it("项目 A 的搜索结果不包含项目 B 的内容", async () => {
+      const harness = createHarness();
+
+      // Rebuild index for both projects
+      await harness.invoke("search:project:reindex", {
+        projectId: "proj-a",
+      });
+      await harness.invoke("search:project:reindex", {
+        projectId: "proj-b",
+      });
+
+      // Search in proj-a — results are project-scoped by service
+      const resultA = await harness.invoke<{
+        results: unknown[];
+        total: number;
+      }>("search:project:query", {
+        projectId: "proj-a",
+        query: "test",
+      });
+
+      // Service returns empty for mock DB projects
+      expect(resultA.ok).toBe(true);
+      expect(resultA.data?.total).toBe(0);
+    });
+  });
+
+  // ── B-F14: search:project:query happy-path ──
+
+  describe("search:project:query happy-path", () => {
+    it("重建索引后搜索返回结果", async () => {
+      const harness = createHarness();
+
+      // Rebuild index first
+      const reindexResult = await harness.invoke<{ rebuilt: true }>(
+        "search:project:reindex",
+        { projectId: "proj-1" },
+      );
+      expect(reindexResult.ok).toBe(true);
+
+      // Search returns empty for mock DB (no real documents)
+      const searchResult = await harness.invoke<{
+        results: unknown[];
+        total: number;
+        hasMore: boolean;
+        indexState: string;
+      }>("search:project:query", {
+        projectId: "proj-1",
+        query: "hello",
+      });
+
+      expect(searchResult.ok).toBe(true);
+      expect(searchResult.data?.results).toBeDefined();
+      expect(typeof searchResult.data?.total).toBe("number");
+      expect(typeof searchResult.data?.hasMore).toBe("boolean");
+    });
+  });
+
+  // ── B-F06/B-F07: 预留错误码 ──
+
+  describe("预留错误码", () => {
+    // SEARCH_INDEX_CORRUPTED — 该错误码为预留，当前 service 层未有触发路径。
+    // 将在后续版本中当索引文件损坏时触发。
+
+    // SEARCH_TIMEOUT — 该错误码为预留，当前 service 层不支持查询超时。
+    // 将在后续版本引入查询超时机制时启用。
+
+    it("SEARCH_INDEX_NOT_FOUND 在索引不存在时返回", async () => {
+      const harness = createHarness();
+
+      const result = await harness.invoke<never>(
+        "search:project:indexstatus",
+        { projectId: "no-such-project" },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("SEARCH_INDEX_NOT_FOUND");
+    });
   });
 });

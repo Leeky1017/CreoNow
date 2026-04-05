@@ -218,6 +218,67 @@ describe("export extension IPC handlers (P3)", () => {
       expect(result.data?.status).toBe("idle");
       expect(result.data?.progress).toBe(0);
     });
+
+    it("提供 exportId 时返回该 exportId", async () => {
+      const harness = createHarness();
+
+      const result = await harness.invoke<{
+        exportId: string;
+        status: string;
+        progress: number;
+      }>("export:progress:get", {
+        projectId: "proj-1",
+        exportId: "export-123",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.data?.exportId).toBe("export-123");
+    });
+
+    it("非 object payload 返回 INVALID_ARGUMENT", async () => {
+      const harness = createHarness();
+
+      const result = await harness.invoke<never>("export:progress:get", null);
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("INVALID_ARGUMENT");
+    });
+  });
+
+  // ── B-F08~F11: Export 错误码 ──
+
+  describe("export 错误路径", () => {
+    it("DB 报错时 prosemirror document 返回 EXPORT_WRITE_ERROR", async () => {
+      const harness = createHarness();
+      harness.stmtGet.mockImplementationOnce(() => {
+        throw new Error("mock DB crash");
+      });
+
+      const result = await harness.invoke<never>(
+        "export:document:prosemirror",
+        { projectId: "proj-1", documentId: "doc-1" },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("EXPORT_WRITE_ERROR");
+    });
+
+    it("DB 报错时 prosemirror project 返回 EXPORT_WRITE_ERROR", async () => {
+      const harness = createHarness();
+      harness.stmtAll.mockImplementationOnce(() => {
+        throw new Error("mock DB crash");
+      });
+
+      const result = await harness.invoke<never>(
+        "export:project:prosemirror",
+        { projectId: "proj-1" },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("EXPORT_WRITE_ERROR");
+    });
+
+    // EXPORT_INTERRUPTED — 该错误码为预留，在当前同步 ProseMirror 导出中不会触发。
+    // 将在 P4/P5 实现流式导出时用于取消操作。
   });
 
   // ── DB not ready ──

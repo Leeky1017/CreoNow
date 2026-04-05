@@ -8,7 +8,14 @@ import {
   type ProjectSearch,
   type ProjectSearchResponse,
 } from "../services/search/projectSearch";
-import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
+import {
+  type EventBusLike,
+  createProjectAccessHandler,
+  isRecord,
+  notReady,
+  validateNonEmptyString,
+  NOOP_EVENT_BUS,
+} from "./helpers";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 // ─── Payload types ──────────────────────────────────────────────────
@@ -28,39 +35,9 @@ type IndexStatusPayload = {
   projectId: string;
 };
 
-// ─── Helpers ────────────────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────
 
 const MAX_QUERY_LENGTH = 500;
-
-function notReady<T>(): IpcResponse<T> {
-  return {
-    ok: false,
-    error: { code: "DB_ERROR", message: "Database not ready" },
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function validateNonEmptyString(
-  value: unknown,
-  fieldName: string,
-): string | null {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return `${fieldName} is required`;
-  }
-  return null;
-}
-
-interface EventBusLike {
-  emit(event: Record<string, unknown>): void;
-  on(event: string, handler: (payload: Record<string, unknown>) => void): void;
-  off(
-    event: string,
-    handler: (payload: Record<string, unknown>) => void,
-  ): void;
-}
 
 /**
  * Register `search:project:*` IPC handlers (project-scoped full-text search).
@@ -77,41 +54,20 @@ export function registerProjectSearchIpcHandlers(deps: {
 }): void {
   let search: ProjectSearch | null = null;
 
-  const noopEventBus: EventBusLike = {
-    emit: () => {},
-    on: () => {},
-    off: () => {},
-  };
+  const handleWithProjectAccess = createProjectAccessHandler({
+    ipcMain: deps.ipcMain,
+    projectSessionBinding: deps.projectSessionBinding,
+  });
 
   function getSearch(): ProjectSearch | null {
     if (!deps.db) return null;
     if (!search) {
       search = createProjectSearch({
-        db: deps.db as never,
-        eventBus: deps.eventBus ?? noopEventBus,
+        db: deps.db,
+        eventBus: deps.eventBus ?? NOOP_EVENT_BUS,
       });
     }
     return search;
-  }
-
-  function handleWithProjectAccess<TPayload, TResponse>(
-    channel: string,
-    listener: (
-      event: unknown,
-      payload: TPayload,
-    ) => Promise<IpcResponse<TResponse>>,
-  ): void {
-    deps.ipcMain.handle(channel, async (event, payload) => {
-      const guarded = guardAndNormalizeProjectAccess({
-        event,
-        payload,
-        projectSessionBinding: deps.projectSessionBinding,
-      });
-      if (!guarded.ok) {
-        return guarded.response as IpcResponse<TResponse>;
-      }
-      return listener(event, payload as TPayload);
-    });
   }
 
   // ── search:project:query ──
@@ -147,23 +103,34 @@ export function registerProjectSearchIpcHandlers(deps: {
         };
       }
 
-      const res = await svc.search({
-        projectId: payload.projectId,
-        query: payload.query,
-        offset: payload.offset,
-        limit: payload.limit,
-      });
+      try {
+        const res = await svc.search({
+          projectId: payload.projectId,
+          query: payload.query,
+          offset: payload.offset,
+          limit: payload.limit,
+        });
 
-      if (res.ok) {
-        return { ok: true, data: res.data };
+        if (res.ok) {
+          return { ok: true, data: res.data };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "INTERNAL_ERROR") as "SEARCH_QUERY_EMPTY",
+            message: res.error?.message ?? "Search failed",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_search_unexpected_error", {
+          channel: "search:project:query",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected search error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "INTERNAL_ERROR") as "SEARCH_QUERY_EMPTY",
-          message: res.error?.message ?? "Search failed",
-        },
-      };
     },
   );
 
@@ -185,21 +152,33 @@ export function registerProjectSearchIpcHandlers(deps: {
       const svc = getSearch();
       if (!svc) return notReady<{ rebuilt: true }>();
 
-      const res = await svc.rebuildIndex(payload.projectId);
-      if (res.ok) {
-        return { ok: true, data: { rebuilt: true } };
+      try {
+        const res = await svc.rebuildIndex(payload.projectId);
+        if (res.ok) {
+          return { ok: true, data: { rebuilt: true } };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "INTERNAL_ERROR") as "INTERNAL_ERROR",
+            message: res.error?.message ?? "Reindex failed",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_search_unexpected_error", {
+          channel: "search:project:reindex",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected reindex error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "INTERNAL_ERROR") as "INTERNAL_ERROR",
-          message: res.error?.message ?? "Reindex failed",
-        },
-      };
     },
   );
 
   // ── search:project:indexstatus ──
+  // NOTE: Spec 中使用 kebab-case (index-status)，但合约生成器要求 [a-z0-9] only。
 
   handleWithProjectAccess(
     "search:project:indexstatus",
@@ -217,17 +196,28 @@ export function registerProjectSearchIpcHandlers(deps: {
       const svc = getSearch();
       if (!svc) return notReady<{ status: string }>();
 
-      const res = await svc.getIndexStatus(payload.projectId);
-      if (res.ok) {
-        return { ok: true, data: res.data };
+      try {
+        const res = await svc.getIndexStatus(payload.projectId);
+        if (res.ok) {
+          return { ok: true, data: res.data };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "SEARCH_INDEX_NOT_FOUND") as "SEARCH_INDEX_NOT_FOUND",
+            message: res.error?.message ?? "Index status unavailable",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_search_unexpected_error", {
+          channel: "search:project:indexstatus",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected index status error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "SEARCH_INDEX_NOT_FOUND") as "SEARCH_INDEX_NOT_FOUND",
-          message: res.error?.message ?? "Index status unavailable",
-        },
-      };
     },
   );
 }

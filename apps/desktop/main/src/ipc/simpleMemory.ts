@@ -9,7 +9,14 @@ import {
   type MemoryRecord,
   type SimpleMemoryService,
 } from "../services/memory/simpleMemoryService";
-import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
+import {
+  type EventBusLike,
+  createProjectAccessHandler,
+  isRecord,
+  notReady,
+  validateNonEmptyString,
+  NOOP_EVENT_BUS,
+} from "./helpers";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 // ─── Payload types ──────────────────────────────────────────────────
@@ -49,37 +56,14 @@ type ClearProjectPayload = {
   confirmed?: boolean;
 };
 
-// ─── Helpers ────────────────────────────────────────────────────────
+const VALID_CATEGORIES = new Set([
+  "preference",
+  "character-setting",
+  "location-setting",
+  "style-rule",
+]);
 
-function notReady<T>(): IpcResponse<T> {
-  return {
-    ok: false,
-    error: { code: "DB_ERROR", message: "Database not ready" },
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function validateNonEmptyString(
-  value: unknown,
-  fieldName: string,
-): string | null {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return `${fieldName} is required`;
-  }
-  return null;
-}
-
-interface EventBusLike {
-  emit(event: Record<string, unknown>): void;
-  on(event: string, handler: (payload: Record<string, unknown>) => void): void;
-  off(
-    event: string,
-    handler: (payload: Record<string, unknown>) => void,
-  ): void;
-}
+const VALID_SOURCES = new Set(["user", "system"]);
 
 /**
  * Register `memory:simple:*` IPC handlers (SimpleMemory key-value CRUD).
@@ -96,42 +80,24 @@ export function registerSimpleMemoryIpcHandlers(deps: {
 }): void {
   let service: SimpleMemoryService | null = null;
 
-  const noopEventBus: EventBusLike = {
-    emit: () => {},
-    on: () => {},
-    off: () => {},
-  };
+  const handleWithProjectAccess = createProjectAccessHandler({
+    ipcMain: deps.ipcMain,
+    projectSessionBinding: deps.projectSessionBinding,
+  });
 
   function getService(): SimpleMemoryService | null {
     if (!deps.db) return null;
     if (!service) {
       service = createSimpleMemoryService({
-        db: deps.db as never,
-        eventBus: deps.eventBus ?? noopEventBus,
+        db: deps.db,
+        eventBus: deps.eventBus ?? NOOP_EVENT_BUS,
       });
     }
     return service;
   }
 
-  function handleWithProjectAccess<TPayload, TResponse>(
-    channel: string,
-    listener: (
-      event: unknown,
-      payload: TPayload,
-    ) => Promise<IpcResponse<TResponse>>,
-  ): void {
-    deps.ipcMain.handle(channel, async (event, payload) => {
-      const guarded = guardAndNormalizeProjectAccess({
-        event,
-        payload,
-        projectSessionBinding: deps.projectSessionBinding,
-      });
-      if (!guarded.ok) {
-        return guarded.response as IpcResponse<TResponse>;
-      }
-      return listener(event, payload as TPayload);
-    });
-  }
+  // TODO [C-F8]: P3 阶段所有通道均要求 projectId 非空。
+  // 全局记忆（null projectId）暂不支持，spec 需在后续版本（P4/P5）明确。
 
   // ── memory:simple:write ──
 
@@ -167,24 +133,59 @@ export function registerSimpleMemoryIpcHandlers(deps: {
         };
       }
 
-      const res = await svc.write({
-        projectId: payload.projectId,
-        key: payload.key,
-        value: payload.value,
-        source: payload.source ?? "user",
-        category: payload.category ?? "general",
-      });
-
-      if (res.success && res.data) {
-        return { ok: true, data: res.data };
+      // C-F7: Validate category enum
+      const category = payload.category ?? "preference";
+      if (!VALID_CATEGORIES.has(category)) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: `category must be one of: ${[...VALID_CATEGORIES].join(", ")}`,
+          },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "INTERNAL_ERROR") as "MEMORY_KEY_REQUIRED",
-          message: res.error?.message ?? "Write failed",
-        },
-      };
+
+      // C-F7: Validate source enum
+      const source = payload.source ?? "user";
+      if (!VALID_SOURCES.has(source)) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: `source must be one of: ${[...VALID_SOURCES].join(", ")}`,
+          },
+        };
+      }
+
+      try {
+        const res = await svc.write({
+          projectId: payload.projectId,
+          key: payload.key,
+          value: payload.value,
+          source,
+          category,
+        });
+
+        if (res.success && res.data) {
+          return { ok: true, data: res.data };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "INTERNAL_ERROR") as "MEMORY_KEY_REQUIRED",
+            message: res.error?.message ?? "Write failed",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_memory_unexpected_error", {
+          channel: "memory:simple:write",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected memory write error" },
+        };
+      }
     },
   );
 
@@ -214,23 +215,34 @@ export function registerSimpleMemoryIpcHandlers(deps: {
         };
       }
 
-      const res = await svc.read(payload.id);
-      if (res.success && res.data) {
-        if (res.data.projectId !== payload.projectId) {
-          return {
-            ok: false,
-            error: { code: "MEMORY_NOT_FOUND" as const, message: "Memory not found in this project" },
-          };
+      try {
+        const res = await svc.read(payload.id);
+        if (res.success && res.data) {
+          if (res.data.projectId !== payload.projectId) {
+            return {
+              ok: false,
+              error: { code: "MEMORY_NOT_FOUND" as const, message: "Memory not found in this project" },
+            };
+          }
+          return { ok: true, data: res.data };
         }
-        return { ok: true, data: res.data };
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "MEMORY_NOT_FOUND") as "MEMORY_NOT_FOUND",
+            message: res.error?.message ?? "Memory not found",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_memory_unexpected_error", {
+          channel: "memory:simple:read",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected memory read error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "MEMORY_NOT_FOUND") as "MEMORY_NOT_FOUND",
-          message: res.error?.message ?? "Memory not found",
-        },
-      };
     },
   );
 
@@ -261,31 +273,42 @@ export function registerSimpleMemoryIpcHandlers(deps: {
       }
 
       // Verify ownership before delete
-      const existing = await svc.read(payload.id);
-      if (!existing.success || !existing.data) {
-        return {
-          ok: false,
-          error: { code: "MEMORY_NOT_FOUND" as const, message: "Memory not found" },
-        };
-      }
-      if (existing.data.projectId !== payload.projectId) {
-        return {
-          ok: false,
-          error: { code: "MEMORY_NOT_FOUND" as const, message: "Memory not found in this project" },
-        };
-      }
+      try {
+        const existing = await svc.read(payload.id);
+        if (!existing.success || !existing.data) {
+          return {
+            ok: false,
+            error: { code: "MEMORY_NOT_FOUND" as const, message: "Memory not found" },
+          };
+        }
+        if (existing.data.projectId !== payload.projectId) {
+          return {
+            ok: false,
+            error: { code: "MEMORY_NOT_FOUND" as const, message: "Memory not found in this project" },
+          };
+        }
 
-      const res = await svc.delete(payload.id);
-      if (res.success) {
-        return { ok: true, data: { deleted: true } };
+        const res = await svc.delete(payload.id);
+        if (res.success) {
+          return { ok: true, data: { deleted: true } };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "MEMORY_NOT_FOUND") as "MEMORY_NOT_FOUND",
+            message: res.error?.message ?? "Delete failed",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_memory_unexpected_error", {
+          channel: "memory:simple:delete",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected memory delete error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "MEMORY_NOT_FOUND") as "MEMORY_NOT_FOUND",
-          message: res.error?.message ?? "Delete failed",
-        },
-      };
     },
   );
 
@@ -307,21 +330,32 @@ export function registerSimpleMemoryIpcHandlers(deps: {
       const svc = getService();
       if (!svc) return notReady<{ items: MemoryRecord[] }>();
 
-      const res = await svc.list({
-        projectId: payload.projectId,
-        category: payload.category,
-        keyPrefix: payload.keyPrefix,
-      });
-      if (res.success) {
-        return { ok: true, data: { items: res.data ?? [] } };
+      try {
+        const res = await svc.list({
+          projectId: payload.projectId,
+          category: payload.category,
+          keyPrefix: payload.keyPrefix,
+        });
+        if (res.success) {
+          return { ok: true, data: { items: res.data ?? [] } };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "INTERNAL_ERROR") as "INTERNAL_ERROR",
+            message: res.error?.message ?? "List failed",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_memory_unexpected_error", {
+          channel: "memory:simple:list",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected memory list error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "INTERNAL_ERROR") as "INTERNAL_ERROR",
-          message: res.error?.message ?? "List failed",
-        },
-      };
     },
   );
 
@@ -351,24 +385,37 @@ export function registerSimpleMemoryIpcHandlers(deps: {
         };
       }
 
-      const res = await svc.inject(payload.projectId, {
-        documentText: payload.documentText,
-        tokenBudget: payload.tokenBudget,
-      });
-      if (res.success && res.data) {
-        return { ok: true, data: res.data };
+      try {
+        const res = await svc.inject(payload.projectId, {
+          documentText: payload.documentText,
+          tokenBudget: payload.tokenBudget,
+        });
+        if (res.success && res.data) {
+          return { ok: true, data: res.data };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "MEMORY_SERVICE_UNAVAILABLE") as "MEMORY_SERVICE_UNAVAILABLE",
+            message: res.error?.message ?? "Injection failed",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_memory_unexpected_error", {
+          channel: "memory:simple:inject",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected memory inject error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "MEMORY_SERVICE_UNAVAILABLE") as "MEMORY_SERVICE_UNAVAILABLE",
-          message: res.error?.message ?? "Injection failed",
-        },
-      };
     },
   );
 
   // ── memory:simple:clearproject ──
+  // NOTE: Spec 中使用 kebab-case (clear-project)，但合约生成器要求 [a-z0-9] only。
+  // 保持 clearproject 以符合 RESOURCE_ACTION_SEGMENT_PATTERN。
 
   handleWithProjectAccess(
     "memory:simple:clearproject",
@@ -386,19 +433,30 @@ export function registerSimpleMemoryIpcHandlers(deps: {
       const svc = getService();
       if (!svc) return notReady<{ cleared: true }>();
 
-      const res = await svc.clearProject(payload.projectId, {
-        confirmed: payload.confirmed,
-      });
-      if (res.success) {
-        return { ok: true, data: { cleared: true } };
+      try {
+        const res = await svc.clearProject(payload.projectId, {
+          confirmed: payload.confirmed,
+        });
+        if (res.success) {
+          return { ok: true, data: { cleared: true } };
+        }
+        return {
+          ok: false,
+          error: {
+            code: (res.error?.code ?? "INTERNAL_ERROR") as "INTERNAL_ERROR",
+            message: res.error?.message ?? "Clear failed",
+          },
+        };
+      } catch (error) {
+        deps.logger.error("ipc_memory_unexpected_error", {
+          channel: "memory:simple:clearproject",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "Unexpected memory clear error" },
+        };
       }
-      return {
-        ok: false,
-        error: {
-          code: (res.error?.code ?? "INTERNAL_ERROR") as "INTERNAL_ERROR",
-          message: res.error?.message ?? "Clear failed",
-        },
-      };
     },
   );
 }
