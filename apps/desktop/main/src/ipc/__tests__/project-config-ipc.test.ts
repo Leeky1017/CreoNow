@@ -319,7 +319,7 @@ describe("project config IPC handlers (P3)", () => {
         name: string;
         lifecycleStatus: string;
         style: { genre: string; narrativePerson: string };
-        goals: { targetWordCount: number; targetChapterCount: number };
+        goals: { targetWordCount: number | null; targetChapterCount: number | null };
         knowledgeGraphId: string | null;
       }>("project:config:get", {
         projectId: "proj-seed",
@@ -344,7 +344,7 @@ describe("project config IPC handlers (P3)", () => {
       const result = await harness.invoke<{
         id: string;
         style: { genre: string; tone: string };
-        goals: { targetWordCount: number; targetChapterCount: number };
+        goals: { targetWordCount: number | null; targetChapterCount: number | null };
         defaultSkillSetId: string | null;
         knowledgeGraphId: string | null;
       }>("project:config:update", {

@@ -301,6 +301,26 @@ describe("ProjectManager P3", () => {
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
     });
+
+    it("将 goals.targetWordCount 更新为 null 后持久化 null 值", async () => {
+      const result = await manager.updateProject("proj-1", {
+        goals: { targetWordCount: null, targetChapterCount: 30 },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data?.goals.targetWordCount).toBeNull();
+      expect(result.data?.goals.targetChapterCount).toBe(30);
+    });
+
+    it("将 goals.targetChapterCount 更新为 null 后持久化 null 值", async () => {
+      const result = await manager.updateProject("proj-1", {
+        goals: { targetWordCount: 100000, targetChapterCount: null },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data?.goals.targetWordCount).toBe(100000);
+      expect(result.data?.goals.targetChapterCount).toBeNull();
+    });
   });
 
   describe("delete project", () => {

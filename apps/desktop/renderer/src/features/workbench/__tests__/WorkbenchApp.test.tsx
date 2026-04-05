@@ -193,6 +193,16 @@ describe("WorkbenchApp", () => {
     vi.mocked(bridgeMock.getCursorContext).mockReturnValue({ cursorPosition: 5, precedingText: "风从北方来" });
     window.localStorage.clear();
     window.api = createApiMock();
+    window.creonow = {
+      api: window.api,
+      invoke: vi.fn(async () => ({ ok: true as const, data: { logged: true as const } })),
+      stream: {
+        registerAiStreamConsumer: vi.fn(() => ({ ok: true as const, data: { subscriptionId: "sub-ai-1" } })),
+        releaseAiStreamConsumer: vi.fn(),
+        registerExportProgressConsumer: vi.fn(() => ({ ok: true as const, data: { subscriptionId: "sub-export-1" } })),
+        releaseExportProgressConsumer: vi.fn(),
+      },
+    };
   });
 
 

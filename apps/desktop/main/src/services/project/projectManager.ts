@@ -18,8 +18,8 @@ export interface ProjectStyleConfig {
 }
 
 export interface ProjectGoals {
-  targetWordCount: number;
-  targetChapterCount: number;
+  targetWordCount: number | null;
+  targetChapterCount: number | null;
 }
 
 export interface ProjectConfig {

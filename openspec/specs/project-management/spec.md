@@ -307,28 +307,28 @@ active -> archived -> deleted
 
 生命周期 IPC 通道：
 
-| IPC 通道                | 通信模式         | 方向            | 用途                 |
-| ----------------------- | ---------------- | --------------- | -------------------- |
-| `project:archive`       | Request-Response | Renderer → Main | 归档项目             |
-| `project:restore`       | Request-Response | Renderer → Main | 恢复归档项目         |
-| `project:purge`         | Request-Response | Renderer → Main | 永久删除归档项目     |
-| `project:lifecycle:get` | Request-Response | Renderer → Main | 查询项目生命周期状态 |
+| IPC 通道                          | 通信模式         | 方向            | 用途                 |
+| --------------------------------- | ---------------- | --------------- | -------------------- |
+| `project:lifecycle:archive`       | Request-Response | Renderer → Main | 归档项目             |
+| `project:lifecycle:restore`       | Request-Response | Renderer → Main | 恢复归档项目         |
+| `project:lifecycle:purge`         | Request-Response | Renderer → Main | 永久删除归档项目     |
+| `project:lifecycle:get`           | Request-Response | Renderer → Main | 查询项目生命周期状态 |
 
 量化约束：
 
-- `project:archive` p95 < 600ms
-- `project:restore` p95 < 800ms
-- `project:purge` p95 < 2s（项目规模 <= 1,000 文档）
+- `project:lifecycle:archive` p95 < 600ms
+- `project:lifecycle:restore` p95 < 800ms
+- `project:lifecycle:purge` p95 < 2s（项目规模 <= 1,000 文档）
 - 生命周期状态写入失败时必须返回 `PROJECT_LIFECYCLE_WRITE_FAILED`
 
 #### Scenario: 用户完成项目归档并恢复
 
 - **假设** 项目「暗流」处于 `active` 状态，包含 120 篇文档
 - **当** 用户在 Dashboard 触发「归档项目」
-- **则** 系统通过 `project:archive` 将状态更新为 `archived`
+- **则** 系统通过 `project:lifecycle:archive` 将状态更新为 `archived`
 - **并且** 项目从默认列表移入「已归档」分组
 - **当** 用户在归档列表点击「恢复」
-- **则** 系统通过 `project:restore` 将状态恢复为 `active`
+- **则** 系统通过 `project:lifecycle:restore` 将状态恢复为 `active`
 - **并且** 文档、统计与最近打开时间保持一致
 
 #### Scenario: 活跃项目尝试直接删除被阻断
@@ -390,7 +390,7 @@ active -> archived -> deleted
 
 #### Scenario: 并发删除冲突的幂等处理
 
-- **假设** 两个渲染窗口同时对同一归档项目执行 `project:purge`
+- **假设** 两个渲染窗口同时对同一归档项目执行 `project:lifecycle:purge`
 - **当** 第一请求成功后第二请求到达
 - **则** 第二请求返回 `{ code: "NOT_FOUND", message: "项目已删除" }`
 - **并且** 不产生脏数据与重复日志
@@ -398,7 +398,7 @@ active -> archived -> deleted
 #### Scenario: 权限不足时阻断删除
 
 - **假设** 项目目录位于只读磁盘
-- **当** 用户执行 `project:purge`
+- **当** 用户执行 `project:lifecycle:purge`
 - **则** 返回 `{ code: "PROJECT_PURGE_PERMISSION_DENIED", message: "删除失败，路径无写权限" }`
 - **并且** 项目状态保持 `archived`，不进入半删除状态
 
@@ -477,6 +477,8 @@ interface ProjectConfig {
   goals: ProjectGoals
   /** 默认技能集 ID */
   defaultSkillSetId: string | null
+  /** 关联的知识图谱 ID */
+  knowledgeGraphId: string | null
   /** 创建时间 */
   createdAt: number
   /** 更新时间 */

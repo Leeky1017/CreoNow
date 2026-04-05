@@ -40,6 +40,7 @@ import { AppToastProvider, useAppToast } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { GlobalErrorToastBridge } from "@/lib/globalErrorToastBridge";
 import { getPreloadApi, type PreloadApi } from "@/lib/preloadApi";
+import { useExportProgress } from "@/lib/useExportProgress";
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const AUTOSAVE_DELAY_MS = 800;
@@ -287,6 +288,7 @@ export function WorkbenchApp() {
 function WorkbenchShell() {
   const { t } = useTranslation();
   const api = useMemo(() => getPreloadApi(), []);
+  const exportProgress = useExportProgress();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
   const autosaveSuppressionDepthRef = useRef(0);
@@ -1449,6 +1451,7 @@ function WorkbenchShell() {
     <div
       className={dragState === null ? "workbench-frame" : "workbench-frame workbench-frame--resizing"}
       data-testid="workbench-frame"
+      data-export-active={exportProgress.isExporting ? "true" : undefined}
       style={frameStyle}
     >
       <aside className="icon-rail" aria-label={t("app.title")}>

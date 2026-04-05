@@ -72,6 +72,15 @@ export function getPreloadApi(): PreloadApi {
   return api;
 }
 
+export function getPreloadStreamApi(): PreloadStreamApi {
+  const stream = window.creonow?.stream;
+  if (!stream) {
+    throw new Error("Preload stream API is unavailable");
+  }
+
+  return stream;
+}
+
 export function unwrapIpcResult<C extends IpcChannel>(result: IpcInvokeResult<C>): IpcResponseData<C> {
   if (!result.ok) {
     throw new RendererIpcError(result.error);

@@ -547,8 +547,8 @@ type ProjectConfigResponse = {
   lifecycleStatus: "active" | "archived" | "deleted";
   style: ProjectStyleConfig;
   goals: {
-    targetWordCount: number;
-    targetChapterCount: number;
+    targetWordCount: number | null;
+    targetChapterCount: number | null;
   };
   defaultSkillSetId: string | null;
   knowledgeGraphId: string | null;
@@ -564,8 +564,8 @@ type ConfigUpdatePatch = {
   lifecycleStatus?: "active" | "archived" | "deleted";
   style?: Partial<ProjectStyleConfig>;
   goals?: Partial<{
-    targetWordCount: number;
-    targetChapterCount: number;
+    targetWordCount: number | null;
+    targetChapterCount: number | null;
   }>;
   defaultSkillSetId?: string | null;
   knowledgeGraphId?: string | null;
