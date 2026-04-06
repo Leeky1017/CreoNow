@@ -38,22 +38,39 @@ function setupRoot(prefix: string): string {
   mkdirSync(specDir, { recursive: true });
   writeFileSync(
     path.join(specDir, "spec.md"),
-    `### Scenario BE-SLA-S2: IPC timeout 通过 AbortSignal 中止底层执行
-### Scenario FE-SETTINGS-S1: 设置面板默认渲染
-### Scenario AUD-C1-S4 并发 switchProject 串行执行无交错
-### Scenario IPC-RETRY-S3: 重试预算受限
-### Scenario FEATURE-123: 不是合法显式 ID`,
+    `### Scenario BE-SLA-S1: IPC timeout 通过 AbortSignal 中止底层执行
+### Scenario AUD-C1-S6 并发 switchProject 串行执行无交错
+### Scenario IPC-RETRY-S3: 重试预算受限`,
   );
 
   const scenarios = extractScenarios(root);
   assert.deepEqual(
-    scenarios.map((scenario) => scenario.id),
-    ["BE-SLA-S2", "FE-SETTINGS-S1", "AUD-C1-S4", "IPC-RETRY-S3"],
+    scenarios.map((scenario) => [scenario.id, scenario.mappingMode]),
+    [
+      ["BE-SLA-S1", "explicit"],
+      ["AUD-C1-S6", "explicit"],
+      ["IPC-RETRY-S3", "explicit"],
+    ],
   );
-  assert.equal(
-    scenarios.every((scenario) => scenario.mappingMode === "explicit"),
-    true,
+  assert.equal(scenarios.every((scenario) => scenario.mappingMode === "explicit"), true);
+}
+
+// parsing must ignore ### Scenario headings without a legal explicit ID
+{
+  const root = setupRoot("stm-parse-level3-derived-ignored-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `### Scenario: FEATURE-123 不是合法显式 ID
+### Scenario FEATURE_456 也不是合法显式 ID
+#### Scenario: FEATURE-123 应该只在四级标题中按 derived 处理`,
   );
+
+  const scenarios = extractScenarios(root);
+  assert.equal(scenarios.length, 1);
+  assert.equal(scenarios[0].mappingMode, "derived");
+  assert.match(scenarios[0].id, /^editor\/feature-123-/);
 }
 
 // parsing keeps compact explicit Scenario IDs in #### headings

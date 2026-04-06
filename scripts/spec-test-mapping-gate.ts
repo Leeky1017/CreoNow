@@ -125,11 +125,8 @@ const LEGACY_SCENARIO_ID_FRAGMENT = String.raw`S-[A-Z]+(?:-[A-Z]+)*-\d+`;
 const PREFIXED_SCENARIO_ID_FRAGMENT = String.raw`(?:BE|FE|AUD|IPC)-[A-Z0-9]+(?:-[A-Z0-9]+)*-S\d+`;
 const COMPACT_SCENARIO_ID_FRAGMENT = String.raw`(?:P\d+|IPC)`;
 const EXPLICIT_SCENARIO_ID_FRAGMENT = String.raw`(?:${LEGACY_SCENARIO_ID_FRAGMENT}|${PREFIXED_SCENARIO_ID_FRAGMENT}|${COMPACT_SCENARIO_ID_FRAGMENT})`;
-const SCENARIO_ID_RE = new RegExp(
-  String.raw`###\s+Scenario\s+(${EXPLICIT_SCENARIO_ID_FRAGMENT})(?=$|[\s:：])`,
-  "g",
-);
-const SCENARIO_TITLE_RE = /####\s+Scenario:\s+(.+)/;
+const SCENARIO_ID_HEADING_RE = /^###\s+Scenario\s+(.+)/;
+const SCENARIO_TITLE_RE = /^####\s+Scenario:\s+(.+)/;
 const LEADING_EXPLICIT_ID_RE = new RegExp(
   String.raw`^(${EXPLICIT_SCENARIO_ID_FRAGMENT})(?=$|[\s:：])`,
 );
@@ -231,17 +228,21 @@ export function extractScenarios(rootDir: string = "."): ScenarioEntry[] {
       const relPath = path.relative(rootDir, filePath);
 
       for (const line of lines) {
-        SCENARIO_ID_RE.lastIndex = 0;
-        let match: RegExpExecArray | null;
-        while ((match = SCENARIO_ID_RE.exec(line)) !== null) {
-          const id = match[1];
+        const idHeadingMatch = SCENARIO_ID_HEADING_RE.exec(line);
+        if (idHeadingMatch) {
+          const rawTitle = idHeadingMatch[1].trim();
+          const idMeta = scenarioTitleToId(rawTitle, relPath);
+          if (idMeta.mappingMode !== "explicit") {
+            continue;
+          }
           scenarios.push({
-            id,
-            title: line.replace(/^###\s+Scenario\s+/, "").trim(),
+            id: idMeta.id,
+            title: rawTitle,
             specFile: relPath,
-            dimension: classifyDimension(line),
-            mappingMode: "explicit",
+            dimension: classifyDimension(rawTitle),
+            mappingMode: idMeta.mappingMode,
           });
+          continue;
         }
 
         const titleMatch = SCENARIO_TITLE_RE.exec(line);
