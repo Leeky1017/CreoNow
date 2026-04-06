@@ -2,5 +2,6 @@
   "count": 12,
   "explicitUnmappedCount": 12,
   "derivedUnmappedCount": 455,
+  "derivedCoverageFloor": 0.067,
   "updatedAt": "2026-04-06T00:00:00.000Z"
 }

@@ -119,6 +119,7 @@ const FALLBACK_BASELINE_PATH = path.join(
 
 const GATE_NAME = "SPEC_TEST_MAP";
 const DERIVED_COVERAGE_THRESHOLD = 0.6;
+const DEFAULT_DERIVED_COVERAGE_FLOOR = DERIVED_COVERAGE_THRESHOLD;
 
 const LEGACY_SCENARIO_ID_FRAGMENT = String.raw`S-[A-Z]+(?:-[A-Z]+)*-\d+`;
 const PREFIXED_SCENARIO_ID_FRAGMENT = String.raw`(?:BE|FE|AUD|IPC)-[A-Z0-9]+(?:-[A-Z0-9]+)*-S\d+`;
@@ -868,7 +869,7 @@ export function readBaseline(
       count: 0,
       explicitUnmappedCount: 0,
       derivedUnmappedCount: 0,
-      derivedCoverageFloor: 0,
+      derivedCoverageFloor: DEFAULT_DERIVED_COVERAGE_FLOOR,
       updatedAt: "1970-01-01T00:00:00.000Z",
     };
   }
@@ -879,7 +880,8 @@ export function readBaseline(
     count: parsed.count,
     explicitUnmappedCount: parsed.explicitUnmappedCount,
     derivedUnmappedCount: parsed.derivedUnmappedCount,
-    derivedCoverageFloor: parsed.derivedCoverageFloor,
+    derivedCoverageFloor:
+      parsed.derivedCoverageFloor ?? DEFAULT_DERIVED_COVERAGE_FLOOR,
     updatedAt: parsed.updatedAt,
   };
 }
@@ -888,12 +890,14 @@ export function writeBaseline(
   explicitUnmappedCount: number,
   derivedUnmappedCount: number = 0,
   rootDir: string = ".",
+  derivedCoverageFloor: number = DEFAULT_DERIVED_COVERAGE_FLOOR,
 ): void {
   const baselinePath = path.join(rootDir, BASELINE_PATH);
   const data: SpecTestMappingBaseline = {
     count: explicitUnmappedCount,
     explicitUnmappedCount,
     derivedUnmappedCount,
+    derivedCoverageFloor,
     updatedAt: new Date().toISOString(),
   };
   writeFileSync(baselinePath, JSON.stringify(data, null, 2) + "\n");
@@ -1028,7 +1032,7 @@ export function runGate(
   const derivedCoverageFloor =
     scopePlan.baselineMode === "primary"
       ? DERIVED_COVERAGE_THRESHOLD
-      : (baseline.derivedCoverageFloor ?? 0);
+      : baseline.derivedCoverageFloor ?? DEFAULT_DERIVED_COVERAGE_FLOOR;
   const derivedQualityRegressed =
     derivedMappings.length > 0 && derivedCoverage < derivedCoverageFloor;
   const derivedUnmappedOverLimit = derivedUnmapped.length > derivedBaselineLimit;

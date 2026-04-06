@@ -167,6 +167,7 @@ function setupRoot(prefix: string): string {
   const baseline = readBaseline(root);
   assert.equal(baseline.explicitUnmappedCount, 2);
   assert.equal(baseline.derivedUnmappedCount, 3);
+  assert.equal(baseline.derivedCoverageFloor, 0.6);
 }
 
 // tier2 summary
@@ -401,7 +402,7 @@ it('S-ZEN-01 element callback bypass', callbacks[key]);`,
   assert.equal(noSpecChangeResult.baselineMode, "no-spec-change-fallback");
   assert.equal(noSpecChangeResult.usedFallbackBaseline, true);
   assert.equal(noSpecChangeResult.scopeMode, "all");
-  assert.equal(noSpecChangeResult.derivedCoverageFloor, 0);
+  assert.equal(noSpecChangeResult.derivedCoverageFloor, 0.6);
   assert.equal(noSpecChangeResult.derivedQualityRegressed, false);
   assert.equal(noSpecChangeResult.ok, true);
 
@@ -412,12 +413,12 @@ it('S-ZEN-01 element callback bypass', callbacks[key]);`,
   });
   assert.equal(exceptionFallbackResult.baselineMode, "exception-fallback");
   assert.equal(exceptionFallbackResult.usedFallbackBaseline, true);
-  assert.equal(exceptionFallbackResult.derivedCoverageFloor, 0);
+  assert.equal(exceptionFallbackResult.derivedCoverageFloor, 0.6);
   assert.equal(exceptionFallbackResult.ok, false);
   assert.match(exceptionFallbackResult.fallbackError ?? "", /diff explosion/);
 }
 
-// no-spec-change baseline mode still blocks derived quality regression
+// no-spec-change fallback without explicit floor still blocks derived quality regression
 {
   const root = setupRoot("stm-gate-no-spec-change-quality-floor-");
   mkdirSync(path.join(root, ".git"), { recursive: true });
@@ -431,7 +432,6 @@ it('S-ZEN-01 element callback bypass', callbacks[key]);`,
         count: 0,
         explicitUnmappedCount: 0,
         derivedUnmappedCount: 1,
-        derivedCoverageFloor: 0.75,
         updatedAt: "2026-04-06T00:00:00.000Z",
       },
       null,
@@ -460,7 +460,7 @@ it('S-ZEN-01 element callback bypass', callbacks[key]);`,
   assert.equal(result.baselineMode, "no-spec-change-fallback");
   assert.equal(result.derivedUnmappedOverLimit, false);
   assert.equal(result.derivedCoverage, 0.5);
-  assert.equal(result.derivedCoverageFloor, 0.75);
+  assert.equal(result.derivedCoverageFloor, 0.6);
   assert.equal(result.derivedQualityRegressed, true);
   assert.equal(result.ok, false);
 }
