@@ -85,6 +85,7 @@ function createMockDb(overrides?: {
   getProject?: Record<string, unknown> | undefined;
   countRow?: { count: number };
   statsRow?: { total: number; active: number; archived: number };
+  projectStatsRows?: Array<{ projectId: string; wordCount: number; targetWordCount: number | null }>;
   listRows?: Record<string, unknown>[];
   settingsRow?: { value_json: string } | undefined;
   runChanges?: number;
@@ -95,7 +96,18 @@ function createMockDb(overrides?: {
   const getProject = overrides?.getProject;
   const countRow = overrides?.countRow ?? { count: 0 };
   const statsRow = overrides?.statsRow ?? { total: 1, active: 1, archived: 0 };
+  const projectStatsRows = overrides?.projectStatsRows ?? [];
   const listRows = overrides?.listRows ?? [];
+  const projectRowsById = new Map<string, Record<string, unknown>>();
+  for (const row of listRows) {
+    const projectId = row.projectId;
+    if (typeof projectId === "string") {
+      projectRowsById.set(projectId, row);
+    }
+  }
+  if (getProject && typeof getProject.projectId === "string") {
+    projectRowsById.set(getProject.projectId, getProject);
+  }
   const settingsRow = overrides?.settingsRow;
   const runChanges = overrides?.runChanges ?? 1;
   const throwOnPrepare = overrides?.throwOnPrepare;
@@ -124,7 +136,13 @@ function createMockDb(overrides?: {
       if (sql.includes("FROM projects WHERE project_id")) {
         return {
           ...handler,
-          get: () => getProject,
+          get: (...args: unknown[]) => {
+            const requestedProjectId = typeof args[0] === "string" ? args[0] : null;
+            if (requestedProjectId !== null) {
+              return projectRowsById.get(requestedProjectId);
+            }
+            return getProject;
+          },
         };
       }
 
@@ -133,6 +151,14 @@ function createMockDb(overrides?: {
         return {
           ...handler,
           get: () => statsRow,
+        };
+      }
+
+      // per-project stats rows
+      if (sql.includes("LEFT JOIN documents d ON d.project_id = p.project_id")) {
+        return {
+          ...handler,
+          all: () => projectStatsRows,
         };
       }
 
@@ -145,10 +171,16 @@ function createMockDb(overrides?: {
       }
 
       // list projects
-      if (sql.includes("FROM projects") && (sql.includes("ORDER BY") || sql.includes("WHERE archived_at"))) {
+      if (sql.includes("FROM projects") && sql.includes("ORDER BY updated_at DESC")) {
         return {
           ...handler,
-          all: () => listRows,
+          all: () => {
+            const includeArchived = !sql.includes("WHERE archived_at IS NULL");
+            if (includeArchived) {
+              return listRows;
+            }
+            return listRows.filter((row) => row.archivedAt == null);
+          },
         };
       }
 
@@ -456,28 +488,29 @@ describe("ProjectService", () => {
       expect(result.data.items).toHaveLength(2);
     });
 
-    it("includeArchived=true 时含归档项目", () => {
+    it("includeArchived=true 时含归档项目，默认列表仍过滤归档项目", () => {
       const rows = [
         makeProjectRow(),
         makeProjectRow({ projectId: "proj-2", archivedAt: 999 }),
       ];
       const { svc } = makeService({ listRows: rows });
-      const result = svc.list({ includeArchived: true });
 
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
-      expect(result.data.items).toHaveLength(2);
-      expect(result.data.items.map((item) => item.projectId)).toEqual(
+      const activeOnlyResult = svc.list();
+      expect(activeOnlyResult.ok).toBe(true);
+      if (!activeOnlyResult.ok) return;
+      expect(activeOnlyResult.data.items).toHaveLength(1);
+      expect(activeOnlyResult.data.items[0].projectId).toBe("proj-1");
+      expect(activeOnlyResult.data.items[0]).not.toHaveProperty("archivedAt");
+
+      const includeArchivedResult = svc.list({ includeArchived: true });
+      expect(includeArchivedResult.ok).toBe(true);
+      if (!includeArchivedResult.ok) return;
+      expect(includeArchivedResult.data.items).toHaveLength(2);
+      expect(includeArchivedResult.data.items.map((item) => item.projectId)).toEqual(
         expect.arrayContaining(["proj-1", "proj-2"]),
       );
 
-      const activeItem = result.data.items.find((item) => item.projectId === "proj-1");
-      const archivedItem = result.data.items.find((item) => item.projectId === "proj-2");
-
-      expect(activeItem).toBeDefined();
-      expect(activeItem).not.toHaveProperty("archivedAt");
-
-      expect(archivedItem).toBeDefined();
+      const archivedItem = includeArchivedResult.data.items.find((item) => item.projectId === "proj-2");
       expect(archivedItem).toEqual(expect.objectContaining({ archivedAt: 999 }));
     });
 
@@ -497,12 +530,26 @@ describe("ProjectService", () => {
     it("返回项目统计", () => {
       const { svc } = makeService({
         statsRow: { total: 5, active: 3, archived: 2 },
+        projectStatsRows: [
+          { projectId: "proj-1", wordCount: 32450, targetWordCount: 50000 },
+          { projectId: "proj-2", wordCount: 0, targetWordCount: null },
+        ],
       });
       const result = svc.stats();
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.data).toEqual({ total: 5, active: 3, archived: 2 });
+      expect(result.data).toEqual({
+        total: 5,
+        active: 3,
+        archived: 2,
+        totalWordCount: 32450,
+        overallProgressPercent: 65,
+        perProject: [
+          { projectId: "proj-1", wordCount: 32450, targetWordCount: 50000, progressPercent: 65 },
+          { projectId: "proj-2", wordCount: 0, targetWordCount: null, progressPercent: 0 },
+        ],
+      });
     });
   });
 

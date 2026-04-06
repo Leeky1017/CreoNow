@@ -11,6 +11,11 @@ import { getPreloadApi } from "@/lib/preloadApi";
 type AppView = "loading" | "dashboard" | "workbench" | "error";
 
 type ProjectListItem = IpcResponseData<"project:project:list">["items"][number];
+type ProjectStatsItem = {
+  projectId: string;
+  wordCount?: number;
+  progressPercent?: number;
+};
 
 function toDashboardProject(item: ProjectListItem): DashboardProject {
   return {
@@ -20,6 +25,30 @@ function toDashboardProject(item: ProjectListItem): DashboardProject {
     stage: item.stage,
     updatedAt: item.updatedAt,
   };
+}
+
+function toStatsMap(items: ProjectStatsItem[]): Map<string, ProjectStatsItem> {
+  return new Map(items.map((item) => [item.projectId, item]));
+}
+
+
+function readPerProjectStats(data: unknown): ProjectStatsItem[] {
+  if (!data || typeof data !== "object" || !("perProject" in data)) {
+    return [];
+  }
+
+  const perProject = (data as { perProject?: unknown }).perProject;
+  if (!Array.isArray(perProject)) {
+    return [];
+  }
+
+  return perProject.filter((item): item is ProjectStatsItem => {
+    return (
+      item !== null
+      && typeof item === "object"
+      && typeof (item as { projectId?: unknown }).projectId === "string"
+    );
+  });
 }
 
 export function RendererApp() {
@@ -33,14 +62,32 @@ export function RendererApp() {
 
   const loadProjects = useCallback(async () => {
     setDashboardLoading(true);
-    const result = await api.project.list({ includeArchived: false });
-    if (!result.ok) {
-      setErrorMessage(getHumanErrorMessage(result.error, t));
+    const [listResult, statsResult] = await Promise.all([
+      api.project.list({ includeArchived: false }),
+      api.project.stats?.({}),
+    ]);
+    if (!listResult.ok) {
+      setErrorMessage(getHumanErrorMessage(listResult.error, t));
+      setDashboardLoading(false);
+      return;
+    }
+    if (statsResult && !statsResult.ok) {
+      setErrorMessage(getHumanErrorMessage(statsResult.error, t));
       setDashboardLoading(false);
       return;
     }
 
-    setProjects(result.data.items.map(toDashboardProject));
+    const statsByProjectId = toStatsMap(readPerProjectStats(statsResult?.data));
+    setProjects(
+      listResult.data.items.map((item) => {
+        const stats = statsByProjectId.get(item.projectId);
+        return {
+          ...toDashboardProject(item),
+          wordCount: stats?.wordCount,
+          progressPercent: stats?.progressPercent,
+        };
+      }),
+    );
     setDashboardLoading(false);
   }, [api.project, t]);
 
@@ -79,15 +126,12 @@ export function RendererApp() {
 
   const handleOpenProject = useCallback(async (projectId: string) => {
     const traceId = `dashboard-${Date.now().toString(36)}`;
-    const switchResult =
-      api.project.switchProject && currentProjectId
-        ? await api.project.switchProject({
-            projectId,
-            fromProjectId: currentProjectId,
-            operatorId: "renderer-dashboard",
-            traceId,
-          })
-        : await api.project.setCurrent({ projectId });
+    const switchResult = await api.project.switchProject({
+      projectId,
+      fromProjectId: currentProjectId ?? "dashboard",
+      operatorId: "renderer-dashboard",
+      traceId,
+    });
 
     if (!switchResult.ok) {
       setErrorMessage(getHumanErrorMessage(switchResult.error, t));

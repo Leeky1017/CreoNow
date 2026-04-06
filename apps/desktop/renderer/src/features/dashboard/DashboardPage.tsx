@@ -62,6 +62,8 @@ export function DashboardPage({
     [sortedProjects],
   );
 
+  const hasProjects = sortedProjects.length > 0;
+
   const filtered = sortedProjects.filter((project) => {
     if (
       normalizedSearch.length > 0 &&
@@ -80,6 +82,7 @@ export function DashboardPage({
     }
     return true;
   });
+  const showSearchNoMatch = normalizedSearch.length > 0 && filtered.length === 0;
 
   const filters: { key: FilterType; label: string }[] = [
     { key: "all", label: t("dashboard.filter.all") },
@@ -137,6 +140,13 @@ export function DashboardPage({
             />
           ))}
         </div>
+      ) : hasProjects ? (
+        <EmptyState
+          icon={<Sparkles size={24} />}
+          title={t("dashboard.search.noMatch")}
+        />
+      ) : showSearchNoMatch ? (
+        <p data-testid="dashboard-search-no-match">{t("dashboard.search.noMatch")}</p>
       ) : (
         <EmptyState
           icon={<Sparkles size={24} />}
@@ -169,6 +179,9 @@ function ProjectCard(props: {
   }
   if (props.project.wordCount != null) {
     statParts.push(t("dashboard.stats.words", { count: props.project.wordCount }));
+  }
+  if (props.project.progressPercent != null) {
+    statParts.push(t("dashboard.stats.progress", { percent: props.project.progressPercent }));
   }
 
   const stageKey = props.project.stage ? STAGE_LABEL_KEY[props.project.stage] : null;

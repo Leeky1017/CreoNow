@@ -2,8 +2,8 @@
  * G0-05: Spec-Test Mapping Gate
  *
  * Strict rule:
- * - 显式 Scenario ID（例如 BE-SLA-S2 / AUD-C1-S4 / S-XXX-NN）必须被测试文件显式引用。
- * - 模糊匹配仅用于辅助统计，不可单独构成 hard pass。
+ * - 显式 Scenario ID（例如 BE-SLA-S2 / AUD-C1-S4 / S-XXX-NN）必须被测试标题显式引用。
+ * - derived Scenario 不能整体忽略，必须至少有一部分形成可追溯映射证据。
  */
 
 import {
@@ -30,6 +30,13 @@ export type ScenarioEntry = {
   mappingMode: "explicit" | "derived";
 };
 
+export type MappingEvidence = {
+  file: string;
+  line: number;
+  snippet: string;
+  kind: "exact-title" | "derived-title";
+};
+
 export type MappingResult = {
   scenario: ScenarioEntry;
   mapped: boolean;
@@ -37,6 +44,7 @@ export type MappingResult = {
   testFiles: string[];
   exactMatchedFiles: string[];
   fuzzyMatchedFiles: string[];
+  evidences: MappingEvidence[];
 };
 
 export type Tier2Summary = {
@@ -49,6 +57,7 @@ export type Tier2Summary = {
 export type SpecTestMappingBaseline = {
   count: number;
   explicitUnmappedCount?: number;
+  derivedUnmappedCount?: number;
   updatedAt: string;
 };
 
@@ -64,6 +73,9 @@ export type SpecTestMappingResult = {
   explicitMapped: number;
   explicitUnmapped: MappingResult[];
   derivedTotal: number;
+  derivedMapped: number;
+  derivedUnmapped: MappingResult[];
+  derivedIgnored: boolean;
   dilutedBaseline: boolean;
 };
 
@@ -89,6 +101,8 @@ const GATE_NAME = "SPEC_TEST_MAP";
 const SCENARIO_ID_RE = /###\s+Scenario\s+(S-[A-Z]+(?:-[A-Z]+)*-\d+)/g;
 const SCENARIO_TITLE_RE = /####\s+Scenario:\s+(.+)/;
 const PREFIXED_ID_RE = /^((?:BE|FE|AUD|IPC|P\d+)[-\w]*\s*)/;
+const TEST_TITLE_RE =
+  /(describe|it|test)\s*(?:\.\w+)?\s*\(\s*("([^"\\]|\\.)*"|'([^'\\]|\\.)*'|`([^`\\]|\\.)*`)/g;
 
 const DIMENSION_RULES: Array<{
   dimension: Tier2Dimension;
@@ -232,12 +246,42 @@ function splitCjk(text: string): string[] {
 function extractKeywords(title: string): string[] {
   const tokens = title
     .split(/[\s,;:—/（）()、，。]+/)
+    .map((token) => token.trim().toLocaleLowerCase())
     .filter((w) => w.length >= 2);
 
   if (tokens.length >= 2) return tokens;
-  const cjkGrams = splitCjk(title);
+  const cjkGrams = splitCjk(title).map((token) => token.toLocaleLowerCase());
   if (cjkGrams.length >= 2) return cjkGrams;
   return tokens;
+}
+
+function offsetToLine(source: string, offset: number): number {
+  let line = 1;
+  for (let index = 0; index < offset && index < source.length; index += 1) {
+    if (source[index] === "\n") {
+      line += 1;
+    }
+  }
+  return line;
+}
+
+function collectTestTitles(content: string): Array<{ title: string; line: number }> {
+  const titles: Array<{ title: string; line: number }> = [];
+  let match: RegExpExecArray | null;
+  TEST_TITLE_RE.lastIndex = 0;
+  while ((match = TEST_TITLE_RE.exec(content)) !== null) {
+    const rawLiteral = match[2];
+    const quote = rawLiteral[0];
+    const title = rawLiteral.slice(1, -1);
+    if (quote === "`" && title.includes("${")) {
+      continue;
+    }
+    titles.push({
+      title,
+      line: offsetToLine(content, match.index),
+    });
+  }
+  return titles;
 }
 
 export function findTestMappings(
@@ -265,19 +309,39 @@ export function findTestMappings(
   return scenarios.map((scenario) => {
     const exactMatchedFiles: string[] = [];
     const fuzzyMatchedFiles: string[] = [];
+    const evidences: MappingEvidence[] = [];
     const keywords = extractKeywords(scenario.title);
 
     for (const [filePath, content] of testFileContents) {
       const relPath = path.relative(rootDir, filePath);
-      if (content.includes(scenario.id)) {
+      const testTitles = collectTestTitles(content);
+
+      const exactTitle = testTitles.find((entry) => entry.title.includes(scenario.id));
+      if (exactTitle) {
         exactMatchedFiles.push(relPath);
+        evidences.push({
+          file: relPath,
+          line: exactTitle.line,
+          snippet: exactTitle.title.slice(0, 180),
+          kind: "exact-title",
+        });
         continue;
       }
 
-      if (keywords.length >= 2) {
-        const hits = keywords.filter((kw) => content.includes(kw)).length;
-        if (hits >= Math.ceil(keywords.length * 0.5)) {
+      if (scenario.mappingMode === "derived" && keywords.length >= 1) {
+        const derivedTitle = testTitles.find((entry) => {
+          const normalizedTitle = entry.title.toLocaleLowerCase();
+          const hits = keywords.filter((kw) => normalizedTitle.includes(kw)).length;
+          return hits >= Math.max(1, Math.ceil(keywords.length * 0.6));
+        });
+        if (derivedTitle) {
           fuzzyMatchedFiles.push(relPath);
+          evidences.push({
+            file: relPath,
+            line: derivedTitle.line,
+            snippet: derivedTitle.title.slice(0, 180),
+            kind: "derived-title",
+          });
         }
       }
     }
@@ -286,13 +350,17 @@ export function findTestMappings(
       new Set([...exactMatchedFiles, ...fuzzyMatchedFiles]),
     );
     const exactMapped = exactMatchedFiles.length > 0;
+    const derivedMapped =
+      scenario.mappingMode === "derived" && fuzzyMatchedFiles.length > 0;
+
     return {
       scenario,
-      mapped: exactMapped,
+      mapped: exactMapped || derivedMapped,
       exactMapped,
       testFiles: testFilesForScenario,
       exactMatchedFiles,
       fuzzyMatchedFiles,
+      evidences,
     };
   });
 }
@@ -331,6 +399,7 @@ export function readBaseline(
     return {
       count: 0,
       explicitUnmappedCount: 0,
+      derivedUnmappedCount: 0,
       updatedAt: "1970-01-01T00:00:00.000Z",
     };
   }
@@ -340,18 +409,21 @@ export function readBaseline(
   return {
     count: parsed.count,
     explicitUnmappedCount: parsed.explicitUnmappedCount,
+    derivedUnmappedCount: parsed.derivedUnmappedCount,
     updatedAt: parsed.updatedAt,
   };
 }
 
 export function writeBaseline(
   explicitUnmappedCount: number,
+  derivedUnmappedCount: number = 0,
   rootDir: string = ".",
 ): void {
   const baselinePath = path.join(rootDir, BASELINE_PATH);
   const data: SpecTestMappingBaseline = {
     count: explicitUnmappedCount,
     explicitUnmappedCount,
+    derivedUnmappedCount,
     updatedAt: new Date().toISOString(),
   };
   writeFileSync(baselinePath, JSON.stringify(data, null, 2) + "\n");
@@ -369,6 +441,9 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
   const derivedMappings = mappings.filter(
     (m) => m.scenario.mappingMode === "derived",
   );
+  const derivedUnmapped = derivedMappings.filter((m) => !m.mapped);
+  const derivedIgnored =
+    derivedMappings.length > 0 && derivedMappings.every((m) => !m.mapped);
 
   const baseline = readBaseline(rootDir);
   const baselineLimit = baseline.explicitUnmappedCount ?? baseline.count;
@@ -378,7 +453,10 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
   const dilutedBaseline = baselineLimit > explicitUnmapped.length;
 
   return {
-    ok: explicitUnmapped.length <= baselineLimit && !dilutedBaseline,
+    ok:
+      explicitUnmapped.length <= baselineLimit &&
+      !dilutedBaseline &&
+      !derivedIgnored,
     mappings,
     unmapped,
     total: scenarios.length,
@@ -389,6 +467,9 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
     explicitMapped: explicitMappings.length - explicitUnmapped.length,
     explicitUnmapped,
     derivedTotal: derivedMappings.length,
+    derivedMapped: derivedMappings.length - derivedUnmapped.length,
+    derivedUnmapped,
+    derivedIgnored,
     dilutedBaseline,
   };
 }
@@ -413,9 +494,9 @@ if (
       );
       process.exit(1);
     }
-    writeBaseline(result.explicitUnmapped.length);
+    writeBaseline(result.explicitUnmapped.length, result.derivedUnmapped.length);
     console.log(
-      `[${GATE_NAME}] Baseline updated: explicit unmapped ${result.explicitUnmapped.length}`,
+      `[${GATE_NAME}] Baseline updated: explicit unmapped ${result.explicitUnmapped.length}, derived unmapped ${result.derivedUnmapped.length}`,
     );
     process.exit(0);
   }
@@ -427,7 +508,7 @@ if (
     `[${GATE_NAME}] explicit-id coverage: ${result.explicitMapped}/${result.explicitTotal} (${pct(result.explicitMapped, result.explicitTotal)})`,
   );
   console.log(
-    `[${GATE_NAME}] derived scenarios (fuzzy-assist only): ${result.derivedTotal}`,
+    `[${GATE_NAME}] derived coverage: ${result.derivedMapped}/${result.derivedTotal} (${pct(result.derivedMapped, result.derivedTotal)})`,
   );
 
   const t2 = result.tier2;
@@ -449,12 +530,30 @@ if (
     console.log(
       `[${GATE_NAME}] PASS  explicit-unmapped: ${result.explicitUnmapped.length} (baseline: ${result.baseline})`,
     );
+    const evidenceSamples = result.mappings
+      .filter((m) => m.evidences.length > 0)
+      .slice(0, 20);
+    if (evidenceSamples.length > 0) {
+      console.log(`[${GATE_NAME}] evidence sample (scenario -> test@line):`);
+      for (const mapping of evidenceSamples) {
+        for (const evidence of mapping.evidences.slice(0, 2)) {
+          console.log(
+            `  - ${mapping.scenario.id} -> ${evidence.file}:${evidence.line} [${evidence.kind}] ${evidence.snippet}`,
+          );
+        }
+      }
+    }
   } else {
     if (result.dilutedBaseline) {
       console.log(
         `[${GATE_NAME}] FAIL  baseline diluted: baseline ${result.baseline} > current explicit-unmapped ${result.explicitUnmapped.length}. Run --update-baseline to ratchet down.`,
       );
       process.exit(1);
+    }
+    if (result.derivedIgnored) {
+      console.log(
+        `[${GATE_NAME}] FAIL  derived scenarios are fully unmapped (${result.derivedUnmapped.length}/${result.derivedTotal}).`,
+      );
     }
     const newCount = result.explicitUnmapped.length - result.baseline;
     console.log(
@@ -464,6 +563,13 @@ if (
       console.log(
         `  - ${m.scenario.specFile}: ${m.scenario.id} — ${m.scenario.title}`,
       );
+      if (m.evidences.length > 0) {
+        for (const evidence of m.evidences) {
+          console.log(
+            `    evidence: ${evidence.file}:${evidence.line} [${evidence.kind}] ${evidence.snippet}`,
+          );
+        }
+      }
       if (m.fuzzyMatchedFiles.length > 0) {
         console.log(`    fuzzy-hints: ${m.fuzzyMatchedFiles.join(", ")}`);
       }

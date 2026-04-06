@@ -157,6 +157,10 @@ function createApiMock(): PreloadApi {
       getCurrent: vi.fn(async () => ({ ok: true, data: { projectId: "project-1", rootPath: "/workspace/project-1" } })),
       list: vi.fn(async () => ({ ok: true, data: { items: [{ projectId: "project-1", name: "默认项目", rootPath: "/workspace/project-1", updatedAt: 1 }] } })),
       setCurrent: vi.fn(async () => ({ ok: true, data: { projectId: "project-1", rootPath: "/workspace/project-1" } })),
+      switchProject: vi.fn(async ({ projectId }) => ({
+        ok: true,
+        data: { currentProjectId: projectId, switchedAt: "2026-01-01T00:00:00.000Z" },
+      })),
     },
     version: {
       listSnapshots: vi.fn(async () => ({ ok: true, data: { items: [] } })),

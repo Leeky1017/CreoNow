@@ -18,7 +18,14 @@ const mocks = vi.hoisted(() => {
     }),
     statsMock: vi.fn().mockReturnValue({
       ok: true,
-      data: { total: 2, active: 1, archived: 1 },
+      data: {
+        total: 2,
+        active: 1,
+        archived: 1,
+        totalWordCount: 1200,
+        overallProgressPercent: 40,
+        perProject: [{ projectId: "proj-1", wordCount: 1200, targetWordCount: 3000, progressPercent: 40 }],
+      },
     }),
     renameMock: vi.fn().mockReturnValue({
       ok: true,

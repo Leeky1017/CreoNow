@@ -27,8 +27,22 @@ function createProjectApi() {
       },
     })),
     setCurrent: vi.fn(async () => ({ ok: true, data: { projectId: "proj-1", rootPath: "/projects/proj-1" } })),
+    stats: vi.fn(async () => ({
+      ok: true,
+      data: {
+        total: 1,
+        active: 1,
+        archived: 0,
+        totalWordCount: 1234,
+        overallProgressPercent: 56,
+        perProject: [{ projectId: "proj-1", wordCount: 1234, targetWordCount: 2200, progressPercent: 56 }],
+      },
+    })),
     create: vi.fn(async () => ({ ok: true, data: { projectId: "proj-2", rootPath: "/projects/proj-2" } })),
-    switchProject: undefined,
+    switchProject: vi.fn(async ({ projectId }) => ({
+      ok: true,
+      data: { currentProjectId: projectId, switchedAt: "2026-01-01T00:00:00.000Z" },
+    })),
   };
 }
 
@@ -49,10 +63,16 @@ describe("RendererApp", () => {
     render(<RendererApp />);
 
     await waitFor(() => expect(screen.getByTestId("dashboard-page")).toBeInTheDocument());
+    expect(screen.getByText("1,234 字")).toBeInTheDocument();
+    expect(screen.getByText("进度 56%")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("dashboard-project-card-proj-1"));
 
-    await waitFor(() => expect(projectApi.setCurrent).toHaveBeenCalledWith({ projectId: "proj-1" }));
+    await waitFor(() =>
+      expect(projectApi.switchProject).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "proj-1", fromProjectId: "dashboard" }),
+      ),
+    );
     await waitFor(() => expect(screen.getByTestId("workbench-app")).toBeInTheDocument());
   });
 
@@ -71,7 +91,11 @@ describe("RendererApp", () => {
     fireEvent.click(screen.getByTestId("dashboard-create-project-btn"));
 
     await waitFor(() => expect(projectApi.create).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(projectApi.setCurrent).toHaveBeenCalledWith({ projectId: "proj-2" }));
+    await waitFor(() =>
+      expect(projectApi.switchProject).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "proj-2", fromProjectId: "dashboard" }),
+      ),
+    );
     await waitFor(() => expect(screen.getByTestId("workbench-app")).toBeInTheDocument());
   });
 });

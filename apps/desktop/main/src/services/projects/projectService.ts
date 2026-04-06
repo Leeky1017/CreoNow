@@ -111,6 +111,14 @@ export type ProjectService = {
     total: number;
     active: number;
     archived: number;
+    totalWordCount: number;
+    overallProgressPercent: number;
+    perProject: Array<{
+      projectId: string;
+      wordCount: number;
+      targetWordCount: number | null;
+      progressPercent: number;
+    }>;
   }>;
   getCurrent: () => ServiceResult<ProjectInfo>;
   setCurrent: (args: { projectId: string }) => ServiceResult<ProjectInfo>;
@@ -1594,9 +1602,48 @@ export function createProjectService(args: {
         const row = args.db
           .prepare<
             [],
-            { total: number; active: number; archived: number }
+            {
+              total: number;
+              active: number;
+              archived: number;
+              totalWordCount: number;
+              totalTargetWordCount: number;
+            }
           >("SELECT COUNT(*) as total, SUM(CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END) as active, SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END) as archived FROM projects")
           .get();
+        const perProjectRows = args.db
+          .prepare<
+            [],
+            { projectId: string; wordCount: number; targetWordCount: number | null }
+          >(
+            `SELECT
+              p.project_id as projectId,
+              COALESCE(SUM(LENGTH(TRIM(COALESCE(d.content_text, '')))), 0) as wordCount,
+              p.target_word_count as targetWordCount
+            FROM projects p
+            LEFT JOIN documents d ON d.project_id = p.project_id
+            WHERE p.archived_at IS NULL
+            GROUP BY p.project_id, p.target_word_count
+            ORDER BY p.updated_at DESC, p.project_id ASC`,
+          )
+          .all();
+        const perProject = perProjectRows.map((project) => {
+          const targetWordCount = project.targetWordCount == null ? null : Math.max(0, project.targetWordCount);
+          const progressPercent = targetWordCount && targetWordCount > 0
+            ? Math.min(100, Math.round((project.wordCount / targetWordCount) * 100))
+            : 0;
+          return {
+            projectId: project.projectId,
+            wordCount: project.wordCount,
+            targetWordCount,
+            progressPercent,
+          };
+        });
+        const totalWordCount = perProject.reduce((sum, item) => sum + item.wordCount, 0);
+        const totalTargetWordCount = perProject.reduce((sum, item) => sum + (item.targetWordCount ?? 0), 0);
+        const overallProgressPercent = totalTargetWordCount > 0
+          ? Math.min(100, Math.round((totalWordCount / totalTargetWordCount) * 100))
+          : 0;
 
         return {
           ok: true,
@@ -1604,6 +1651,9 @@ export function createProjectService(args: {
             total: row?.total ?? 0,
             active: row?.active ?? 0,
             archived: row?.archived ?? 0,
+            totalWordCount,
+            overallProgressPercent,
+            perProject,
           },
         };
       } catch (error) {

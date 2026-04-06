@@ -22,7 +22,7 @@ export interface PreloadApi {
     getCurrent: () => Promise<IpcInvokeResult<"project:project:getcurrent">>;
     list: InvokeHandler<"project:project:list">;
     setCurrent: InvokeHandler<"project:project:setcurrent">;
-    switchProject?: InvokeHandler<"project:project:switch">;
+    switchProject: InvokeHandler<"project:project:switch">;
     stats?: InvokeHandler<"project:project:stats">;
   };
   file: {

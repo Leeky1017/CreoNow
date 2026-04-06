@@ -20,7 +20,9 @@ function collectVitestTests(rootDir: string): string[] {
     let entries;
     try {
       entries = readdirSync(current, { withFileTypes: true });
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[vitest.config.core] skip unreadable directory: ${current} (${message})`);
       continue;
     }
     for (const entry of entries) {

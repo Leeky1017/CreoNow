@@ -35,6 +35,28 @@ describe("DashboardPage", () => {
     expect(screen.queryByTestId("dashboard-project-card-p2")).not.toBeInTheDocument();
   });
 
+  it("展示字数与进度语义", () => {
+    render(
+      <DashboardPage
+        projects={[
+          { id: "p1", title: "Alpha", type: "novel", updatedAt: 6000, wordCount: 32450, progressPercent: 64 },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("32450 字")).toBeInTheDocument();
+    expect(screen.getByText("进度 64%")).toBeInTheDocument();
+  });
+
+  it("搜索无匹配时显示未找到匹配结果", () => {
+    render(<DashboardPage projects={makeProjects()} />);
+
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "not-found" } });
+
+    expect(screen.getByText("未找到匹配结果")).toBeInTheDocument();
+    expect(screen.queryByTestId("dashboard-empty-create-btn")).not.toBeInTheDocument();
+  });
+
   it("点击项目卡片会触发打开项目回调", () => {
     const onOpenProject = vi.fn();
     render(<DashboardPage projects={makeProjects()} onOpenProject={onOpenProject} />);
