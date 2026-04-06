@@ -39,6 +39,9 @@ jobs:
       - name: Renderer tests
         run: pnpm -C apps/desktop test:renderer
 
+      - name: Desktop core coverage gate
+        run: pnpm -C apps/desktop test:coverage:core
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

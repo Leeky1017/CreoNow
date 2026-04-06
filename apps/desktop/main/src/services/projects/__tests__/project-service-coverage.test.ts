@@ -91,7 +91,7 @@ function createMockDb(overrides?: {
   throwOnPrepare?: Error;
   throwOnRun?: Error;
   allDocRows?: Record<string, unknown>[];
-}): Database.Database {
+}): Database.Database & { __executedRuns: Array<{ sql: string; args: unknown[] }> } {
   const getProject = overrides?.getProject;
   const countRow = overrides?.countRow ?? { count: 0 };
   const statsRow = overrides?.statsRow ?? { total: 1, active: 1, archived: 0 };
@@ -101,6 +101,7 @@ function createMockDb(overrides?: {
   const throwOnPrepare = overrides?.throwOnPrepare;
   const throwOnRun = overrides?.throwOnRun;
   const allDocRows = overrides?.allDocRows ?? [];
+  const executedRuns: Array<{ sql: string; args: unknown[] }> = [];
 
   const handler: SqlHandler = {
     run: (..._args: unknown[]) => {
@@ -115,7 +116,7 @@ function createMockDb(overrides?: {
     },
   };
 
-  return {
+  const db = {
     prepare: (sql: string) => {
       if (throwOnPrepare) throw throwOnPrepare;
 
@@ -173,6 +174,20 @@ function createMockDb(overrides?: {
       return () => fn();
     }),
   } as unknown as Database.Database;
+
+  const originalPrepare = db.prepare.bind(db);
+  db.prepare = ((sql: string) => {
+    const statement = originalPrepare(sql) as SqlHandler;
+    return {
+      ...statement,
+      run: (...args: unknown[]) => {
+        executedRuns.push({ sql, args });
+        return statement.run(...args);
+      },
+    };
+  }) as Database.Database["prepare"];
+
+  return Object.assign(db, { __executedRuns: executedRuns });
 }
 
 function createLogger(): Logger {
@@ -224,10 +239,14 @@ describe("ProjectService", () => {
     });
 
     it("空名称使用 Untitled 作为默认", () => {
-      const { svc } = makeService();
+      const { svc, db } = makeService();
       const result = svc.create({});
 
       expect(result.ok).toBe(true);
+      const projectInsert = db.__executedRuns.find((entry) =>
+        entry.sql.includes("INSERT INTO projects"),
+      );
+      expect(projectInsert?.args[1]).toBe("Untitled");
     });
 
     it("名称超过 120 字符时返回 INVALID_ARGUMENT", () => {

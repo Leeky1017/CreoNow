@@ -169,6 +169,27 @@ describe('ZenMode', () => {
   assert.equal(mappings[0].mapped, false, "Unreferenced Scenario should be unmapped");
 }
 
+// Test: fuzzy keyword hit is hint only, does not count as mapped
+{
+  const root = mkdtempSync(path.join(tmpdir(), "stm-map-fuzzy-hint-"));
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `### Scenario S-ZEN-10: editor focus behavior`,
+  );
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "EditorFocus.test.tsx"),
+    `describe('editor behavior', () => { it('focuses editor', () => {}); });`,
+  );
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, false, "Fuzzy-only should not pass gate");
+  assert.equal(mappings[0].fuzzyMatchedFiles.length, 1, "Fuzzy match should be exposed as hint");
+}
+
 // Test: one test file maps multiple Scenarios
 {
   const root = mkdtempSync(path.join(tmpdir(), "stm-map-multi-"));
@@ -199,16 +220,16 @@ describe('ZenMode', () => {
 
 // ── Test Group 3: Baseline Ratchet ─────────────────────────────────
 
-// Test: unmapped ≤ baseline → PASS
+// Test: baseline 与显式未映射一致时 PASS
 {
   const root = mkdtempSync(path.join(tmpdir(), "stm-ratchet-pass-"));
   const guardsDir = path.join(root, "openspec", "guards");
   mkdirSync(guardsDir, { recursive: true });
-  writeBaseline(10, root);
+  writeBaseline(0, root);
   const baseline = readBaseline(root);
-  assert.equal(baseline.count, 10);
+  assert.equal(baseline.count, 0);
   const result = runGate(root);
-  assert.ok(result.ok, "No scenarios = 0 unmapped ≤ 10 baseline → PASS");
+  assert.ok(result.ok, "No scenarios = 0 unmapped with baseline 0 → PASS");
 }
 
 // Test: unmapped > baseline → FAIL
@@ -226,6 +247,16 @@ describe('ZenMode', () => {
   const result = runGate(root);
   assert.ok(!result.ok, "1 unmapped > 0 baseline → FAIL");
   assert.equal(result.unmapped.length, 1);
+}
+
+// Test: 稀释 baseline（高于当前未映射）会被判定失败
+{
+  const root = mkdtempSync(path.join(tmpdir(), "stm-ratchet-dilute-"));
+  const guardsDir = path.join(root, "openspec", "guards");
+  mkdirSync(guardsDir, { recursive: true });
+  writeBaseline(3, root);
+  const result = runGate(root);
+  assert.ok(!result.ok, "Diluted baseline should fail");
 }
 
 // Test: --update-baseline writes correct count

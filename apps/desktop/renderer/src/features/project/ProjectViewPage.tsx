@@ -23,9 +23,19 @@ import "./ProjectViewPage.css";
 
 interface ProjectViewPageProps {
   project?: ProjectData;
+  onEditProject?: (projectId: string) => void;
+  onOpenSettings?: (projectId: string) => void;
+  onOpenDocument?: (documentId: string) => void;
+  onAddCharacter?: (projectId: string) => void;
 }
 
-export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps) {
+export function ProjectViewPage({
+  project = mockProject,
+  onEditProject,
+  onOpenSettings,
+  onOpenDocument,
+  onAddCharacter,
+}: ProjectViewPageProps) {
   const { t } = useTranslation();
 
   return (
@@ -40,11 +50,19 @@ export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps)
             <h1 className="cn-project-view__title">{project.title}</h1>
           </div>
           <div className="cn-project-view__actions">
-            <Button tone="ghost">
+            <Button
+              tone="ghost"
+              data-testid="project-view-edit-btn"
+              onClick={() => onEditProject?.(project.id)}
+            >
               <Pencil size={14} />
               {t("project.view.edit")}
             </Button>
-            <Button tone="ghost">
+            <Button
+              tone="ghost"
+              data-testid="project-view-settings-btn"
+              onClick={() => onOpenSettings?.(project.id)}
+            >
               <Settings size={14} />
               {t("project.view.settings")}
             </Button>
@@ -80,7 +98,19 @@ export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps)
         <SectionHeader label={t("project.view.documents")} />
         <div className="cn-project-view__doc-list">
           {project.documents.map((doc) => (
-            <div key={doc.id} className="cn-project-view__doc-item" tabIndex={0}>
+            <div
+              key={doc.id}
+              className="cn-project-view__doc-item"
+              tabIndex={0}
+              data-testid={`project-view-doc-${doc.id}`}
+              onClick={() => onOpenDocument?.(doc.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenDocument?.(doc.id);
+                }
+              }}
+            >
               <div className="cn-project-view__doc-title-group">
                 <span className="cn-project-view__doc-icon">
                   <FileText size={14} />
@@ -100,7 +130,12 @@ export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps)
         <SectionHeader
           label={t("project.view.characters")}
           action={
-            <Button tone="ghost" className="cn-project-view__add-btn">
+            <Button
+              tone="ghost"
+              className="cn-project-view__add-btn"
+              data-testid="project-view-add-character-btn"
+              onClick={() => onAddCharacter?.(project.id)}
+            >
               <Plus size={12} />
               {t("project.view.addCharacter")}
             </Button>

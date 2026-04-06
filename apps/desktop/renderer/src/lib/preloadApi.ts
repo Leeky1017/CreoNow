@@ -22,6 +22,8 @@ export interface PreloadApi {
     getCurrent: () => Promise<IpcInvokeResult<"project:project:getcurrent">>;
     list: InvokeHandler<"project:project:list">;
     setCurrent: InvokeHandler<"project:project:setcurrent">;
+    switchProject?: InvokeHandler<"project:project:switch">;
+    stats?: InvokeHandler<"project:project:stats">;
   };
   file: {
     createDocument: InvokeHandler<"file:document:create">;
@@ -32,6 +34,9 @@ export interface PreloadApi {
     setCurrentDocument: InvokeHandler<"file:document:setcurrent">;
   };
   ai: {
+    getConfig?: InvokeHandler<"ai:config:get">;
+    testConfig?: InvokeHandler<"ai:config:test">;
+    updateConfig?: InvokeHandler<"ai:config:update">;
     confirmSkill: InvokeHandler<"ai:skill:confirm">;
     cancelSkill: InvokeHandler<"ai:skill:cancel">;
     runSkill: InvokeHandler<"ai:skill:run">;
