@@ -68,6 +68,9 @@ function senderCalls(sender: Electron.WebContents): Array<unknown[]> {
   return (sender.send as unknown as Mock).mock.calls;
 }
 
+type RuntimeDeps = Parameters<typeof createKgRecognitionRuntime>[0];
+type RuntimeDb = RuntimeDeps["db"];
+
 type Recognizer = {
   recognize: (args: {
     projectId: string;
@@ -154,10 +157,12 @@ async function flushAsync() {
 
 describe("kgRecognitionRuntime – queue behaviour", () => {
   let db: MockDb;
+  let runtimeDb: RuntimeDb;
   let logger: ReturnType<typeof createMockLogger>;
 
   beforeEach(() => {
     db = createMockDb();
+    runtimeDb = db as unknown as RuntimeDb;
     logger = createMockLogger();
   });
 
@@ -171,7 +176,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
   describe("enqueue", () => {
     it("1. returns taskId and status 'started' with valid input", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -185,7 +190,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("2. returns 'skipped' when contentText is empty", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -198,7 +203,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("3. returns 'skipped' when contentText is whitespace only", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -211,7 +216,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("4. rejects empty projectId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -223,7 +228,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("5. rejects empty documentId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -235,7 +240,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("6. rejects empty sessionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -247,7 +252,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("7. rejects empty traceId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -259,7 +264,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("8. tasks beyond maxConcurrency receive 'queued' status", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 1,
@@ -278,7 +283,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("9. returns valid queuePosition (0-based within queue)", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 1,
@@ -296,7 +301,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("10. sender can be null without error", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -306,7 +311,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("11. maxConcurrency=1 only starts one task at a time", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 1,
@@ -325,7 +330,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("12. maxConcurrency defaults to 4", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
       });
@@ -344,7 +349,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("13. trims whitespace from projectId before validation", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -359,7 +364,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
   describe("cancel", () => {
     it("14. cancels a queued task", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 1,
@@ -386,7 +391,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("15. marks a running task as canceled", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 1,
@@ -409,7 +414,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("16. returns NOT_FOUND for non-existent task", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -426,7 +431,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("17. rejects empty projectId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -438,7 +443,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("18. rejects empty sessionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -450,7 +455,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("19. rejects empty taskId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -462,7 +467,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("20. records canceled task in canceledTaskIds metric", async () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 1,
@@ -483,7 +488,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("21. requires matching projectId and sessionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 1,
@@ -518,7 +523,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
   describe("stats", () => {
     it("22. returns initial stats (0 running, 0 queued)", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -535,7 +540,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("23. rejects empty projectId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -547,7 +552,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("24. rejects empty sessionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -559,7 +564,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("25. reflects maxConcurrency setting", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
         maxConcurrency: 7,
@@ -572,7 +577,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("26. tracks peakRunning", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 3,
@@ -595,7 +600,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
   describe("acceptSuggestion", () => {
     it("27. rejects empty projectId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -611,7 +616,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("28. rejects empty sessionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -627,7 +632,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("29. rejects empty suggestionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -643,7 +648,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("30. returns NOT_FOUND for unknown suggestionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -660,7 +665,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("31. returns NOT_FOUND when suggestion belongs to different session", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "张三", type: "character" },
@@ -698,7 +703,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("32. returns NOT_FOUND when suggestion belongs to different project", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "张三", type: "character" },
@@ -738,7 +743,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       const sender = createMockSender();
 
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "张三", type: "character" },
@@ -804,7 +809,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
   describe("dismissSuggestion", () => {
     it("34. rejects empty projectId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -820,7 +825,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("35. rejects empty sessionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -836,7 +841,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("36. rejects empty suggestionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -852,7 +857,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("37. returns NOT_FOUND for unknown suggestionId", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -869,7 +874,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("38. returns NOT_FOUND for suggestion in wrong session", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "李四", type: "character" },
@@ -907,7 +912,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("39. dismisses valid suggestion and removes it from session", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "李四", type: "character" },
@@ -957,7 +962,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("40. recognizer is called with correct args", async () => {
       const recognizer = createImmediateRecognizer();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer,
       });
@@ -985,7 +990,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("41. sends suggestion events to sender via KG_SUGGESTION_CHANNEL", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "王五", type: "character" },
@@ -1031,7 +1036,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       ]);
 
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "张三", type: "character" },
@@ -1058,7 +1063,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("43. skips dismissed candidates", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "赵六", type: "character" },
@@ -1111,7 +1116,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("44. handles recognizer failure gracefully", async () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createFailingRecognizer(),
       });
@@ -1127,7 +1132,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("45. handles recognizer returning degraded=true", async () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([], true),
       });
@@ -1161,7 +1166,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       };
 
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer,
         maxConcurrency: 1,
@@ -1194,7 +1199,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("47. multiple suggestions from one task", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "陈九", type: "character" },
@@ -1234,7 +1239,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       };
 
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer,
         maxConcurrency: 1,
@@ -1267,7 +1272,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("49. pump respects maxConcurrency during concurrent processing", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 2,
@@ -1299,7 +1304,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       };
 
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer,
         maxConcurrency: 2,
@@ -1331,7 +1336,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("51. detects Chinese character names (surname patterns)", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         // No recognizer → uses built-in mock
       });
@@ -1362,7 +1367,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("52. detects quoted entities with 「…」", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
       });
 
@@ -1383,7 +1388,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("53. detects location suffixes (e.g., 风雪城)", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
       });
 
@@ -1406,7 +1411,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("54. detects event suffixes (e.g., 武林大会)", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
       });
 
@@ -1429,7 +1434,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("55. detects item suffixes (e.g., 倚天神剑)", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
       });
 
@@ -1456,7 +1461,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
   describe("edge cases", () => {
     it("56. maxConcurrency < 1 is normalized to 1", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 0,
@@ -1475,7 +1480,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("57. negative maxConcurrency is normalized to 1", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
         maxConcurrency: -5,
@@ -1489,7 +1494,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("58. concurrent enqueue + cancel interaction", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 1,
@@ -1516,7 +1521,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       const senderB = createMockSender();
 
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "孙八", type: "character" },
@@ -1567,7 +1572,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("60. deduplication: same candidate not suggested twice in same session", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "钱十", type: "character" },
@@ -1612,7 +1617,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       } as unknown as Electron.WebContents;
 
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer([
           { name: "郑十一", type: "character" },
@@ -1636,7 +1641,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("62. whitespace-only fields are treated as empty and rejected", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createImmediateRecognizer(),
       });
@@ -1649,7 +1654,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("63. recognizer throwing an exception is handled gracefully", async () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: {
           recognize: vi.fn(async () => {
@@ -1671,7 +1676,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
 
     it("64. enqueue many tasks rapidly does not lose any", () => {
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         recognizer: createBlockingRecognizer(),
         maxConcurrency: 2,
@@ -1697,7 +1702,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
     it("65. compound surname detection (e.g., 欧阳, 司马)", async () => {
       const sender = createMockSender();
       const rt = createKgRecognitionRuntime({
-        db: db as any,
+        db: runtimeDb,
         logger,
         // Uses built-in mock recognizer
       });

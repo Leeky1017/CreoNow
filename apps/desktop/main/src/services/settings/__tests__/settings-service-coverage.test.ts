@@ -14,15 +14,19 @@ import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vite
 import type { SettingsService } from "../settingsService";
 import { createSettingsService } from "../settingsService";
 
+type SettingsDeps = Parameters<typeof createSettingsService>[0];
+type SettingsDb = SettingsDeps["db"];
+type SettingsEventBus = SettingsDeps["eventBus"];
+
 // ── mock types ─────────────────────────────────────────────────────
 
-interface MockDb {
+interface MockDb extends SettingsDb {
   prepare: Mock;
   exec: Mock;
   transaction: Mock;
 }
 
-interface MockEventBus {
+interface MockEventBus extends SettingsEventBus {
   emit: Mock;
   on: Mock;
   off: Mock;
@@ -58,11 +62,11 @@ describe("SettingsService — coverage gaps", () => {
   beforeEach(() => {
     db = createMockDb();
     eventBus = createMockEventBus();
-    service = createSettingsService({ db: db as any, eventBus: eventBus as any });
+    service = createSettingsService({ db, eventBus });
   });
 
   afterEach(() => {
-    try { service.dispose(); } catch { /* already disposed in some tests */ }
+    service.dispose();
     vi.restoreAllMocks();
   });
 
