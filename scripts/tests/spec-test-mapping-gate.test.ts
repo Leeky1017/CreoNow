@@ -170,6 +170,18 @@ function setupRoot(prefix: string): string {
   assert.equal(baseline.derivedCoverageFloor, 0.6);
 }
 
+// baseline update should persist existing derived coverage floor
+{
+  const root = setupRoot("stm-baseline-floor-persist-");
+  mkdirSync(path.join(root, "openspec", "guards"), { recursive: true });
+  writeBaseline(2, 3, root, 0.42);
+  writeBaseline(1, 1, root);
+  const baseline = readBaseline(root);
+  assert.equal(baseline.explicitUnmappedCount, 1);
+  assert.equal(baseline.derivedUnmappedCount, 1);
+  assert.equal(baseline.derivedCoverageFloor, 0.42);
+}
+
 // tier2 summary
 {
   const root = setupRoot("stm-tier2-");

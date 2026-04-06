@@ -890,14 +890,17 @@ export function writeBaseline(
   explicitUnmappedCount: number,
   derivedUnmappedCount: number = 0,
   rootDir: string = ".",
-  derivedCoverageFloor: number = DEFAULT_DERIVED_COVERAGE_FLOOR,
+  derivedCoverageFloor?: number,
 ): void {
   const baselinePath = path.join(rootDir, BASELINE_PATH);
+  const persistedFloor = readBaseline(rootDir).derivedCoverageFloor;
+  const effectiveDerivedCoverageFloor =
+    derivedCoverageFloor ?? persistedFloor ?? DEFAULT_DERIVED_COVERAGE_FLOOR;
   const data: SpecTestMappingBaseline = {
     count: explicitUnmappedCount,
     explicitUnmappedCount,
     derivedUnmappedCount,
-    derivedCoverageFloor,
+    derivedCoverageFloor: effectiveDerivedCoverageFloor,
     updatedAt: new Date().toISOString(),
   };
   writeFileSync(baselinePath, JSON.stringify(data, null, 2) + "\n");
