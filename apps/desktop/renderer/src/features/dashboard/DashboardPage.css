@@ -172,3 +172,46 @@
   margin: 0 var(--space-1);
   color: var(--color-fg-subtle);
 }
+
+/* ── Loading Skeletons ─────────────────────── */
+
+@keyframes cn-skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.cn-dashboard__skeleton-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.cn-dashboard__skeleton {
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  animation: cn-skeleton-pulse 1.5s var(--ease-default) infinite;
+}
+
+.cn-dashboard__skeleton--icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.cn-dashboard__skeleton-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.cn-dashboard__skeleton--title {
+  height: 14px;
+  width: 40%;
+}
+
+.cn-dashboard__skeleton--meta {
+  height: 10px;
+  width: 60%;
+}

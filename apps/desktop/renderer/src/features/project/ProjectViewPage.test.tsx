@@ -1,41 +1,62 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ProjectViewPage } from "./ProjectViewPage";
-import type { ProjectData } from "./mockData";
+import type { PreloadApi } from "@/lib/preloadApi";
 
-const project: ProjectData = {
-  id: "proj-9",
-  title: "霜桥",
-  type: "novel",
-  draftNumber: 2,
-  createdAt: "2025-01-01T00:00:00.000Z",
-  totalWords: 12000,
-  chapterCount: 3,
-  characterCount: 2,
-  locationCount: 1,
-  documents: [
-    { id: "doc-1", title: "第一章", wordCount: 3000 },
-    { id: "doc-2", title: "第二章", wordCount: 4000 },
-  ],
-  characters: [
-    { id: "c1", name: "林溪", role: "主角" },
-    { id: "c2", name: "沈砚", role: "配角" },
-  ],
-};
+function createMockApi(overrides?: Partial<PreloadApi["project"]>): PreloadApi {
+  return {
+    project: {
+      list: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          items: [
+            {
+              projectId: "proj-9",
+              name: "霜桥",
+              rootPath: "/projects/proj-9",
+              type: "novel" as const,
+              stage: "draft" as const,
+              updatedAt: Date.parse("2025-01-01T00:00:00.000Z"),
+              archivedAt: null,
+            },
+          ],
+        },
+      })),
+      ...overrides,
+    } as unknown as PreloadApi["project"],
+    file: {
+      listDocuments: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          items: [
+            { documentId: "doc-1", title: "第一章", sortOrder: 0, status: "draft" as const, type: "chapter" as const, updatedAt: 0 },
+            { documentId: "doc-2", title: "第二章", sortOrder: 1, status: "draft" as const, type: "chapter" as const, updatedAt: 0 },
+          ],
+        },
+      })),
+    } as unknown as PreloadApi["file"],
+    ai: {} as PreloadApi["ai"],
+    version: {} as PreloadApi["version"],
+  };
+}
 
 describe("ProjectViewPage", () => {
-  it("点击编辑/设置按钮触发项目动作", () => {
+  it("点击编辑/设置按钮触发项目动作", async () => {
     const onEditProject = vi.fn();
     const onOpenSettings = vi.fn();
+    const api = createMockApi();
 
     render(
       <ProjectViewPage
-        project={project}
+        projectId="proj-9"
+        api={api}
         onEditProject={onEditProject}
         onOpenSettings={onOpenSettings}
       />,
     );
+
+    await waitFor(() => expect(screen.getByTestId("project-view-edit-btn")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("project-view-edit-btn"));
     fireEvent.click(screen.getByTestId("project-view-settings-btn"));
@@ -44,10 +65,13 @@ describe("ProjectViewPage", () => {
     expect(onOpenSettings).toHaveBeenCalledWith("proj-9");
   });
 
-  it("文档条目点击与键盘回车都可打开文档", () => {
+  it("文档条目点击与键盘回车都可打开文档", async () => {
     const onOpenDocument = vi.fn();
+    const api = createMockApi();
 
-    render(<ProjectViewPage project={project} onOpenDocument={onOpenDocument} />);
+    render(<ProjectViewPage projectId="proj-9" api={api} onOpenDocument={onOpenDocument} />);
+
+    await waitFor(() => expect(screen.getByTestId("project-view-doc-doc-1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("project-view-doc-doc-1"));
     fireEvent.keyDown(screen.getByTestId("project-view-doc-doc-2"), { key: "Enter" });
@@ -57,10 +81,13 @@ describe("ProjectViewPage", () => {
     expect(onOpenDocument).toHaveBeenNthCalledWith(2, "doc-2");
   });
 
-  it("添加角色按钮触发项目级回调", () => {
+  it("添加角色按钮触发项目级回调", async () => {
     const onAddCharacter = vi.fn();
+    const api = createMockApi();
 
-    render(<ProjectViewPage project={project} onAddCharacter={onAddCharacter} />);
+    render(<ProjectViewPage projectId="proj-9" api={api} onAddCharacter={onAddCharacter} />);
+
+    await waitFor(() => expect(screen.getByTestId("project-view-add-character-btn")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("project-view-add-character-btn"));
 

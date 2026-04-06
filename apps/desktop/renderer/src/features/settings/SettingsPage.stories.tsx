@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 
 import { SettingsPage } from "./SettingsPage";
-import { mockSettings } from "./mockData";
 
 const meta: Meta<typeof SettingsPage> = {
   title: "Features/Settings",
@@ -13,13 +12,9 @@ export default meta;
 type Story = StoryObj<typeof SettingsPage>;
 
 export const Default: Story = {
-  args: {
-    settings: mockSettings,
-  },
+  args: {},
 };
 
-export const DarkTheme: Story = {
-  args: {
-    settings: { ...mockSettings, theme: "dark" },
-  },
+export const WithAiBridge: Story = {
+  args: {},
 };

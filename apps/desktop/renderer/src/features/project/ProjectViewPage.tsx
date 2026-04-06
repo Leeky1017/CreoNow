@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BookOpen,
@@ -10,33 +11,159 @@ import {
   Users,
 } from "lucide-react";
 
+import type { IpcResponseData } from "@shared/types/ipc-generated";
+
 import { Button } from "@/components/primitives/Button";
 import { SectionHeader } from "@/components/composites/SectionHeader";
 import { StatPill } from "@/components/composites/StatPill";
 
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
-
-import type { ProjectData } from "./mockData";
-import { mockProject } from "./mockData";
+import { getPreloadApi, type PreloadApi } from "@/lib/preloadApi";
+import { getHumanErrorMessage } from "@/lib/errorMessages";
 
 import "./ProjectViewPage.css";
 
+type ProjectListItem = IpcResponseData<"project:project:list">["items"][number];
+type DocumentListItem = IpcResponseData<"file:document:list">["items"][number];
+
+interface ProjectViewDocument {
+  id: string;
+  title: string;
+  wordCount: number;
+}
+
+interface ProjectViewCharacter {
+  id: string;
+  name: string;
+  role: string;
+}
+
+interface ProjectViewData {
+  id: string;
+  title: string;
+  type: string;
+  draftNumber: number;
+  createdAt: string;
+  totalWords: number;
+  chapterCount: number;
+  characterCount: number;
+  locationCount: number;
+  documents: ProjectViewDocument[];
+  characters: ProjectViewCharacter[];
+}
+
+type LoadingState = "loading" | "ready" | "error";
+
 interface ProjectViewPageProps {
-  project?: ProjectData;
+  projectId: string;
+  api?: PreloadApi;
   onEditProject?: (projectId: string) => void;
   onOpenSettings?: (projectId: string) => void;
   onOpenDocument?: (documentId: string) => void;
   onAddCharacter?: (projectId: string) => void;
 }
 
+function toProjectViewData(
+  project: ProjectListItem,
+  documents: DocumentListItem[],
+): ProjectViewData {
+  const docs: ProjectViewDocument[] = documents.map((d) => ({
+    id: d.documentId,
+    title: d.title,
+    wordCount: 0,
+  }));
+  const totalWords = 0;
+
+  return {
+    id: project.projectId,
+    title: project.name,
+    type: project.type ?? "novel",
+    draftNumber: 1,
+    createdAt: typeof project.updatedAt === "number"
+      ? new Date(project.updatedAt).toISOString()
+      : String(project.updatedAt),
+    totalWords,
+    chapterCount: docs.length,
+    characterCount: 0,
+    locationCount: 0,
+    documents: docs,
+    characters: [],
+  };
+}
+
 export function ProjectViewPage({
-  project = mockProject,
+  projectId,
+  api: apiProp,
   onEditProject,
   onOpenSettings,
   onOpenDocument,
   onAddCharacter,
 }: ProjectViewPageProps) {
   const { t } = useTranslation();
+  const api = apiProp ?? getPreloadApi();
+  const [state, setState] = useState<LoadingState>("loading");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [project, setProject] = useState<ProjectViewData | null>(null);
+
+  const loadProject = useCallback(async () => {
+    setState("loading");
+    setErrorMsg(null);
+    try {
+      const [listResult, docsResult] = await Promise.all([
+        api.project.list({ includeArchived: false }),
+        api.file.listDocuments({ projectId }),
+      ]);
+
+      if (!listResult.ok) {
+        setErrorMsg(getHumanErrorMessage(listResult.error, t));
+        setState("error");
+        return;
+      }
+      if (!docsResult.ok) {
+        setErrorMsg(getHumanErrorMessage(docsResult.error, t));
+        setState("error");
+        return;
+      }
+
+      const found = listResult.data.items.find((p) => p.projectId === projectId);
+      if (!found) {
+        setErrorMsg(t("errors.notFound"));
+        setState("error");
+        return;
+      }
+
+      setProject(toProjectViewData(found, docsResult.data.items));
+      setState("ready");
+    } catch (err) {
+      setErrorMsg(getHumanErrorMessage(err as Error, t));
+      setState("error");
+    }
+  }, [api, projectId, t]);
+
+  useEffect(() => {
+    void loadProject();
+  }, [loadProject]);
+
+  if (state === "loading") {
+    return (
+      <div className="cn-project-view" data-testid="project-view-loading">
+        <div className="cn-project-view__skeleton cn-project-view__skeleton--header" />
+        <div className="cn-project-view__skeleton cn-project-view__skeleton--stats" />
+        <div className="cn-project-view__skeleton cn-project-view__skeleton--list" />
+      </div>
+    );
+  }
+
+  if (state === "error" || !project) {
+    return (
+      <div className="cn-project-view" data-testid="project-view-error">
+        <p>{errorMsg ?? t("errors.generic")}</p>
+        <Button tone="secondary" onClick={() => { void loadProject(); }}>
+          {t("actions.retry")}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="cn-project-view">

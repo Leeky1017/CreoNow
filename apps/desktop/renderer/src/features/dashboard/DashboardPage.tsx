@@ -129,7 +129,17 @@ export function DashboardPage({
       </div>
 
       {loading ? (
-        <p data-testid="dashboard-loading">{t("dashboard.loading")}</p>
+        <div className="cn-dashboard__list" data-testid="dashboard-loading">
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} className="cn-dashboard__skeleton-card">
+              <div className="cn-dashboard__skeleton cn-dashboard__skeleton--icon" />
+              <div className="cn-dashboard__skeleton-content">
+                <div className="cn-dashboard__skeleton cn-dashboard__skeleton--title" />
+                <div className="cn-dashboard__skeleton cn-dashboard__skeleton--meta" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : filtered.length > 0 ? (
         <div className="cn-dashboard__list" data-testid="dashboard-project-list">
           {filtered.map((project) => (

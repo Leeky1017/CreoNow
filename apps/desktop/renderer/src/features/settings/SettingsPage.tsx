@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type {
@@ -12,12 +12,10 @@ import { Input } from "@/components/primitives/Input";
 import { Select } from "@/components/primitives/Select";
 import { SectionHeader } from "@/components/composites/SectionHeader";
 
-import type { SettingsData } from "./mockData";
-import { mockSettings } from "./mockData";
-
 import "./SettingsPage.css";
 
 type ProviderMode = "openai-compatible" | "openai-byok" | "anthropic-byok";
+type ThemeMode = "light" | "dark" | "system";
 
 type AiConfig = IpcResponseData<"ai:config:get">;
 type AiTestResult = IpcResponseData<"ai:config:test">;
@@ -29,8 +27,42 @@ type AiConfigBridge = {
   update: (patch: AiConfigPatch) => Promise<IpcInvokeResult<"ai:config:update">>;
 };
 
+const LS_THEME_KEY = "creonow:theme";
+const LS_FONT_SIZE_KEY = "creonow:editor-font-size";
+const DEFAULT_FONT_SIZE = "16px";
+
+function readStoredTheme(): ThemeMode {
+  const stored = localStorage.getItem(LS_THEME_KEY);
+  if (stored === "light" || stored === "dark" || stored === "system") {
+    return stored;
+  }
+  return "dark";
+}
+
+function readStoredFontSize(): string {
+  return localStorage.getItem(LS_FONT_SIZE_KEY) ?? DEFAULT_FONT_SIZE;
+}
+
+function resolveEffectiveTheme(mode: ThemeMode): "light" | "dark" {
+  if (mode === "system") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return mode;
+}
+
+function applyThemeToDocument(mode: ThemeMode): void {
+  const effective = resolveEffectiveTheme(mode);
+  const root = document.documentElement;
+  root.classList.remove("light", "dark");
+  root.classList.add(effective);
+  root.setAttribute("data-theme", effective);
+}
+
+function applyFontSizeToDocument(size: string): void {
+  document.documentElement.style.setProperty("--text-editor-size", size);
+}
+
 interface SettingsPageProps {
-  settings?: SettingsData;
   aiBridge?: AiConfigBridge;
 }
 
@@ -115,9 +147,12 @@ function resolveErrorMessage(result: IpcInvokeResult<"ai:config:get"> | IpcInvok
   return result.ok ? "" : `${result.error.code}: ${result.error.message}`;
 }
 
-export function SettingsPage({ settings = mockSettings, aiBridge }: SettingsPageProps) {
+export function SettingsPage({ aiBridge }: SettingsPageProps) {
   const { t } = useTranslation();
   const bridge = useMemo(() => aiBridge ?? createDefaultBridge(), [aiBridge]);
+
+  const [themeMode, setThemeMode] = useState<ThemeMode>(readStoredTheme);
+  const [fontSize, setFontSize] = useState<string>(readStoredFontSize);
 
   const [providerMode, setProviderMode] = useState<ProviderMode>("openai-compatible");
   const [baseUrl, setBaseUrl] = useState("");
@@ -126,6 +161,34 @@ export function SettingsPage({ settings = mockSettings, aiBridge }: SettingsPage
   const [loadingAiConfig, setLoadingAiConfig] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<AiTestResult | null>(null);
+
+  useEffect(() => {
+    applyThemeToDocument(themeMode);
+  }, [themeMode]);
+
+  useEffect(() => {
+    applyFontSizeToDocument(fontSize);
+  }, [fontSize]);
+
+  useEffect(() => {
+    if (themeMode !== "system") {
+      return;
+    }
+    const mql = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => applyThemeToDocument("system");
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, [themeMode]);
+
+  const handleThemeChange = useCallback((next: ThemeMode) => {
+    setThemeMode(next);
+    localStorage.setItem(LS_THEME_KEY, next);
+  }, []);
+
+  const handleFontSizeChange = useCallback((next: string) => {
+    setFontSize(next);
+    localStorage.setItem(LS_FONT_SIZE_KEY, next);
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -220,7 +283,12 @@ export function SettingsPage({ settings = mockSettings, aiBridge }: SettingsPage
           <div className="cn-settings__row">
             <span className="cn-settings__label">{t("settings.general.theme")}</span>
             <div className="cn-settings__value">
-              <Select className="cn-settings__select" defaultValue={settings.theme}>
+              <Select
+                className="cn-settings__select"
+                value={themeMode}
+                onChange={(e) => handleThemeChange(e.target.value as ThemeMode)}
+                data-testid="settings-theme-select"
+              >
                 <option value="light">{t("settings.general.theme.light")}</option>
                 <option value="dark">{t("settings.general.theme.dark")}</option>
                 <option value="system">{t("settings.general.theme.system")}</option>
@@ -230,7 +298,7 @@ export function SettingsPage({ settings = mockSettings, aiBridge }: SettingsPage
           <div className="cn-settings__row">
             <span className="cn-settings__label">{t("settings.general.language")}</span>
             <div className="cn-settings__value">
-              <Select className="cn-settings__select" defaultValue={settings.language}>
+              <Select className="cn-settings__select" defaultValue="zh">
                 <option value="zh">{t("settings.general.language.zh")}</option>
                 <option value="en">{t("settings.general.language.en")}</option>
               </Select>
@@ -239,7 +307,12 @@ export function SettingsPage({ settings = mockSettings, aiBridge }: SettingsPage
           <div className="cn-settings__row">
             <span className="cn-settings__label">{t("settings.general.fontSize")}</span>
             <div className="cn-settings__value">
-              <Select className="cn-settings__select" defaultValue={settings.fontSize}>
+              <Select
+                className="cn-settings__select"
+                value={fontSize}
+                onChange={(e) => handleFontSizeChange(e.target.value)}
+                data-testid="settings-font-size-select"
+              >
                 <option value="14px">14px</option>
                 <option value="15px">15px</option>
                 <option value="16px">16px</option>
@@ -333,11 +406,15 @@ export function SettingsPage({ settings = mockSettings, aiBridge }: SettingsPage
         <div className="cn-settings__group">
           <div className="cn-settings__row">
             <span className="cn-settings__label">{t("settings.about.version")}</span>
-            <span className="cn-settings__static">{settings.version}</span>
+            <span className="cn-settings__static">CreoNow v0.1.0</span>
           </div>
           <div className="cn-settings__row">
             <span className="cn-settings__label">{t("settings.about.license")}</span>
-            <span className="cn-settings__static">{settings.license}</span>
+            <span className="cn-settings__static">MIT</span>
+          </div>
+          <div className="cn-settings__row">
+            <span className="cn-settings__label">{t("settings.about.description")}</span>
+            <span className="cn-settings__static">{t("settings.about.descriptionText")}</span>
           </div>
         </div>
       </section>

@@ -156,9 +156,6 @@ function WorkbenchShell() {
   const activeContextTokenRef = useRef<WorkbenchContextToken | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
 
-  const autosave = useAutosaveController({ api, activeContextTokenRef });
-  const layout = usePanelLayout();
-
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>("loading");
   const [project, setProject] = useState<ProjectListItem | null>(null);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
@@ -169,23 +166,8 @@ function WorkbenchShell() {
   const [versionPreviewState, setVersionPreviewState] = useState<VersionPreviewState | null>(null);
   const [restoreDialogSnapshot, setRestoreDialogSnapshot] = useState<VersionHistorySnapshotDetail | null>(null);
 
-  const clearAcceptSaveFailureWithPreview = useCallback(() => {
-    const hasAcceptFailure = autosave.acceptSaveRetryControllerRef.current.saveState === "error"
-      || autosave.saveErrorSourceRef.current === "accept"
-      || autosave.errorMessageSourceRef.current === "accept";
-    if (hasAcceptFailure === false) {
-      return;
-    }
-
-    autosave.clearAcceptSaveRetryController();
-    setPreview(null);
-    if (autosave.saveErrorSourceRef.current === "accept") {
-      autosave.setSaveUiState("idle");
-    }
-    if (autosave.errorMessageSourceRef.current === "accept") {
-      autosave.setWorkbenchError(null, null);
-    }
-  }, [autosave.acceptSaveRetryControllerRef, autosave.clearAcceptSaveRetryController, autosave.errorMessageSourceRef, autosave.saveErrorSourceRef, autosave.setSaveUiState, autosave.setWorkbenchError]);
+  const autosave = useAutosaveController({ api, activeContextTokenRef, userEditRevisionRef });
+  const layout = usePanelLayout();
 
   useEffect(() => {
     bootstrapStatusRef.current = bootstrapStatus;
@@ -275,7 +257,7 @@ function WorkbenchShell() {
     autosave.pendingAutosaveDraftRef.current = null;
     autosave.clearSavedStateDecayTimer();
     autosave.clearAutosaveController();
-    clearAcceptSaveFailureWithPreview();
+    autosave.clearAcceptSaveFailure();
     editorContextRevisionRef.current += 1;
     activeContextTokenRef.current = {
       documentId: nextContext.documentId,
@@ -293,8 +275,8 @@ function WorkbenchShell() {
     autosave.pendingAutosaveDraftRef,
     autosave.clearSavedStateDecayTimer,
     autosave.clearAutosaveController,
+    autosave.clearAcceptSaveFailure,
     autosave.runWithoutAutosave,
-    clearAcceptSaveFailureWithPreview,
     editorBridge,
   ]);
 

@@ -208,3 +208,31 @@
   padding: 0 var(--space-3);
   font-size: var(--text-body-size);
 }
+
+/* ── Loading Skeletons ─────────────────────── */
+
+@keyframes cn-skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.cn-project-view__skeleton {
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  animation: cn-skeleton-pulse 1.5s var(--ease-default) infinite;
+}
+
+.cn-project-view__skeleton--header {
+  height: 48px;
+  width: 50%;
+}
+
+.cn-project-view__skeleton--stats {
+  height: 32px;
+  width: 80%;
+}
+
+.cn-project-view__skeleton--list {
+  height: 180px;
+  width: 100%;
+}

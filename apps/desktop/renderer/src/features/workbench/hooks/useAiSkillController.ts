@@ -89,7 +89,7 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     setPreview(null);
     autosave.clearAcceptSaveFailure();
     autosave.setWorkbenchError(null, null);
-  }, [autosave, setPreview]);
+  }, [autosave.clearAcceptSaveFailure, autosave.setWorkbenchError, setPreview]);
 
   const resetAiConversation = useCallback(() => {
     setInstruction("");
@@ -97,7 +97,7 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     autosave.clearAcceptSaveFailure();
     autosave.setWorkbenchError(null, null);
     setStickySelection(null);
-  }, [autosave, setPreview, setStickySelection]);
+  }, [autosave.clearAcceptSaveFailure, autosave.setWorkbenchError, setPreview, setStickySelection]);
 
   const runAcceptPreview = useCallback(async (acceptingPreview: AiPreview) => {
     if (autosave.isCurrentContextToken(acceptingPreview.context) === false) {

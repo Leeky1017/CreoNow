@@ -40,6 +40,7 @@ function isSameContextToken(left: WorkbenchContextToken | null, right: Workbench
 export interface AutosaveControllerDeps {
   api: PreloadApi;
   activeContextTokenRef: MutableRef<WorkbenchContextToken | null>;
+  userEditRevisionRef: MutableRef<number>;
 }
 
 export interface AutosaveController {
@@ -65,6 +66,7 @@ export interface AutosaveController {
   retryLastAutosave: () => void;
   runWithoutAutosave: <TResult>(operation: () => TResult) => TResult;
   saveState: SaveState;
+  scheduleAutosave: (content: unknown) => void;
   setLastSavedAt: React.Dispatch<React.SetStateAction<number | null>>;
   setSaveUiState: (nextState: SaveState, source?: "autosave" | "accept" | null) => void;
   setWorkbenchError: (message: string | null, source: "accept" | "autosave" | "general" | null) => void;
@@ -83,7 +85,7 @@ export interface AutosaveController {
 export const AUTOSAVE_DELAY = AUTOSAVE_DELAY_MS;
 
 export function useAutosaveController(deps: AutosaveControllerDeps): AutosaveController {
-  const { api, activeContextTokenRef } = deps;
+  const { api, activeContextTokenRef, userEditRevisionRef } = deps;
   const { t } = useTranslation();
 
   const autosaveTimerRef = useRef<number | null>(null);
@@ -324,6 +326,33 @@ export function useAutosaveController(deps: AutosaveControllerDeps): AutosaveCon
     }
   }, [clearPendingAutosaveTimer, flushPendingAutosaveDraft, isCurrentContextToken]);
 
+  const scheduleAutosave = useCallback((content: unknown) => {
+    const currentContext = activeContextTokenRef.current;
+    if (autosaveSuppressionDepthRef.current > 0 || currentContext === null) {
+      return;
+    }
+
+    clearPendingAutosaveTimer();
+    userEditRevisionRef.current += 1;
+
+    clearAcceptSaveFailure();
+    setSaveUiState("idle");
+    const nextDraft = {
+      contentJson: JSON.stringify(content),
+      context: currentContext,
+      request: reserveSaveRequest(),
+    } satisfies PendingAutosaveDraft;
+    autosaveControllerRef.current = { draft: nextDraft, saveState: "idle" };
+    pendingAutosaveDraftRef.current = nextDraft;
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
+      if (pendingAutosaveDraftRef.current !== nextDraft) {
+        return;
+      }
+      void flushPendingAutosaveDraft(nextDraft);
+    }, AUTOSAVE_DELAY_MS);
+  }, [activeContextTokenRef, clearAcceptSaveFailure, clearPendingAutosaveTimer, flushPendingAutosaveDraft, reserveSaveRequest, setSaveUiState, userEditRevisionRef]);
+
   return {
     acceptSaveRetryControllerRef,
     armSavedStateDecayTimer,
@@ -354,6 +383,7 @@ export function useAutosaveController(deps: AutosaveControllerDeps): AutosaveCon
     runWithoutAutosave,
     saveErrorSourceRef,
     saveState,
+    scheduleAutosave,
     setErrorMessage,
     setLastSavedAt,
     setSaveUiState,
