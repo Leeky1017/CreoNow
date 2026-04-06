@@ -120,7 +120,13 @@ const FALLBACK_BASELINE_PATH = path.join(
 const GATE_NAME = "SPEC_TEST_MAP";
 const DERIVED_COVERAGE_THRESHOLD = 0.6;
 
-const SCENARIO_ID_RE = /###\s+Scenario\s+(S-[A-Z]+(?:-[A-Z]+)*-\d+)/g;
+const LEGACY_SCENARIO_ID_FRAGMENT = String.raw`S-[A-Z]+(?:-[A-Z]+)*-\d+`;
+const PREFIXED_SCENARIO_ID_FRAGMENT = String.raw`(?:BE|FE|AUD|IPC)-[A-Z0-9]+(?:-[A-Z0-9]+)*-S\d+`;
+const EXPLICIT_SCENARIO_ID_FRAGMENT = String.raw`(?:${LEGACY_SCENARIO_ID_FRAGMENT}|${PREFIXED_SCENARIO_ID_FRAGMENT})`;
+const SCENARIO_ID_RE = new RegExp(
+  String.raw`###\s+Scenario\s+(${EXPLICIT_SCENARIO_ID_FRAGMENT})(?=$|[\s:：])`,
+  "g",
+);
 const SCENARIO_TITLE_RE = /####\s+Scenario:\s+(.+)/;
 const PREFIXED_ID_RE = /^((?:BE|FE|AUD|IPC|P\d+)[-\w]*\s*)/;
 
@@ -725,6 +731,17 @@ function collectTestTitles(
   return titles;
 }
 
+function escapeRegExp(raw: string): string {
+  return raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasScenarioIdToken(title: string, scenarioId: string): boolean {
+  const pattern = new RegExp(
+    `(^|[^A-Za-z0-9-])${escapeRegExp(scenarioId)}(?=$|[^A-Za-z0-9-])`,
+  );
+  return pattern.test(title);
+}
+
 export function findTestMappings(
   scenarios: ScenarioEntry[],
   rootDir: string = ".",
@@ -764,7 +781,9 @@ export function findTestMappings(
       const relPath = path.relative(rootDir, filePath);
       const testTitles = testTitlesByFile.get(filePath) ?? [];
 
-      const exactTitle = testTitles.find((entry) => entry.title.includes(scenario.id));
+      const exactTitle = testTitles.find((entry) =>
+        hasScenarioIdToken(entry.title, scenario.id)
+      );
       if (exactTitle) {
         exactMatchedFiles.push(relPath);
         evidences.push({

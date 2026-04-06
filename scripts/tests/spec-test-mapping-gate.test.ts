@@ -31,6 +31,31 @@ function setupRoot(prefix: string): string {
   assert.equal(scenarios[1].mappingMode, "derived");
 }
 
+// parsing supports prefixed explicit Scenario IDs in ### headings
+{
+  const root = setupRoot("stm-parse-prefixed-explicit-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `### Scenario BE-SLA-S2: IPC timeout 通过 AbortSignal 中止底层执行
+### Scenario FE-SETTINGS-S1: 设置面板默认渲染
+### Scenario AUD-C1-S4 并发 switchProject 串行执行无交错
+### Scenario IPC-RETRY-S3: 重试预算受限
+### Scenario FEATURE-123: 不是合法显式 ID`,
+  );
+
+  const scenarios = extractScenarios(root);
+  assert.deepEqual(
+    scenarios.map((scenario) => scenario.id),
+    ["BE-SLA-S2", "FE-SETTINGS-S1", "AUD-C1-S4", "IPC-RETRY-S3"],
+  );
+  assert.equal(
+    scenarios.every((scenario) => scenario.mappingMode === "explicit"),
+    true,
+  );
+}
+
 // mapping should only trust test title evidence (comment no longer counts)
 {
   const root = setupRoot("stm-map-title-");
@@ -50,6 +75,31 @@ function setupRoot(prefix: string): string {
   assert.equal(mappings[0].mapped, true);
   assert.equal(mappings[0].evidences.length, 1);
   assert.equal(mappings[0].evidences[0].kind, "exact-title");
+}
+
+// exact title matching must avoid explicit scenario prefix collision
+{
+  const root = setupRoot("stm-map-prefix-collision-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `### Scenario S-ZEN-01: 禅模式可编辑
+### Scenario S-ZEN-010: 禅模式快捷切换`,
+  );
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `it('S-ZEN-010 should toggle quickly', () => {});`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  const mappingById = new Map(mappings.map((mapping) => [mapping.scenario.id, mapping]));
+  assert.equal(mappingById.get("S-ZEN-01")?.mapped, false);
+  assert.equal(mappingById.get("S-ZEN-010")?.mapped, true);
 }
 
 // mapping must ignore commented-out test titles
