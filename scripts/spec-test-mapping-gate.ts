@@ -13,7 +13,9 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { execSync } from "node:child_process";
 import path from "node:path";
+import ts from "typescript";
 
 export type Tier2Dimension =
   | "negation"
@@ -63,6 +65,8 @@ export type SpecTestMappingBaseline = {
 
 export type SpecTestMappingResult = {
   ok: boolean;
+  scopeMode: "all" | "changed";
+  scopeSpecFiles: string[];
   mappings: MappingResult[];
   unmapped: MappingResult[];
   total: number;
@@ -107,8 +111,6 @@ const DERIVED_COVERAGE_THRESHOLD = 0.6;
 const SCENARIO_ID_RE = /###\s+Scenario\s+(S-[A-Z]+(?:-[A-Z]+)*-\d+)/g;
 const SCENARIO_TITLE_RE = /####\s+Scenario:\s+(.+)/;
 const PREFIXED_ID_RE = /^((?:BE|FE|AUD|IPC|P\d+)[-\w]*\s*)/;
-const TEST_TITLE_RE =
-  /\b(describe|it|test)\s*((?:\.\w+)*)\s*\(\s*("([^"\\]|\\.)*"|'([^'\\]|\\.)*'|`([^`\\]|\\.)*`)/g;
 
 const DIMENSION_RULES: Array<{
   dimension: Tier2Dimension;
@@ -261,16 +263,6 @@ function extractKeywords(title: string): string[] {
   return tokens;
 }
 
-function offsetToLine(source: string, offset: number): number {
-  let line = 1;
-  for (let index = 0; index < offset && index < source.length; index += 1) {
-    if (source[index] === "\n") {
-      line += 1;
-    }
-  }
-  return line;
-}
-
 function isExecutableTestTitle(
   callee: string,
   modifiers: string,
@@ -299,27 +291,104 @@ function isExecutableTestTitle(
   return true;
 }
 
-function collectTestTitles(content: string): Array<{ title: string; line: number }> {
+function scriptKindFromPath(filePath: string): ts.ScriptKind {
+  if (filePath.endsWith(".tsx")) return ts.ScriptKind.TSX;
+  if (filePath.endsWith(".ts")) return ts.ScriptKind.TS;
+  if (filePath.endsWith(".jsx")) return ts.ScriptKind.JSX;
+  return ts.ScriptKind.JS;
+}
+
+function parseTestCallee(
+  expr: ts.LeftHandSideExpression | ts.Expression,
+): { callee: string; modifiers: string[] } | null {
+  if (ts.isIdentifier(expr)) {
+    if (expr.text === "describe" || expr.text === "it" || expr.text === "test") {
+      return { callee: expr.text, modifiers: [] };
+    }
+    return null;
+  }
+  if (ts.isPropertyAccessExpression(expr)) {
+    const base = parseTestCallee(expr.expression);
+    if (!base) return null;
+    return {
+      callee: base.callee,
+      modifiers: [...base.modifiers, expr.name.text],
+    };
+  }
+  if (ts.isCallExpression(expr)) {
+    return parseTestCallee(expr.expression);
+  }
+  return null;
+}
+
+function extractLiteralTitle(arg: ts.Expression | undefined): string | null {
+  if (!arg) return null;
+  if (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) {
+    return arg.text;
+  }
+  return null;
+}
+
+function collectTestTitles(
+  content: string,
+  filePath: string,
+): Array<{ title: string; line: number }> {
   const titles: Array<{ title: string; line: number }> = [];
-  let match: RegExpExecArray | null;
-  TEST_TITLE_RE.lastIndex = 0;
-  while ((match = TEST_TITLE_RE.exec(content)) !== null) {
-    const callee = match[1];
-    const modifiers = match[2] ?? "";
-    const rawLiteral = match[3];
-    const quote = rawLiteral[0];
-    const title = rawLiteral.slice(1, -1);
-    if (quote === "`" && title.includes("${")) {
-      continue;
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKindFromPath(filePath),
+  );
+
+  const visit = (node: ts.Node): void => {
+    if (!ts.isCallExpression(node)) {
+      ts.forEachChild(node, visit);
+      return;
     }
-    if (!isExecutableTestTitle(callee, modifiers, title)) {
-      continue;
+
+    const calleeMeta = parseTestCallee(node.expression);
+    if (!calleeMeta) {
+      ts.forEachChild(node, visit);
+      return;
     }
+
+    const title = extractLiteralTitle(node.arguments[0]);
+    if (title === null) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+
+    if (
+      ts.isNoSubstitutionTemplateLiteral(node.arguments[0]) &&
+      node.arguments[0].text.includes("${")
+    ) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+
+    if (
+      !isExecutableTestTitle(
+        calleeMeta.callee,
+        calleeMeta.modifiers.map((token) => `.${token}`).join(""),
+        title,
+      )
+    ) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+
+    const titleArg = node.arguments[0];
+    const line = sourceFile.getLineAndCharacterOfPosition(titleArg.getStart(sourceFile)).line + 1;
     titles.push({
       title,
-      line: offsetToLine(content, match.index),
+      line,
     });
-  }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
   return titles;
 }
 
@@ -353,7 +422,7 @@ export function findTestMappings(
 
     for (const [filePath, content] of testFileContents) {
       const relPath = path.relative(rootDir, filePath);
-      const testTitles = collectTestTitles(content);
+      const testTitles = collectTestTitles(content, filePath);
 
       const exactTitle = testTitles.find((entry) => entry.title.includes(scenario.id));
       if (exactTitle) {
@@ -468,8 +537,48 @@ export function writeBaseline(
   writeFileSync(baselinePath, JSON.stringify(data, null, 2) + "\n");
 }
 
+function resolveScopeSpecFiles(rootDir: string): string[] | null {
+  const forceAll = process.argv.includes("--all") || process.env.SPEC_TEST_MAP_SCOPE === "all";
+  if (forceAll) {
+    return null;
+  }
+
+  const gitDir = path.join(rootDir, ".git");
+  if (!existsSync(gitDir)) {
+    return null;
+  }
+
+  const diffTargets = ["origin/main...HEAD", "HEAD~1...HEAD"];
+  for (const target of diffTargets) {
+    try {
+      const raw = execSync(`git --no-pager diff --name-only --diff-filter=ACMRTUXB ${target}`, {
+        cwd: rootDir,
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      if (raw.length === 0) {
+        continue;
+      }
+      return raw
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.endsWith("spec.md") || line.endsWith(".spec.md"))
+        .sort();
+    } catch {
+      continue;
+    }
+  }
+  return [];
+}
+
 export function runGate(rootDir: string = "."): SpecTestMappingResult {
-  const scenarios = extractScenarios(rootDir);
+  const scopeSpecFiles = resolveScopeSpecFiles(rootDir);
+  const scopeMode: "all" | "changed" = scopeSpecFiles === null ? "all" : "changed";
+  const scopedSpecFiles = scopeSpecFiles ?? [];
+  const scenarios = extractScenarios(rootDir).filter((scenario) => {
+    if (scopeMode === "all") return true;
+    return scopedSpecFiles.includes(scenario.specFile);
+  });
   const mappings = findTestMappings(scenarios, rootDir);
 
   const explicitMappings = mappings.filter(
@@ -506,6 +615,8 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
       !derivedUnmappedOverLimit &&
       !dilutedDerivedBaseline &&
       derivedCoverage >= DERIVED_COVERAGE_THRESHOLD,
+    scopeMode,
+    scopeSpecFiles: scopedSpecFiles,
     mappings,
     unmapped,
     total: scenarios.length,
@@ -553,6 +664,15 @@ if (
       `[${GATE_NAME}] Baseline updated: explicit unmapped ${result.explicitUnmapped.length}, derived unmapped ${result.derivedUnmapped.length}`,
     );
     process.exit(0);
+  }
+
+  if (result.scopeMode === "changed") {
+    console.log(`[${GATE_NAME}] scope: changed spec files (${result.scopeSpecFiles.length})`);
+    for (const specFile of result.scopeSpecFiles) {
+      console.log(`  - ${specFile}`);
+    }
+  } else {
+    console.log(`[${GATE_NAME}] scope: all spec files`);
   }
 
   console.log(

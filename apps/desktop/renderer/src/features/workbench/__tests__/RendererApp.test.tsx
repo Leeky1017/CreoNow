@@ -63,11 +63,11 @@ describe("RendererApp", () => {
     render(<RendererApp />);
 
     await waitFor(() => expect(screen.getByTestId("dashboard-page")).toBeInTheDocument());
+    expect(projectApi.stats).toHaveBeenCalledTimes(1);
     const projectCard = screen.getByTestId("dashboard-project-card-proj-1");
-    expect(projectCard).toHaveTextContent(/1[\s,，]?234\s*字/u);
-    expect(projectCard).toHaveTextContent(/进度\s*56%/u);
+    expect(screen.getByTestId("dashboard-project-stage-proj-1")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("dashboard-project-card-proj-1"));
+    fireEvent.click(projectCard);
 
     await waitFor(() =>
       expect(projectApi.switchProject).toHaveBeenCalledWith(

@@ -22,6 +22,7 @@
 | `cross-module-contract-autofix.ts`   | cross-module 失败分类与安全自动修复（开发分支）                          | 开发分支手动触发   |
 | `resource-size-gate.ts`              | 资源文件大小门禁（baseline ratchet）                                     | CI / preflight     |
 | `bundle-size-budget.ts`              | 构建产物体积预算门禁                                                     | CI / preflight     |
+| `storybook-chunk-budget.ts`          | Storybook chunk 体积预算（500KiB 报警；可选 `STORYBOOK_CHUNK_HARD_CAP_BYTES` 阻断） | CI / preflight     |
 | `ipc-handler-validation-gate.ts`     | IPC handler schema 校验覆盖门禁                                          | CI / preflight     |
 | `service-stub-detector-gate.ts`      | Service 桩方法检测门禁                                                   | CI / preflight     |
 | `error-boundary-coverage-gate.ts`    | ErrorBoundary 覆盖门禁                                                   | CI / preflight     |

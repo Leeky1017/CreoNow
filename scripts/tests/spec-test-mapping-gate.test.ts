@@ -52,6 +52,27 @@ function setupRoot(prefix: string): string {
   assert.equal(mappings[0].evidences[0].kind, "exact-title");
 }
 
+// mapping must ignore commented-out test titles
+{
+  const root = setupRoot("stm-map-commented-test-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-COMMENT-01: 仅注释不应命中`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "CommentedOnly.test.ts"),
+    `// it('S-COMMENT-01 commented out', () => {});
+/* test('S-COMMENT-01 in block comment', () => {}); */`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, false);
+  assert.equal(mappings[0].evidences.length, 0);
+}
+
 // derived scenarios rely on semantic title hit
 {
   const root = setupRoot("stm-map-derived-");

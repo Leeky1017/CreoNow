@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import BetterSqlite3 from "better-sqlite3";
 import type Database from "better-sqlite3";
 
 import type { Logger } from "../../../logging/logger";
@@ -174,13 +175,7 @@ function createMockDb(overrides?: {
       if (sql.includes("FROM projects") && sql.includes("ORDER BY updated_at DESC")) {
         return {
           ...handler,
-          all: () => {
-            const includeArchived = !sql.includes("WHERE archived_at IS NULL");
-            if (includeArchived) {
-              return listRows;
-            }
-            return listRows.filter((row) => row.archivedAt == null);
-          },
+          all: () => listRows,
         };
       }
 
@@ -248,6 +243,58 @@ function makeService(dbOverrides?: Parameters<typeof createMockDb>[0]) {
   });
 
   return { svc, db, logger, removeProjectRoot, switchKg, switchMem };
+}
+
+function makeServiceWithSqliteProjects(rows: Record<string, unknown>[]) {
+  const db = new BetterSqlite3(":memory:");
+  db.exec(`
+    CREATE TABLE projects (
+      project_id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      root_path TEXT NOT NULL,
+      type TEXT,
+      description TEXT,
+      stage TEXT,
+      target_word_count INTEGER,
+      target_chapter_count INTEGER,
+      narrative_person TEXT,
+      language_style TEXT,
+      target_audience TEXT,
+      default_skill_set_id TEXT,
+      knowledge_graph_id TEXT,
+      updated_at INTEGER NOT NULL,
+      archived_at INTEGER
+    );
+  `);
+
+  const insertStmt = db.prepare(
+    `INSERT INTO projects (
+      project_id, name, root_path, type, description, stage,
+      target_word_count, target_chapter_count, narrative_person, language_style, target_audience,
+      default_skill_set_id, knowledge_graph_id, updated_at, archived_at
+    ) VALUES (
+      @projectId, @name, @rootPath, @type, @description, @stage,
+      @targetWordCount, @targetChapterCount, @narrativePerson, @languageStyle, @targetAudience,
+      @defaultSkillSetId, @knowledgeGraphId, @updatedAt, @archivedAt
+    )`,
+  );
+  for (const row of rows) {
+    insertStmt.run(row as Record<string, unknown>);
+  }
+
+  const logger = createLogger();
+  const removeProjectRoot = vi.fn();
+  const switchKg = vi.fn();
+  const switchMem = vi.fn();
+  const svc = createProjectService({
+    db: db as unknown as Database.Database,
+    userDataDir: "/userData",
+    logger,
+    removeProjectRoot,
+    switchKnowledgeGraphContext: switchKg,
+    switchMemoryContext: switchMem,
+  });
+  return { svc, db };
 }
 
 // ── tests ──────────────────────────────────────────────────────────
@@ -493,25 +540,28 @@ describe("ProjectService", () => {
         makeProjectRow(),
         makeProjectRow({ projectId: "proj-2", archivedAt: 999 }),
       ];
-      const { svc } = makeService({ listRows: rows });
+      const { svc, db } = makeServiceWithSqliteProjects(rows);
+      try {
+        const activeOnlyResult = svc.list();
+        expect(activeOnlyResult.ok).toBe(true);
+        if (!activeOnlyResult.ok) return;
+        expect(activeOnlyResult.data.items).toHaveLength(1);
+        expect(activeOnlyResult.data.items[0].projectId).toBe("proj-1");
+        expect(activeOnlyResult.data.items[0]).not.toHaveProperty("archivedAt");
 
-      const activeOnlyResult = svc.list();
-      expect(activeOnlyResult.ok).toBe(true);
-      if (!activeOnlyResult.ok) return;
-      expect(activeOnlyResult.data.items).toHaveLength(1);
-      expect(activeOnlyResult.data.items[0].projectId).toBe("proj-1");
-      expect(activeOnlyResult.data.items[0]).not.toHaveProperty("archivedAt");
+        const includeArchivedResult = svc.list({ includeArchived: true });
+        expect(includeArchivedResult.ok).toBe(true);
+        if (!includeArchivedResult.ok) return;
+        expect(includeArchivedResult.data.items).toHaveLength(2);
+        expect(includeArchivedResult.data.items.map((item) => item.projectId)).toEqual(
+          expect.arrayContaining(["proj-1", "proj-2"]),
+        );
 
-      const includeArchivedResult = svc.list({ includeArchived: true });
-      expect(includeArchivedResult.ok).toBe(true);
-      if (!includeArchivedResult.ok) return;
-      expect(includeArchivedResult.data.items).toHaveLength(2);
-      expect(includeArchivedResult.data.items.map((item) => item.projectId)).toEqual(
-        expect.arrayContaining(["proj-1", "proj-2"]),
-      );
-
-      const archivedItem = includeArchivedResult.data.items.find((item) => item.projectId === "proj-2");
-      expect(archivedItem).toEqual(expect.objectContaining({ archivedAt: 999 }));
+        const archivedItem = includeArchivedResult.data.items.find((item) => item.projectId === "proj-2");
+        expect(archivedItem).toEqual(expect.objectContaining({ archivedAt: 999 }));
+      } finally {
+        db.close();
+      }
     });
 
     it("空列表返回空数组", () => {

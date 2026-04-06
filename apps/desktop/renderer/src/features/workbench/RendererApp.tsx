@@ -27,12 +27,12 @@ function toDashboardProject(item: ProjectListItem): DashboardProject {
   };
 }
 
-function toStatsMap(items: ProjectStatsItem[]): Map<string, ProjectStatsItem> {
+export function toStatsMap(items: ProjectStatsItem[]): Map<string, ProjectStatsItem> {
   return new Map(items.map((item) => [item.projectId, item]));
 }
 
 
-function readPerProjectStats(data: unknown): ProjectStatsItem[] {
+export function readPerProjectStats(data: unknown): ProjectStatsItem[] {
   if (!data || typeof data !== "object" || !("perProject" in data)) {
     return [];
   }
@@ -48,6 +48,21 @@ function readPerProjectStats(data: unknown): ProjectStatsItem[] {
       && typeof item === "object"
       && typeof (item as { projectId?: unknown }).projectId === "string"
     );
+  });
+}
+
+export function mergeDashboardProjects(
+  items: ProjectListItem[],
+  statsItems: ProjectStatsItem[],
+): DashboardProject[] {
+  const statsByProjectId = toStatsMap(statsItems);
+  return items.map((item) => {
+    const stats = statsByProjectId.get(item.projectId);
+    return {
+      ...toDashboardProject(item),
+      wordCount: stats?.wordCount,
+      progressPercent: stats?.progressPercent,
+    };
   });
 }
 
@@ -77,17 +92,7 @@ export function RendererApp() {
       return;
     }
 
-    const statsByProjectId = toStatsMap(readPerProjectStats(statsResult.data));
-    setProjects(
-      listResult.data.items.map((item) => {
-        const stats = statsByProjectId.get(item.projectId);
-        return {
-          ...toDashboardProject(item),
-          wordCount: stats?.wordCount,
-          progressPercent: stats?.progressPercent,
-        };
-      }),
-    );
+    setProjects(mergeDashboardProjects(listResult.data.items, readPerProjectStats(statsResult.data)));
     setDashboardLoading(false);
   }, [api.project, t]);
 

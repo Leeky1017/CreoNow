@@ -12,6 +12,8 @@
     "typecheck": "pnpm -C apps/desktop typecheck && tsc --noEmit -p tsconfig.json",
     "test:unit": "pnpm desktop:ensure-native-node-abi && node --import tsx scripts/run-discovered-tests.ts --mode unit",
     "test:integration": "node --import tsx scripts/run-discovered-tests.ts --mode integration",
+    "gate:spec-test-mapping": "node --import tsx scripts/spec-test-mapping-gate.ts",
+    "gate:storybook-budget": "node --import tsx scripts/storybook-chunk-budget.ts",
     "test": "pnpm test:unit && pnpm test:integration"
   },
   "devDependencies": {

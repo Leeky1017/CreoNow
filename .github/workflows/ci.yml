@@ -27,6 +27,9 @@ jobs:
       - name: IPC contract check
         run: pnpm contract:check
 
+      - name: Spec-test mapping gate
+        run: pnpm gate:spec-test-mapping
+
       - name: Stub gate
         run: node --import tsx scripts/service-stub-detector-gate.ts
 
@@ -60,6 +63,9 @@ jobs:
 
       - name: Desktop Storybook build
         run: pnpm -C apps/desktop storybook:build
+
+      - name: Storybook chunk budget gate
+        run: pnpm gate:storybook-budget
 
       - name: Upload desktop Storybook artifact
         uses: actions/upload-artifact@v4
