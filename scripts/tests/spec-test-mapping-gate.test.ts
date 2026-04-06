@@ -31,15 +31,15 @@ function setupRoot(prefix: string): string {
   assert.equal(scenarios[1].mappingMode, "derived");
 }
 
-// parsing supports prefixed explicit Scenario IDs in ### headings
+// parsing supports prefixed explicit Scenario IDs in ### headings, with and without colon
 {
   const root = setupRoot("stm-parse-prefixed-explicit-");
   const specDir = path.join(root, "openspec", "specs", "editor");
   mkdirSync(specDir, { recursive: true });
   writeFileSync(
     path.join(specDir, "spec.md"),
-    `### Scenario BE-SLA-S1: IPC timeout 通过 AbortSignal 中止底层执行
-### Scenario AUD-C1-S6 并发 switchProject 串行执行无交错
+    `### Scenario: BE-SLA-S2 IPC timeout 通过 AbortSignal 中止底层执行
+### Scenario: AUD-C1-S4 并发 switchProject 串行执行无交错
 ### Scenario IPC-RETRY-S3: 重试预算受限`,
   );
 
@@ -47,8 +47,8 @@ function setupRoot(prefix: string): string {
   assert.deepEqual(
     scenarios.map((scenario) => [scenario.id, scenario.mappingMode]),
     [
-      ["BE-SLA-S1", "explicit"],
-      ["AUD-C1-S6", "explicit"],
+      ["BE-SLA-S2", "explicit"],
+      ["AUD-C1-S4", "explicit"],
       ["IPC-RETRY-S3", "explicit"],
     ],
   );
