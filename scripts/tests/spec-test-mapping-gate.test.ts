@@ -192,6 +192,78 @@ it('S-ZEN-01 executable callback identifier', runnable);`,
   assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 executable callback identifier");
 }
 
+// mapping accepts alias callback identifiers
+{
+  const root = setupRoot("stm-map-callback-alias-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `const runnable = () => {};
+const alias = runnable;
+it('S-ZEN-01 alias callback identifier', alias);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, true);
+  assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 alias callback identifier");
+}
+
+// mapping accepts imported callback identifiers
+{
+  const root = setupRoot("stm-map-imported-callback-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "helpers.ts"),
+    `export const importedRunnable = () => {};`,
+  );
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `import { importedRunnable } from './helpers';
+it('S-ZEN-01 imported callback identifier', importedRunnable);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, true);
+  assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 imported callback identifier");
+}
+
+// mapping rejects imported non-callable callback identifiers
+{
+  const root = setupRoot("stm-map-imported-non-callable-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "helpers.ts"),
+    `export const importedNonFn = 1 as unknown as () => void;`,
+  );
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `import { importedNonFn } from './helpers';
+it('S-ZEN-01 imported non-callable callback identifier', importedNonFn);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, false);
+  assert.equal(mappings[0].evidences.length, 0);
+}
+
 // mapping rejects identifier/property/element callback bypass when value is non-function
 {
   const root = setupRoot("stm-map-callback-bypass-");
@@ -246,6 +318,101 @@ it('S-ZEN-01 element callback bypass', callbacks[key]);`,
   assert.equal(result.ok, false);
   assert.equal(result.derivedUnmappedOverLimit, true);
   assert.equal(result.derivedCoverage < result.derivedCoverageThreshold, true);
+}
+
+// gate distinguishes no-spec-change fallback from exception fallback
+{
+  const root = setupRoot("stm-gate-fallback-mode-");
+  mkdirSync(path.join(root, ".git"), { recursive: true });
+  const guardsDir = path.join(root, "openspec", "guards");
+  mkdirSync(guardsDir, { recursive: true });
+  writeBaseline(1, 0, root);
+  writeFileSync(
+    path.join(guardsDir, "spec-test-mapping-fallback-baseline.json"),
+    JSON.stringify(
+      {
+        count: 1,
+        explicitUnmappedCount: 1,
+        derivedUnmappedCount: 0,
+        updatedAt: "2026-04-06T00:00:00.000Z",
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const noSpecChangeResult = runGate(root, {
+    gitDiffRunner: () => "scripts/spec-test-mapping-gate.ts\n",
+  });
+  assert.equal(noSpecChangeResult.baselineMode, "no-spec-change-fallback");
+  assert.equal(noSpecChangeResult.usedFallbackBaseline, true);
+  assert.equal(noSpecChangeResult.scopeMode, "all");
+  assert.equal(noSpecChangeResult.derivedCoverageFloor, 0);
+  assert.equal(noSpecChangeResult.derivedQualityRegressed, false);
+  assert.equal(noSpecChangeResult.ok, true);
+
+  const exceptionFallbackResult = runGate(root, {
+    gitDiffRunner: () => {
+      throw new Error("diff explosion");
+    },
+  });
+  assert.equal(exceptionFallbackResult.baselineMode, "exception-fallback");
+  assert.equal(exceptionFallbackResult.usedFallbackBaseline, true);
+  assert.equal(exceptionFallbackResult.derivedCoverageFloor, 0);
+  assert.equal(exceptionFallbackResult.ok, false);
+  assert.match(exceptionFallbackResult.fallbackError ?? "", /diff explosion/);
+}
+
+// no-spec-change baseline mode still blocks derived quality regression
+{
+  const root = setupRoot("stm-gate-no-spec-change-quality-floor-");
+  mkdirSync(path.join(root, ".git"), { recursive: true });
+  const guardsDir = path.join(root, "openspec", "guards");
+  mkdirSync(guardsDir, { recursive: true });
+  writeBaseline(0, 1, root);
+  writeFileSync(
+    path.join(guardsDir, "spec-test-mapping-fallback-baseline.json"),
+    JSON.stringify(
+      {
+        count: 0,
+        explicitUnmappedCount: 0,
+        derivedUnmappedCount: 1,
+        derivedCoverageFloor: 0.75,
+        updatedAt: "2026-04-06T00:00:00.000Z",
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+
+  const specDir = path.join(root, "openspec", "specs", "project-management");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `#### Scenario: Dashboard 搜索过滤
+#### Scenario: Dashboard 批量归档`,
+  );
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "Dashboard.test.tsx"),
+    `it('Dashboard 搜索过滤命中结果', () => {});`,
+  );
+
+  const result = runGate(root, {
+    gitDiffRunner: () => "scripts/spec-test-mapping-gate.ts\n",
+  });
+  assert.equal(result.baselineMode, "no-spec-change-fallback");
+  assert.equal(result.derivedUnmappedOverLimit, false);
+  assert.equal(result.derivedCoverage, 0.5);
+  assert.equal(result.derivedCoverageFloor, 0.75);
+  assert.equal(result.derivedQualityRegressed, true);
+  assert.equal(result.ok, false);
 }
 
 console.log("✅ spec-test-mapping-gate: all tests passed");

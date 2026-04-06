@@ -60,6 +60,7 @@ export type SpecTestMappingBaseline = {
   count: number;
   explicitUnmappedCount?: number;
   derivedUnmappedCount?: number;
+  derivedCoverageFloor?: number;
   updatedAt: string;
 };
 
@@ -68,7 +69,9 @@ export type SpecTestMappingResult = {
   scopeMode: "all" | "changed";
   scopeSpecFiles: string[];
   usedFallbackBaseline: boolean;
+  baselineMode: "primary" | "no-spec-change-fallback" | "exception-fallback";
   baselineFile: string;
+  fallbackError: string | null;
   mappings: MappingResult[];
   unmapped: MappingResult[];
   total: number;
@@ -84,7 +87,9 @@ export type SpecTestMappingResult = {
   derivedBaseline: number;
   derivedCoverage: number;
   derivedCoverageThreshold: number;
+  derivedCoverageFloor: number;
   derivedIgnored: boolean;
+  derivedQualityRegressed: boolean;
   derivedUnmappedOverLimit: boolean;
   dilutedDerivedBaseline: boolean;
   dilutedBaseline: boolean;
@@ -356,52 +361,35 @@ function isExecutableExpression(expression: ts.Expression): boolean {
 }
 
 type CallbackMetadata = {
-  callableIdentifiers: Set<string>;
-  callableObjectProps: Map<string, Set<string>>;
+  analysisSourceFile: ts.SourceFile;
   literalStringConsts: Map<string, string>;
+  typeChecker: ts.TypeChecker | null;
+  symbolResolutionCache: Map<string, boolean>;
 };
 
 function collectCallbackMetadata(sourceFile: ts.SourceFile): CallbackMetadata {
-  const callableIdentifiers = new Set<string>();
-  const callableObjectProps = new Map<string, Set<string>>();
   const literalStringConsts = new Map<string, string>();
-
-  const markCallableProperty = (objectName: string, propertyName: string): void => {
-    const existing = callableObjectProps.get(objectName);
-    if (existing) {
-      existing.add(propertyName);
-      return;
-    }
-    callableObjectProps.set(objectName, new Set([propertyName]));
-  };
+  const program = ts.createProgram([sourceFile.fileName], {
+    allowJs: true,
+    checkJs: true,
+    esModuleInterop: true,
+    jsx: ts.JsxEmit.ReactJSX,
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    noEmit: true,
+    skipLibCheck: true,
+    strict: false,
+    target: ts.ScriptTarget.ES2022,
+  });
+  const resolvedSourceFile = program.getSourceFile(sourceFile.fileName) ?? sourceFile;
+  const typeChecker =
+    resolvedSourceFile.fileName === sourceFile.fileName ? program.getTypeChecker() : null;
 
   const visit = (node: ts.Node): void => {
-    if (ts.isFunctionDeclaration(node) && node.name) {
-      callableIdentifiers.add(node.name.text);
-    } else if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
       const variableName = node.name.text;
       const normalizedInit = unwrapExpression(node.initializer);
-      if (isExecutableExpression(normalizedInit)) {
-        callableIdentifiers.add(variableName);
-      } else if (ts.isObjectLiteralExpression(normalizedInit)) {
-        for (const prop of normalizedInit.properties) {
-          if (ts.isPropertyAssignment(prop)) {
-            const propertyName = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)
-              ? prop.name.text
-              : null;
-            if (propertyName && isExecutableExpression(prop.initializer)) {
-              markCallableProperty(variableName, propertyName);
-            }
-          } else if (ts.isMethodDeclaration(prop)) {
-            const propertyName = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)
-              ? prop.name.text
-              : null;
-            if (propertyName) {
-              markCallableProperty(variableName, propertyName);
-            }
-          }
-        }
-      } else if (ts.isStringLiteral(normalizedInit) || ts.isNoSubstitutionTemplateLiteral(normalizedInit)) {
+      if (ts.isStringLiteral(normalizedInit) || ts.isNoSubstitutionTemplateLiteral(normalizedInit)) {
         literalStringConsts.set(variableName, normalizedInit.text);
       }
     }
@@ -409,8 +397,13 @@ function collectCallbackMetadata(sourceFile: ts.SourceFile): CallbackMetadata {
     ts.forEachChild(node, visit);
   };
 
-  visit(sourceFile);
-  return { callableIdentifiers, callableObjectProps, literalStringConsts };
+  visit(resolvedSourceFile);
+  return {
+    analysisSourceFile: resolvedSourceFile,
+    literalStringConsts,
+    typeChecker,
+    symbolResolutionCache: new Map<string, boolean>(),
+  };
 }
 
 function resolveElementAccessPropertyName(
@@ -443,28 +436,218 @@ function hasExecutableCallback(
     return true;
   }
   const normalized = unwrapExpression(callback);
+  return isCallableReferenceExpression(normalized, metadata, new Set());
+}
+
+function getSymbolCacheKey(symbol: ts.Symbol): string {
+  const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+  if (!declaration) {
+    return symbol.name;
+  }
+  return `${declaration.getSourceFile().fileName}:${declaration.pos}:${symbol.name}`;
+}
+
+function resolveAliasedSymbol(
+  symbol: ts.Symbol,
+  typeChecker: ts.TypeChecker,
+): ts.Symbol {
+  if ((symbol.flags & ts.SymbolFlags.Alias) === 0) {
+    return symbol;
+  }
+  try {
+    return typeChecker.getAliasedSymbol(symbol);
+  } catch {
+    return symbol;
+  }
+}
+
+function getCallablePropertySymbol(
+  expression: ts.Expression,
+  propertyName: string,
+  metadata: CallbackMetadata,
+): ts.Symbol | null {
+  if (!metadata.typeChecker) {
+    return null;
+  }
+
+  const normalizedExpression = unwrapExpression(expression);
+  if (ts.isIdentifier(normalizedExpression)) {
+    const baseSymbol = metadata.typeChecker.getSymbolAtLocation(normalizedExpression);
+    if (!baseSymbol) {
+      return null;
+    }
+    const resolvedBaseSymbol = resolveAliasedSymbol(baseSymbol, metadata.typeChecker);
+    for (const declaration of resolvedBaseSymbol.getDeclarations() ?? []) {
+      if (!ts.isVariableDeclaration(declaration) || !declaration.initializer) {
+        continue;
+      }
+      const initializer = unwrapExpression(declaration.initializer);
+      if (!ts.isObjectLiteralExpression(initializer)) {
+        continue;
+      }
+      for (const property of initializer.properties) {
+        if (ts.isPropertyAssignment(property)) {
+          const currentPropertyName =
+            ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)
+              ? property.name.text
+              : null;
+          if (currentPropertyName === propertyName) {
+            const propertySymbol = metadata.typeChecker.getSymbolAtLocation(property.name);
+            if (propertySymbol) {
+              return resolveAliasedSymbol(propertySymbol, metadata.typeChecker);
+            }
+          }
+        } else if (ts.isMethodDeclaration(property)) {
+          const currentPropertyName =
+            ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)
+              ? property.name.text
+              : null;
+          if (currentPropertyName === propertyName) {
+            const propertySymbol = metadata.typeChecker.getSymbolAtLocation(property.name);
+            if (propertySymbol) {
+              return resolveAliasedSymbol(propertySymbol, metadata.typeChecker);
+            }
+          }
+        } else if (ts.isShorthandPropertyAssignment(property) && property.name.text === propertyName) {
+          const propertySymbol = metadata.typeChecker.getShorthandAssignmentValueSymbol(property);
+          if (propertySymbol) {
+            return resolveAliasedSymbol(propertySymbol, metadata.typeChecker);
+          }
+        }
+      }
+    }
+  }
+
+  const expressionType = metadata.typeChecker.getTypeAtLocation(normalizedExpression);
+  const propertySymbol = expressionType.getProperty(propertyName);
+  return propertySymbol ? resolveAliasedSymbol(propertySymbol, metadata.typeChecker) : null;
+}
+
+function hasCallableType(
+  symbol: ts.Symbol,
+  metadata: CallbackMetadata,
+): boolean {
+  if (!metadata.typeChecker) {
+    return false;
+  }
+  const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+  if (!declaration) {
+    return false;
+  }
+  const type = metadata.typeChecker.getTypeOfSymbolAtLocation(symbol, declaration);
+  return type.getCallSignatures().length > 0;
+}
+
+function isSymbolCallable(
+  symbol: ts.Symbol,
+  metadata: CallbackMetadata,
+  seenSymbols: Set<string>,
+): boolean {
+  if (!metadata.typeChecker) {
+    return false;
+  }
+
+  const resolvedSymbol = resolveAliasedSymbol(symbol, metadata.typeChecker);
+  const cacheKey = getSymbolCacheKey(resolvedSymbol);
+  const cached = metadata.symbolResolutionCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+  if (seenSymbols.has(cacheKey)) {
+    return false;
+  }
+  seenSymbols.add(cacheKey);
+
+  let hasConcreteValueDeclaration = false;
+
+  for (const declaration of resolvedSymbol.getDeclarations() ?? []) {
+    if (
+      ts.isFunctionDeclaration(declaration)
+      || ts.isMethodDeclaration(declaration)
+      || ts.isArrowFunction(declaration)
+      || ts.isFunctionExpression(declaration)
+    ) {
+      metadata.symbolResolutionCache.set(cacheKey, true);
+      seenSymbols.delete(cacheKey);
+      return true;
+    }
+    if (ts.isVariableDeclaration(declaration)) {
+      hasConcreteValueDeclaration = true;
+      if (!declaration.initializer) {
+        continue;
+      }
+      const result = isCallableReferenceExpression(
+        declaration.initializer,
+        metadata,
+        seenSymbols,
+      );
+      metadata.symbolResolutionCache.set(cacheKey, result);
+      seenSymbols.delete(cacheKey);
+      return result;
+    }
+    if (ts.isPropertyAssignment(declaration)) {
+      hasConcreteValueDeclaration = true;
+      const result = isCallableReferenceExpression(
+        declaration.initializer,
+        metadata,
+        seenSymbols,
+      );
+      metadata.symbolResolutionCache.set(cacheKey, result);
+      seenSymbols.delete(cacheKey);
+      return result;
+    }
+    if (ts.isShorthandPropertyAssignment(declaration)) {
+      hasConcreteValueDeclaration = true;
+      const shorthandValueSymbol =
+        metadata.typeChecker.getShorthandAssignmentValueSymbol(declaration);
+      const result = shorthandValueSymbol
+        ? isSymbolCallable(shorthandValueSymbol, metadata, seenSymbols)
+        : false;
+      metadata.symbolResolutionCache.set(cacheKey, result);
+      seenSymbols.delete(cacheKey);
+      return result;
+    }
+  }
+
+  const result = !hasConcreteValueDeclaration && hasCallableType(resolvedSymbol, metadata);
+  metadata.symbolResolutionCache.set(cacheKey, result);
+  seenSymbols.delete(cacheKey);
+  return result;
+}
+
+function isCallableReferenceExpression(
+  expression: ts.Expression,
+  metadata: CallbackMetadata,
+  seenSymbols: Set<string>,
+): boolean {
+  const normalized = unwrapExpression(expression);
+  if (isExecutableExpression(normalized)) {
+    return true;
+  }
+  if (!metadata.typeChecker) {
+    return false;
+  }
   if (ts.isIdentifier(normalized)) {
-    return metadata.callableIdentifiers.has(normalized.text);
+    const symbol = metadata.typeChecker.getSymbolAtLocation(normalized);
+    return symbol ? isSymbolCallable(symbol, metadata, seenSymbols) : false;
   }
   if (ts.isPropertyAccessExpression(normalized)) {
-    if (!ts.isIdentifier(normalized.expression)) {
-      return false;
-    }
-    return metadata.callableObjectProps
-      .get(normalized.expression.text)
-      ?.has(normalized.name.text) ?? false;
+    const symbol =
+      metadata.typeChecker.getSymbolAtLocation(normalized.name)
+      ?? metadata.typeChecker.getSymbolAtLocation(normalized);
+    return symbol ? isSymbolCallable(symbol, metadata, seenSymbols) : false;
   }
   if (ts.isElementAccessExpression(normalized)) {
-    if (!ts.isIdentifier(normalized.expression)) {
-      return false;
-    }
     const propertyName = resolveElementAccessPropertyName(normalized, metadata);
     if (!propertyName) {
       return false;
     }
-    return metadata.callableObjectProps
-      .get(normalized.expression.text)
-      ?.has(propertyName) ?? false;
+    const propertySymbol = getCallablePropertySymbol(
+      normalized.expression,
+      propertyName,
+      metadata,
+    );
+    return propertySymbol ? isSymbolCallable(propertySymbol, metadata, seenSymbols) : false;
   }
   return false;
 }
@@ -474,14 +657,15 @@ function collectTestTitles(
   filePath: string,
 ): Array<{ title: string; line: number }> {
   const titles: Array<{ title: string; line: number }> = [];
-  const sourceFile = ts.createSourceFile(
+  const parsedSourceFile = ts.createSourceFile(
     filePath,
     content,
     ts.ScriptTarget.Latest,
     true,
     scriptKindFromPath(filePath),
   );
-  const callbackMetadata = collectCallbackMetadata(sourceFile);
+  const callbackMetadata = collectCallbackMetadata(parsedSourceFile);
+  const sourceFile = callbackMetadata.analysisSourceFile;
 
   const visit = (node: ts.Node): void => {
     if (!ts.isCallExpression(node)) {
@@ -562,6 +746,13 @@ export function findTestMappings(
   for (const filePath of testFiles) {
     testFileContents.set(filePath, readFileSync(filePath, "utf-8"));
   }
+  const testTitlesByFile = new Map<
+    string,
+    Array<{ title: string; line: number }>
+  >();
+  for (const [filePath, content] of testFileContents) {
+    testTitlesByFile.set(filePath, collectTestTitles(content, filePath));
+  }
 
   return scenarios.map((scenario) => {
     const exactMatchedFiles: string[] = [];
@@ -569,9 +760,9 @@ export function findTestMappings(
     const evidences: MappingEvidence[] = [];
     const keywords = extractKeywords(scenario.title);
 
-    for (const [filePath, content] of testFileContents) {
+    for (const filePath of testFileContents.keys()) {
       const relPath = path.relative(rootDir, filePath);
-      const testTitles = collectTestTitles(content, filePath);
+      const testTitles = testTitlesByFile.get(filePath) ?? [];
 
       const exactTitle = testTitles.find((entry) => entry.title.includes(scenario.id));
       if (exactTitle) {
@@ -658,6 +849,7 @@ export function readBaseline(
       count: 0,
       explicitUnmappedCount: 0,
       derivedUnmappedCount: 0,
+      derivedCoverageFloor: 0,
       updatedAt: "1970-01-01T00:00:00.000Z",
     };
   }
@@ -668,6 +860,7 @@ export function readBaseline(
     count: parsed.count,
     explicitUnmappedCount: parsed.explicitUnmappedCount,
     derivedUnmappedCount: parsed.derivedUnmappedCount,
+    derivedCoverageFloor: parsed.derivedCoverageFloor,
     updatedAt: parsed.updatedAt,
   };
 }
@@ -687,25 +880,49 @@ export function writeBaseline(
   writeFileSync(baselinePath, JSON.stringify(data, null, 2) + "\n");
 }
 
-function resolveScopeSpecFiles(rootDir: string): string[] | null {
+type GitDiffRunner = (target: string, rootDir: string) => string;
+
+function defaultGitDiffRunner(target: string, rootDir: string): string {
+  return execSync(`git --no-pager diff --name-only --diff-filter=ACMRTUXB ${target}`, {
+    cwd: rootDir,
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "ignore"],
+  }).trim();
+}
+
+function resolveScopePlan(
+  rootDir: string,
+  gitDiffRunner: GitDiffRunner,
+): {
+  scopeSpecFiles: string[] | null;
+  baselineMode: "primary" | "no-spec-change-fallback" | "exception-fallback";
+  fallbackError: string | null;
+} {
   const forceAll = process.argv.includes("--all") || process.env.SPEC_TEST_MAP_SCOPE === "all";
   if (forceAll) {
-    return null;
+    return {
+      scopeSpecFiles: null,
+      baselineMode: "primary",
+      fallbackError: null,
+    };
   }
 
   const gitDir = path.join(rootDir, ".git");
   if (!existsSync(gitDir)) {
-    return null;
+    return {
+      scopeSpecFiles: null,
+      baselineMode: "primary",
+      fallbackError: null,
+    };
   }
 
   const diffTargets = ["origin/main...HEAD", "HEAD~1...HEAD"];
+  const errors: string[] = [];
+  let sawSuccessfulDiff = false;
   for (const target of diffTargets) {
     try {
-      const raw = execSync(`git --no-pager diff --name-only --diff-filter=ACMRTUXB ${target}`, {
-        cwd: rootDir,
-        encoding: "utf-8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim();
+      const raw = gitDiffRunner(target, rootDir);
+      sawSuccessfulDiff = true;
       if (raw.length === 0) {
         continue;
       }
@@ -715,61 +932,47 @@ function resolveScopeSpecFiles(rootDir: string): string[] | null {
         .filter((line) => line.endsWith("spec.md") || line.endsWith(".spec.md"))
         .sort();
       if (changedSpecFiles.length === 0) {
-        return null;
+        return {
+          scopeSpecFiles: null,
+          baselineMode: "no-spec-change-fallback",
+          fallbackError: null,
+        };
       }
-      return changedSpecFiles;
+      return {
+        scopeSpecFiles: changedSpecFiles,
+        baselineMode: "primary",
+        fallbackError: null,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.warn(`[${GATE_NAME}] WARN  unable to resolve changed spec files from ${target}: ${message}`);
+      errors.push(`${target}: ${message}`);
       continue;
     }
   }
-  return null;
+  if (errors.length > 0 && !sawSuccessfulDiff) {
+    return {
+      scopeSpecFiles: null,
+      baselineMode: "exception-fallback",
+      fallbackError: errors.join(" | "),
+    };
+  }
+  return {
+    scopeSpecFiles: null,
+    baselineMode: "no-spec-change-fallback",
+    fallbackError: null,
+  };
 }
 
-function shouldUseFallbackBaseline(rootDir: string): boolean {
-  const forceAll = process.argv.includes("--all") || process.env.SPEC_TEST_MAP_SCOPE === "all";
-  if (forceAll) {
-    return false;
-  }
-
-  const gitDir = path.join(rootDir, ".git");
-  if (!existsSync(gitDir)) {
-    return false;
-  }
-
-  const diffTargets = ["origin/main...HEAD", "HEAD~1...HEAD"];
-  for (const target of diffTargets) {
-    try {
-      const raw = execSync(`git --no-pager diff --name-only --diff-filter=ACMRTUXB ${target}`, {
-        cwd: rootDir,
-        encoding: "utf-8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim();
-      if (raw.length === 0) {
-        continue;
-      }
-      const changedSpecFiles = raw
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.endsWith("spec.md") || line.endsWith(".spec.md"))
-        .sort();
-      if (changedSpecFiles.length === 0) {
-        return true;
-      }
-      return false;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn(`[${GATE_NAME}] WARN  unable to resolve changed spec files from ${target}: ${message}`);
-      continue;
-    }
-  }
-  return true;
-}
-
-export function runGate(rootDir: string = "."): SpecTestMappingResult {
-  const useFallbackBaseline = shouldUseFallbackBaseline(rootDir);
-  const scopeSpecFiles = resolveScopeSpecFiles(rootDir);
+export function runGate(
+  rootDir: string = ".",
+  options: { gitDiffRunner?: GitDiffRunner } = {},
+): SpecTestMappingResult {
+  const scopePlan = resolveScopePlan(
+    rootDir,
+    options.gitDiffRunner ?? defaultGitDiffRunner,
+  );
+  const useFallbackBaseline = scopePlan.baselineMode !== "primary";
+  const scopeSpecFiles = scopePlan.scopeSpecFiles;
   const scopeMode: "all" | "changed" = scopeSpecFiles === null ? "all" : "changed";
   const scopedSpecFiles = scopeSpecFiles ?? [];
   const scenarios = extractScenarios(rootDir).filter((scenario) => {
@@ -803,8 +1006,13 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
     derivedMappings.length === 0
       ? 1
       : (derivedMappings.length - derivedUnmapped.length) / derivedMappings.length;
+  const derivedCoverageFloor =
+    scopePlan.baselineMode === "primary"
+      ? DERIVED_COVERAGE_THRESHOLD
+      : (baseline.derivedCoverageFloor ?? 0);
+  const derivedQualityRegressed =
+    derivedMappings.length > 0 && derivedCoverage < derivedCoverageFloor;
   const derivedUnmappedOverLimit = derivedUnmapped.length > derivedBaselineLimit;
-  const enforceDerivedCoverage = useFallbackBaseline === false;
 
   return {
     ok:
@@ -812,12 +1020,16 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
       !dilutedBaseline &&
       !derivedUnmappedOverLimit &&
       !dilutedDerivedBaseline &&
-      (!enforceDerivedCoverage || (!derivedIgnored && derivedCoverage >= DERIVED_COVERAGE_THRESHOLD)) &&
+      scopePlan.baselineMode !== "exception-fallback" &&
+      !derivedQualityRegressed &&
+      (!derivedIgnored || scopePlan.baselineMode === "no-spec-change-fallback") &&
       mappings.length > 0,
     scopeMode,
     scopeSpecFiles: scopedSpecFiles,
     usedFallbackBaseline: useFallbackBaseline,
+    baselineMode: scopePlan.baselineMode,
     baselineFile,
+    fallbackError: scopePlan.fallbackError,
     mappings,
     unmapped,
     total: scenarios.length,
@@ -833,7 +1045,9 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
     derivedBaseline: derivedBaselineLimit,
     derivedCoverage,
     derivedCoverageThreshold: DERIVED_COVERAGE_THRESHOLD,
+    derivedCoverageFloor,
     derivedIgnored,
+    derivedQualityRegressed,
     derivedUnmappedOverLimit,
     dilutedDerivedBaseline,
     dilutedBaseline,
@@ -876,7 +1090,9 @@ if (
     console.log(`[${GATE_NAME}] scope: all spec files`);
   }
   if (result.usedFallbackBaseline) {
-    console.log(`[${GATE_NAME}] baseline strategy: fallback (${result.baselineFile})`);
+    console.log(
+      `[${GATE_NAME}] baseline strategy: ${result.baselineMode} (${result.baselineFile})`,
+    );
   }
 
   console.log(
@@ -889,7 +1105,7 @@ if (
     `[${GATE_NAME}] derived coverage: ${result.derivedMapped}/${result.derivedTotal} (${pct(result.derivedMapped, result.derivedTotal)})`,
   );
   console.log(
-    `[${GATE_NAME}] derived threshold: coverage >= ${Math.round(result.derivedCoverageThreshold * 100)}%, unmapped <= ${result.derivedBaseline}`,
+    `[${GATE_NAME}] derived threshold: coverage >= ${Math.round(result.derivedCoverageFloor * 100)}%, unmapped <= ${result.derivedBaseline}`,
   );
 
   const t2 = result.tier2;
@@ -937,7 +1153,13 @@ if (
       );
       process.exit(1);
     }
-    if (result.derivedIgnored && !result.usedFallbackBaseline) {
+    if (result.baselineMode === "exception-fallback") {
+      console.log(
+        `[${GATE_NAME}] FAIL  exception fallback triggered while resolving diff scope: ${result.fallbackError ?? "unknown error"}`,
+      );
+      process.exit(1);
+    }
+    if (result.derivedIgnored && result.baselineMode === "primary") {
       console.log(
         `[${GATE_NAME}] FAIL  derived scenarios are fully unmapped (${result.derivedUnmapped.length}/${result.derivedTotal}).`,
       );
@@ -947,9 +1169,9 @@ if (
         `[${GATE_NAME}] FAIL  derived-unmapped ${result.derivedUnmapped.length} exceeds baseline ${result.derivedBaseline}.`,
       );
     }
-    if (result.derivedCoverage < result.derivedCoverageThreshold && !result.usedFallbackBaseline) {
+    if (result.derivedQualityRegressed) {
       console.log(
-        `[${GATE_NAME}] FAIL  derived coverage ${Math.round(result.derivedCoverage * 100)}% is below threshold ${Math.round(result.derivedCoverageThreshold * 100)}%.`,
+        `[${GATE_NAME}] FAIL  derived coverage ${Math.round(result.derivedCoverage * 100)}% is below required floor ${Math.round(result.derivedCoverageFloor * 100)}% for ${result.baselineMode}.`,
       );
     }
     const newCount = result.explicitUnmapped.length - result.baseline;
