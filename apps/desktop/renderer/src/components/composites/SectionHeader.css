@@ -1,0 +1,22 @@
+.cn-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.cn-section-header__label {
+  margin: 0;
+  font-family: var(--font-family-ui);
+  font-size: var(--text-status-size);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cn-section-header__action {
+  flex-shrink: 0;
+}

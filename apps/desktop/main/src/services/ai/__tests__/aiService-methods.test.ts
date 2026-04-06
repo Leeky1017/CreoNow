@@ -1,0 +1,398 @@
+/**
+ * Tests for AiService methods: listModels, cancel, feedback, and rate limiting.
+ *
+ * Validates behavior contracts without reaching into implementation details.
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { AiStreamEvent } from "@shared/types/ai";
+import type { Logger } from "../../../logging/logger";
+import { createAiService, type AiService } from "../aiService";
+
+function nopLogger(): Logger {
+  return { logPath: "<test>", info: vi.fn(), error: vi.fn() };
+}
+
+let fetchMock: ReturnType<typeof vi.fn>;
+let originalFetch: typeof globalThis.fetch;
+
+beforeEach(() => {
+  originalFetch = globalThis.fetch;
+  fetchMock = vi.fn();
+  globalThis.fetch = fetchMock as unknown as typeof fetch;
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
+
+function makeService(overrides?: {
+  rateLimitPerMinute?: number;
+  retryBackoffMs?: readonly number[];
+  sessionTokenBudget?: number;
+  env?: NodeJS.ProcessEnv;
+  traceStore?: {
+    recordTraceFeedback: ReturnType<typeof vi.fn>;
+  };
+}): AiService {
+  return createAiService({
+    logger: nopLogger(),
+    env: {
+      CREONOW_AI_PROVIDER: "openai",
+      CREONOW_AI_BASE_URL: "https://api.openai.com",
+      CREONOW_AI_API_KEY: "sk-test-key-12345678",
+      ...overrides?.env,
+    },
+    sleep: async () => {},
+    rateLimitPerMinute: overrides?.rateLimitPerMinute ?? 1_000,
+    retryBackoffMs: overrides?.retryBackoffMs ?? [0],
+    sessionTokenBudget: overrides?.sessionTokenBudget,
+    traceStore: overrides?.traceStore as never,
+  });
+}
+
+// ── listModels ──
+
+describe("aiService.listModels", () => {
+  it("返回 OpenAI 模型列表", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: [
+            { id: "gpt-4o", name: "GPT-4o" },
+            { id: "gpt-4o-mini", name: "GPT-4o Mini" },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const svc = makeService();
+    const res = await svc.listModels();
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.source).toBe("openai");
+      expect(res.data.items.length).toBeGreaterThanOrEqual(2);
+      expect(res.data.items[0].id).toBe("gpt-4o");
+    }
+  });
+
+  it("上游返回 401 → 映射为 AI_AUTH_FAILED", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: "Unauthorized" } }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const svc = makeService();
+    const res = await svc.listModels();
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("AI_AUTH_FAILED");
+    }
+  });
+
+  it("上游返回 429 → 映射为 AI_RATE_LIMITED", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: "Too many requests" } }), {
+        status: 429,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const svc = makeService();
+    const res = await svc.listModels();
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("AI_RATE_LIMITED");
+    }
+  });
+
+  it("上游返回 500 → 映射为 LLM_API_ERROR", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: "Server error" } }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const svc = makeService();
+    const res = await svc.listModels();
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("LLM_API_ERROR");
+    }
+  });
+
+  it("上游返回非 JSON → LLM_API_ERROR", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("<!DOCTYPE html><html>...</html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+    );
+
+    const svc = makeService();
+    const res = await svc.listModels();
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("LLM_API_ERROR");
+    }
+  });
+
+  it("网络故障重试后仍失败 → LLM_API_ERROR", async () => {
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+
+    const svc = makeService({ retryBackoffMs: [0] });
+    const res = await svc.listModels();
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("LLM_API_ERROR");
+      expect(res.error.message).toContain("ECONNREFUSED");
+    }
+  });
+
+  it("Anthropic provider 使用 x-api-key 头", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ data: [{ id: "claude-3-5-sonnet", name: "Claude" }] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const svc = makeService({
+      env: {
+        CREONOW_AI_PROVIDER: "anthropic",
+        CREONOW_AI_BASE_URL: "https://api.anthropic.com",
+        CREONOW_AI_API_KEY: "sk-ant-test-12345678",
+      },
+    });
+    await svc.listModels();
+
+    const calledInit = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = calledInit.headers as Record<string, string>;
+    expect(headers["x-api-key"]).toBe("sk-ant-test-12345678");
+    expect(headers["anthropic-version"]).toBe("2023-06-01");
+  });
+});
+
+// ── cancel ──
+
+describe("aiService.cancel", () => {
+  it("缺少 executionId → INVALID_ARGUMENT", () => {
+    const svc = makeService();
+    const res = svc.cancel({ ts: Date.now() });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("INVALID_ARGUMENT");
+    }
+  });
+
+  it("空白 executionId → INVALID_ARGUMENT", () => {
+    const svc = makeService();
+    const res = svc.cancel({ executionId: "   ", ts: Date.now() });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("INVALID_ARGUMENT");
+    }
+  });
+
+  it("不存在的 executionId → 幂等成功", () => {
+    const svc = makeService();
+    const res = svc.cancel({ executionId: "nonexistent-id", ts: Date.now() });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.canceled).toBe(true);
+    }
+  });
+
+  it("使用 deprecated runId 字段也正常工作", () => {
+    const svc = makeService();
+    const res = svc.cancel({ runId: "nonexistent-run", ts: Date.now() });
+    expect(res.ok).toBe(true);
+  });
+});
+
+// ── feedback ──
+
+describe("aiService.feedback", () => {
+  it("无 traceStore 时也返回成功", () => {
+    const svc = makeService();
+    const res = svc.feedback({
+      runId: "run-1",
+      action: "accept",
+      evidenceRef: "doc://test",
+      ts: Date.now(),
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.recorded).toBe(true);
+    }
+  });
+
+  it("traceStore 存在时委托并返回成功", () => {
+    const recordFn = vi.fn().mockReturnValue({ ok: true, data: { recorded: true } });
+    const svc = makeService({
+      traceStore: { recordTraceFeedback: recordFn },
+    });
+    const res = svc.feedback({
+      runId: "run-1",
+      action: "reject",
+      evidenceRef: "doc://test",
+      ts: 1234567890,
+    });
+    expect(res.ok).toBe(true);
+    expect(recordFn).toHaveBeenCalledWith({
+      runId: "run-1",
+      action: "reject",
+      evidenceRef: "doc://test",
+      ts: 1234567890,
+    });
+  });
+
+  it("traceStore 持久化失败 → 返回错误", () => {
+    const recordFn = vi.fn().mockReturnValue({
+      ok: false,
+      error: { code: "DB_ERROR", message: "write failed" },
+    });
+    const svc = makeService({
+      traceStore: { recordTraceFeedback: recordFn },
+    });
+    const res = svc.feedback({
+      runId: "run-1",
+      action: "accept",
+      evidenceRef: "doc://test",
+      ts: Date.now(),
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("DB_ERROR");
+    }
+  });
+});
+
+// ── rate limiting ──
+
+describe("aiService rate limiting", () => {
+  it("超出每分钟请求限制 → AI_RATE_LIMITED", async () => {
+    fetchMock.mockImplementation(async () =>
+      new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const svc = makeService({ rateLimitPerMinute: 2 });
+
+    const r1 = await svc.listModels();
+    expect(r1.ok).toBe(true);
+
+    const r2 = await svc.listModels();
+    expect(r2.ok).toBe(true);
+
+    const r3 = await svc.listModels();
+    expect(r3.ok).toBe(false);
+    if (!r3.ok) {
+      expect(r3.error.code).toBe("AI_RATE_LIMITED");
+    }
+  });
+});
+
+// ── retry ──
+
+describe("aiService retry logic", () => {
+  it("网络错误后重试成功", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new Error("ECONNRESET"))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ data: [{ id: "gpt-4o", name: "GPT-4o" }] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+    const svc = makeService({ retryBackoffMs: [0, 0] });
+    const res = await svc.listModels();
+    expect(res.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retryBackoffMs 耗尽后放弃 → LLM_API_ERROR", async () => {
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+
+    const svc = makeService({ retryBackoffMs: [0, 0] });
+    const res = await svc.listModels();
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("LLM_API_ERROR");
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
+
+// ── runSkill basic validation ──
+
+describe("aiService.runSkill basics", () => {
+  it("正常 non-stream 请求返回 executionId 和文本", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "Hello world" } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const events: AiStreamEvent[] = [];
+    const svc = makeService();
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "gpt-4o",
+      stream: false,
+      ts: Date.now(),
+      emitEvent: (e) => events.push(e),
+    });
+
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.executionId).toBeTruthy();
+      expect(res.data.runId).toBeTruthy();
+      expect(res.data.traceId).toBeTruthy();
+      expect(res.data.outputText).toBe("Hello world");
+    }
+  });
+
+  it("stream 模式返回成功结果", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        [
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "He" } }] })}\n\n`,
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "llo" } }] })}\n\n`,
+          "data: [DONE]\n\n",
+        ].join(""),
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      ),
+    );
+
+    const events: AiStreamEvent[] = [];
+    const svc = makeService();
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "gpt-4o",
+      stream: true,
+      ts: Date.now(),
+      emitEvent: (e) => events.push(e),
+    });
+
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.executionId).toBeTruthy();
+      expect(res.data.runId).toBeTruthy();
+      expect(res.data.traceId).toBeTruthy();
+    }
+  });
+});

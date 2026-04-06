@@ -12,330 +12,546 @@ import {
   runGate,
 } from "../spec-test-mapping-gate";
 
-// ── Test Group 1: Spec Parsing ─────────────────────────────────────
+function setupRoot(prefix: string): string {
+  return mkdtempSync(path.join(tmpdir(), prefix));
+}
 
-// Test: single Scenario ID extraction
+// parsing
 {
-  const root = mkdtempSync(path.join(tmpdir(), "stm-parse-single-"));
+  const root = setupRoot("stm-parse-");
   const specDir = path.join(root, "openspec", "specs", "editor");
   mkdirSync(specDir, { recursive: true });
   writeFileSync(
     path.join(specDir, "spec.md"),
-    `# Editor Spec
-
-### Scenario S-ZEN-01: 禅模式可编辑
-
-\`\`\`
-GIVEN 用户进入禅模式
-WHEN 用户点击编辑器区域
-THEN 编辑器进入编辑状态
-\`\`\`
-`,
+    `### Scenario S-ZEN-01: 禅模式可编辑\n#### Scenario: PM-DASH 打开项目`,
   );
   const scenarios = extractScenarios(root);
-  assert.equal(scenarios.length, 1, "Should extract one Scenario ID");
+  assert.equal(scenarios.length, 2);
   assert.equal(scenarios[0].id, "S-ZEN-01");
-  assert.equal(scenarios[0].specFile, path.join("openspec", "specs", "editor", "spec.md"));
+  assert.equal(scenarios[1].mappingMode, "derived");
 }
 
-// Test: multiple Scenario IDs extraction
+// parsing supports prefixed explicit Scenario IDs in ### headings, with and without colon
 {
-  const root = mkdtempSync(path.join(tmpdir(), "stm-parse-multi-"));
+  const root = setupRoot("stm-parse-prefixed-explicit-");
   const specDir = path.join(root, "openspec", "specs", "editor");
   mkdirSync(specDir, { recursive: true });
   writeFileSync(
     path.join(specDir, "spec.md"),
-    `# Editor Spec
-
-### Scenario S-ZEN-01: 禅模式可编辑
-一些描述
-
-### Scenario S-ZEN-02: 禅模式只读退出
-一些描述
-
-### Scenario S-ZEN-03: 禅模式 CJK 文本输入
-一些描述
-`,
+    `### Scenario: BE-SLA-S2 IPC timeout 通过 AbortSignal 中止底层执行
+### Scenario: AUD-C1-S4 并发 switchProject 串行执行无交错
+### Scenario IPC-RETRY-S3: 重试预算受限`,
   );
+
   const scenarios = extractScenarios(root);
-  assert.equal(scenarios.length, 3, "Should extract three Scenario IDs");
-  assert.equal(scenarios[0].id, "S-ZEN-01");
-  assert.equal(scenarios[1].id, "S-ZEN-02");
-  assert.equal(scenarios[2].id, "S-ZEN-03");
+  assert.deepEqual(
+    scenarios.map((scenario) => [scenario.id, scenario.mappingMode]),
+    [
+      ["BE-SLA-S2", "explicit"],
+      ["AUD-C1-S4", "explicit"],
+      ["IPC-RETRY-S3", "explicit"],
+    ],
+  );
+  assert.equal(scenarios.every((scenario) => scenario.mappingMode === "explicit"), true);
 }
 
-// Test: no Scenario IDs → empty list
+// parsing must ignore ### Scenario headings without a legal explicit ID
 {
-  const root = mkdtempSync(path.join(tmpdir(), "stm-parse-empty-"));
+  const root = setupRoot("stm-parse-level3-derived-ignored-");
   const specDir = path.join(root, "openspec", "specs", "editor");
   mkdirSync(specDir, { recursive: true });
   writeFileSync(
     path.join(specDir, "spec.md"),
-    `# Editor Spec
-
-Nothing here has scenario IDs.
-`,
+    `### Scenario: FEATURE-123 不是合法显式 ID
+### Scenario FEATURE_456 也不是合法显式 ID
+#### Scenario: FEATURE-123 应该只在四级标题中按 derived 处理`,
   );
+
   const scenarios = extractScenarios(root);
-  assert.equal(scenarios.length, 0, "Should return empty list when no Scenarios");
+  assert.equal(scenarios.length, 1);
+  assert.equal(scenarios[0].mappingMode, "derived");
+  assert.match(scenarios[0].id, /^editor\/feature-123-/);
 }
 
-// Test: change-level spec files also scanned
+// parsing keeps compact explicit Scenario IDs in #### headings
 {
-  const root = mkdtempSync(path.join(tmpdir(), "stm-parse-change-"));
-  const changeSpec = path.join(root, "openspec", "changes", "a0-01-zen-mode-editable", "specs", "editor");
-  mkdirSync(changeSpec, { recursive: true });
-  writeFileSync(
-    path.join(changeSpec, "spec.md"),
-    `# Zen Mode Editable Delta
-
-### Scenario S-ZEN-EDIT-01: 禅模式编辑保存
-描述
-`,
-  );
-  const scenarios = extractScenarios(root);
-  assert.equal(scenarios.length, 1, "Should find Scenarios in change-level specs");
-  assert.equal(scenarios[0].id, "S-ZEN-EDIT-01");
-}
-
-// ── Test Group 2: Test File Mapping ────────────────────────────────
-
-// Test: test file with Scenario comment → mapped
-{
-  const root = mkdtempSync(path.join(tmpdir(), "stm-map-comment-"));
+  const root = setupRoot("stm-parse-compact-explicit-");
   const specDir = path.join(root, "openspec", "specs", "editor");
   mkdirSync(specDir, { recursive: true });
   writeFileSync(
     path.join(specDir, "spec.md"),
-    `### Scenario S-ZEN-01: 禅模式可编辑`,
+    `#### Scenario: P3 用户在项目内搜索关键词
+#### Scenario: IPC 延迟指标达标
+#### Scenario: Project 3 should stay derived`,
   );
+
+  const scenarios = extractScenarios(root);
+  assert.deepEqual(
+    scenarios.map((scenario) => ({ id: scenario.id, mappingMode: scenario.mappingMode })),
+    [
+      { id: "P3", mappingMode: "explicit" },
+      { id: "IPC", mappingMode: "explicit" },
+      { id: "editor/project-3-should-stay-derived", mappingMode: "derived" },
+    ],
+  );
+}
+
+// parsing should not misclassify plain BE/FE words as explicit IDs
+{
+  const root = setupRoot("stm-parse-explicit-negative-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `#### Scenario: BE careful with autosave
+#### Scenario: FE rendering fallback`,
+  );
+
+  const scenarios = extractScenarios(root);
+  assert.deepEqual(
+    scenarios.map((scenario) => scenario.mappingMode),
+    ["derived", "derived"],
+  );
+}
+
+// mapping should only trust test title evidence (comment no longer counts)
+{
+  const root = setupRoot("stm-map-title-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
   const testDir = path.join(root, "apps", "desktop", "renderer", "src");
   mkdirSync(testDir, { recursive: true });
   writeFileSync(
     path.join(testDir, "ZenMode.test.tsx"),
-    `// Scenario: S-ZEN-01
-describe('ZenMode', () => {
-  it('should be editable', () => {
-    expect(true).toBe(true);
-  });
-});`,
+    `// Scenario: S-ZEN-01\ndescribe('ZenMode', () => { it('S-ZEN-01 should be editable', () => {}); });`,
   );
+
   const scenarios = extractScenarios(root);
   const mappings = findTestMappings(scenarios, root);
-  assert.equal(mappings.length, 1);
-  assert.equal(mappings[0].mapped, true, "Comment reference should map");
-  assert.equal(mappings[0].testFiles.length, 1);
+  assert.equal(mappings[0].mapped, true);
+  assert.equal(mappings[0].evidences.length, 1);
+  assert.equal(mappings[0].evidences[0].kind, "exact-title");
 }
 
-// Test: test file with Scenario in describe → mapped
+// exact title matching must avoid explicit scenario prefix collision
 {
-  const root = mkdtempSync(path.join(tmpdir(), "stm-map-describe-"));
-  const specDir = path.join(root, "openspec", "specs", "editor");
-  mkdirSync(specDir, { recursive: true });
-  writeFileSync(
-    path.join(specDir, "spec.md"),
-    `### Scenario S-ZEN-01: 禅模式可编辑`,
-  );
-  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
-  mkdirSync(testDir, { recursive: true });
-  writeFileSync(
-    path.join(testDir, "ZenMode.test.tsx"),
-    `describe('S-ZEN-01: 禅模式可编辑', () => {
-  it('should enable editing', () => {});
-});`,
-  );
-  const scenarios = extractScenarios(root);
-  const mappings = findTestMappings(scenarios, root);
-  assert.equal(mappings[0].mapped, true, "Describe name reference should map");
-}
-
-// Test: no reference → unmapped
-{
-  const root = mkdtempSync(path.join(tmpdir(), "stm-map-none-"));
-  const specDir = path.join(root, "openspec", "specs", "editor");
-  mkdirSync(specDir, { recursive: true });
-  writeFileSync(
-    path.join(specDir, "spec.md"),
-    `### Scenario S-ZEN-05: 禅模式未实现功能`,
-  );
-  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
-  mkdirSync(testDir, { recursive: true });
-  writeFileSync(
-    path.join(testDir, "Other.test.tsx"),
-    `describe('Other', () => { it('does stuff', () => {}); });`,
-  );
-  const scenarios = extractScenarios(root);
-  const mappings = findTestMappings(scenarios, root);
-  assert.equal(mappings[0].mapped, false, "Unreferenced Scenario should be unmapped");
-}
-
-// Test: one test file maps multiple Scenarios
-{
-  const root = mkdtempSync(path.join(tmpdir(), "stm-map-multi-"));
+  const root = setupRoot("stm-map-prefix-collision-");
   const specDir = path.join(root, "openspec", "specs", "editor");
   mkdirSync(specDir, { recursive: true });
   writeFileSync(
     path.join(specDir, "spec.md"),
     `### Scenario S-ZEN-01: 禅模式可编辑
-### Scenario S-ZEN-02: 禅模式只读退出`,
+### Scenario S-ZEN-010: 禅模式快捷切换`,
   );
+
   const testDir = path.join(root, "apps", "desktop", "renderer", "src");
   mkdirSync(testDir, { recursive: true });
   writeFileSync(
     path.join(testDir, "ZenMode.test.tsx"),
-    `// Scenario: S-ZEN-01
-// Scenario: S-ZEN-02
-describe('ZenMode', () => {
-  it('editable', () => {});
-  it('readonly exit', () => {});
-});`,
+    `it('S-ZEN-010 should toggle quickly', () => {});`,
   );
+
   const scenarios = extractScenarios(root);
   const mappings = findTestMappings(scenarios, root);
-  assert.equal(mappings.length, 2);
+  const mappingById = new Map(mappings.map((mapping) => [mapping.scenario.id, mapping]));
+  assert.equal(mappingById.get("S-ZEN-01")?.mapped, false);
+  assert.equal(mappingById.get("S-ZEN-010")?.mapped, true);
+}
+
+// exact title matching must treat "_" as token character and avoid partial hits
+{
+  const root = setupRoot("stm-map-underscore-boundary-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `it('S-ZEN-01_case should not be treated as exact token', () => {});`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, false);
+}
+
+// mapping must ignore commented-out test titles
+{
+  const root = setupRoot("stm-map-commented-test-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-COMMENT-01: 仅注释不应命中`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "CommentedOnly.test.ts"),
+    `// it('S-COMMENT-01 commented out', () => {});
+/* test('S-COMMENT-01 in block comment', () => {}); */`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, false);
+  assert.equal(mappings[0].evidences.length, 0);
+}
+
+// derived scenarios rely on semantic title hit
+{
+  const root = setupRoot("stm-map-derived-");
+  const specDir = path.join(root, "openspec", "specs", "project-management");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `#### Scenario: Dashboard 搜索过滤`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "Dashboard.test.tsx"),
+    `describe('Dashboard 搜索过滤场景', () => { it('Dashboard 搜索过滤命中结果', () => {}); });`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
   assert.equal(mappings[0].mapped, true);
-  assert.equal(mappings[1].mapped, true);
+  assert.equal(mappings[0].evidences[0].kind, "derived-title");
 }
 
-// ── Test Group 3: Baseline Ratchet ─────────────────────────────────
-
-// Test: unmapped ≤ baseline → PASS
+// gate fails when derived scenarios are entirely ignored
 {
-  const root = mkdtempSync(path.join(tmpdir(), "stm-ratchet-pass-"));
+  const root = setupRoot("stm-gate-derived-ignored-");
   const guardsDir = path.join(root, "openspec", "guards");
   mkdirSync(guardsDir, { recursive: true });
-  writeBaseline(10, root);
-  const baseline = readBaseline(root);
-  assert.equal(baseline.count, 10);
+  writeBaseline(0, 0, root);
+
+  const specDir = path.join(root, "openspec", "specs", "project-management");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `#### Scenario: Dashboard 搜索过滤`);
+
   const result = runGate(root);
-  assert.ok(result.ok, "No scenarios = 0 unmapped ≤ 10 baseline → PASS");
+  assert.equal(result.ok, false);
+  assert.equal(result.derivedIgnored, true);
 }
 
-// Test: unmapped > baseline → FAIL
+// baseline read/write
 {
-  const root = mkdtempSync(path.join(tmpdir(), "stm-ratchet-fail-"));
-  const guardsDir = path.join(root, "openspec", "guards");
-  mkdirSync(guardsDir, { recursive: true });
-  writeBaseline(0, root);
-  const specDir = path.join(root, "openspec", "specs", "editor");
-  mkdirSync(specDir, { recursive: true });
-  writeFileSync(
-    path.join(specDir, "spec.md"),
-    `### Scenario S-NEW-01: 新增功能`,
-  );
-  const result = runGate(root);
-  assert.ok(!result.ok, "1 unmapped > 0 baseline → FAIL");
-  assert.equal(result.unmapped.length, 1);
-}
-
-// Test: --update-baseline writes correct count
-{
-  const root = mkdtempSync(path.join(tmpdir(), "stm-baseline-write-"));
-  const guardsDir = path.join(root, "openspec", "guards");
-  mkdirSync(guardsDir, { recursive: true });
-  writeBaseline(42, root);
+  const root = setupRoot("stm-baseline-");
+  mkdirSync(path.join(root, "openspec", "guards"), { recursive: true });
+  writeBaseline(2, 3, root);
   const baseline = readBaseline(root);
-  assert.equal(baseline.count, 42);
-  assert.ok(baseline.updatedAt.includes("T"), "updatedAt should be ISO-8601");
+  assert.equal(baseline.explicitUnmappedCount, 2);
+  assert.equal(baseline.derivedUnmappedCount, 3);
+  assert.equal(baseline.derivedCoverageFloor, 0.6);
 }
 
-// ── Test Group 4: Tier 2 Semantic Dimensions ───────────────────────
-
-// Test: "should NOT" title → negation dimension
+// baseline update should persist existing derived coverage floor
 {
-  const root = mkdtempSync(path.join(tmpdir(), "stm-tier2-neg-"));
-  const specDir = path.join(root, "openspec", "specs", "editor");
-  mkdirSync(specDir, { recursive: true });
-  writeFileSync(
-    path.join(specDir, "spec.md"),
-    `### Scenario S-NEG-01: should NOT render editable controls`,
-  );
-  const scenarios = extractScenarios(root);
-  assert.equal(scenarios[0].dimension, "negation", "should NOT → negation dimension");
+  const root = setupRoot("stm-baseline-floor-persist-");
+  mkdirSync(path.join(root, "openspec", "guards"), { recursive: true });
+  writeBaseline(2, 3, root, 0.42);
+  writeBaseline(1, 1, root);
+  const baseline = readBaseline(root);
+  assert.equal(baseline.explicitUnmappedCount, 1);
+  assert.equal(baseline.derivedUnmappedCount, 1);
+  assert.equal(baseline.derivedCoverageFloor, 0.42);
 }
 
-// Test: @capability tag → capability dimension
+// tier2 summary
 {
-  const root = mkdtempSync(path.join(tmpdir(), "stm-tier2-cap-"));
-  const specDir = path.join(root, "openspec", "specs", "editor");
-  mkdirSync(specDir, { recursive: true });
-  writeFileSync(
-    path.join(specDir, "spec.md"),
-    `### Scenario S-CAP-01: Export capability @capability 验证`,
-  );
-  const scenarios = extractScenarios(root);
-  assert.equal(scenarios[0].dimension, "capability", "@capability → capability dimension");
-}
-
-// Test: CJK keyword → cjk dimension
-{
-  const root = mkdtempSync(path.join(tmpdir(), "stm-tier2-cjk-"));
-  const specDir = path.join(root, "openspec", "specs", "search");
-  mkdirSync(specDir, { recursive: true });
-  writeFileSync(
-    path.join(specDir, "spec.md"),
-    `### Scenario S-CJK-01: 中文搜索分词测试`,
-  );
-  const scenarios = extractScenarios(root);
-  assert.equal(scenarios[0].dimension, "cjk", "中文 → cjk dimension");
-}
-
-// Test: rejection keyword → rejection dimension
-{
-  const root = mkdtempSync(path.join(tmpdir(), "stm-tier2-rej-"));
-  const specDir = path.join(root, "openspec", "specs", "memory");
-  mkdirSync(specDir, { recursive: true });
-  writeFileSync(
-    path.join(specDir, "spec.md"),
-    `### Scenario S-REJ-01: 拒绝信号处理路径验证`,
-  );
-  const scenarios = extractScenarios(root);
-  assert.equal(scenarios[0].dimension, "rejection", "拒绝 → rejection dimension");
-}
-
-// Test: no keywords → general dimension
-{
-  const root = mkdtempSync(path.join(tmpdir(), "stm-tier2-gen-"));
-  const specDir = path.join(root, "openspec", "specs", "editor");
-  mkdirSync(specDir, { recursive: true });
-  writeFileSync(
-    path.join(specDir, "spec.md"),
-    `### Scenario S-GEN-01: 基础编辑功能`,
-  );
-  const scenarios = extractScenarios(root);
-  assert.equal(scenarios[0].dimension, "general", "No keywords → general dimension");
-}
-
-// Test: Tier 2 summary computation
-{
-  const root = mkdtempSync(path.join(tmpdir(), "stm-tier2-summary-"));
+  const root = setupRoot("stm-tier2-");
   const specDir = path.join(root, "openspec", "specs", "mixed");
   mkdirSync(specDir, { recursive: true });
   writeFileSync(
     path.join(specDir, "spec.md"),
-    `### Scenario S-MIX-01: should NOT allow editing
-### Scenario S-MIX-02: 中文搜索
-### Scenario S-MIX-03: 拒绝无效输入
-### Scenario S-MIX-04: 普通功能`,
+    `### Scenario S-MIX-01: should NOT allow editing\n### Scenario S-MIX-02: 中文搜索\n### Scenario S-MIX-03: 拒绝无效输入`,
   );
   const testDir = path.join(root, "apps", "desktop", "renderer", "src");
   mkdirSync(testDir, { recursive: true });
   writeFileSync(
     path.join(testDir, "mixed.test.tsx"),
-    `// Scenario: S-MIX-01
-// Scenario: S-MIX-02`,
+    `it('S-MIX-01 should NOT allow editing', () => {});it('S-MIX-02 中文搜索', () => {});`,
   );
+
   const scenarios = extractScenarios(root);
   const mappings = findTestMappings(scenarios, root);
   const summary = computeTier2Summary(mappings);
+  assert.equal(summary.negation.mapped, 1);
+  assert.equal(summary.cjk.mapped, 1);
+  assert.equal(summary.rejection.mapped, 0);
+}
 
-  assert.equal(summary.negation.total, 1, "1 negation scenario");
-  assert.equal(summary.negation.mapped, 1, "negation scenario mapped");
-  assert.equal(summary.cjk.total, 1, "1 cjk scenario");
-  assert.equal(summary.cjk.mapped, 1, "cjk scenario mapped");
-  assert.equal(summary.rejection.total, 1, "1 rejection scenario");
-  assert.equal(summary.rejection.mapped, 0, "rejection scenario not mapped");
-  assert.equal(summary.capability.total, 0, "no capability scenarios");
+// mapping excludes skipped/todo and non-executable placeholder titles
+{
+  const root = setupRoot("stm-map-executable-only-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `describe('S-ZEN-01 suite title should be ignored', () => {});
+test.skip('S-ZEN-01 skipped case should be ignored', () => {});
+test.todo('S-ZEN-01 todo case should be ignored');
+it('TODO: S-ZEN-01 pending placeholder', () => {});
+it('S-ZEN-01 executable case', () => {});`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, true);
+  assert.equal(mappings[0].evidences.length, 1);
+  assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 executable case");
+}
+
+// mapping requires executable callback and ignores pending title-only tests
+{
+  const root = setupRoot("stm-map-callback-required-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `const runnable = () => {};
+test('S-ZEN-01 pending title only');
+test('S-ZEN-01 non-callable callback', 1 as unknown as () => void);
+it('S-ZEN-01 executable callback identifier', runnable);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, true);
+  assert.equal(mappings[0].evidences.length, 1);
+  assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 executable callback identifier");
+}
+
+// mapping accepts alias callback identifiers
+{
+  const root = setupRoot("stm-map-callback-alias-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `const runnable = () => {};
+const alias = runnable;
+it('S-ZEN-01 alias callback identifier', alias);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, true);
+  assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 alias callback identifier");
+}
+
+// mapping accepts imported callback identifiers
+{
+  const root = setupRoot("stm-map-imported-callback-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "helpers.ts"),
+    `export const importedRunnable = () => {};`,
+  );
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `import { importedRunnable } from './helpers';
+it('S-ZEN-01 imported callback identifier', importedRunnable);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, true);
+  assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 imported callback identifier");
+}
+
+// mapping rejects imported non-callable callback identifiers
+{
+  const root = setupRoot("stm-map-imported-non-callable-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "helpers.ts"),
+    `export const importedNonFn = 1 as unknown as () => void;`,
+  );
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `import { importedNonFn } from './helpers';
+it('S-ZEN-01 imported non-callable callback identifier', importedNonFn);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, false);
+  assert.equal(mappings[0].evidences.length, 0);
+}
+
+// mapping rejects identifier/property/element callback bypass when value is non-function
+{
+  const root = setupRoot("stm-map-callback-bypass-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `const nonFn = 1 as unknown as () => void;
+const callbacks = {
+  nonFn: 2 as unknown as () => void,
+};
+const key = 'nonFn' as const;
+it('S-ZEN-01 identifier callback bypass', nonFn);
+it('S-ZEN-01 property callback bypass', callbacks.nonFn);
+it('S-ZEN-01 element callback bypass', callbacks[key]);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, false);
+  assert.equal(mappings[0].evidences.length, 0);
+}
+
+// gate enforces derived coverage threshold and baseline limit
+{
+  const root = setupRoot("stm-gate-derived-threshold-");
+  const guardsDir = path.join(root, "openspec", "guards");
+  mkdirSync(guardsDir, { recursive: true });
+  writeBaseline(0, 0, root);
+
+  const specDir = path.join(root, "openspec", "specs", "project-management");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `#### Scenario: Dashboard 搜索过滤
+#### Scenario: Dashboard 批量归档
+#### Scenario: Dashboard 快速切换`,
+  );
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "Dashboard.test.tsx"),
+    `it('Dashboard 搜索过滤命中结果', () => {});`,
+  );
+
+  const result = runGate(root);
+  assert.equal(result.ok, false);
+  assert.equal(result.derivedUnmappedOverLimit, true);
+  assert.equal(result.derivedCoverage < result.derivedCoverageThreshold, true);
+}
+
+// gate distinguishes no-spec-change fallback from exception fallback
+{
+  const root = setupRoot("stm-gate-fallback-mode-");
+  mkdirSync(path.join(root, ".git"), { recursive: true });
+  const guardsDir = path.join(root, "openspec", "guards");
+  mkdirSync(guardsDir, { recursive: true });
+  writeBaseline(1, 0, root);
+  writeFileSync(
+    path.join(guardsDir, "spec-test-mapping-fallback-baseline.json"),
+    JSON.stringify(
+      {
+        count: 1,
+        explicitUnmappedCount: 1,
+        derivedUnmappedCount: 0,
+        updatedAt: "2026-04-06T00:00:00.000Z",
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const noSpecChangeResult = runGate(root, {
+    gitDiffRunner: () => "scripts/spec-test-mapping-gate.ts\n",
+  });
+  assert.equal(noSpecChangeResult.baselineMode, "no-spec-change-fallback");
+  assert.equal(noSpecChangeResult.usedFallbackBaseline, true);
+  assert.equal(noSpecChangeResult.scopeMode, "all");
+  assert.equal(noSpecChangeResult.derivedCoverageFloor, 0.6);
+  assert.equal(noSpecChangeResult.derivedQualityRegressed, false);
+  assert.equal(noSpecChangeResult.ok, true);
+
+  const exceptionFallbackResult = runGate(root, {
+    gitDiffRunner: () => {
+      throw new Error("diff explosion");
+    },
+  });
+  assert.equal(exceptionFallbackResult.baselineMode, "exception-fallback");
+  assert.equal(exceptionFallbackResult.usedFallbackBaseline, true);
+  assert.equal(exceptionFallbackResult.derivedCoverageFloor, 0.6);
+  assert.equal(exceptionFallbackResult.ok, false);
+  assert.match(exceptionFallbackResult.fallbackError ?? "", /diff explosion/);
+}
+
+// no-spec-change fallback without explicit floor still blocks derived quality regression
+{
+  const root = setupRoot("stm-gate-no-spec-change-quality-floor-");
+  mkdirSync(path.join(root, ".git"), { recursive: true });
+  const guardsDir = path.join(root, "openspec", "guards");
+  mkdirSync(guardsDir, { recursive: true });
+  writeBaseline(0, 1, root);
+  writeFileSync(
+    path.join(guardsDir, "spec-test-mapping-fallback-baseline.json"),
+    JSON.stringify(
+      {
+        count: 0,
+        explicitUnmappedCount: 0,
+        derivedUnmappedCount: 1,
+        updatedAt: "2026-04-06T00:00:00.000Z",
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+
+  const specDir = path.join(root, "openspec", "specs", "project-management");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `#### Scenario: Dashboard 搜索过滤
+#### Scenario: Dashboard 批量归档`,
+  );
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "Dashboard.test.tsx"),
+    `it('Dashboard 搜索过滤命中结果', () => {});`,
+  );
+
+  const result = runGate(root, {
+    gitDiffRunner: () => "scripts/spec-test-mapping-gate.ts\n",
+  });
+  assert.equal(result.baselineMode, "no-spec-change-fallback");
+  assert.equal(result.derivedUnmappedOverLimit, false);
+  assert.equal(result.derivedCoverage, 0.5);
+  assert.equal(result.derivedCoverageFloor, 0.6);
+  assert.equal(result.derivedQualityRegressed, true);
+  assert.equal(result.ok, false);
 }
 
 console.log("✅ spec-test-mapping-gate: all tests passed");

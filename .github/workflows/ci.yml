@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -27,6 +29,14 @@ jobs:
       - name: IPC contract check
         run: pnpm contract:check
 
+      - name: Spec-test mapping gate
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            echo "::error::Spec-test mapping gate requires full git history (fetch-depth: 0)."
+            exit 1
+          fi
+          pnpm gate:spec-test-mapping
+
       - name: Stub gate
         run: node --import tsx scripts/service-stub-detector-gate.ts
 
@@ -38,6 +48,9 @@ jobs:
 
       - name: Renderer tests
         run: pnpm -C apps/desktop test:renderer
+
+      - name: Desktop core coverage gate
+        run: pnpm -C apps/desktop test:coverage:core
 
       - uses: actions/setup-python@v5
         with:
@@ -57,6 +70,11 @@ jobs:
 
       - name: Desktop Storybook build
         run: pnpm -C apps/desktop storybook:build
+
+      - name: Storybook chunk budget gate
+        env:
+          STORYBOOK_CHUNK_HARD_CAP_BYTES: '716800'
+        run: pnpm gate:storybook-budget
 
       - name: Upload desktop Storybook artifact
         uses: actions/upload-artifact@v4

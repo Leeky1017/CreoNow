@@ -6,6 +6,7 @@ import { defineConfig } from "vitest/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MAIN_SRC_ROOT = path.resolve(__dirname, "main/src");
+const TESTS_ROOT = path.resolve(__dirname, "tests");
 
 function collectVitestTests(rootDir: string): string[] {
   const files: string[] = [];
@@ -16,7 +17,14 @@ function collectVitestTests(rootDir: string): string[] {
     if (!current) {
       continue;
     }
-    const entries = readdirSync(current, { withFileTypes: true });
+    let entries;
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[vitest.config.core] skip unreadable directory: ${current} (${message})`);
+      continue;
+    }
     for (const entry of entries) {
       const fullPath = path.join(current, entry.name);
       if (entry.isDirectory()) {
@@ -30,10 +38,8 @@ function collectVitestTests(rootDir: string): string[] {
         continue;
       }
 
-      const isTsxTest = entry.name.endsWith(".tsx");
-      const usesVitestImport = !isTsxTest
-        ? /from\s+["']vitest["']/u.test(readFileSync(fullPath, "utf8"))
-        : true;
+      const content = readFileSync(fullPath, "utf8");
+      const usesVitestImport = /from\s+["']vitest["']/u.test(content);
       if (!usesVitestImport) {
         continue;
       }
@@ -45,7 +51,10 @@ function collectVitestTests(rootDir: string): string[] {
   return files.sort((a, b) => a.localeCompare(b));
 }
 
-const vitestTestFiles = collectVitestTests(MAIN_SRC_ROOT);
+const vitestTestFiles = [
+  ...collectVitestTests(MAIN_SRC_ROOT),
+  ...collectVitestTests(TESTS_ROOT),
+];
 
 /**
  * Vitest 配置 — 后端（main/）覆盖率
@@ -74,10 +83,10 @@ export default defineConfig({
         "main/src/**/*.test.{ts,tsx}",
       ],
       thresholds: {
-        statements: 5,
-        branches: 3,
-        functions: 6,
-        lines: 4,
+        statements: 70,
+        branches: 55,
+        functions: 70,
+        lines: 70,
       },
     },
   },

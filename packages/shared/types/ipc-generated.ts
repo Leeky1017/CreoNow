@@ -3327,7 +3327,15 @@ export type IpcChannelSpec = {
     response: {
       active: number;
       archived: number;
+      overallProgressPercent: number;
+      perProject: Array<{
+        progressPercent: number;
+        projectId: string;
+        targetWordCount?: number | null;
+        wordCount: number;
+      }>;
       total: number;
+      totalWordCount: number;
     };
   };
   "project:project:switch": {

@@ -150,7 +150,19 @@ function registerProjectCrudHandlers(deps: ProjectHandlerDeps): void {
   deps.ipcMain.handle(
     "project:project:stats",
     async (): Promise<
-      IpcResponse<{ total: number; active: number; archived: number }>
+      IpcResponse<{
+        total: number;
+        active: number;
+        archived: number;
+        totalWordCount: number;
+        overallProgressPercent: number;
+        perProject: Array<{
+          projectId: string;
+          wordCount: number;
+          targetWordCount: number | null;
+          progressPercent: number;
+        }>;
+      }>
     > => {
       if (!deps.db) {
         return {

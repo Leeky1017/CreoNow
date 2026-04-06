@@ -18,6 +18,7 @@ import type { SelectionRef } from "@/editor/schema";
 import { VersionHistoryPanel } from "@/features/version-history/VersionHistoryPanel";
 import type { VersionHistorySnapshotDetail } from "@/features/version-history/types";
 import { useVersionHistoryController } from "@/features/version-history/useVersionHistoryController";
+import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
@@ -1340,6 +1341,10 @@ function WorkbenchShell() {
         selectedVersionId={versionHistory.selectedVersionId}
         status={versionHistory.status}
       />;
+    }
+
+    if (activeLeftPanel === "settings") {
+      return <SettingsPage />;
     }
 
     const surfaceKey = `sidebar.${activeLeftPanel}`;

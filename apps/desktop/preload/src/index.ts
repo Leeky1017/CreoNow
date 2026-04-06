@@ -43,6 +43,9 @@ const api = {
       creonowInvoke("project:project:list", payload),
     setCurrent: (payload: Parameters<typeof creonowInvoke<"project:project:setcurrent">>[1]) =>
       creonowInvoke("project:project:setcurrent", payload),
+    switchProject: (payload: Parameters<typeof creonowInvoke<"project:project:switch">>[1]) =>
+      creonowInvoke("project:project:switch", payload),
+    stats: () => creonowInvoke("project:project:stats", {}),
   },
   file: {
     createDocument: (payload: Parameters<typeof creonowInvoke<"file:document:create">>[1]) =>
@@ -59,6 +62,10 @@ const api = {
       creonowInvoke("file:document:setcurrent", payload),
   },
   ai: {
+    getConfig: () => creonowInvoke("ai:config:get", {}),
+    testConfig: () => creonowInvoke("ai:config:test", {}),
+    updateConfig: (payload: Parameters<typeof creonowInvoke<"ai:config:update">>[1]) =>
+      creonowInvoke("ai:config:update", payload),
     confirmSkill: (payload: Parameters<typeof creonowInvoke<"ai:skill:confirm">>[1]) =>
       creonowInvoke("ai:skill:confirm", payload),
     cancelSkill: (payload: Parameters<typeof creonowInvoke<"ai:skill:cancel">>[1]) =>

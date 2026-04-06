@@ -1,0 +1,19 @@
+{
+  "enforce_admins": false,
+  "required_pull_request_reviews": {
+    "dismiss_stale_reviews": null,
+    "require_code_owner_reviews": null,
+    "require_last_push_approval": null,
+    "required_approving_review_count": null
+  },
+  "required_status_checks": {
+    "contexts": [
+      "check",
+      "Build",
+      "Test",
+      "Quality Check"
+    ],
+    "strict": true
+  },
+  "restrictions": null
+}

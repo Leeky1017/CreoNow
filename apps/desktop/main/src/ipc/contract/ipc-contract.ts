@@ -2181,6 +2181,16 @@ export const ipcContract = {
         total: s.number(),
         active: s.number(),
         archived: s.number(),
+        totalWordCount: s.number(),
+        overallProgressPercent: s.number(),
+        perProject: s.array(
+          s.object({
+            projectId: s.string(),
+            wordCount: s.number(),
+            targetWordCount: s.optional(s.union(s.number(), s.literal(null))),
+            progressPercent: s.number(),
+          }),
+        ),
       }),
     },
     "project:project:rename": {

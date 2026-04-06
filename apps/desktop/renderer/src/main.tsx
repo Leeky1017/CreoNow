@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { WorkbenchApp } from "@/features/workbench/WorkbenchApp";
+import { RendererApp } from "@/features/workbench/RendererApp";
 import "@/i18n/config";
 import { installGlobalErrorHandlers } from "@/lib/globalErrorBridge";
 import "@/styles/index.css";
@@ -17,6 +17,6 @@ installGlobalErrorHandlers();
 
 createRoot(rootElement).render(
   <StrictMode>
-    <WorkbenchApp />
+    <RendererApp />
   </StrictMode>,
 );
