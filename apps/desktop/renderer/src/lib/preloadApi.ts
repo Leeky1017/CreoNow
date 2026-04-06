@@ -23,7 +23,7 @@ export interface PreloadApi {
     list: InvokeHandler<"project:project:list">;
     setCurrent: InvokeHandler<"project:project:setcurrent">;
     switchProject: InvokeHandler<"project:project:switch">;
-    stats?: InvokeHandler<"project:project:stats">;
+    stats: InvokeHandler<"project:project:stats">;
   };
   file: {
     createDocument: InvokeHandler<"file:document:create">;

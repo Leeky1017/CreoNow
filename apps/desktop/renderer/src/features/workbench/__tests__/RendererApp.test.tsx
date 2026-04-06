@@ -63,8 +63,9 @@ describe("RendererApp", () => {
     render(<RendererApp />);
 
     await waitFor(() => expect(screen.getByTestId("dashboard-page")).toBeInTheDocument());
-    expect(screen.getByText("1,234 字")).toBeInTheDocument();
-    expect(screen.getByText("进度 56%")).toBeInTheDocument();
+    const projectCard = screen.getByTestId("dashboard-project-card-proj-1");
+    expect(projectCard).toHaveTextContent(/1[\s,，]?234\s*字/u);
+    expect(projectCard).toHaveTextContent(/进度\s*56%/u);
 
     fireEvent.click(screen.getByTestId("dashboard-project-card-proj-1"));
 

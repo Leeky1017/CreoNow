@@ -64,20 +64,20 @@ export function RendererApp() {
     setDashboardLoading(true);
     const [listResult, statsResult] = await Promise.all([
       api.project.list({ includeArchived: false }),
-      api.project.stats?.({}),
+      api.project.stats({}),
     ]);
     if (!listResult.ok) {
       setErrorMessage(getHumanErrorMessage(listResult.error, t));
       setDashboardLoading(false);
       return;
     }
-    if (statsResult && !statsResult.ok) {
+    if (!statsResult.ok) {
       setErrorMessage(getHumanErrorMessage(statsResult.error, t));
       setDashboardLoading(false);
       return;
     }
 
-    const statsByProjectId = toStatsMap(readPerProjectStats(statsResult?.data));
+    const statsByProjectId = toStatsMap(readPerProjectStats(statsResult.data));
     setProjects(
       listResult.data.items.map((item) => {
         const stats = statsByProjectId.get(item.projectId);

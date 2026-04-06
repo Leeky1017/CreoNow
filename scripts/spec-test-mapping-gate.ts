@@ -75,7 +75,12 @@ export type SpecTestMappingResult = {
   derivedTotal: number;
   derivedMapped: number;
   derivedUnmapped: MappingResult[];
+  derivedBaseline: number;
+  derivedCoverage: number;
+  derivedCoverageThreshold: number;
   derivedIgnored: boolean;
+  derivedUnmappedOverLimit: boolean;
+  dilutedDerivedBaseline: boolean;
   dilutedBaseline: boolean;
 };
 
@@ -97,12 +102,13 @@ const BASELINE_PATH = path.join(
 );
 
 const GATE_NAME = "SPEC_TEST_MAP";
+const DERIVED_COVERAGE_THRESHOLD = 0.6;
 
 const SCENARIO_ID_RE = /###\s+Scenario\s+(S-[A-Z]+(?:-[A-Z]+)*-\d+)/g;
 const SCENARIO_TITLE_RE = /####\s+Scenario:\s+(.+)/;
 const PREFIXED_ID_RE = /^((?:BE|FE|AUD|IPC|P\d+)[-\w]*\s*)/;
 const TEST_TITLE_RE =
-  /(describe|it|test)\s*(?:\.\w+)?\s*\(\s*("([^"\\]|\\.)*"|'([^'\\]|\\.)*'|`([^`\\]|\\.)*`)/g;
+  /\b(describe|it|test)\s*((?:\.\w+)*)\s*\(\s*("([^"\\]|\\.)*"|'([^'\\]|\\.)*'|`([^`\\]|\\.)*`)/g;
 
 const DIMENSION_RULES: Array<{
   dimension: Tier2Dimension;
@@ -265,15 +271,48 @@ function offsetToLine(source: string, offset: number): number {
   return line;
 }
 
+function isExecutableTestTitle(
+  callee: string,
+  modifiers: string,
+  title: string,
+): boolean {
+  if (callee === "describe") {
+    return false;
+  }
+  const modifierTokens = modifiers
+    .split(".")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+  if (modifierTokens.includes("skip") || modifierTokens.includes("todo")) {
+    return false;
+  }
+  if (title.trim().length < 2) {
+    return false;
+  }
+  if (
+    /(?:^|\s)(?:todo|wip|skip|pending|placeholder|待实现|待补充|占位)(?:\s|$|[:：])/iu.test(
+      title,
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function collectTestTitles(content: string): Array<{ title: string; line: number }> {
   const titles: Array<{ title: string; line: number }> = [];
   let match: RegExpExecArray | null;
   TEST_TITLE_RE.lastIndex = 0;
   while ((match = TEST_TITLE_RE.exec(content)) !== null) {
-    const rawLiteral = match[2];
+    const callee = match[1];
+    const modifiers = match[2] ?? "";
+    const rawLiteral = match[3];
     const quote = rawLiteral[0];
     const title = rawLiteral.slice(1, -1);
     if (quote === "`" && title.includes("${")) {
+      continue;
+    }
+    if (!isExecutableTestTitle(callee, modifiers, title)) {
       continue;
     }
     titles.push({
@@ -447,16 +486,26 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
 
   const baseline = readBaseline(rootDir);
   const baselineLimit = baseline.explicitUnmappedCount ?? baseline.count;
+  const derivedBaselineLimit = baseline.derivedUnmappedCount ?? 0;
   const tier2 = computeTier2Summary(mappings);
 
   const unmapped = mappings.filter((m) => !m.mapped);
   const dilutedBaseline = baselineLimit > explicitUnmapped.length;
+  const dilutedDerivedBaseline = derivedBaselineLimit > derivedUnmapped.length;
+  const derivedCoverage =
+    derivedMappings.length === 0
+      ? 1
+      : (derivedMappings.length - derivedUnmapped.length) / derivedMappings.length;
+  const derivedUnmappedOverLimit = derivedUnmapped.length > derivedBaselineLimit;
 
   return {
     ok:
       explicitUnmapped.length <= baselineLimit &&
       !dilutedBaseline &&
-      !derivedIgnored,
+      !derivedIgnored &&
+      !derivedUnmappedOverLimit &&
+      !dilutedDerivedBaseline &&
+      derivedCoverage >= DERIVED_COVERAGE_THRESHOLD,
     mappings,
     unmapped,
     total: scenarios.length,
@@ -469,7 +518,12 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
     derivedTotal: derivedMappings.length,
     derivedMapped: derivedMappings.length - derivedUnmapped.length,
     derivedUnmapped,
+    derivedBaseline: derivedBaselineLimit,
+    derivedCoverage,
+    derivedCoverageThreshold: DERIVED_COVERAGE_THRESHOLD,
     derivedIgnored,
+    derivedUnmappedOverLimit,
+    dilutedDerivedBaseline,
     dilutedBaseline,
   };
 }
@@ -509,6 +563,9 @@ if (
   );
   console.log(
     `[${GATE_NAME}] derived coverage: ${result.derivedMapped}/${result.derivedTotal} (${pct(result.derivedMapped, result.derivedTotal)})`,
+  );
+  console.log(
+    `[${GATE_NAME}] derived threshold: coverage >= ${Math.round(result.derivedCoverageThreshold * 100)}%, unmapped <= ${result.derivedBaseline}`,
   );
 
   const t2 = result.tier2;
@@ -550,9 +607,25 @@ if (
       );
       process.exit(1);
     }
+    if (result.dilutedDerivedBaseline) {
+      console.log(
+        `[${GATE_NAME}] FAIL  derived baseline diluted: baseline ${result.derivedBaseline} > current derived-unmapped ${result.derivedUnmapped.length}. Run --update-baseline to ratchet down.`,
+      );
+      process.exit(1);
+    }
     if (result.derivedIgnored) {
       console.log(
         `[${GATE_NAME}] FAIL  derived scenarios are fully unmapped (${result.derivedUnmapped.length}/${result.derivedTotal}).`,
+      );
+    }
+    if (result.derivedUnmappedOverLimit) {
+      console.log(
+        `[${GATE_NAME}] FAIL  derived-unmapped ${result.derivedUnmapped.length} exceeds baseline ${result.derivedBaseline}.`,
+      );
+    }
+    if (result.derivedCoverage < result.derivedCoverageThreshold) {
+      console.log(
+        `[${GATE_NAME}] FAIL  derived coverage ${Math.round(result.derivedCoverage * 100)}% is below threshold ${Math.round(result.derivedCoverageThreshold * 100)}%.`,
       );
     }
     const newCount = result.explicitUnmapped.length - result.baseline;

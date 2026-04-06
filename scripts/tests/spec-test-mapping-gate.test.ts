@@ -63,7 +63,7 @@ function setupRoot(prefix: string): string {
   mkdirSync(testDir, { recursive: true });
   writeFileSync(
     path.join(testDir, "Dashboard.test.tsx"),
-    `describe('Dashboard 搜索过滤场景', () => { it('works', () => {}); });`,
+    `describe('Dashboard 搜索过滤场景', () => { it('Dashboard 搜索过滤命中结果', () => {}); });`,
   );
 
   const scenarios = extractScenarios(root);
@@ -111,7 +111,7 @@ function setupRoot(prefix: string): string {
   mkdirSync(testDir, { recursive: true });
   writeFileSync(
     path.join(testDir, "mixed.test.tsx"),
-    `describe('S-MIX-01 should NOT allow editing', () => {});describe('S-MIX-02 中文搜索', () => {});`,
+    `it('S-MIX-01 should NOT allow editing', () => {});it('S-MIX-02 中文搜索', () => {});`,
   );
 
   const scenarios = extractScenarios(root);
@@ -120,6 +120,60 @@ function setupRoot(prefix: string): string {
   assert.equal(summary.negation.mapped, 1);
   assert.equal(summary.cjk.mapped, 1);
   assert.equal(summary.rejection.mapped, 0);
+}
+
+// mapping excludes skipped/todo and non-executable placeholder titles
+{
+  const root = setupRoot("stm-map-executable-only-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `describe('S-ZEN-01 suite title should be ignored', () => {});
+test.skip('S-ZEN-01 skipped case should be ignored', () => {});
+test.todo('S-ZEN-01 todo case should be ignored');
+it('TODO: S-ZEN-01 pending placeholder', () => {});
+it('S-ZEN-01 executable case', () => {});`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, true);
+  assert.equal(mappings[0].evidences.length, 1);
+  assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 executable case");
+}
+
+// gate enforces derived coverage threshold and baseline limit
+{
+  const root = setupRoot("stm-gate-derived-threshold-");
+  const guardsDir = path.join(root, "openspec", "guards");
+  mkdirSync(guardsDir, { recursive: true });
+  writeBaseline(0, 0, root);
+
+  const specDir = path.join(root, "openspec", "specs", "project-management");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `#### Scenario: Dashboard 搜索过滤
+#### Scenario: Dashboard 批量归档
+#### Scenario: Dashboard 快速切换`,
+  );
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "Dashboard.test.tsx"),
+    `it('Dashboard 搜索过滤命中结果', () => {});`,
+  );
+
+  const result = runGate(root);
+  assert.equal(result.ok, false);
+  assert.equal(result.derivedUnmappedOverLimit, true);
+  assert.equal(result.derivedCoverage < result.derivedCoverageThreshold, true);
 }
 
 console.log("✅ spec-test-mapping-gate: all tests passed");
