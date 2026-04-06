@@ -17,10 +17,16 @@ function createLogger(): Logger {
   };
 }
 
+async function test(name: string, fn: () => Promise<void>): Promise<void> {
+  await fn().catch((error) => {
+    throw new Error(
+      `[${name}] ${error instanceof Error ? error.message : String(error)}`,
+    );
+  });
+}
+
 async function main(): Promise<void> {
-  // Scenario: AUD-C1-S4
-  // concurrent switchProject on same source should be serialized without overlap.
-  {
+  await test("AUD-C1-S4 concurrent switchProject serializes same source", async () => {
     const lifecycle = createProjectLifecycle({
       logger: createLogger(),
       timeoutMs: 500,
@@ -80,11 +86,9 @@ async function main(): Promise<void> {
       1,
       "switchProject(A->B, A->C) should not interleave unbind on A",
     );
-  }
+  });
 
-  // Scenario: AUD-C1-S5
-  // duplicate concurrent switch to same target should be idempotent.
-  {
+  await test("AUD-C1-S5 duplicate switchProject is idempotent", async () => {
     const lifecycle = createProjectLifecycle({
       logger: createLogger(),
       timeoutMs: 500,
@@ -143,7 +147,7 @@ async function main(): Promise<void> {
       1,
       "duplicate switch should run persist exactly once",
     );
-  }
+  });
 
   // Scenario: AUD-C1-S6
   // concurrent startup switches with empty fromProjectId should still serialize.
