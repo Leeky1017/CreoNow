@@ -56,6 +56,29 @@ function setupRoot(prefix: string): string {
   );
 }
 
+// parsing keeps compact explicit Scenario IDs in #### headings
+{
+  const root = setupRoot("stm-parse-compact-explicit-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `#### Scenario: P3 用户在项目内搜索关键词
+#### Scenario: IPC 延迟指标达标
+#### Scenario: Project 3 should stay derived`,
+  );
+
+  const scenarios = extractScenarios(root);
+  assert.deepEqual(
+    scenarios.map((scenario) => ({ id: scenario.id, mappingMode: scenario.mappingMode })),
+    [
+      { id: "P3", mappingMode: "explicit" },
+      { id: "IPC", mappingMode: "explicit" },
+      { id: "editor/project-3-should-stay-derived", mappingMode: "derived" },
+    ],
+  );
+}
+
 // parsing should not misclassify plain BE/FE words as explicit IDs
 {
   const root = setupRoot("stm-parse-explicit-negative-");
