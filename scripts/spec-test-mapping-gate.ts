@@ -336,20 +336,135 @@ function extractLiteralTitle(arg: ts.Expression | undefined): string | null {
   return null;
 }
 
-function hasExecutableCallback(node: ts.CallExpression): boolean {
+function unwrapExpression(node: ts.Expression): ts.Expression {
+  let current = node;
+  while (
+    ts.isParenthesizedExpression(current)
+    || ts.isAsExpression(current)
+    || ts.isTypeAssertionExpression(current)
+    || ts.isNonNullExpression(current)
+    || ts.isSatisfiesExpression(current)
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function isExecutableExpression(expression: ts.Expression): boolean {
+  const normalized = unwrapExpression(expression);
+  return ts.isArrowFunction(normalized) || ts.isFunctionExpression(normalized);
+}
+
+type CallbackMetadata = {
+  callableIdentifiers: Set<string>;
+  callableObjectProps: Map<string, Set<string>>;
+  literalStringConsts: Map<string, string>;
+};
+
+function collectCallbackMetadata(sourceFile: ts.SourceFile): CallbackMetadata {
+  const callableIdentifiers = new Set<string>();
+  const callableObjectProps = new Map<string, Set<string>>();
+  const literalStringConsts = new Map<string, string>();
+
+  const markCallableProperty = (objectName: string, propertyName: string): void => {
+    const existing = callableObjectProps.get(objectName);
+    if (existing) {
+      existing.add(propertyName);
+      return;
+    }
+    callableObjectProps.set(objectName, new Set([propertyName]));
+  };
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isFunctionDeclaration(node) && node.name) {
+      callableIdentifiers.add(node.name.text);
+    } else if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const variableName = node.name.text;
+      const normalizedInit = unwrapExpression(node.initializer);
+      if (isExecutableExpression(normalizedInit)) {
+        callableIdentifiers.add(variableName);
+      } else if (ts.isObjectLiteralExpression(normalizedInit)) {
+        for (const prop of normalizedInit.properties) {
+          if (ts.isPropertyAssignment(prop)) {
+            const propertyName = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)
+              ? prop.name.text
+              : null;
+            if (propertyName && isExecutableExpression(prop.initializer)) {
+              markCallableProperty(variableName, propertyName);
+            }
+          } else if (ts.isMethodDeclaration(prop)) {
+            const propertyName = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)
+              ? prop.name.text
+              : null;
+            if (propertyName) {
+              markCallableProperty(variableName, propertyName);
+            }
+          }
+        }
+      } else if (ts.isStringLiteral(normalizedInit) || ts.isNoSubstitutionTemplateLiteral(normalizedInit)) {
+        literalStringConsts.set(variableName, normalizedInit.text);
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return { callableIdentifiers, callableObjectProps, literalStringConsts };
+}
+
+function resolveElementAccessPropertyName(
+  access: ts.ElementAccessExpression,
+  metadata: CallbackMetadata,
+): string | null {
+  const argument = access.argumentExpression;
+  if (!argument) {
+    return null;
+  }
+  const normalizedArg = unwrapExpression(argument);
+  if (ts.isStringLiteral(normalizedArg) || ts.isNoSubstitutionTemplateLiteral(normalizedArg)) {
+    return normalizedArg.text;
+  }
+  if (ts.isIdentifier(normalizedArg)) {
+    return metadata.literalStringConsts.get(normalizedArg.text) ?? null;
+  }
+  return null;
+}
+
+function hasExecutableCallback(
+  node: ts.CallExpression,
+  metadata: CallbackMetadata,
+): boolean {
   const callback = node.arguments[1];
   if (!callback) {
     return false;
   }
-  if (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) {
+  if (isExecutableExpression(callback)) {
     return true;
   }
-  if (
-    ts.isIdentifier(callback)
-    || ts.isPropertyAccessExpression(callback)
-    || ts.isElementAccessExpression(callback)
-  ) {
-    return true;
+  const normalized = unwrapExpression(callback);
+  if (ts.isIdentifier(normalized)) {
+    return metadata.callableIdentifiers.has(normalized.text);
+  }
+  if (ts.isPropertyAccessExpression(normalized)) {
+    if (!ts.isIdentifier(normalized.expression)) {
+      return false;
+    }
+    return metadata.callableObjectProps
+      .get(normalized.expression.text)
+      ?.has(normalized.name.text) ?? false;
+  }
+  if (ts.isElementAccessExpression(normalized)) {
+    if (!ts.isIdentifier(normalized.expression)) {
+      return false;
+    }
+    const propertyName = resolveElementAccessPropertyName(normalized, metadata);
+    if (!propertyName) {
+      return false;
+    }
+    return metadata.callableObjectProps
+      .get(normalized.expression.text)
+      ?.has(propertyName) ?? false;
   }
   return false;
 }
@@ -366,6 +481,7 @@ function collectTestTitles(
     true,
     scriptKindFromPath(filePath),
   );
+  const callbackMetadata = collectCallbackMetadata(sourceFile);
 
   const visit = (node: ts.Node): void => {
     if (!ts.isCallExpression(node)) {
@@ -406,7 +522,7 @@ function collectTestTitles(
 
     if (
       (calleeMeta.callee === "it" || calleeMeta.callee === "test")
-      && !hasExecutableCallback(node)
+      && !hasExecutableCallback(node, callbackMetadata)
     ) {
       ts.forEachChild(node, visit);
       return;

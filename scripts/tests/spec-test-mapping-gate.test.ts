@@ -192,6 +192,33 @@ it('S-ZEN-01 executable callback identifier', runnable);`,
   assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 executable callback identifier");
 }
 
+// mapping rejects identifier/property/element callback bypass when value is non-function
+{
+  const root = setupRoot("stm-map-callback-bypass-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `const nonFn = 1 as unknown as () => void;
+const callbacks = {
+  nonFn: 2 as unknown as () => void,
+};
+const key = 'nonFn' as const;
+it('S-ZEN-01 identifier callback bypass', nonFn);
+it('S-ZEN-01 property callback bypass', callbacks.nonFn);
+it('S-ZEN-01 element callback bypass', callbacks[key]);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, false);
+  assert.equal(mappings[0].evidences.length, 0);
+}
+
 // gate enforces derived coverage threshold and baseline limit
 {
   const root = setupRoot("stm-gate-derived-threshold-");

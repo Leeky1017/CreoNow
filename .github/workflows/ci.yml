@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -28,7 +30,12 @@ jobs:
         run: pnpm contract:check
 
       - name: Spec-test mapping gate
-        run: pnpm gate:spec-test-mapping
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            echo "::error::Spec-test mapping gate requires full git history (fetch-depth: 0)."
+            exit 1
+          fi
+          pnpm gate:spec-test-mapping
 
       - name: Stub gate
         run: node --import tsx scripts/service-stub-detector-gate.ts
