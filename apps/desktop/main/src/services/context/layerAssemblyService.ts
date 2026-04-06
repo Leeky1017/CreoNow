@@ -3,7 +3,13 @@ import type { MatchResult, MatchableEntity } from "../kg/entityMatcher";
 import type { KnowledgeGraphService } from "../kg/kgService";
 import type { MemoryService } from "../memory/memoryService";
 import type { EpisodicMemoryService } from "../memory/episodicMemoryService";
+import type { SimpleMemoryService } from "../memory/simpleMemoryService";
+import type { ProjectStyleConfig } from "../project/projectManager";
+import type { CharacterListService } from "../skills/characterListService";
 import { createRulesFetcher } from "./fetchers/rulesFetcher";
+import { createMemoryInjectionFetcher } from "./fetchers/memoryInjectionFetcher";
+import { createProjectStyleFetcher } from "./fetchers/projectStyleFetcher";
+import { createCharacterContextFetcher } from "./fetchers/characterContextFetcher";
 import type { SynopsisStore } from "./synopsisStore";
 import type { Logger } from "../../logging/logger";
 import { DegradationCounter } from "../shared/degradationCounter";
@@ -52,10 +58,19 @@ export type {
   ContextRuleConstraint,
 } from "./types";
 
+type ProjectStyleResult<T> =
+  | { success: true; data?: T }
+  | { success: false; error: { code: string; message: string } };
+
 export type ContextLayerAssemblyDeps = {
   onConstraintTrim?: (log: ContextConstraintTrimLog) => void;
   kgService?: Pick<KnowledgeGraphService, "entityList">;
   memoryService?: Pick<MemoryService, "previewInjection">;
+  simpleMemoryService?: Pick<SimpleMemoryService, "inject">;
+  projectService?: {
+    getStyleConfig: (projectId: string) => Promise<ProjectStyleResult<ProjectStyleConfig>>;
+  };
+  characterListService?: Pick<CharacterListService, "injectCharactersIntoContext">;
   synopsisStore?: Pick<SynopsisStore, "listRecentByProject">;
   episodicMemoryService?: Pick<EpisodicMemoryService, "listSemanticMemory">;
   matchEntities?: (text: string, entities: MatchableEntity[]) => MatchResult[];
@@ -1298,6 +1313,9 @@ function defaultFetchers(
     ContextLayerAssemblyDeps,
     | "kgService"
     | "memoryService"
+    | "simpleMemoryService"
+    | "projectService"
+    | "characterListService"
     | "synopsisStore"
     | "episodicMemoryService"
     | "matchEntities"
@@ -1321,6 +1339,60 @@ function defaultFetchers(
     ],
   });
 
+  const settingsSubFetchers: ContextLayerFetcher[] = [];
+
+  if (deps?.simpleMemoryService) {
+    settingsSubFetchers.push(
+      createMemoryInjectionFetcher({
+        simpleMemoryService: deps.simpleMemoryService,
+        logger: deps.logger,
+        degradationCounter,
+        degradationEscalationThreshold: deps.degradationEscalationThreshold,
+      }),
+    );
+  }
+
+  if (deps?.projectService) {
+    settingsSubFetchers.push(
+      createProjectStyleFetcher({
+        projectService: deps.projectService,
+        logger: deps.logger,
+        degradationCounter,
+        degradationEscalationThreshold: deps.degradationEscalationThreshold,
+      }),
+    );
+  }
+
+  if (deps?.characterListService) {
+    settingsSubFetchers.push(
+      createCharacterContextFetcher({
+        characterListService: deps.characterListService,
+        logger: deps.logger,
+        degradationCounter,
+        degradationEscalationThreshold: deps.degradationEscalationThreshold,
+      }),
+    );
+  }
+
+  const compositeSettingsFetcher: ContextLayerFetcher =
+    settingsSubFetchers.length > 0
+      ? async (request) => {
+          const results = await Promise.all(
+            settingsSubFetchers.map((fetcher) =>
+              fetcher(request).catch((): { chunks: ContextLayerChunk[]; warnings: string[] } => ({
+                chunks: [],
+                warnings: ["SETTINGS_SUBFETCHER_DEGRADED"],
+              })),
+            ),
+          );
+          return {
+            chunks: results.flatMap((r) => r.chunks),
+            truncated: results.some((r) => "truncated" in r && r.truncated === true),
+            warnings: results.flatMap((r) => r.warnings ?? []),
+          };
+        }
+      : async () => ({ chunks: [] });
+
   return {
     rules: deps?.kgService
       ? createRulesFetcher({
@@ -1330,7 +1402,7 @@ function defaultFetchers(
           degradationEscalationThreshold: deps.degradationEscalationThreshold,
         })
       : fallbackRulesFetcher,
-    settings: async () => ({ chunks: [] }),
+    settings: compositeSettingsFetcher,
     retrieved: async () => ({ chunks: [] }),
     immediate: async (request) => {
       const text = request.additionalInput;
@@ -1372,6 +1444,9 @@ export function createContextLayerAssemblyService(
     ...defaultFetchers({
       kgService: deps?.kgService,
       memoryService: deps?.memoryService,
+      simpleMemoryService: deps?.simpleMemoryService,
+      projectService: deps?.projectService,
+      characterListService: deps?.characterListService,
       synopsisStore: deps?.synopsisStore,
       episodicMemoryService: deps?.episodicMemoryService,
       matchEntities: deps?.matchEntities,

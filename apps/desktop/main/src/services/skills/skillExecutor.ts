@@ -116,6 +116,10 @@ type SkillExecutorDeps = {
     provider?: string;
     model?: string;
   }) => Promise<ContextAssembleResult>;
+  createPreAiSnapshot?: (args: {
+    projectId: string;
+    documentId: string;
+  }) => Promise<{ ok: boolean; versionId?: string }>;
   logger?: {
     warn: (event: string, data?: Record<string, unknown>) => void;
   };
@@ -686,6 +690,22 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
         rawInputText: args.input,
         contextPrompt,
       });
+
+      // Pre-AI snapshot: create a version snapshot before AI modifies the document
+      if (deps.createPreAiSnapshot) {
+        const projectId = args.context?.projectId?.trim() ?? "";
+        const documentId = args.context?.documentId?.trim() ?? "";
+        if (projectId.length > 0 && documentId.length > 0) {
+          try {
+            await deps.createPreAiSnapshot({ projectId, documentId });
+          } catch (error) {
+            deps.logger?.warn("pre_ai_snapshot_degraded", {
+              skillId: effectiveSkillId,
+              error: normalizeErrorMessage(error),
+            });
+          }
+        }
+      }
 
       const runArgs: SkillExecutorRunArgs = args.messages
         ? {
