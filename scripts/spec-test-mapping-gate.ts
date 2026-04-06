@@ -67,6 +67,8 @@ export type SpecTestMappingResult = {
   ok: boolean;
   scopeMode: "all" | "changed";
   scopeSpecFiles: string[];
+  usedFallbackBaseline: boolean;
+  baselineFile: string;
   mappings: MappingResult[];
   unmapped: MappingResult[];
   total: number;
@@ -103,6 +105,11 @@ const BASELINE_PATH = path.join(
   "openspec",
   "guards",
   "spec-test-mapping-baseline.json",
+);
+const FALLBACK_BASELINE_PATH = path.join(
+  "openspec",
+  "guards",
+  "spec-test-mapping-fallback-baseline.json",
 );
 
 const GATE_NAME = "SPEC_TEST_MAP";
@@ -329,6 +336,24 @@ function extractLiteralTitle(arg: ts.Expression | undefined): string | null {
   return null;
 }
 
+function hasExecutableCallback(node: ts.CallExpression): boolean {
+  const callback = node.arguments[1];
+  if (!callback) {
+    return false;
+  }
+  if (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) {
+    return true;
+  }
+  if (
+    ts.isIdentifier(callback)
+    || ts.isPropertyAccessExpression(callback)
+    || ts.isElementAccessExpression(callback)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function collectTestTitles(
   content: string,
   filePath: string,
@@ -374,6 +399,14 @@ function collectTestTitles(
         calleeMeta.modifiers.map((token) => `.${token}`).join(""),
         title,
       )
+    ) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+
+    if (
+      (calleeMeta.callee === "it" || calleeMeta.callee === "test")
+      && !hasExecutableCallback(node)
     ) {
       ts.forEachChild(node, visit);
       return;
@@ -501,9 +534,10 @@ export function computeTier2Summary(mappings: MappingResult[]): Tier2Summary {
 
 export function readBaseline(
   rootDir: string = ".",
+  baselinePath: string = BASELINE_PATH,
 ): SpecTestMappingBaseline {
-  const baselinePath = path.join(rootDir, BASELINE_PATH);
-  if (!existsSync(baselinePath)) {
+  const fullBaselinePath = path.join(rootDir, baselinePath);
+  if (!existsSync(fullBaselinePath)) {
     return {
       count: 0,
       explicitUnmappedCount: 0,
@@ -512,7 +546,7 @@ export function readBaseline(
     };
   }
   const parsed = JSON.parse(
-    readFileSync(baselinePath, "utf-8"),
+    readFileSync(fullBaselinePath, "utf-8"),
   ) as SpecTestMappingBaseline;
   return {
     count: parsed.count,
@@ -559,19 +593,66 @@ function resolveScopeSpecFiles(rootDir: string): string[] | null {
       if (raw.length === 0) {
         continue;
       }
-      return raw
+      const changedSpecFiles = raw
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line.endsWith("spec.md") || line.endsWith(".spec.md"))
         .sort();
-    } catch {
+      if (changedSpecFiles.length === 0) {
+        return null;
+      }
+      return changedSpecFiles;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[${GATE_NAME}] WARN  unable to resolve changed spec files from ${target}: ${message}`);
       continue;
     }
   }
-  return [];
+  return null;
+}
+
+function shouldUseFallbackBaseline(rootDir: string): boolean {
+  const forceAll = process.argv.includes("--all") || process.env.SPEC_TEST_MAP_SCOPE === "all";
+  if (forceAll) {
+    return false;
+  }
+
+  const gitDir = path.join(rootDir, ".git");
+  if (!existsSync(gitDir)) {
+    return false;
+  }
+
+  const diffTargets = ["origin/main...HEAD", "HEAD~1...HEAD"];
+  for (const target of diffTargets) {
+    try {
+      const raw = execSync(`git --no-pager diff --name-only --diff-filter=ACMRTUXB ${target}`, {
+        cwd: rootDir,
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      if (raw.length === 0) {
+        continue;
+      }
+      const changedSpecFiles = raw
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.endsWith("spec.md") || line.endsWith(".spec.md"))
+        .sort();
+      if (changedSpecFiles.length === 0) {
+        return true;
+      }
+      return false;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[${GATE_NAME}] WARN  unable to resolve changed spec files from ${target}: ${message}`);
+      continue;
+    }
+  }
+  return true;
 }
 
 export function runGate(rootDir: string = "."): SpecTestMappingResult {
+  const useFallbackBaseline = shouldUseFallbackBaseline(rootDir);
   const scopeSpecFiles = resolveScopeSpecFiles(rootDir);
   const scopeMode: "all" | "changed" = scopeSpecFiles === null ? "all" : "changed";
   const scopedSpecFiles = scopeSpecFiles ?? [];
@@ -593,7 +674,8 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
   const derivedIgnored =
     derivedMappings.length > 0 && derivedMappings.every((m) => !m.mapped);
 
-  const baseline = readBaseline(rootDir);
+  const baselineFile = useFallbackBaseline ? FALLBACK_BASELINE_PATH : BASELINE_PATH;
+  const baseline = readBaseline(rootDir, baselineFile);
   const baselineLimit = baseline.explicitUnmappedCount ?? baseline.count;
   const derivedBaselineLimit = baseline.derivedUnmappedCount ?? 0;
   const tier2 = computeTier2Summary(mappings);
@@ -606,17 +688,20 @@ export function runGate(rootDir: string = "."): SpecTestMappingResult {
       ? 1
       : (derivedMappings.length - derivedUnmapped.length) / derivedMappings.length;
   const derivedUnmappedOverLimit = derivedUnmapped.length > derivedBaselineLimit;
+  const enforceDerivedCoverage = useFallbackBaseline === false;
 
   return {
     ok:
       explicitUnmapped.length <= baselineLimit &&
       !dilutedBaseline &&
-      !derivedIgnored &&
       !derivedUnmappedOverLimit &&
       !dilutedDerivedBaseline &&
-      derivedCoverage >= DERIVED_COVERAGE_THRESHOLD,
+      (!enforceDerivedCoverage || (!derivedIgnored && derivedCoverage >= DERIVED_COVERAGE_THRESHOLD)) &&
+      mappings.length > 0,
     scopeMode,
     scopeSpecFiles: scopedSpecFiles,
+    usedFallbackBaseline: useFallbackBaseline,
+    baselineFile,
     mappings,
     unmapped,
     total: scenarios.length,
@@ -673,6 +758,9 @@ if (
     }
   } else {
     console.log(`[${GATE_NAME}] scope: all spec files`);
+  }
+  if (result.usedFallbackBaseline) {
+    console.log(`[${GATE_NAME}] baseline strategy: fallback (${result.baselineFile})`);
   }
 
   console.log(
@@ -733,7 +821,7 @@ if (
       );
       process.exit(1);
     }
-    if (result.derivedIgnored) {
+    if (result.derivedIgnored && !result.usedFallbackBaseline) {
       console.log(
         `[${GATE_NAME}] FAIL  derived scenarios are fully unmapped (${result.derivedUnmapped.length}/${result.derivedTotal}).`,
       );
@@ -743,7 +831,7 @@ if (
         `[${GATE_NAME}] FAIL  derived-unmapped ${result.derivedUnmapped.length} exceeds baseline ${result.derivedBaseline}.`,
       );
     }
-    if (result.derivedCoverage < result.derivedCoverageThreshold) {
+    if (result.derivedCoverage < result.derivedCoverageThreshold && !result.usedFallbackBaseline) {
       console.log(
         `[${GATE_NAME}] FAIL  derived coverage ${Math.round(result.derivedCoverage * 100)}% is below threshold ${Math.round(result.derivedCoverageThreshold * 100)}%.`,
       );

@@ -3,8 +3,17 @@ import path from "node:path";
 
 const STORYBOOK_OUTPUT_DIR = path.join("apps", "desktop", "storybook-static");
 const WARN_THRESHOLD_BYTES = 500 * 1024;
-const FAIL_THRESHOLD_BYTES = Number(process.env.STORYBOOK_CHUNK_HARD_CAP_BYTES ?? "0");
+const DEFAULT_FAIL_THRESHOLD_BYTES = 700 * 1024;
+const FAIL_THRESHOLD_BYTES = Number(
+  process.env.STORYBOOK_CHUNK_HARD_CAP_BYTES ?? String(DEFAULT_FAIL_THRESHOLD_BYTES),
+);
 const GATE_NAME = "STORYBOOK_CHUNK_BUDGET";
+const HARD_CAP_EXCLUSIONS = [
+  /^sb-manager\//,
+  /^sb-addons\//,
+  /^assets\/DocsRenderer-/,
+  /^assets\/axe-/,
+];
 
 type AssetInfo = {
   file: string;
@@ -31,6 +40,10 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)}KiB`;
 }
 
+function excludedFromHardCap(file: string): boolean {
+  return HARD_CAP_EXCLUSIONS.some((pattern) => pattern.test(file));
+}
+
 export function collectStorybookJsAssets(rootDir: string = "."): AssetInfo[] {
   const outputDir = path.join(rootDir, STORYBOOK_OUTPUT_DIR);
   return walk(outputDir)
@@ -54,10 +67,16 @@ if (
   }
 
   const warnAssets = assets.filter((asset) => asset.size > WARN_THRESHOLD_BYTES);
-  const failAssets =
-    FAIL_THRESHOLD_BYTES > 0
-      ? assets.filter((asset) => asset.size > FAIL_THRESHOLD_BYTES)
-      : [];
+  if (!Number.isFinite(FAIL_THRESHOLD_BYTES) || FAIL_THRESHOLD_BYTES <= 0) {
+    console.log(`[${GATE_NAME}] FAIL  invalid hard cap: ${String(process.env.STORYBOOK_CHUNK_HARD_CAP_BYTES)}`);
+    process.exit(1);
+  }
+  const failAssets = assets.filter((asset) => {
+    if (excludedFromHardCap(asset.file)) {
+      return false;
+    }
+    return asset.size > FAIL_THRESHOLD_BYTES;
+  });
 
   console.log(`[${GATE_NAME}] scanned ${assets.length} js chunks in ${STORYBOOK_OUTPUT_DIR}`);
   for (const asset of assets.slice(0, 10)) {
@@ -75,9 +94,14 @@ if (
     console.log(`[${GATE_NAME}] WARN threshold clear (${formatSize(WARN_THRESHOLD_BYTES)})`);
   }
 
-  if (FAIL_THRESHOLD_BYTES <= 0) {
-    console.log(`[${GATE_NAME}] HARD-CAP disabled (set STORYBOOK_CHUNK_HARD_CAP_BYTES to enable blocking)`);
-  } else if (failAssets.length > 0) {
+  const excludedAssetCount = assets.filter((asset) => excludedFromHardCap(asset.file)).length;
+  if (excludedAssetCount > 0) {
+    console.log(
+      `[${GATE_NAME}] hard-cap exclusions: ${excludedAssetCount} Storybook runtime/addon chunk(s) excluded from blocking threshold`,
+    );
+  }
+
+  if (failAssets.length > 0) {
     console.log(
       `[${GATE_NAME}] FAIL  ${failAssets.length} chunk(s) exceed hard cap ${formatSize(FAIL_THRESHOLD_BYTES)}.`,
     );
@@ -87,9 +111,5 @@ if (
     process.exit(1);
   }
 
-  if (FAIL_THRESHOLD_BYTES > 0) {
-    console.log(`[${GATE_NAME}] PASS  hard cap ${formatSize(FAIL_THRESHOLD_BYTES)}`);
-  } else {
-    console.log(`[${GATE_NAME}] PASS  warning-only mode`);
-  }
+  console.log(`[${GATE_NAME}] PASS  hard cap ${formatSize(FAIL_THRESHOLD_BYTES)}`);
 }

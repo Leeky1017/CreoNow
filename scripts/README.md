@@ -22,12 +22,12 @@
 | `cross-module-contract-autofix.ts`   | cross-module 失败分类与安全自动修复（开发分支）                          | 开发分支手动触发   |
 | `resource-size-gate.ts`              | 资源文件大小门禁（baseline ratchet）                                     | CI / preflight     |
 | `bundle-size-budget.ts`              | 构建产物体积预算门禁                                                     | CI / preflight     |
-| `storybook-chunk-budget.ts`          | Storybook chunk 体积预算（500KiB 报警；可选 `STORYBOOK_CHUNK_HARD_CAP_BYTES` 阻断） | CI / preflight     |
+| `storybook-chunk-budget.ts`          | Storybook chunk 体积预算（500KiB 报警；默认 700KiB hard-cap 阻断，可由 `STORYBOOK_CHUNK_HARD_CAP_BYTES` 覆盖；`sb-manager/sb-addons/DocsRenderer/axe` 仅告警不阻断） | CI / preflight     |
 | `ipc-handler-validation-gate.ts`     | IPC handler schema 校验覆盖门禁                                          | CI / preflight     |
 | `service-stub-detector-gate.ts`      | Service 桩方法检测门禁                                                   | CI / preflight     |
 | `error-boundary-coverage-gate.ts`    | ErrorBoundary 覆盖门禁                                                   | CI / preflight     |
 | `architecture-health-gate.ts`        | 架构健康度门禁                                                           | CI / preflight     |
-| `spec-test-mapping-gate.ts`          | Spec Scenario→测试映射门禁                                               | CI / preflight     |
+| `spec-test-mapping-gate.ts`          | Spec Scenario→测试映射门禁（无 spec 变更时回退 fallback baseline，避免 0/0 空通过） | CI / preflight     |
 | `ai-rate-limit-coverage-gate.ts`     | AI 请求限流 + scheduler / queue coverage gate                            | CI / preflight     |
 | `lint-ratchet.ts`                    | ESLint warning budget ratchet                                            | CI / preflight     |
 

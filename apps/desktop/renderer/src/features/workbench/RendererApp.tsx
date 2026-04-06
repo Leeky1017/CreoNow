@@ -17,6 +17,12 @@ type ProjectStatsItem = {
   progressPercent?: number;
 };
 
+type StatsPayloadIssue = {
+  field: "payload" | "projectId" | "wordCount" | "progressPercent";
+  index?: number;
+  reason: string;
+};
+
 function toDashboardProject(item: ProjectListItem): DashboardProject {
   return {
     id: item.projectId,
@@ -31,24 +37,74 @@ export function toStatsMap(items: ProjectStatsItem[]): Map<string, ProjectStatsI
   return new Map(items.map((item) => [item.projectId, item]));
 }
 
+function reportStatsPayloadIssues(issues: StatsPayloadIssue[]): void {
+  if (issues.length === 0) {
+    return;
+  }
+  console.warn("[RendererApp] project.stats payload validation issues", {
+    count: issues.length,
+    sample: issues.slice(0, 5),
+  });
+}
+
+function normalizeOptionalMetric(
+  value: unknown,
+  field: "wordCount" | "progressPercent",
+  index: number,
+  issues: StatsPayloadIssue[],
+): number | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    issues.push({ field, index, reason: "must be a finite number" });
+    return undefined;
+  }
+  if (field === "progressPercent") {
+    return Math.max(0, Math.min(100, Math.round(value)));
+  }
+  return Math.max(0, Math.floor(value));
+}
 
 export function readPerProjectStats(data: unknown): ProjectStatsItem[] {
+  const issues: StatsPayloadIssue[] = [];
   if (!data || typeof data !== "object" || !("perProject" in data)) {
+    issues.push({ field: "payload", reason: "missing perProject field" });
+    reportStatsPayloadIssues(issues);
     return [];
   }
 
   const perProject = (data as { perProject?: unknown }).perProject;
   if (!Array.isArray(perProject)) {
+    issues.push({ field: "payload", reason: "perProject must be an array" });
+    reportStatsPayloadIssues(issues);
     return [];
   }
 
-  return perProject.filter((item): item is ProjectStatsItem => {
-    return (
-      item !== null
-      && typeof item === "object"
-      && typeof (item as { projectId?: unknown }).projectId === "string"
-    );
+  const normalized: ProjectStatsItem[] = [];
+  perProject.forEach((item, index) => {
+    if (item === null || typeof item !== "object") {
+      issues.push({ field: "payload", index, reason: "entry must be an object" });
+      return;
+    }
+    const candidate = item as {
+      projectId?: unknown;
+      wordCount?: unknown;
+      progressPercent?: unknown;
+    };
+    if (typeof candidate.projectId !== "string" || candidate.projectId.trim().length === 0) {
+      issues.push({ field: "projectId", index, reason: "projectId must be a non-empty string" });
+      return;
+    }
+    normalized.push({
+      projectId: candidate.projectId,
+      wordCount: normalizeOptionalMetric(candidate.wordCount, "wordCount", index, issues),
+      progressPercent: normalizeOptionalMetric(candidate.progressPercent, "progressPercent", index, issues),
+    });
   });
+
+  reportStatsPayloadIssues(issues);
+  return normalized;
 }
 
 export function mergeDashboardProjects(
@@ -77,23 +133,27 @@ export function RendererApp() {
 
   const loadProjects = useCallback(async () => {
     setDashboardLoading(true);
-    const [listResult, statsResult] = await Promise.all([
-      api.project.list({ includeArchived: false }),
-      api.project.stats({}),
-    ]);
-    if (!listResult.ok) {
-      setErrorMessage(getHumanErrorMessage(listResult.error, t));
-      setDashboardLoading(false);
-      return;
-    }
-    if (!statsResult.ok) {
-      setErrorMessage(getHumanErrorMessage(statsResult.error, t));
-      setDashboardLoading(false);
-      return;
-    }
+    try {
+      const [listResult, statsResult] = await Promise.all([
+        api.project.list({ includeArchived: false }),
+        api.project.stats({}),
+      ]);
+      if (!listResult.ok) {
+        setErrorMessage(getHumanErrorMessage(listResult.error, t));
+        return;
+      }
+      if (!statsResult.ok) {
+        setErrorMessage(getHumanErrorMessage(statsResult.error, t));
+        return;
+      }
 
-    setProjects(mergeDashboardProjects(listResult.data.items, readPerProjectStats(statsResult.data)));
-    setDashboardLoading(false);
+      setProjects(mergeDashboardProjects(listResult.data.items, readPerProjectStats(statsResult.data)));
+    } catch (error) {
+      console.error("[RendererApp] failed to load dashboard projects", error);
+      setErrorMessage(getHumanErrorMessage(error as Error, t));
+    } finally {
+      setDashboardLoading(false);
+    }
   }, [api.project, t]);
 
   useEffect(() => {

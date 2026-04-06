@@ -128,6 +128,19 @@ function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const,
 }
 
 function createApiMock(): PreloadApi {
+  const aiConfig = {
+    enabled: true,
+    providerMode: "openai-compatible" as const,
+    baseUrl: "",
+    apiKeyConfigured: false,
+    openAiCompatibleBaseUrl: "",
+    openAiCompatibleApiKeyConfigured: false,
+    openAiByokBaseUrl: "",
+    openAiByokApiKeyConfigured: false,
+    anthropicByokBaseUrl: "",
+    anthropicByokApiKeyConfigured: false,
+  };
+
   return {
     ai: {
       confirmSkill: vi.fn(async ({ executionId, action, projectId }) => ({
@@ -141,8 +154,11 @@ function createApiMock(): PreloadApi {
         },
       })),
       cancelSkill: vi.fn(async () => ({ ok: true, data: { canceled: true } })),
+      getConfig: vi.fn(async () => ({ ok: true, data: aiConfig })),
       runSkill: vi.fn(async () => ({ ok: true, data: { executionId: "exec-1", runId: "run-1", status: "preview" as const, previewId: "exec-1", outputText: "改写后的句子" } })),
       submitSkillFeedback: vi.fn(async () => ({ ok: true, data: { recorded: true } })),
+      testConfig: vi.fn(async () => ({ ok: true, data: { ok: true, latencyMs: 24 } })),
+      updateConfig: vi.fn(async () => ({ ok: true, data: aiConfig })),
     },
     file: {
       createDocument: vi.fn(async () => ({ ok: true, data: { documentId: "doc-2" } })),
@@ -304,6 +320,37 @@ describe("WorkbenchApp", () => {
         cursorPosition: 5,
         precedingText: "风从北方来",
       }));
+    });
+  });
+
+  it("connects settings panel to AI save/test actions via workbench path", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: /设置|Settings/i }));
+
+    await screen.findByTestId("ai-save-btn");
+    fireEvent.click(screen.getByTestId("ai-test-btn"));
+    await waitFor(() => {
+      expect(window.api?.ai.testConfig).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(screen.getByTestId("ai-base-url"), {
+      target: { value: "https://api.example.com/v1" },
+    });
+    fireEvent.change(screen.getByTestId("ai-api-key"), {
+      target: { value: "sk-test-123" },
+    });
+    fireEvent.click(screen.getByTestId("ai-save-btn"));
+
+    await waitFor(() => {
+      expect(window.api?.ai.updateConfig).toHaveBeenCalledWith({
+        patch: expect.objectContaining({
+          providerMode: "openai-compatible",
+          openAiCompatibleBaseUrl: "https://api.example.com/v1",
+          openAiCompatibleApiKey: "sk-test-123",
+        }),
+      });
     });
   });
 

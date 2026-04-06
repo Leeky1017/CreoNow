@@ -65,6 +65,8 @@ jobs:
         run: pnpm -C apps/desktop storybook:build
 
       - name: Storybook chunk budget gate
+        env:
+          STORYBOOK_CHUNK_HARD_CAP_BYTES: '716800'
         run: pnpm gate:storybook-budget
 
       - name: Upload desktop Storybook artifact

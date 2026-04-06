@@ -168,6 +168,30 @@ it('S-ZEN-01 executable case', () => {});`,
   assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 executable case");
 }
 
+// mapping requires executable callback and ignores pending title-only tests
+{
+  const root = setupRoot("stm-map-callback-required-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `const runnable = () => {};
+test('S-ZEN-01 pending title only');
+test('S-ZEN-01 non-callable callback', 1 as unknown as () => void);
+it('S-ZEN-01 executable callback identifier', runnable);`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, true);
+  assert.equal(mappings[0].evidences.length, 1);
+  assert.equal(mappings[0].evidences[0].snippet, "S-ZEN-01 executable callback identifier");
+}
+
 // gate enforces derived coverage threshold and baseline limit
 {
   const root = setupRoot("stm-gate-derived-threshold-");
