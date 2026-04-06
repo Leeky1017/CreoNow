@@ -48,6 +48,23 @@ export interface PreloadApi {
     rollbackSnapshot: InvokeHandler<"version:snapshot:rollback">;
     restoreSnapshot: InvokeHandler<"version:snapshot:restore">;
   };
+  character: {
+    create: InvokeHandler<"settings:character:create">;
+    list: InvokeHandler<"settings:character:list">;
+    read: InvokeHandler<"settings:character:read">;
+    update: InvokeHandler<"settings:character:update">;
+    delete: InvokeHandler<"settings:character:delete">;
+  };
+  location: {
+    create: InvokeHandler<"settings:location:create">;
+    list: InvokeHandler<"settings:location:list">;
+    read: InvokeHandler<"settings:location:read">;
+    update: InvokeHandler<"settings:location:update">;
+    delete: InvokeHandler<"settings:location:delete">;
+  };
+  search: {
+    query: InvokeHandler<"search:fts:query">;
+  };
 }
 
 export interface LegacyCreonowBridge {

@@ -175,6 +175,24 @@
 
 /* ── Loading Skeletons ─────────────────────── */
 
+/* ── Error Banner ──────────────────────────── */
+
+.cn-dashboard__error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-8);
+  background: var(--color-error-subtle);
+  border-bottom: 1px solid var(--color-separator);
+}
+
+.cn-dashboard__error-text {
+  margin: 0;
+  flex: 1;
+  font-size: var(--text-body-size);
+  color: var(--color-error);
+}
+
 @keyframes cn-skeleton-pulse {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.8; }

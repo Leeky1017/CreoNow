@@ -39,7 +39,6 @@ import { useExportProgress } from "@/lib/useExportProgress";
 
 import {
   BlockedAutosaveError,
-  AUTOSAVE_DELAY,
   useAutosaveController,
   useAiSkillController,
   usePanelLayout,
@@ -48,7 +47,6 @@ import {
   RIGHT_PANEL_IDS,
   type AutosaveToastEvent,
   type LeftPanelId,
-  type PendingAutosaveDraft,
 } from "./hooks";
 
 const MAX_REFERENCE_LENGTH = 120;
@@ -188,34 +186,9 @@ function WorkbenchShell() {
           autosave.clearAcceptSaveFailure();
           autosave.setWorkbenchError(null, null);
         },
-        onDocumentChange: (content) => {
-          const currentContext = activeContextTokenRef.current;
-          if (autosave.autosaveSuppressionDepthRef.current > 0 || currentContext === null) {
-            return;
-          }
-
-          autosave.clearPendingAutosaveTimer();
-          userEditRevisionRef.current += 1;
-
-          autosave.clearAcceptSaveFailure();
-          autosave.setSaveUiState("idle");
-          const nextDraft = {
-            contentJson: JSON.stringify(content),
-            context: currentContext,
-            request: autosave.reserveSaveRequest(),
-          } satisfies PendingAutosaveDraft;
-          autosave.autosaveControllerRef.current = { draft: nextDraft, saveState: "idle" };
-          autosave.pendingAutosaveDraftRef.current = nextDraft;
-          autosave.autosaveTimerRef.current = window.setTimeout(() => {
-            autosave.autosaveTimerRef.current = null;
-            if (autosave.pendingAutosaveDraftRef.current !== nextDraft) {
-              return;
-            }
-            void autosave.flushPendingAutosaveDraft(nextDraft);
-          }, AUTOSAVE_DELAY);
-        },
+        onDocumentChange: autosave.scheduleAutosave,
       }),
-    [autosave.clearAcceptSaveFailure, autosave.setWorkbenchError, autosave.autosaveSuppressionDepthRef, autosave.clearPendingAutosaveTimer, autosave.setSaveUiState, autosave.reserveSaveRequest, autosave.autosaveControllerRef, autosave.pendingAutosaveDraftRef, autosave.autosaveTimerRef, autosave.flushPendingAutosaveDraft],
+    [autosave.clearAcceptSaveFailure, autosave.setWorkbenchError, autosave.scheduleAutosave],
   );
 
   const aiSkill = useAiSkillController({

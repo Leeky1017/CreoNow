@@ -11,6 +11,7 @@ import { Button } from "@/components/primitives/Button";
 import { Input } from "@/components/primitives/Input";
 import { Select } from "@/components/primitives/Select";
 import { SectionHeader } from "@/components/composites/SectionHeader";
+import { i18n } from "@/i18n/config";
 
 import "./SettingsPage.css";
 
@@ -29,6 +30,7 @@ type AiConfigBridge = {
 
 const LS_THEME_KEY = "creonow:theme";
 const LS_FONT_SIZE_KEY = "creonow:editor-font-size";
+const LS_LANGUAGE_KEY = "creonow:language";
 const DEFAULT_FONT_SIZE = "16px";
 
 function readStoredTheme(): ThemeMode {
@@ -41,6 +43,16 @@ function readStoredTheme(): ThemeMode {
 
 function readStoredFontSize(): string {
   return localStorage.getItem(LS_FONT_SIZE_KEY) ?? DEFAULT_FONT_SIZE;
+}
+
+type AppLanguage = "zh" | "en";
+
+function readStoredLanguage(): AppLanguage {
+  const stored = localStorage.getItem(LS_LANGUAGE_KEY);
+  if (stored === "zh" || stored === "en") {
+    return stored;
+  }
+  return (i18n.language as AppLanguage) ?? "zh";
 }
 
 function resolveEffectiveTheme(mode: ThemeMode): "light" | "dark" {
@@ -153,6 +165,7 @@ export function SettingsPage({ aiBridge }: SettingsPageProps) {
 
   const [themeMode, setThemeMode] = useState<ThemeMode>(readStoredTheme);
   const [fontSize, setFontSize] = useState<string>(readStoredFontSize);
+  const [language, setLanguage] = useState<AppLanguage>(readStoredLanguage);
 
   const [providerMode, setProviderMode] = useState<ProviderMode>("openai-compatible");
   const [baseUrl, setBaseUrl] = useState("");
@@ -188,6 +201,12 @@ export function SettingsPage({ aiBridge }: SettingsPageProps) {
   const handleFontSizeChange = useCallback((next: string) => {
     setFontSize(next);
     localStorage.setItem(LS_FONT_SIZE_KEY, next);
+  }, []);
+
+  const handleLanguageChange = useCallback((next: AppLanguage) => {
+    setLanguage(next);
+    localStorage.setItem(LS_LANGUAGE_KEY, next);
+    void i18n.changeLanguage(next);
   }, []);
 
   useEffect(() => {
@@ -298,7 +317,12 @@ export function SettingsPage({ aiBridge }: SettingsPageProps) {
           <div className="cn-settings__row">
             <span className="cn-settings__label">{t("settings.general.language")}</span>
             <div className="cn-settings__value">
-              <Select className="cn-settings__select" defaultValue="zh">
+              <Select
+                className="cn-settings__select"
+                value={language}
+                onChange={(e) => handleLanguageChange(e.target.value as AppLanguage)}
+                data-testid="settings-language-select"
+              >
                 <option value="zh">{t("settings.general.language.zh")}</option>
                 <option value="en">{t("settings.general.language.en")}</option>
               </Select>

@@ -38,6 +38,9 @@ function createMockApi(overrides?: Partial<PreloadApi["project"]>): PreloadApi {
     } as unknown as PreloadApi["file"],
     ai: {} as PreloadApi["ai"],
     version: {} as PreloadApi["version"],
+    character: {} as PreloadApi["character"],
+    location: {} as PreloadApi["location"],
+    search: {} as PreloadApi["search"],
   };
 }
 

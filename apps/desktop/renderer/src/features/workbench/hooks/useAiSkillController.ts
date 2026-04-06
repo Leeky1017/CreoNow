@@ -172,7 +172,7 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
         setBusy(false);
       }
     }
-  }, [api, autosave, editorBridge, editorContextRevisionRef, isLatestBusyOperation, reserveBusyOperation, setPreview, t, userEditRevisionRef]);
+  }, [api, autosave.isCurrentContextToken, autosave.clearPendingAutosaveTimer, autosave.pendingAutosaveDraftRef, autosave.clearAutosaveController, autosave.acceptSaveRetryControllerRef, autosave.reserveSaveRequest, autosave.clearAcceptSaveRetryController, autosave.setWorkbenchError, autosave.setSaveUiState, autosave.queueSaveRequest, autosave.runWithoutAutosave, autosave.isLatestSaveRequest, autosave.setLastSavedAt, autosave.armSavedStateDecayTimer, editorBridge, editorContextRevisionRef, isLatestBusyOperation, reserveBusyOperation, setPreview, t, userEditRevisionRef]);
 
   const retryLastAcceptSave = useCallback(() => {
     const latestAcceptSave = autosave.acceptSaveRetryControllerRef.current;
@@ -215,7 +215,7 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
         setBusy(false);
       }
     }
-  }, [api, autosave, isLatestBusyOperation, preview, reserveBusyOperation, setPreview, t]);
+  }, [api, autosave.isCurrentContextToken, autosave.clearAcceptSaveRetryController, autosave.clearAcceptSaveFailure, autosave.runWithoutAutosave, autosave.setWorkbenchError, isLatestBusyOperation, preview, reserveBusyOperation, setPreview, t]);
 
   const handleGeneratePreview = useCallback(async () => {
     const previewContext = activeContextTokenRef.current;
@@ -282,7 +282,7 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
         setBusy(false);
       }
     }
-  }, [activeContextTokenRef, activeSkill, api, autosave, editorBridge, instruction, isLatestBusyOperation, model, reserveBusyOperation, setPreview, setStickySelection, stickySelection, t, userEditRevisionRef]);
+  }, [activeContextTokenRef, activeSkill, api, autosave.clearAcceptSaveFailure, autosave.isCurrentContextToken, autosave.setWorkbenchError, editorBridge, instruction, isLatestBusyOperation, model, reserveBusyOperation, setPreview, setStickySelection, stickySelection, t, userEditRevisionRef]);
 
   return {
     activeSkill,

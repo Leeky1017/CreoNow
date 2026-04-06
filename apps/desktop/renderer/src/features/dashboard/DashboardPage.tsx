@@ -9,7 +9,6 @@ import { cn } from "@/lib/cn";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
 
 import type { Project, ProjectStage } from "./mockData";
-import { mockProjects } from "./mockData";
 
 import "./DashboardPage.css";
 
@@ -29,6 +28,7 @@ const STAGE_LABEL_KEY: Record<ProjectStage, string> = {
 interface DashboardPageProps {
   projects?: Project[];
   loading?: boolean;
+  error?: string | null;
   onCreateProject?: () => void;
   onOpenProject?: (projectId: string) => void;
 }
@@ -42,8 +42,9 @@ function normalizeUpdatedAt(value: number | string): number {
 }
 
 export function DashboardPage({
-  projects = mockProjects,
+  projects = [],
   loading = false,
+  error = null,
   onCreateProject,
   onOpenProject,
 }: DashboardPageProps) {
@@ -127,6 +128,15 @@ export function DashboardPage({
           ))}
         </div>
       </div>
+
+      {error ? (
+        <div className="cn-dashboard__error" data-testid="dashboard-error-banner" role="alert">
+          <p className="cn-dashboard__error-text">{error}</p>
+          <Button tone="secondary" onClick={onCreateProject} data-testid="dashboard-error-retry-btn">
+            {t("actions.retry")}
+          </Button>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="cn-dashboard__list" data-testid="dashboard-loading">

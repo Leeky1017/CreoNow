@@ -172,6 +172,14 @@ button {
   background: var(--color-bg-surface);
   border-right: 1px solid var(--color-separator);
   overflow: hidden;
+  transition: opacity var(--duration-fast) var(--ease-default);
+}
+
+.right-panel {
+  border-left: 1px solid var(--color-separator);
+  background: var(--color-bg-panel);
+  padding-bottom: var(--space-4);
+  transition: opacity var(--duration-fast) var(--ease-default);
 }
 
 .panel-resizer {
@@ -489,12 +497,6 @@ button {
   background: var(--color-bg-surface);
   padding: var(--space-5);
   box-shadow: var(--shadow-lg);
-}
-
-.right-panel {
-  border-left: 1px solid var(--color-separator);
-  background: var(--color-bg-panel);
-  padding-bottom: var(--space-4);
 }
 
 .right-tabs {

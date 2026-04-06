@@ -85,6 +85,34 @@ const api = {
     restoreSnapshot: (payload: Parameters<typeof creonowInvoke<"version:snapshot:restore">>[1]) =>
       creonowInvoke("version:snapshot:restore", payload),
   },
+  character: {
+    create: (payload: Parameters<typeof creonowInvoke<"settings:character:create">>[1]) =>
+      creonowInvoke("settings:character:create", payload),
+    list: (payload: Parameters<typeof creonowInvoke<"settings:character:list">>[1]) =>
+      creonowInvoke("settings:character:list", payload),
+    read: (payload: Parameters<typeof creonowInvoke<"settings:character:read">>[1]) =>
+      creonowInvoke("settings:character:read", payload),
+    update: (payload: Parameters<typeof creonowInvoke<"settings:character:update">>[1]) =>
+      creonowInvoke("settings:character:update", payload),
+    delete: (payload: Parameters<typeof creonowInvoke<"settings:character:delete">>[1]) =>
+      creonowInvoke("settings:character:delete", payload),
+  },
+  location: {
+    create: (payload: Parameters<typeof creonowInvoke<"settings:location:create">>[1]) =>
+      creonowInvoke("settings:location:create", payload),
+    list: (payload: Parameters<typeof creonowInvoke<"settings:location:list">>[1]) =>
+      creonowInvoke("settings:location:list", payload),
+    read: (payload: Parameters<typeof creonowInvoke<"settings:location:read">>[1]) =>
+      creonowInvoke("settings:location:read", payload),
+    update: (payload: Parameters<typeof creonowInvoke<"settings:location:update">>[1]) =>
+      creonowInvoke("settings:location:update", payload),
+    delete: (payload: Parameters<typeof creonowInvoke<"settings:location:delete">>[1]) =>
+      creonowInvoke("settings:location:delete", payload),
+  },
+  search: {
+    query: (payload: Parameters<typeof creonowInvoke<"search:fts:query">>[1]) =>
+      creonowInvoke("search:fts:query", payload),
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);

@@ -208,6 +208,9 @@ function createApiMock(): PreloadApi {
       })),
       restoreSnapshot: vi.fn(async () => ({ ok: true, data: { restored: true } })),
     },
+    character: {} as PreloadApi["character"],
+    location: {} as PreloadApi["location"],
+    search: {} as PreloadApi["search"],
   } as PreloadApi;
 }
 
