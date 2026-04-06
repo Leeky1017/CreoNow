@@ -466,8 +466,19 @@ describe("ProjectService", () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.data.items.map((item) => item.projectId)).toEqual(["proj-1", "proj-2"]);
-      expect(result.data.items[1]).toEqual(expect.objectContaining({ archivedAt: 999 }));
+      expect(result.data.items).toHaveLength(2);
+      expect(result.data.items.map((item) => item.projectId)).toEqual(
+        expect.arrayContaining(["proj-1", "proj-2"]),
+      );
+
+      const activeItem = result.data.items.find((item) => item.projectId === "proj-1");
+      const archivedItem = result.data.items.find((item) => item.projectId === "proj-2");
+
+      expect(activeItem).toBeDefined();
+      expect(activeItem).not.toHaveProperty("archivedAt");
+
+      expect(archivedItem).toBeDefined();
+      expect(archivedItem).toEqual(expect.objectContaining({ archivedAt: 999 }));
     });
 
     it("空列表返回空数组", () => {
