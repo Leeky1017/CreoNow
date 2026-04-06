@@ -466,10 +466,8 @@ describe("ProjectService", () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.data.items).toEqual(expect.arrayContaining([
-        expect.objectContaining({ projectId: "proj-1", archivedAt: null }),
-        expect.objectContaining({ projectId: "proj-2", archivedAt: 999 }),
-      ]));
+      expect(result.data.items.map((item) => item.projectId)).toEqual(["proj-1", "proj-2"]);
+      expect(result.data.items[1]).toEqual(expect.objectContaining({ archivedAt: 999 }));
     });
 
     it("空列表返回空数组", () => {
