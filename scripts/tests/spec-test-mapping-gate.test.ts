@@ -56,6 +56,24 @@ function setupRoot(prefix: string): string {
   );
 }
 
+// parsing should not misclassify plain BE/FE words as explicit IDs
+{
+  const root = setupRoot("stm-parse-explicit-negative-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(
+    path.join(specDir, "spec.md"),
+    `#### Scenario: BE careful with autosave
+#### Scenario: FE rendering fallback`,
+  );
+
+  const scenarios = extractScenarios(root);
+  assert.deepEqual(
+    scenarios.map((scenario) => scenario.mappingMode),
+    ["derived", "derived"],
+  );
+}
+
 // mapping should only trust test title evidence (comment no longer counts)
 {
   const root = setupRoot("stm-map-title-");
@@ -100,6 +118,25 @@ function setupRoot(prefix: string): string {
   const mappingById = new Map(mappings.map((mapping) => [mapping.scenario.id, mapping]));
   assert.equal(mappingById.get("S-ZEN-01")?.mapped, false);
   assert.equal(mappingById.get("S-ZEN-010")?.mapped, true);
+}
+
+// exact title matching must treat "_" as token character and avoid partial hits
+{
+  const root = setupRoot("stm-map-underscore-boundary-");
+  const specDir = path.join(root, "openspec", "specs", "editor");
+  mkdirSync(specDir, { recursive: true });
+  writeFileSync(path.join(specDir, "spec.md"), `### Scenario S-ZEN-01: 禅模式可编辑`);
+
+  const testDir = path.join(root, "apps", "desktop", "renderer", "src");
+  mkdirSync(testDir, { recursive: true });
+  writeFileSync(
+    path.join(testDir, "ZenMode.test.tsx"),
+    `it('S-ZEN-01_case should not be treated as exact token', () => {});`,
+  );
+
+  const scenarios = extractScenarios(root);
+  const mappings = findTestMappings(scenarios, root);
+  assert.equal(mappings[0].mapped, false);
 }
 
 // mapping must ignore commented-out test titles

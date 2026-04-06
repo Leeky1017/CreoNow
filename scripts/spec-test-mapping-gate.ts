@@ -129,7 +129,9 @@ const SCENARIO_ID_RE = new RegExp(
   "g",
 );
 const SCENARIO_TITLE_RE = /####\s+Scenario:\s+(.+)/;
-const PREFIXED_ID_RE = /^((?:BE|FE|AUD|IPC|P\d+)[-\w]*\s*)/;
+const LEADING_EXPLICIT_ID_RE = new RegExp(
+  String.raw`^(${EXPLICIT_SCENARIO_ID_FRAGMENT})(?=$|[\s:：])`,
+);
 
 const DIMENSION_RULES: Array<{
   dimension: Tier2Dimension;
@@ -192,7 +194,7 @@ function scenarioTitleToId(
 ): { id: string; mappingMode: "explicit" | "derived" } {
   const trimmed = title.trim();
 
-  const prefixMatch = PREFIXED_ID_RE.exec(trimmed);
+  const prefixMatch = LEADING_EXPLICIT_ID_RE.exec(trimmed);
   if (prefixMatch) {
     return { id: prefixMatch[1].trim(), mappingMode: "explicit" };
   }
@@ -738,7 +740,7 @@ function escapeRegExp(raw: string): string {
 
 function hasScenarioIdToken(title: string, scenarioId: string): boolean {
   const pattern = new RegExp(
-    `(^|[^A-Za-z0-9-])${escapeRegExp(scenarioId)}(?=$|[^A-Za-z0-9-])`,
+    `(^|[^A-Za-z0-9_-])${escapeRegExp(scenarioId)}(?=$|[^A-Za-z0-9_-])`,
   );
   return pattern.test(title);
 }
