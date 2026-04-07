@@ -240,15 +240,15 @@ echo "All Invariants checked."
 
 ## 六、依赖方向检查规则
 
-以下是必须检查的依赖方向违规：
+以下是必须检查的依赖方向违规（当前已生效的规则 + 目标规则，自动化检测为计划实现）：
 
-| 违规类型 | 检测规则 | 严重级 |
-| --- | --- | --- |
-| Renderer import Main | apps/desktop/renderer/ 不能 import apps/desktop/main/ | 阻止合并 |
-| DB import Service | db/ 不能 import services/ | 阻止合并 |
-| IPC 直调 Service | ipc/ 只能 import core/commandDispatcher | 阻止合并 |
-| Service import CommandDispatcher | services/ 不能 import core/commandDispatcher | 阻止合并 |
-| Shared import 业务层 | packages/shared/ 不能 import apps/ | 阻止合并 |
+| 违规类型 | 检测规则 | 严重级 | 状态 |
+| --- | --- | --- | --- |
+| Renderer import Main | apps/desktop/renderer/ 不能 import apps/desktop/main/ | 阻止合并 | 当前已生效（架构隔离） |
+| DB import Service | db/ 不能 import services/ | 阻止合并 | 当前已生效（架构隔离） |
+| IPC 直调 Service | ipc/ 只能 import core/commandDispatcher（計劃实现，当前 IPC handler 直调 Service） | 阻止合并 | 目标规则 |
+| Service import CommandDispatcher | services/ 不能 import core/commandDispatcher（計劃实现，commandDispatcher 尚未存在） | 阻止合并 | 目标规则 |
+| Shared import 业务层 | packages/shared/ 不能 import apps/ | 阻止合并 | 当前已生效（架构隔离） |
 
 可用 dependency-cruiser 配置（计划实现）：
 
