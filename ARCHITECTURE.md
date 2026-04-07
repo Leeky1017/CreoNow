@@ -189,7 +189,7 @@ packages/
 
 - 单一真相源：每种数据只有一个权威存储位置，禁止内存与 SQLite 双写不同步
 - 迁移必须版本化：SQLite schema 变更必须通过迁移脚本，禁止手动 ALTER TABLE
-- 会话恢复：对话结束时持久化到 `chat_sessions` / `chat_messages`（当前由 `ipc/ai.ts` 直接写入），用户可「继续上次对话」
+- 会话持久化：每次 `ai:chat:send` 时即时写入 `chat_sessions` / `chat_messages`（当前仅持久化用户消息；助手回复持久化计划实现）
 
 ---
 
