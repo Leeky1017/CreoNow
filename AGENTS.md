@@ -148,7 +148,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 ### P3. Gates（门禁全绿）
 
-CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。
+CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。详见 `docs/references/gates-spec.md`。
 
 ### P4. Deterministic & Isolated（确定性与隔离）
 
@@ -162,7 +162,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 
 「测试通过 + CI 绿灯」≠「视觉合格」。前端交付标准是「看起来对」。
 
-- 黄金组件库 Figma：https://www.figma.com/design/qgCo8ZV53IUGlYRbElaYv5?node-id=169-3
+- 黄金组件库 Figma：https://www.figma.com/design/qgCo8ZV53IUGlYRbElaYv5/CreoNow黄金组件?node-id=169-3
 - 颜色/间距用 Token（无硬编码）· 文本走 `t()` · 新组件有 Story · PR 嵌入截图
 - 完整视觉 DNA + 合格标准 → `docs/references/frontend-visual-quality.md`
 
@@ -276,6 +276,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | 审计协议 | `docs/references/audit-protocol.md` | 审计/Review 时 |
 | 架构经验 | `docs/references/architecture-lessons.md` | 架构决策时 |
 | 产品质量清单 | `docs/references/product-quality-checklist.md` | PR 自检时 |
+| 门禁规范 | `docs/references/gates-spec.md` | 门禁配置时 |
 | UI Prompt 工程 | `docs/references/prompt-engineering-for-ui.md` | AI UI 生成时 |
 | WSL 开发指南 | `docs/references/wsl-development-guide.md` | 启动服务/浏览器访问时 |
 

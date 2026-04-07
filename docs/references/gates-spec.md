@@ -11,7 +11,7 @@
 - 触发时机：pre-commit / pre-push
 - 检查项：格式化 / Lint / 类型检查 / 快速单测
 - 失败行为：阻止 commit/push
-- 实现：`.husky/`（计划实现）+ lint-staged
+- 实现：`.githooks/` + lint-staged（通过 `scripts/agent_git_hooks_install.sh` 安装）
 
 配置示例：
 
@@ -28,10 +28,10 @@
 ```
 
 ```bash
-# .husky/pre-commit（计划实现）
+# .githooks/pre-commit
 pnpm lint-staged
 
-# .husky/pre-push（计划实现）
+# .githooks/pre-push
 pnpm typecheck
 pnpm test -- --run --changed
 ```
@@ -174,8 +174,8 @@ Agent 接到需求
 
 | 文件 | 路径 | 用途 |
 | --- | --- | --- |
-| pre-commit hook | `.husky/pre-commit`（计划实现） | lint-staged（格式化 + Lint） |
-| pre-push hook | `.husky/pre-push`（计划实现） | typecheck + 快速单测 |
+| pre-commit hook | `.githooks/pre-commit` | lint-staged（格式化 + Lint） |
+| pre-push hook | `.githooks/pre-push` | typecheck + 快速单测 |
 | lint-staged 配置 | `package.json` 或 `.lintstagedrc` | 定义 pre-commit 要跑的命令 |
 | CI workflow | `.github/workflows/ci.yml` | L2 全量检查 |
 | PR 模板 | `.github/PULL_REQUEST_TEMPLATE.md` | INV Checklist + 设计文档 + 验证证据 |

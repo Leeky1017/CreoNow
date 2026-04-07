@@ -50,7 +50,7 @@ CI 自动解析以下 Checklist。未填写 = 阻止合并。
   - 遵守 / 不涉及 / 违反（理由：___）
 - [ ] **INV-3 CJK Token** -- Token 估算区分 CJK/ASCII，未使用 UTF8_BYTES/4
   - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-4 Memory-First** -- 未引入 RAG 技术栈（embedding/向量DB/chunking/rerank）
+- [ ] **INV-4 Memory-First** -- 未新增向量数据库依赖（KG+FTS5 为主检索路径，现有 services/rag/ 作为降级补充保留）
   - 遵守 / 不涉及 / 违反（理由：___）
 - [ ] **INV-5 叙事压缩** -- AutoCompact 保留 KG 实体、角色设定、未解伏笔
   - 遵守 / 不涉及 / 违反（理由：___）
