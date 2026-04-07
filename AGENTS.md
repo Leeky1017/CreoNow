@@ -76,7 +76,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 ## 一、阅读链
 
-```jsx
+```
 1. AGENTS.md                              ← 本文件（必读）
 2. ARCHITECTURE.md                        ← 架构规则 + 10 条 INV 详解
 3. openspec/specs/<module>/spec.md        ← 任务相关模块行为规范

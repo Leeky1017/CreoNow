@@ -224,7 +224,7 @@ packages/
 
 **A -- 安全默认值注释**
 
-```jsx
+```ts
 // 默认值：isConcurrencySafe=false, isReadOnly=false（fail-closed）
 // 意图：未显式标记的工具假设不安全，宁可串行也不冒并发风险
 ```
@@ -233,7 +233,7 @@ packages/
 
 **B -- 性能决策注释**
 
-```jsx
+```ts
 startMdmRawRead()      // 在其余 ~135ms 的 import 期间并行运行
 startKeychainPrefetch() // 否则会通过 sync spawn 顺序读取 (~65ms)
 ```
@@ -242,7 +242,7 @@ startKeychainPrefetch() // 否则会通过 sync spawn 顺序读取 (~65ms)
 
 **C -- 阈值注释**
 
-```jsx
+```ts
 const MAX_CONSECUTIVE_FAILURES = 3
 // 背景: BQ 数据显示曾有 session 连续失败 3,272 次，浪费 ~250K API 调用/天
 ```
@@ -251,7 +251,7 @@ const MAX_CONSECUTIVE_FAILURES = 3
 
 **D -- 意图保留注释**
 
-```jsx
+```ts
 // 三级压缩管线（按执行顺序，非互斥，可叠加）：
 // 1. Snip -- 历史裁剪
 // 2. Microcompact -- 轻量级，纯 ID 匹配
@@ -268,7 +268,7 @@ const MAX_CONSECUTIVE_FAILURES = 3
 
 **第一层 -- 模块入口（文件头）**
 
-```jsx
+```ts
 /**
  * @module <模块名>
  * ## 职责：<1-2 句话>
@@ -281,13 +281,13 @@ const MAX_CONSECUTIVE_FAILURES = 3
 
 **第二层 -- 关键决策（函数/类）**
 
-```jsx
+```ts
 /** @why / @risk / @invariant / @rollback */
 ```
 
 **第三层 -- 阈值/魔法数字（行级）**
 
-```jsx
+```ts
 const CJK_TOKENS_PER_CHAR = 1.5  // cl100k_base 实测，样本 10K 中文字符
 const MAX_RETRY = 3               // CC 源码验证: 连续失败 3 次断路
 const COMPACT_BUFFER = 8_000      // CC 默认 13K，CN 因中文 token 密度更高调低

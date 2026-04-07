@@ -9,11 +9,28 @@
 ### L1 -- 本地门禁
 
 - 触发时机：pre-commit / pre-push
-- 检查项：格式化 / Lint / 类型检查 / 快速单测
+- 检查项（当前已实现）：
+    - pre-commit：控制面直接提交拦截 + main 分支提交拦截 + creonow-app 下 `.ts/.tsx` 文件的 lint-staged
+    - pre-push：控制面直接推送拦截 + main 分支直接推送拦截
+- 检查项（目标行为，尚未实现）：typecheck / 快速单测
 - 失败行为：阻止 commit/push
-- 实现：`.githooks/` + lint-staged（通过 `scripts/agent_git_hooks_install.sh` 安装）
+- 实现：`.githooks/`（通过 `scripts/agent_git_hooks_install.sh` 安装）
+- 紧急绕过：`CREONOW_ALLOW_CONTROLPLANE_BYPASS=1`
 
-配置示例：
+实际 hook 行为：
+
+```bash
+# .githooks/pre-commit
+# 1. 控制面根目录提交拦截（必须在 worktree 中操作）
+# 2. main 分支提交拦截（必须使用 task/<N>-<slug> 分支）
+# 3. creonow-app/ 下有 staged .ts/.tsx 文件时运行 lint-staged
+
+# .githooks/pre-push
+# 1. 控制面根目录推送拦截
+# 2. 禁止直接推送到 refs/heads/main
+```
+
+lint-staged 配置示例（目标行为，尚未实现）：
 
 ```json
 // package.json
@@ -27,33 +44,36 @@
 }
 ```
 
-```bash
-# .githooks/pre-commit
-pnpm lint-staged
-
-# .githooks/pre-push
-pnpm typecheck
-pnpm test -- --run --changed
-```
-
 ### L2 -- PR 门禁
 
-- 触发时机：PR 创建/更新（CI）
-- 检查项：
-    - 全量测试 + 覆盖率 >= 80%
-    - IPC 契约校验（contract:check）
+- 触发时机：push to main / PR 创建或更新（CI）
+- 检查项（当前已实现）：
+    - Type check（`pnpm typecheck`）
+    - IPC 契约校验（`pnpm contract:check`）
+    - Spec-test mapping gate（`pnpm gate:spec-test-mapping`）
+    - Service stub detector gate
+    - 单元测试（`pnpm test:unit`）
+    - 集成测试（`pnpm test:integration`）
+    - Renderer 测试（`pnpm -C apps/desktop test:renderer`）
+    - Desktop core coverage gate（`pnpm -C apps/desktop test:coverage:core`）
+    - Python 测试（`pytest -q scripts/tests`）
+    - Electron 构建（`pnpm desktop:build`）
+    - Desktop Storybook 构建 + chunk budget gate
+- 检查项（计划实现）：
+    - Lint（`pnpm lint`）
     - 依赖方向检查（dependency-cruiser 或自写脚本）
-    - 构建校验（pnpm build）
     - Invariant Checklist 解析（INV-1~10 必须填写）
 - 失败行为：阻止合并
 - 实现：`.github/workflows/ci.yml`
 
-CI Workflow 结构：
+CI Workflow 结构（反映实际 `ci.yml`）：
 
 ```yaml
 # .github/workflows/ci.yml
-name: PR Check
+name: CI
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -62,46 +82,57 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup
-        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          fetch-depth: 0
 
-      - name: Install
-        run: pnpm install --frozen-lockfile
+      - uses: pnpm/action-setup@v4
 
-      - name: Typecheck
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Type check
         run: pnpm typecheck
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Test + Coverage
-        run: pnpm test -- --run --coverage
-
-      - name: Coverage Gate
-        run: |
-          # 检查覆盖率 >= 80%
-          # 解析 coverage 报告，低于阈值则失败
-
-      - name: Dependency Direction Check
-        run: |
-          # 检查依赖方向是否合规
-          # Renderer 不能直接 import Main Process
-          # DB Layer 不能 import Service Layer
-
-      - name: IPC Contract Check
+      - name: IPC contract check
         run: pnpm contract:check
 
-      - name: Build
-        run: pnpm build
+      - name: Spec-test mapping gate
+        run: pnpm gate:spec-test-mapping
 
-      - name: Invariant Checklist Parse
-        run: |
-          # 解析 PR body 中的 Invariant Checklist
-          # 检查 INV-1~10 是否都已填写
-          # 未填写 = 失败
+      - name: Stub gate
+        run: node --import tsx scripts/service-stub-detector-gate.ts
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+      - name: Renderer tests
+        run: pnpm -C apps/desktop test:renderer
+
+      - name: Desktop core coverage gate
+        run: pnpm -C apps/desktop test:coverage:core
+
+      - uses: actions/setup-python@v5
+      - name: Python tests
+        run: pytest -q scripts/tests
+
+      - name: Electron build
+        run: pnpm desktop:build
+
+      - name: Desktop Storybook build
+        run: pnpm -C apps/desktop storybook:build
+
+      - name: Storybook chunk budget gate
+        run: pnpm gate:storybook-budget
+
+      - name: Upload desktop Storybook artifact
+        uses: actions/upload-artifact@v4
 ```
 
 ### L3 -- 发布门禁
@@ -174,8 +205,8 @@ Agent 接到需求
 
 | 文件 | 路径 | 用途 |
 | --- | --- | --- |
-| pre-commit hook | `.githooks/pre-commit` | lint-staged（格式化 + Lint） |
-| pre-push hook | `.githooks/pre-push` | typecheck + 快速单测 |
+| pre-commit hook | `.githooks/pre-commit` | 控制面/main 拦截 + creonow-app lint-staged |
+| pre-push hook | `.githooks/pre-push` | 控制面/main 推送拦截 |
 | lint-staged 配置 | `package.json` 或 `.lintstagedrc` | 定义 pre-commit 要跑的命令 |
 | CI workflow | `.github/workflows/ci.yml` | L2 全量检查 |
 | PR 模板 | `.github/PULL_REQUEST_TEMPLATE.md` | INV Checklist + 设计文档 + 验证证据 |
