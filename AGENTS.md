@@ -116,7 +116,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 | INV-6 | 一切皆 Skill | 统一管线：Schema → 权限 → 执行 → 返回。禁止裸调 LLM |
 | INV-7 | 统一入口 | 所有操作走 `CommandDispatcher.execute()`（計劃实现，当前 IPC handler 直调 Service）。禁止 IPC handler 直调 Service |
 | INV-8 | Hook 链 | 写作后 Hook 链框架已实现（`orchestrator.ts` Stage 8），当前仅含 cost-tracking + auto-save-version **stub**。目标链路：版本快照 → KG 更新 → 记忆提取 → 质量检查（計劃实现） |
-| INV-9 | 成本追踪 | 每次 AI 调用记录 model / tokens / cache / 费用，主进程 in-memory Map 追踪（IPC 已注册，渲染进程 UI 计划实现） |
+| INV-9 | 成本追踪 | 每次 AI 调用记录 model / tokens / 费用，主进程 in-memory Map 追踪（`cachedTokens` 接口已预留但当前未传入；IPC 已注册，渲染进程 UI 计划实现） |
 | INV-10 | 错误不丢上下文 | 中断时生成 `{ type: "error" }` 事件（計劃实现完整合成结果）。Provider 连续 3 次失败触发断路器（`providerResolver.ts` PROVIDER_FAILURE_THRESHOLD=3） |
 
 > 每条 INV 的完整说明、CC 来源、落地方式详见 `ARCHITECTURE.md`。

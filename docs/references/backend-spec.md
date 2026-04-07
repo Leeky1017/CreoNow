@@ -423,11 +423,11 @@ CREATE VIRTUAL TABLE entities_fts USING fts5(
 - 写入 `MEMORY.md`（计划创建）：提取"不要再这样做"的规则
 - 下次同类场景：Agent 参考这条记忆，避免重蹈覆辙
 
-### 4.11 Plan Mode（引导式交互）（部分实现）
+### 4.11 Plan Mode（引导式交互）（类型与 hint 机制存在，主路径尚未透传）
 
-当前实现：用户通过 IPC 请求显式指定 `mode: "agent" | "plan" | "ask"`（`ipc/ai.ts`），`plan` 模式时 `runtimeConfig.ts` 返回完整提示 `"Mode: plan\nFirst produce a concise step-by-step plan before final output."`，引导 Agent 先输出计划再生成最终内容。
+当前状态：`SkillRunPayload` 类型定义了 `mode: "agent" | "plan" | "ask"`（`ipc/ai.ts:74`），`runtimeConfig.ts` 的 `modeSystemHint("plan")` 返回完整提示 `"Mode: plan\nFirst produce a concise step-by-step plan before final output."`。但 `ai:skill:run` 主路径在 3 处将 mode 硬编码为 `"ask"`（`ipc/ai.ts:1448,1540,1590`），用户指定的 mode 尚未透传到 orchestrator/runtimeConfig。
 
-目标设计（計劃实现）——自动触发条件：用户指令含模糊词汇（"写好""完善""这个""搞定""改改"）且缺乏具体约束时，Agent 自动进入 Plan Mode，不直接动手，而是先澄清意图。当前需用户手动选择 plan 模式。
+目标设计（計劃实现）——透传用户 mode + 自动触发条件：用户指令含模糊词汇（"写好""完善""这个""搞定""改改"）且缺乏具体约束时，Agent 自动进入 Plan Mode，不直接动手，而是先澄清意图。
 
 ### 4.12 KG 与记忆系统的边界
 
