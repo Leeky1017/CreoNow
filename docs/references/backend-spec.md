@@ -278,9 +278,10 @@ KG 支持"某个时间点的状态"查询：
 
 ### 4.7 SQLite 存储实现
 
-> 目标 schema，当前 P0 实现见 `0013_knowledge_graph_p0.sql`，使用 `kg_entities` / `kg_relation_types` / `kg_relations`（列结构较简化）。
+> **目标 schema（計劃实现，以下表均尚未创建）**。当前 P0 实现见 `0013_knowledge_graph_p0.sql`，仅包含 `kg_entities` / `kg_relation_types` / `kg_relations` 三张表（列结构较简化）。下方 `entity_types`、`relation_types`、`property_types`、`entities`、`entity_properties`、`entities_fts` 均为目标设计，不存在于当前数据库中。
 
 ```sql
+-- ⚠️ 以下均为目标 schema，尚未实现。当前仅有 kg_entities / kg_relation_types / kg_relations。
 CREATE TABLE entity_types (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
