@@ -290,6 +290,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | `agent_git_hooks_install.sh` | 安装 git hooks |
 | `agent_pr_preflight.sh` | PR 预检 |
 | `agent_pr_automerge_and_sync.sh` | auto-merge（需审计通过） |
+| `agent_worktree_cleanup.sh` | 清理 worktree |
 | `agent_github_delivery.py` | GitHub 交付工具 |
 | `review-audit.sh` | 分层审计入口 |
 
