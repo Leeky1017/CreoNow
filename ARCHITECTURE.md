@@ -96,10 +96,10 @@ Agent 的所有能力必须建模为 Skill，遵循统一管线：输入 Schema 
 
 ### INV-10 -- 错误不丢上下文
 
-Skill 执行中断时，SkillOrchestrator 通过 `makeFailureEvent()` 生成 `{ type: "error", error: { code, message, retryable } }` 事件，保证消息格式合法。禁止静默丢弃上下文。Provider 连续失败 3 次触发断路器（`services/ai/providerResolver.ts` PROVIDER_FAILURE_THRESHOLD=3，标记 provider 不可用）。（計劃实现：每个未完成步骤的完整合成错误结果 + 通用 Skill 级断路器）
+Skill 执行中断时，SkillOrchestrator 通过 `makeFailureEvent()` 生成 `{ type: "error", error: { code, message, retryable } }` 事件，保证消息格式合法。禁止静默丢弃上下文。Provider 连续失败 3 次触发断路器（`services/ai/providerResolver.ts` PROVIDER_FAILURE_THRESHOLD=3，标记 provider 为 degraded 状态）。（計劃实现：每个未完成步骤的完整合成错误结果 + 通用 Skill 级断路器）
 
 - CC 来源：`yieldMissingToolResultBlocks` + `MAX_CONSECUTIVE_FAILURES = 3`（Report 02/05）
-- 落地方式：`orchestrator.ts` 的 `makeFailureEvent()` 生成错误事件；`providerResolver.ts` 实现 provider 级断路器（连续 3 次失败标记不可用）。通用 `services/ai/circuitBreaker.ts`（目标架构，尚未实现）
+- 落地方式：`orchestrator.ts` 的 `makeFailureEvent()` 生成错误事件；`providerResolver.ts` 实现 provider 级断路器（连续 3 次失败标记为 degraded）。通用 `services/ai/circuitBreaker.ts`（目标架构，尚未实现）
 
 ---
 
