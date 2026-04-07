@@ -148,7 +148,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 ### P3. Gates（门禁全绿）
 
-CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。详见 `docs/references/gates-design.md`。
+CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。auto-merge 默认关闭；只有双审都 zero findings + `FINAL-VERDICT` + `ACCEPT` 后才可显式开启。详见 `docs/references/gates-design.md`。
 
 ### P4. Deterministic & Isolated（确定性与隔离）
 
