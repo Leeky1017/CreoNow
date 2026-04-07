@@ -17,10 +17,10 @@ AI 对用户原稿的任何写操作（续写、改写、删除）必须经过 P
 
 ### INV-2 -- 并发安全默认关闭（fail-closed）
 
-所有 Skill Step 的 `concurrencySafe` 默认为 `false`。只有被显式标记为 `true` 的步骤（KG 查询、记忆召回、文档只读）才能并发。未标记 = 串行。
+所有工具的 `isConcurrencySafe` 默认为 `false`（`toolRegistry.ts:76`）。只有被显式标记为 `true` 的工具（KG 查询、记忆召回、文档只读）才能并发。未标记 = 串行。
 
 - CC 来源：`isConcurrencySafe` 分区批次编排（Report 02）
-- 落地方式：SkillOrchestrator 检查每个 Step 的 `concurrencySafe` 标记，未标记的强制串行执行
+- 落地方式：ToolUseHandler 分区批次执行时检查每个工具的 `isConcurrencySafe` 标记（`services/skills/toolUseHandler.ts`），未标记的强制串行执行
 
 ### INV-3 -- 上下文预算必须对 CJK 准确
 
