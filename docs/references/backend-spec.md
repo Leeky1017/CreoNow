@@ -83,7 +83,7 @@ CC 来源：Main -> Child -> Sibling AbortController 三级体系（Report 05）
 
 ### 2.4 断路器模式
 
-当前实现：`services/ai/providerResolver.ts` 中 Provider 级断路器（`PROVIDER_FAILURE_THRESHOLD = 3`，连续失败 3 次标记 provider 不可用）。`services/context/layerAssemblyService.ts` 中 compression 专用断路器。
+当前实现：`services/ai/providerResolver.ts` 中 Provider 级断路器（`PROVIDER_FAILURE_THRESHOLD = 3`，连续失败 3 次标记 provider 不可用）。`services/context/compressionEngine.ts` 中 compression 专用断路器（`layerAssemblyService.ts` 仅传入配置参数）。
 
 ```ts
 // 計劃实现：通用 Skill 级断路器（services/ai/circuitBreaker.ts）
@@ -173,17 +173,18 @@ recursivelySanitizeUnicode(input)
 - LLM 返回内容超过阈值时截断 + 完整版存入 session storage
 - Skill 输入超过 Schema 定义的 maxLength 时拒绝
 
-**安全 ID 生成**
+**安全 ID 生成**（計劃实现，当前使用 `randomUUID()`）
 
 ```ts
+// 目标设计（CC 来源）：
 const TASK_ID_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz'
 // 36^8 ~= 2.8 万亿组合，防止 symlink 攻击
 ```
 
-**Prompt Injection 防护**
+**Prompt Injection 防护**（部分实现）
 
-- 用户输入与系统指令严格分离（不在同一个 message block）
-- 外部工具返回内容做大小验证 + Unicode 清理后再注入 context
+- 用户输入与系统指令严格分离（不在同一个 message block）——当前已遵守
+- 外部工具返回内容做大小验证 + Unicode 清理后再注入 context（計劃实现，当前工具结果直接注入）
 
 ---
 
@@ -475,11 +476,11 @@ Dreaming Pipeline：
 MEMORY.md 超限 -> 压缩 Pass -> 合并 + 归档低频条目
 ```
 
-### 4.14 AI 提取 Prompt 设计
+### 4.14 AI 提取 Prompt 设计（目标设计，当前仓库中未实现此 prompt 模板）
 
 核心原则：Schema 感知 + 已有实体去重 + 结构化 JSON 输出。
 
-Prompt 结构：
+Prompt 结构（計劃实现）：
 
 ```markdown
 你是 CreoNow 的知识提取引擎。
