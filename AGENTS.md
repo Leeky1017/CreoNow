@@ -219,7 +219,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 
 ### 后端专用
 
-1. 默认使用 KG+FTS5。当前已含 sqlite-vec 语义召回（`services/memory/userMemoryVec.ts`），禁止再新增额外向量存储（FAISS/Pinecone 等）——INV-4
+1. 默认使用 KG+FTS5。当前已含 sqlite-vec 语义召回（`apps/desktop/main/src/services/memory/userMemoryVec.ts`），禁止再新增额外向量存储（FAISS/Pinecone 等）——INV-4
 2. 禁止静默 try-catch 返回默认值——错误要么重试要么上报（反防御型编程）
 3. 禁止在 Skill 体系外直接调用 LLM 或修改文档（INV-6）
 4. 禁止 `UTF8_BYTES / 4` 统一估算 Token——必须区分 CJK（INV-3）
