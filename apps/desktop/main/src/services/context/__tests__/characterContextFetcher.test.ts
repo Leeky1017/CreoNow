@@ -89,7 +89,7 @@ describe("createCharacterContextFetcher", () => {
       CharacterListService["injectCharactersIntoContext"]
     >(() => ({
       ok: false,
-      error: { code: "KG_ERROR", message: "kg unavailable" },
+      error: { code: "KG_RECOGNITION_UNAVAILABLE" as const, message: "kg unavailable" },
     }));
 
     const fetcher = createCharacterContextFetcher({
