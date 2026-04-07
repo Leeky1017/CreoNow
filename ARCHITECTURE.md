@@ -183,7 +183,7 @@ packages/
 | KG 实体/关系、记忆 | SQLite (better-sqlite3) | 永久 |
 | 会话成本、性能指标 | 进程内内存（Map） | 进程内（SQLite 持久化计划实现） |
 | 用户配置、权限规则 | SQLite (settings 表) | 永久 |
-| 会话历史（用于恢复） | SQLite (sessions 表) | 永久，可清理 |
+| 会话历史（用于恢复） | SQLite (chat_sessions / chat_messages 表) | 永久，可清理 |
 
 规则：
 
