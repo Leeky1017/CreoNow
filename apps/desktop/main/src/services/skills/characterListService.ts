@@ -10,10 +10,7 @@ import type {
   KnowledgeEntityType,
   KnowledgeGraphService,
 } from "../kg/kgService";
-
-type ServiceResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: { code: string; message: string } };
+import type { ServiceResult } from "../shared/ipcResult";
 
 export type CharacterSummary = {
   id: string;
