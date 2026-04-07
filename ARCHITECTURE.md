@@ -89,7 +89,7 @@ Agent 的所有能力必须建模为 Skill，遵循统一管线：输入 Schema 
 
 ### INV-9 -- 成本必须可追踪、可展示
 
-每次 AI 调用记录：模型名称、input/output tokens、prompt cache 命中量、耗时、估算费用（USD/CNY）。按 session 持久化，用户可在 UI 查看。
+每次 AI 调用记录：模型名称、input/output tokens、prompt cache 命中量、估算费用（USD/CNY）。主进程 in-memory Map 追踪（maxRecords=500 自动淘汰）。IPC handler 已注册，渲染进程 UI（计划实现）。
 
 - CC 来源：cost-tracker.ts（Report 03）
 - 落地方式：`services/ai/costTracker.ts` 记录每次调用，当前为进程内内存存储（Map，maxRecords=500），跨会话持久化到 SQLite 计划实现
