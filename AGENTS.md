@@ -91,7 +91,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 | --- | --- | --- |
 | 修复 CI | §四(P3) · §七 | `test-commands.md` |
 | 后端实现 | §三(INV) · §四(P0-P5) · §六 · §七 | `ARCHITECTURE.md` · `testing-guide.md` |
-| 前端实现 | §三(INV) · §四(P0-P5, P-V) · §六 | `frontend-visual-quality.md` |
+| 前端实现 | §三(INV) · §四(P0-P5, P-V) · §六 · §七 | `frontend-visual-quality.md` |
 | 审计/Review | §三(INV) · §四(P0, P3) · §九 | `audit-protocol.md` |
 | 写测试 | §四(P2, P4) | `testing-guide.md` · `test-commands.md` |
 | 文档/Spec | §四(P1, P5) | 对应 `openspec/specs/<module>/spec.md` |
@@ -109,7 +109,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 | # | 名称 | 一句话规则 |
 | --- | --- | --- |
 | INV-1 | 原稿保护 | AI 写操作必须经 Permission Gate + 版本快照。无快照 = 禁写 |
-| INV-2 | 并发安全 | `concurrencySafe` 默认 false。未标记 = 串行 |
+| INV-2 | 并发安全 | `isConcurrencySafe` 默认 false。未标记 = 串行 |
 | INV-3 | CJK Token | 中文 ~1.5 tokens/字。禁止 `UTF8_BYTES / 4` |
 | INV-4 | Memory-First | 三层记忆（L0 始终注入 / L1 选择注入 / L2 KG+FTS5）。KG+FTS5 为主检索路径，RAG 仅限降级补充，禁止新增向量数据库依赖 |
 | INV-5 | 叙事压缩 | AutoCompact 保留 KG 实体、角色设定、未解伏笔。标记 `compactable: false` |
