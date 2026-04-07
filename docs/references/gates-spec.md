@@ -22,7 +22,7 @@
 ```bash
 # .githooks/pre-commit
 # 1. 控制面根目录提交拦截（必须在 worktree 中操作）
-# 2. main 分支提交拦截（必须使用 task/<N>-<slug> 分支）
+# 2. main 分支提交拦截（禁止在 main 上直接提交，建议使用 task/<N>-<slug> 分支）
 # 3. creonow-app/src/ 下有 staged .ts/.tsx 文件时运行 lint-staged
 
 # .githooks/pre-push
