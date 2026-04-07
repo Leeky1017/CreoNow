@@ -13,7 +13,7 @@
 AI 对用户原稿的任何写操作（续写、改写、删除）必须经过 Permission Gate。只读操作自动放行。写操作必须先创建 version snapshot，用户可一键撤销。无快照 = 禁止写入。
 
 - CC 来源：Permission 系统 + fileHistory 快照（Report 05/07）
-- 落地方式：`services/skills/permissionGate.ts`（目标架构，尚未实现）拦截所有写操作，写入前调用 `document_versions` 表创建快照
+- 落地方式：当前 `ipc/ai.ts` 中 `createPendingPermissionGate()` 创建权限门控，`orchestrator.ts` 在写回前强制检查门控状态并要求 `versionSnapshot`。目标架构：独立 `services/skills/permissionGate.ts` 模块（尚未抽取）
 
 ### INV-2 -- 并发安全默认关闭（fail-closed）
 
@@ -151,7 +151,7 @@ apps/desktop/
   |   |   +-- memory/                <- 情景记忆、偏好学习
   |   |   +-- search/                <- FTS5 全文搜索、查询规划
   |   |   +-- skills/                <- 加载、路由、执行、校验
-  |   |   |   +-- permissionGate.ts  <- 原稿保护 (INV-1)（目标架构，尚未实现）
+  |   |   |   +-- permissionGate.ts  <- 原稿保护 (INV-1)（目标架构：独立模块尚未抽取；当前实现在 ipc/ai.ts createPendingPermissionGate + orchestrator.ts 写回检查）
   |   |   |   +-- taskState.ts       <- 任务状态机（目标架构，尚未实现）
   |   |   |   +-- postWritingHooks.ts <- 后处理 Hook 链 (INV-8)（计划抽取为独立模块；当前实现在 orchestrator.ts Stage 8）
   |   |   +-- stats/                 <- 写作统计（字数、时长、Skill 使用频率）
