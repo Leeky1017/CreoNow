@@ -67,7 +67,7 @@
 - 失败行为：阻止合并
 - 实现：`.github/workflows/ci.yml`
 
-CI Workflow 结构（反映实际 `ci.yml`）：
+CI Workflow 结构（简化示意；完整版见 `.github/workflows/ci.yml`）：
 
 ```yaml
 # .github/workflows/ci.yml

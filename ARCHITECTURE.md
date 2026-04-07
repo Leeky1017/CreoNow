@@ -13,7 +13,7 @@
 AI 对用户原稿的任何写操作（续写、改写、删除）必须经过 Permission Gate。只读操作自动放行。写操作必须先创建 version snapshot，用户可一键撤销。无快照 = 禁止写入。
 
 - CC 来源：Permission 系统 + fileHistory 快照（Report 05/07）
-- 落地方式：当前 `ipc/ai.ts` 中 `createPendingPermissionGate()` 创建权限门控，`orchestrator.ts` 在写回前强制检查门控状态并要求 `versionSnapshot`。目标架构：独立 `services/skills/permissionGate.ts` 模块（尚未抽取）
+- 落地方式：当前 `ipc/ai.ts` 中 `createPendingPermissionGate()` 创建权限门控，`orchestrator.ts` 在写回前强制检查门控状态并要求 `versionSnapshot`。目标架构：独立 `services/skills/permissionGate.ts` 模块（尚未抽取）。注：SKILL.md frontmatter 已定义 `permissionLevel`（如 `auto-allow`、`preview-confirm`），`p3Skills.ts` 已解析，但运行时门控尚未读取该字段——当前一律走 `preview-confirm`
 
 ### INV-2 -- 并发安全默认关闭（fail-closed）
 
@@ -164,7 +164,7 @@ packages/
   +-- shared/                        <- 跨进程类型 + 纯工具
   |   +-- tokenBudget.ts             <- Token 预算（待迁移到 CJK-aware，INV-3）
   |   +-- types/
-  +-- pkg.creonow.builtin/           <- 内置技能包（目标架构，尚未实现）
+  +-- pkg.creonow.builtin/           <- 内置技能包（当前位于 `apps/desktop/main/skills/packages/`，计划迁移至此）
 ```
 
 ### 2.3 新增模块的规则
@@ -183,7 +183,7 @@ packages/
 | KG 实体/关系、记忆 | SQLite (better-sqlite3) | 永久 |
 | 会话成本、性能指标 | 进程内内存（Map） | 进程内（SQLite 持久化计划实现） |
 | 用户配置 | SQLite (settings 表) | 永久 |
-| Skill 权限策略 | SKILL.md frontmatter (`permissionLevel`) + 进程内 `PendingPermissionGate` | 静态定义 + 进程内 |
+| Skill 权限策略 | 进程内 `PendingPermissionGate`（`ipc/ai.ts`）；SKILL.md frontmatter 定义 `permissionLevel` 并由 `p3Skills.ts` 解析，但运行时门控尚未读取该字段——当前一律 `preview-confirm` | 进程内 |
 | 会话历史（用于恢复） | SQLite (chat_sessions / chat_messages 表) | 永久，可清理 |
 
 规则：
