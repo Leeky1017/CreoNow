@@ -60,7 +60,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 - **上游**：谁会调用我写的东西？我改了之后他们会不会坏？
 - **下游**：我依赖的模块会不会变？如果它变了，我的代码会不会静默失败？
 - **INV 影响**：这次改动涉及哪些不变量？Permission Gate（INV-1）、并发安全（INV-2）、Hook 链（INV-8）——是否都已处理？
-- **副作用**：我的改动会不会影响性能预算（`ARCHITECTURE.md` §三）、离线模式（`backend-spec.md` §六）、成本追踪（INV-9）？
+- **副作用**：我的改动会不会影响性能预算（§七）、离线模式（§十一）、成本追踪（INV-9）？
 
 只有当你能回答这四个问题，这次改动才算「想清楚了」。
 
@@ -70,7 +70,6 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 1. 回复尽量使用中文
 2. 如果没有显式要求，禁止写兼容代码
-3. 沟通方式：要有文化，要有诗意，能引经据典最好
 
 ---
 
@@ -89,7 +88,6 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 | 任务类型 | 必读章节 | 参考文档 |
 | --- | --- | --- |
-| 修复 CI | §四(P3) · §七 | `test-commands.md` |
 | 后端实现 | §三(INV) · §四(P0-P5) · §六 · §七 | `ARCHITECTURE.md` · `testing-guide.md` |
 | 前端实现 | §三(INV) · §四(P0-P5, P-V) · §六 | `frontend-visual-quality.md` |
 | 审计/Review | §三(INV) · §四(P0, P3) · §九 | `audit-protocol.md` |
@@ -111,7 +109,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 | INV-1 | 原稿保护 | AI 写操作必须经 Permission Gate + 版本快照。无快照 = 禁写 |
 | INV-2 | 并发安全 | `concurrencySafe` 默认 false。未标记 = 串行 |
 | INV-3 | CJK Token | 中文 ~1.5 tokens/字。禁止 `UTF8_BYTES / 4` |
-| INV-4 | Memory-First | 三层记忆（L0 始终注入 / L1 选择注入 / L2 KG+FTS5）。KG+FTS5 为主检索路径，RAG 仅限降级补充，禁止新增向量数据库依赖 |
+| INV-4 | Memory-First | 三层记忆（L0 始终注入 / L1 选择注入 / L2 KG+FTS5）。永远不用 RAG |
 | INV-5 | 叙事压缩 | AutoCompact 保留 KG 实体、角色设定、未解伏笔。标记 `compactable: false` |
 | INV-6 | 一切皆 Skill | 统一管线：Schema → 权限 → 执行 → 返回。禁止裸调 LLM |
 | INV-7 | 统一入口 | 所有操作走 `CommandDispatcher.execute()`。禁止 IPC handler 直调 Service |
@@ -131,7 +129,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 主会话 Agent 拆任务、设边界、汇总结论，**不直接写代码、不直接做审计结论**。
 
 - 实现 → 委派工程 Subagent
-- 审计 → 每轮委派 **2 个独立审计 Subagent** 交叉审计（按主会话模型配置决定）
+- 审计 → 每轮委派 **2 个独立审计 Subagent（GPT5.3codex、Opus4.6）** 交叉审计
 - 任一 finding（含 non-blocking / nit）→ 回工程 Subagent 修复 → 再次双审
 - 只有双审都 zero findings + `FINAL-VERDICT` + `ACCEPT` → 收口
 
@@ -162,7 +160,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 
 「测试通过 + CI 绿灯」≠「视觉合格」。前端交付标准是「看起来对」。
 
-- 黄金组件库 Figma：https://www.figma.com/design/qgCo8ZV53IUGlYRbElaYv5?node-id=169-3
+- 黄金组件库 Figma：https://www.figma.com/design/qgCo8ZV53IUGlYRbElaYv5
 - 颜色/间距用 Token（无硬编码）· 文本走 `t()` · 新组件有 Story · PR 嵌入截图
 - 完整视觉 DNA + 合格标准 → `docs/references/frontend-visual-quality.md`
 
@@ -197,7 +195,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 
 **语言**：代码注释英文，架构文档中文。
 
-> 完整三层注释模板详见 `ARCHITECTURE.md` §四。
+> 完整三层注释模板详见 `ARCHITECTURE.md` §八。
 > 
 
 ---
@@ -219,7 +217,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 
 ### 后端专用
 
-1. 默认使用 KG+FTS5，禁止新增向量数据库依赖（现有 `services/rag/` 作为降级补充保留）——INV-4
+1. 禁止引入 RAG 技术栈（embedding / 向量 DB / chunking / rerank）——CI 拦截（INV-4）
 2. 禁止静默 try-catch 返回默认值——错误要么重试要么上报（反防御型编程）
 3. 禁止在 Skill 体系外直接调用 LLM 或修改文档（INV-6）
 4. 禁止 `UTF8_BYTES / 4` 统一估算 Token——必须区分 CJK（INV-3）
@@ -276,17 +274,12 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | 审计协议 | `docs/references/audit-protocol.md` | 审计/Review 时 |
 | 架构经验 | `docs/references/architecture-lessons.md` | 架构决策时 |
 | 产品质量清单 | `docs/references/product-quality-checklist.md` | PR 自检时 |
-| UI Prompt 工程 | `docs/references/prompt-engineering-for-ui.md` | AI UI 生成时 |
-| WSL 开发指南 | `docs/references/wsl-development-guide.md` | 启动服务/浏览器访问时 |
 
 **脚本索引**（`scripts/`）：
 
 | 脚本 | 用途 |
 | --- | --- |
 | `agent_task_begin.sh` | 创建 worktree 并开始任务 |
-| `agent_worktree_setup.sh` | 仅创建 worktree |
-| `agent_controlplane_sync.sh` | 控制面同步 |
-| `agent_git_hooks_install.sh` | 安装 git hooks |
 | `agent_pr_preflight.sh` | PR 预检 |
 | `agent_pr_automerge_and_sync.sh` | auto-merge（需审计通过） |
 | `agent_github_delivery.py` | GitHub 交付工具 |
