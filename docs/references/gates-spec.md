@@ -135,7 +135,7 @@ jobs:
         uses: actions/upload-artifact@v4
 ```
 
-### L3 -- 发布门禁
+### L3 -- 发布门禁（远景，尚未实现）
 
 - 触发时机：合并到 main（CD）
 - 检查项：
@@ -158,11 +158,11 @@ Agent 写代码之前必须先输出：
 - 模块边界图
 - Definition of Done
 
-写入 PR 描述，CI 检查存在性。
+写入 PR 描述，CI 检查存在性（计划实现，当前由人工审查确认）。
 
 ### 阶段 B -- 受约束编码
 
-PR 描述包含 Invariant Checklist（INV-1~10 逐条勾选），CI 自动解析，未填写 = 阻止合并。
+PR 描述包含 Invariant Checklist（INV-1~10 逐条勾选），CI 自动解析（计划实现），未填写 = 阻止合并。
 
 每条必须声明：
 
@@ -170,9 +170,9 @@ PR 描述包含 Invariant Checklist（INV-1~10 逐条勾选），CI 自动解析
 - 不涉及：本次改动与该 INV 无关
 - 违反（附理由）：明确说明为什么违反以及补救措施
 
-### 阶段 C -- Agent 审 Agent
+### 阶段 C -- Agent 审 Agent（计划实现，当前由人工 + Agent 协作完成）
 
-合并后触发 Audit Agent：
+合并后触发 Audit Agent（计划自动化）：
 
 - 检查代码是否符合 AGENTS.md Invariant
 - 注释是否合规（模块入口注释、阈值注释）
@@ -187,14 +187,14 @@ PR 描述包含 Invariant Checklist（INV-1~10 逐条勾选），CI 自动解析
 Agent 接到需求
   -> 阶段 A: 设计文档（INV 声明 + 模块边界 + DoD）
   -> 阶段 B: 编码 + 测试
-  -> L1: pre-commit（格式化 / Lint / 类型 / 快速单测）
+  -> L1: pre-commit（控制面/main 拦截 + lint-staged）
   -> 推送 -> PR
-  -> L2: CI 全量检查（测试 + 覆盖率 + 依赖方向 + 契约 + 构建 + INV Checklist）
+  -> L2: CI 检查（typecheck + 契约 + 测试 + 构建 + Storybook）
     -> 通过 -> 合并 main
     -> 失败 -> 回到编码
   -> 合并后:
-    -> 阶段 C: Audit Agent 审计
-    -> L3: 构建 + 灰度
+    -> 阶段 C: Audit Agent 审计（计划实现）
+    -> L3: 构建 + 灰度（远景）
       -> 正常 -> 全量发布
       -> 异常 -> 自动回滚
 ```
