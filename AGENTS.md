@@ -177,7 +177,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | 后端 | `apps/desktop/main/` | Electron 主进程 |
 | 共享层 | `packages/shared/` | 跨进程 |
 
-**依赖方向铁律**：Renderer → Shared Types（必须走 IPC）· Service → DB + Shared · DB → Shared only。CI 自动检查，违反 = 阻止合并。
+**依赖方向铁律**：Renderer → Shared Types（必须走 IPC）· Service → DB + Shared · DB → Shared only。CI 自动检查（计划实现），违反 = 阻止合并。
 
 **模块列表**（`openspec/specs/`）：ai-service · context-engine · design-system · document-management · editor · ipc · knowledge-graph · memory-system · project-management · search-and-retrieval · skill-system · version-control · workbench
 

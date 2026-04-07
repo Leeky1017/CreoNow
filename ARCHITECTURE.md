@@ -92,7 +92,7 @@ Agent 的所有能力必须建模为 Skill，遵循统一管线：输入 Schema 
 每次 AI 调用记录：模型名称、input/output tokens、prompt cache 命中量、耗时、估算费用（USD/CNY）。按 session 持久化，用户可在 UI 查看。
 
 - CC 来源：cost-tracker.ts（Report 03）
-- 落地方式：`services/ai/costTracker.ts` 记录每次调用，写入 SQLite stats 表
+- 落地方式：`services/ai/costTracker.ts` 记录每次调用，当前为进程内内存存储（Map，maxRecords=500），跨会话持久化到 SQLite 计划实现
 
 ### INV-10 -- 错误不丢上下文
 
@@ -181,7 +181,7 @@ packages/
 | 运行时状态（当前会话、任务队列） | 内存 Store（轻量 Zustand 风格） | 进程内 |
 | 用户文档、版本、分支 | SQLite (better-sqlite3) | 永久 |
 | KG 实体/关系、记忆 | SQLite (better-sqlite3) | 永久 |
-| 会话成本、性能指标 | SQLite (stats 表) | 跨会话持久化 |
+| 会话成本、性能指标 | 进程内内存（Map） | 进程内（SQLite 持久化计划实现） |
 | 用户配置、权限规则 | SQLite (settings 表) | 永久 |
 | 会话历史（用于恢复） | SQLite (sessions 表) | 永久，可清理 |
 

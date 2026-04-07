@@ -41,7 +41,7 @@ Closes #<!-- Issue 编号 -->
 
 ## 阶段 B：Invariant Checklist
 
-CI 自动解析以下 Checklist。未填写 = 阻止合并。
+CI 自动解析以下 Checklist（计划实现，当前由人工审查确认）。
 每条必须勾选「遵守」或「不涉及」。如果违反，必须附理由。
 
 - [ ] **INV-1 原稿保护** -- AI 写操作经 Permission Gate + 版本快照
@@ -120,7 +120,7 @@ N/A
 - [ ] 本 PR 在 `.worktrees/issue-<N>-<slug>` 中完成实现、提 PR、修 CI、回应审计
 - [ ] PR 正文包含 `Closes #N`、验证证据、回滚点、审计门禁
 - [ ] `scripts/agent_pr_preflight.sh` 通过
-- [ ] `pnpm lint` 通过
+- [ ] `pnpm typecheck` 通过
 - [ ] `pnpm typecheck` 通过
 - [ ] 相关测试通过
 - [ ] required checks 全绿后才请求审计/合并

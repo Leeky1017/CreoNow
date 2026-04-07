@@ -10,7 +10,7 @@
 
 - 触发时机：pre-commit / pre-push
 - 检查项（当前已实现）：
-    - pre-commit：控制面直接提交拦截 + main 分支提交拦截 + creonow-app 下 `.ts/.tsx` 文件的 lint-staged
+    - pre-commit：控制面直接提交拦截 + main 分支提交拦截 + creonow-app/src/ 下 `.ts/.tsx` 文件的 lint-staged
     - pre-push：控制面直接推送拦截 + main 分支直接推送拦截
 - 检查项（目标行为，尚未实现）：typecheck / 快速单测
 - 失败行为：阻止 commit/push
@@ -23,22 +23,21 @@
 # .githooks/pre-commit
 # 1. 控制面根目录提交拦截（必须在 worktree 中操作）
 # 2. main 分支提交拦截（必须使用 task/<N>-<slug> 分支）
-# 3. creonow-app/ 下有 staged .ts/.tsx 文件时运行 lint-staged
+# 3. creonow-app/src/ 下有 staged .ts/.tsx 文件时运行 lint-staged
 
 # .githooks/pre-push
 # 1. 控制面根目录推送拦截
 # 2. 禁止直接推送到 refs/heads/main
 ```
 
-lint-staged 配置示例（目标行为，尚未实现）：
+实际 lint-staged 配置（位于 `creonow-app/package.json`）：
 
 ```json
-// package.json
 {
   "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
+    "src/**/*.{ts,tsx}": [
+      "eslint --max-warnings 0",
+      "prettier --check"
     ]
   }
 }
@@ -207,7 +206,7 @@ Agent 接到需求
 | --- | --- | --- |
 | pre-commit hook | `.githooks/pre-commit` | 控制面/main 拦截 + creonow-app lint-staged |
 | pre-push hook | `.githooks/pre-push` | 控制面/main 推送拦截 |
-| lint-staged 配置 | `package.json` 或 `.lintstagedrc` | 定义 pre-commit 要跑的命令 |
+| lint-staged 配置 | `creonow-app/package.json` | creonow-app/src/ 下 eslint + prettier |
 | CI workflow | `.github/workflows/ci.yml` | L2 全量检查 |
 | PR 模板 | `.github/PULL_REQUEST_TEMPLATE.md` | INV Checklist + 设计文档 + 验证证据 |
 | 依赖方向规则 | `.dependency-cruiser.cjs`（计划实现）或自写脚本 | 检查分层依赖是否合规 |

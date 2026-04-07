@@ -394,7 +394,7 @@ CREATE VIRTUAL TABLE entities_fts USING fts5(
 ### 4.10 负面反馈学习（Sentiment-Aware Learning）
 
 - 检测用户不满：当用户表达负面情绪（"不是这样""重来""算了"等），系统记录：AI 做了什么 -> 用户为什么不满
-- 写入 `MEMORY.md`：提取"不要再这样做"的规则
+- 写入 `MEMORY.md`（计划创建）：提取"不要再这样做"的规则
 - 下次同类场景：Agent 参考这条记忆，避免重蹈覆辙
 
 ### 4.11 Plan Mode（引导式交互）
