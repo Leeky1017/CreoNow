@@ -85,7 +85,7 @@ Agent 的所有能力必须建模为 Skill，遵循统一管线：输入 Schema 
 每次 AI 写作完成后必须执行 post-writing hook 链：自动保存版本 -> KG 更新 -> 记忆提取 -> 质量检查。Hook 链可配置、可跳过，但框架必须存在。
 
 - CC 来源：handleStopHooks -> extractMemories -> confidenceRating -> commitAttribution（Report 02/07）
-- 落地方式：`services/skills/postWritingHooks.ts`（目标架构，尚未实现）按顺序执行 hook 链
+- 落地方式：Post-writing hook 链框架已在 `services/skills/orchestrator.ts` Stage 8 实现（当前含 cost-tracking + auto-save-version stub）。`postWritingHooks.ts` 作为独立模块的抽取为计划重构
 
 ### INV-9 -- 成本必须可追踪、可展示
 
@@ -153,7 +153,7 @@ apps/desktop/
   |   |   +-- skills/                <- 加载、路由、执行、校验
   |   |   |   +-- permissionGate.ts  <- 原稿保护 (INV-1)（目标架构，尚未实现）
   |   |   |   +-- taskState.ts       <- 任务状态机（目标架构，尚未实现）
-  |   |   |   +-- postWritingHooks.ts <- 后处理 Hook 链 (INV-8)（目标架构，尚未实现）
+  |   |   |   +-- postWritingHooks.ts <- 后处理 Hook 链 (INV-8)（计划抽取为独立模块；当前实现在 orchestrator.ts Stage 8）
   |   |   +-- stats/                 <- 写作统计（字数、时长、Skill 使用频率）
   |   |   +-- judge/                 <- AI 质量评判
   |   +-- ipc/                       <- IPC handler（目标：仅转发到 CommandDispatcher；当前部分 handler 含业务逻辑）

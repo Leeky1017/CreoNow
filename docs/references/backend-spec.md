@@ -158,7 +158,7 @@ recursivelySanitizeUnicode(input)
 // 防止 prompt injection via Unicode
 ```
 
-**内容大小验证**
+**内容大小验证**（計劃实现）
 
 - LLM 返回内容超过阈值时截断 + 完整版存入 session storage
 - Skill 输入超过 Schema 定义的 maxLength 时拒绝
