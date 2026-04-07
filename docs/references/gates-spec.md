@@ -24,6 +24,8 @@
 # 1. 控制面根目录提交拦截（必须在 worktree 中操作）
 # 2. main 分支提交拦截（禁止在 main 上直接提交，建议使用 task/<N>-<slug> 分支）
 # 3. creonow-app/src/ 下有 staged .ts/.tsx 文件时运行 lint-staged
+#    注意：lint-staged 仅在 creonow-app/node_modules/.bin 存在时执行；
+#    未运行 pnpm install 的 worktree 会静默跳过此检查。
 
 # .githooks/pre-push
 # 1. 控制面根目录推送拦截
