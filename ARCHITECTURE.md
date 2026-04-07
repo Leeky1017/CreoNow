@@ -13,7 +13,7 @@
 AI 对用户原稿的任何写操作（续写、改写、删除）必须经过 Permission Gate。只读操作自动放行。写操作必须先创建 version snapshot，用户可一键撤销。无快照 = 禁止写入。
 
 - CC 来源：Permission 系统 + fileHistory 快照（Report 05/07）
-- 落地方式：`services/skills/permissionGate.ts`（目标架构，尚未实现）拦截所有写操作，写入前调用 `versions` 表创建快照
+- 落地方式：`services/skills/permissionGate.ts`（目标架构，尚未实现）拦截所有写操作，写入前调用 `document_versions` 表创建快照
 
 ### INV-2 -- 并发安全默认关闭（fail-closed）
 
@@ -89,7 +89,7 @@ Agent 的所有能力必须建模为 Skill，遵循统一管线：输入 Schema 
 
 ### INV-9 -- 成本必须可追踪、可展示
 
-每次 AI 调用记录：模型名称、input/output tokens、prompt cache 命中量、估算费用（USD/CNY）。主进程 in-memory Map 追踪（maxRecords=500 自动淘汰）。IPC handler 已注册，渲染进程 UI（计划实现）。
+每次 AI 调用记录：模型名称、input/output tokens、prompt cache 命中量、估算费用（USD）。主进程 in-memory Map 追踪（maxRecords=500 自动淘汰）。IPC handler 已注册，渲染进程 UI（计划实现）。
 
 - CC 来源：cost-tracker.ts（Report 03）
 - 落地方式：`services/ai/costTracker.ts` 记录每次调用，当前为进程内内存存储（Map，maxRecords=500），跨会话持久化到 SQLite 计划实现
@@ -200,7 +200,7 @@ packages/
 | 指标 | 目标值 | 度量方式 |
 | --- | --- | --- |
 | 应用启动时间（到可交互） | <= 2s（冷启动） | profileCheckpoint 埋点 |
-| 首次 LLM 响应（首 token） | <= 1.5s（流式） | costTracker 记录 |
+| 首次 LLM 响应（首 token） | <= 1.5s（流式） | streaming callback timestamp delta（计划実現，当前無専用測量） |
 | Skill 执行超时 | <= 60s（单步骤） | AbortController 强制超时 |
 | 上下文组装（p95） | <= 250ms | layerAssemblyService SLO |
 | AutoCompact 单次执行 | <= 10s | compact 埋点 |
