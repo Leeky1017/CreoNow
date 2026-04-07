@@ -51,7 +51,9 @@ Agent 写的代码必须自带测试。CI 通过 `spec-test-mapping gate` 检查
 | 需要压缩 | prompt_too_long | 触发 AutoCompact，压缩后重试（最多 1 次） |
 | 用户取消 | AbortController signal | 清理进行中的步骤，生成合成错误，保留上下文 |
 
-### 2.2 AbortController 三级层次
+### 2.2 AbortController 层次（目标架构，当前为单级）
+
+当前实现：`orchestrator.ts` 每次请求创建一个 `AbortController`，`toolUseHandler.ts` 使用 `setTimeout`/`Promise` 实现工具级超时。以下为目标架构：
 
 ```
 Session AbortController          // 整个会话
@@ -389,7 +391,9 @@ CREATE VIRTUAL TABLE entities_fts USING fts5(
 
 绝对禁止每次保存触发提取。
 
-触发条件（满足任一即触发）：
+当前实现：`ipc/file.ts` 在文档状态更新时将提取任务排队，`stateExtractor.ts` 仅在 `status === "final"` 时实际执行提取。
+
+目标触发条件（計劃实现，当前仅支持 status=final 触发）：
 
 - 自上次提取以来，增量内容 >= 3000 字（默认值，用户可配置，范围 1000-10000）
 - 用户主动关闭项目/结束会话
@@ -401,7 +405,9 @@ CREATE VIRTUAL TABLE entities_fts USING fts5(
 - 每次只对新增/修改的文本运行提取，不对全文重跑
 - 提取是后台异步的，不阻塞用户写作
 
-### 4.9 AI 提取规则
+### 4.9 AI 提取规则（目标设计，当前 stateExtractor 仅匹配已有实体并更新 lastSeenState）
+
+以下为目标提取规则，当前 `stateExtractor.ts` 仅接受 `stateChanges` 并匹配已有实体更新状态：
 
 - 用户永远为准：`created_by='user'` 的记录，AI 绝对不能覆盖
 - 只提取显式出现的信息：不推测、不脑补
@@ -419,7 +425,7 @@ CREATE VIRTUAL TABLE entities_fts USING fts5(
 
 ### 4.11 Plan Mode（引导式交互）（部分实现）
 
-当前实现：用户通过 IPC 请求显式指定 `mode: "agent" | "plan" | "ask"`（`ipc/ai.ts`），`plan` 模式时 `runtimeConfig.ts` 添加提示引导 Agent 先澄清再执行。
+当前实现：用户通过 IPC 请求显式指定 `mode: "agent" | "plan" | "ask"`（`ipc/ai.ts`），`plan` 模式时 `runtimeConfig.ts` 添加提示 `"First produce a concise step-by-step plan before final output."`，引导 Agent 先输出计划再生成最终内容。
 
 目标设计（計劃实现）——自动触发条件：用户指令含模糊词汇（"写好""完善""这个""搞定""改改"）且缺乏具体约束时，Agent 自动进入 Plan Mode，不直接动手，而是先澄清意图。当前需用户手动选择 plan 模式。
 
@@ -430,10 +436,10 @@ CREATE VIRTUAL TABLE entities_fts USING fts5(
 | 服务对象 | 用户 + 项目 | 项目内容本身 |
 | 存什么 | 用户偏好、写作风格、句式习惯 | 角色、地点、事件、关系、伏笔、时间线 |
 | 跨项目 | 是，用户偏好跨项目生效 | 否，每个项目独立的 KG |
-| 注入方式 | Layer 0 始终注入 system prompt | 不注入 context，Agent 按需调用 KG 查询 Skill |
+| 注入方式 | Layer 0 始终注入 system prompt | 部分注入：`rulesFetcher.ts` 将 `aiContextLevel: "always"` 的 KG 实体注入 context；其余通过 Skill 按需查询 |
 | 数据规模 | 小（<=200行/25KB） | 大（可能几千实体、上万关系） |
 
-重要：KG 内容不全量注入 Layer 0。KG 是 Agent 的工具，通过 Skill 查询（契合 INV-6）。
+重要：KG 内容不全量注入 Layer 0。标记为 `aiContextLevel: "always"` 的关键实体由 `rulesFetcher.ts` 注入 context，其余 KG 数据通过 Skill 按需查询（契合 INV-6）。
 
 ### 4.13 Dreaming 机制（记忆整合）（计划实现）
 
