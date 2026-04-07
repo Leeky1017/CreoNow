@@ -11,9 +11,11 @@
 - 触发时机：pre-commit / pre-push
 - 检查项：格式化 / Lint / 类型检查 / 快速单测
 - 失败行为：阻止 commit/push
-- 实现：`.husky/` + lint-staged
+- 实现：`.husky/`（计划实现）+ lint-staged
 
 配置示例：
+
+```json
 // package.json
 {
   "lint-staged": {
@@ -23,12 +25,17 @@
     ]
   }
 }
-# .husky/pre-commit
+```
+
+```bash
+# .husky/pre-commit（计划实现）
 pnpm lint-staged
 
-# .husky/pre-push
+# .husky/pre-push（计划实现）
 pnpm typecheck
 pnpm test -- --run --changed
+```
+
 ### L2 -- PR 门禁
 
 - 触发时机：PR 创建/更新（CI）
@@ -39,10 +46,12 @@ pnpm test -- --run --changed
     - 构建校验（pnpm build）
     - Invariant Checklist 解析（INV-1~10 必须填写）
 - 失败行为：阻止合并
-- 实现：`.github/workflows/check.yml`
+- 实现：`.github/workflows/ci.yml`
 
 CI Workflow 结构：
-# .github/workflows/check.yml
+
+```yaml
+# .github/workflows/ci.yml
 name: PR Check
 on:
   pull_request:
@@ -93,7 +102,9 @@ jobs:
           # 解析 PR body 中的 Invariant Checklist
           # 检查 INV-1~10 是否都已填写
           # 未填写 = 失败
-          ### L3 -- 发布门禁
+```
+
+### L3 -- 发布门禁
 
 - 触发时机：合并到 main（CD）
 - 检查项：
@@ -132,7 +143,7 @@ PR 描述包含 Invariant Checklist（INV-1~10 逐条勾选），CI 自动解析
 
 合并后触发 Audit Agent：
 
-- 检查代码是否符合 [AGENTS.md](http://AGENTS.md) Invariant
+- 检查代码是否符合 AGENTS.md Invariant
 - 注释是否合规（模块入口注释、阈值注释）
 - 测试覆盖率是否达标
 - 输出审计报告
@@ -140,6 +151,8 @@ PR 描述包含 Invariant Checklist（INV-1~10 逐条勾选），CI 自动解析
 ---
 
 ## 三、流水线全览
+
+```
 Agent 接到需求
   -> 阶段 A: 设计文档（INV 声明 + 模块边界 + DoD）
   -> 阶段 B: 编码 + 测试
@@ -153,24 +166,28 @@ Agent 接到需求
     -> L3: 构建 + 灰度
       -> 正常 -> 全量发布
       -> 异常 -> 自动回滚
-      ## 四、门禁配置清单
+```
+
+## 四、门禁配置清单
 
 以下是 Week 0 需要配置的门禁文件：
 
 | 文件 | 路径 | 用途 |
 | --- | --- | --- |
-| pre-commit hook | `.husky/pre-commit` | lint-staged（格式化 + Lint） |
-| pre-push hook | `.husky/pre-push` | typecheck + 快速单测 |
+| pre-commit hook | `.husky/pre-commit`（计划实现） | lint-staged（格式化 + Lint） |
+| pre-push hook | `.husky/pre-push`（计划实现） | typecheck + 快速单测 |
 | lint-staged 配置 | `package.json` 或 `.lintstagedrc` | 定义 pre-commit 要跑的命令 |
-| CI workflow | `.github/workflows/check.yml` | L2 全量检查 |
-| PR 模板 | `.github/pull_request_template.md` | INV Checklist + 设计文档 + 验证证据 |
-| 依赖方向规则 | `.dependency-cruiser.cjs` 或自写脚本 | 检查分层依赖是否合规 |
+| CI workflow | `.github/workflows/ci.yml` | L2 全量检查 |
+| PR 模板 | `.github/PULL_REQUEST_TEMPLATE.md` | INV Checklist + 设计文档 + 验证证据 |
+| 依赖方向规则 | `.dependency-cruiser.cjs`（计划实现）或自写脚本 | 检查分层依赖是否合规 |
 
 ---
 
 ## 五、Invariant Checklist CI 解析逻辑
+
+```bash
 #!/bin/bash
-# scripts/check_invariant_checklist.sh
+# scripts/check_invariant_checklist.sh（计划实现）
 # 解析 PR body 中的 Invariant Checklist
 
 PR_BODY=$(gh pr view "$PR_NUMBER" --json body -q '.body')
@@ -189,16 +206,23 @@ for i in $(seq 1 10); do
 done
 
 echo "All Invariants checked."
+```
+
 ## 六、依赖方向检查规则
 
 以下是必须检查的依赖方向违规：
-违规类型	检测规则	严重级
-Renderer import Main	apps/desktop/renderer/ 不能 import apps/desktop/main/	阻止合并
-DB import Service	db/ 不能 import services/	阻止合并
-IPC 直调 Service	ipc/ 只能 import core/commandDispatcher	阻止合并
-Service import CommandDispatcher	services/ 不能 import core/commandDispatcher	阻止合并
-Shared import 业务层	packages/shared/ 不能 import apps/	阻止合并
-可用 dependency-cruiser 配置：
+
+| 违规类型 | 检测规则 | 严重级 |
+| --- | --- | --- |
+| Renderer import Main | apps/desktop/renderer/ 不能 import apps/desktop/main/ | 阻止合并 |
+| DB import Service | db/ 不能 import services/ | 阻止合并 |
+| IPC 直调 Service | ipc/ 只能 import core/commandDispatcher | 阻止合并 |
+| Service import CommandDispatcher | services/ 不能 import core/commandDispatcher | 阻止合并 |
+| Shared import 业务层 | packages/shared/ 不能 import apps/ | 阻止合并 |
+
+可用 dependency-cruiser 配置（计划实现）：
+
+```js
 // .dependency-cruiser.cjs
 module.exports = {
   forbidden: [
@@ -231,3 +255,4 @@ module.exports = {
     }
   ]
 }
+```
