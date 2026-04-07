@@ -55,7 +55,7 @@ CN 的记忆架构分三层（目标设计）。默认走 Layer 0+1，只有 0+1
 
 **RAG 使用约束**
 
-当前代码库已包含 RAG 实现（`services/rag/`、`services/embedding/`），但 KG + FTS5 是主检索路径。新功能应优先使用 KG + FTS5，仅在精度不足时才引入 RAG 补充。禁止新增向量数据库依赖（sqlite-vec/FAISS/Pinecone）。（目标约束：当前代码仍有 RAG 实现，长期方向是 KG+FTS5 优先）
+当前代码库已包含 RAG 实现（`services/rag/`、`services/embedding/`）及 sqlite-vec 语义召回（`services/memory/userMemoryVec.ts`），但 KG + FTS5 是主检索路径。新功能应优先使用 KG + FTS5，仅在精度不足时才引入 RAG 补充。禁止再新增额外向量存储（FAISS/Pinecone 等）。（目标约束：长期方向是 KG+FTS5 优先，现有 sqlite-vec/RAG 作为降级补充保留）
 
 - 设计来源：GPT 记忆系统（6 层上下文 + Saved Memory/User Insights/Chat History）、CC 的 CLAUDE.md + MEMORY.md（计划创建）、OpenClaw 的文件即真相 + Dreaming 机制、Mem0 的 reconcile pipeline
 
@@ -96,10 +96,10 @@ Agent 的所有能力必须建模为 Skill，遵循统一管线：输入 Schema 
 
 ### INV-10 -- 错误不丢上下文
 
-Skill 执行中断时，必须为每个未完成步骤生成合成错误结果（`is_error: true`），保证消息格式合法。禁止静默丢弃上下文。连续失败 3 次触发断路器（circuit breaker）。
+Skill 执行中断时，SkillOrchestrator 通过 `makeFailureEvent()` 生成 `{ type: "error", error: { code, message, retryable } }` 事件，保证消息格式合法。禁止静默丢弃上下文。Provider 连续失败 3 次触发断路器（`services/ai/providerResolver.ts` PROVIDER_FAILURE_THRESHOLD=3，标记 provider 不可用）。（計劃实现：每个未完成步骤的完整合成错误结果 + 通用 Skill 级断路器）
 
 - CC 来源：`yieldMissingToolResultBlocks` + `MAX_CONSECUTIVE_FAILURES = 3`（Report 02/05）
-- 落地方式：SkillOrchestrator 捕获异常后生成合成结果，断路器在 `services/ai/circuitBreaker.ts`（目标架构，尚未实现）
+- 落地方式：`orchestrator.ts` 的 `makeFailureEvent()` 生成错误事件；`providerResolver.ts` 实现 provider 级断路器（连续 3 次失败标记不可用）。通用 `services/ai/circuitBreaker.ts`（目标架构，尚未实现）
 
 ---
 

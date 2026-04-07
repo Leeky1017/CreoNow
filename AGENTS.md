@@ -111,13 +111,13 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 | INV-1 | 原稿保护 | AI 写操作必须经 Permission Gate + 版本快照。无快照 = 禁写 |
 | INV-2 | 并发安全 | `isConcurrencySafe` 默认 false。未标记 = 串行 |
 | INV-3 | CJK Token | 中文 ~1.5 tokens/字。禁止 `UTF8_BYTES / 4` |
-| INV-4 | Memory-First | 三层记忆（L0 始终注入 / L1 选择注入 / L2 KG+FTS5）。KG+FTS5 为主检索路径，RAG 仅限降级补充，禁止新增向量数据库依赖 |
+| INV-4 | Memory-First | 三层记忆（L0 始终注入 / L1 选择注入 / L2 KG+FTS5）。KG+FTS5 为主检索路径，RAG 仅限降级补充。当前已含 sqlite-vec 语义召回，禁止再新增额外向量存储 |
 | INV-5 | 叙事压缩 | AutoCompact 保留 KG 实体、角色设定、未解伏笔。标记 `compactable: false` |
 | INV-6 | 一切皆 Skill | 统一管线：Schema → 权限 → 执行 → 返回。禁止裸调 LLM |
 | INV-7 | 统一入口 | 所有操作走 `CommandDispatcher.execute()`（計劃实现，当前 IPC handler 直调 Service）。禁止 IPC handler 直调 Service |
 | INV-8 | Hook 链 | 写作后 Hook 链框架已实现（`orchestrator.ts` Stage 8），当前仅含 cost-tracking + auto-save-version。目标链路：版本快照 → KG 更新 → 记忆提取 → 质量检查（計劃实现） |
 | INV-9 | 成本追踪 | 每次 AI 调用记录 model / tokens / cache / 费用，主进程 in-memory Map 追踪（IPC 已注册，渲染进程 UI 计划实现） |
-| INV-10 | 错误不丢上下文 | 中断时生成合成错误 `is_error: true`。连续 3 次失败触发断路器 |
+| INV-10 | 错误不丢上下文 | 中断时生成 `{ type: "error" }` 事件（計劃实现完整合成结果）。Provider 连续 3 次失败触发断路器（`providerResolver.ts` PROVIDER_FAILURE_THRESHOLD=3） |
 
 > 每条 INV 的完整说明、CC 来源、落地方式详见 `ARCHITECTURE.md`。
 > 
@@ -219,7 +219,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 
 ### 后端专用
 
-1. 默认使用 KG+FTS5，禁止新增向量数据库依赖（现有 `services/rag/` 作为降级补充保留）——INV-4
+1. 默认使用 KG+FTS5。当前已含 sqlite-vec 语义召回（`services/memory/userMemoryVec.ts`），禁止再新增额外向量存储（FAISS/Pinecone 等）——INV-4
 2. 禁止静默 try-catch 返回默认值——错误要么重试要么上报（反防御型编程）
 3. 禁止在 Skill 体系外直接调用 LLM 或修改文档（INV-6）
 4. 禁止 `UTF8_BYTES / 4` 统一估算 Token——必须区分 CJK（INV-3）
