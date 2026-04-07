@@ -514,21 +514,21 @@ Prompt 结构：
 - 用 JSON Schema 约束输出格式
 - 提取用辅助模型，不用主模型，控制成本
 
-### 4.15 多模型策略
+### 4.15 多模型策略（計劃实现）
 
-CN 不提供模型，用户自接 API。系统提供两个模型槽位，用户自配。
+CN 不提供模型，用户自接 API。目标设计为两个模型槽位，用户自配。当前实现仅支持单一 provider/baseUrl/apiKey 配置（`aiProxySettingsService.ts`），模型名为渲染进程本地 UI 状态，尚无双槽位路由。
 
 | 槽位 | 用途 | 推荐等级 |
 | --- | --- | --- |
-| 辅助模型 | KG 提取、Dreaming 整合、记忆提取、情绪检测、Plan Mode 意图分析 | 中等 |
-| 主模型 | 写作、Plan Mode 对话、内容生成 | 用户自选 |
+| 辅助模型（計劃实现） | KG 提取、Dreaming 整合、记忆提取、情绪检测、Plan Mode 意图分析 | 中等 |
+| 主模型（計劃实现） | 写作、Plan Mode 对话、内容生成 | 用户自选 |
 
-技术实现：
+技术实现（計劃实现）：
 
 - 统一的 `ModelRouter` 接口（計劃实现）：`getModel(task: 'extract' | 'dream' | 'write' | 'plan') -> ModelConfig`
-- 支持 OpenAI-compatible API 格式
-- 用户在设置中配置：API Key + Endpoint + Model Name
-- 如果用户只配了一个模型，所有任务都用这一个
+- 支持 OpenAI-compatible API 格式（当前已实现基本 proxy）
+- 用户在设置中配置：API Key + Endpoint（当前已实现）+ Model Name（当前为渲染进程本地状态）
+- 如果用户只配了一个模型，所有任务都用这一个（当前默认行为）
 - 不局限于任何供应商
 
 ### 4.16 FTS5 中文分词方案

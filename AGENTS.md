@@ -114,8 +114,8 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 | INV-4 | Memory-First | 三层记忆（L0 始终注入 / L1 选择注入 / L2 KG+FTS5）。KG+FTS5 为主检索路径，RAG 仅限降级补充，禁止新增向量数据库依赖 |
 | INV-5 | 叙事压缩 | AutoCompact 保留 KG 实体、角色设定、未解伏笔。标记 `compactable: false` |
 | INV-6 | 一切皆 Skill | 统一管线：Schema → 权限 → 执行 → 返回。禁止裸调 LLM |
-| INV-7 | 统一入口 | 所有操作走 `CommandDispatcher.execute()`。禁止 IPC handler 直调 Service |
-| INV-8 | Hook 链 | 写作后必须执行：版本快照 → KG 更新 → 记忆提取 → 质量检查 |
+| INV-7 | 统一入口 | 所有操作走 `CommandDispatcher.execute()`（計劃实现，当前 IPC handler 直调 Service）。禁止 IPC handler 直调 Service |
+| INV-8 | Hook 链 | 写作后 Hook 链框架已实现（`orchestrator.ts` Stage 8），当前仅含 cost-tracking + auto-save-version。目标链路：版本快照 → KG 更新 → 记忆提取 → 质量检查（計劃实现） |
 | INV-9 | 成本追踪 | 每次 AI 调用记录 model / tokens / cache / 费用，主进程 in-memory Map 追踪（IPC 已注册，渲染进程 UI 计划实现） |
 | INV-10 | 错误不丢上下文 | 中断时生成合成错误 `is_error: true`。连续 3 次失败触发断路器 |
 
