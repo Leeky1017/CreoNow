@@ -156,7 +156,7 @@ apps/desktop/
   |   |   |   +-- postWritingHooks.ts <- 后处理 Hook 链 (INV-8)（目标架构，尚未实现）
   |   |   +-- stats/                 <- 写作统计（字数、时长、Skill 使用频率）
   |   |   +-- judge/                 <- AI 质量评判
-  |   +-- ipc/                       <- IPC handler（仅转发到 CommandDispatcher）
+  |   +-- ipc/                       <- IPC handler（目标：仅转发到 CommandDispatcher；当前部分 handler 含业务逻辑）
   |   +-- db/                        <- SQLite schema、迁移、访问层
   +-- preload/
   +-- renderer/                      <- 前端（不在本规范范围内）
@@ -189,7 +189,7 @@ packages/
 
 - 单一真相源：每种数据只有一个权威存储位置，禁止内存与 SQLite 双写不同步
 - 迁移必须版本化：SQLite schema 变更必须通过迁移脚本，禁止手动 ALTER TABLE
-- 会话恢复：每次对话结束时必须 `flushSession()`，用户可「继续上次对话」
+- 会话恢复：对话结束时持久化到 `chat_sessions` / `chat_messages`（当前由 `ipc/ai.ts` 直接写入），用户可「继续上次对话」
 
 ---
 
