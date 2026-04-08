@@ -123,6 +123,37 @@ class CommentTemplateTests(unittest.TestCase):
 
 
 class AuditGateTests(unittest.TestCase):
+    @staticmethod
+    def _consolidated_comment(*, head: str | None = None, seat4_extra: str | None = None, seat4_verdict: str = "ACCEPT") -> str:
+        lines = [
+            "## 审计汇总",
+            "",
+        ]
+        if head is not None:
+            lines.extend([f"**审计 HEAD**：`{head}`", ""])
+        lines.extend(
+            [
+                "### 审计 1（GPT-5.4 xhigh）",
+                "zero findings",
+                "FINAL-VERDICT: ACCEPT",
+                "",
+                "### 审计 2（GPT-5.3 Codex xhigh）",
+                "zero findings",
+                "FINAL-VERDICT: ACCEPT",
+                "",
+                "### 审计 3（Claude Opus 4.6 high）",
+                "zero findings",
+                "FINAL-VERDICT: ACCEPT",
+                "",
+                "### 审计 4（Claude Sonnet 4.6 high）",
+                "zero findings",
+                f"FINAL-VERDICT: {seat4_verdict}",
+            ]
+        )
+        if seat4_extra:
+            lines.extend(["", seat4_extra])
+        return "\n".join(lines)
+
     def test_audit_pass_should_fail_with_only_one_individual_audit_comment(self) -> None:
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [
@@ -138,27 +169,7 @@ class AuditGateTests(unittest.TestCase):
     def test_audit_pass_should_pass_with_one_consolidated_reviewer_comment(self) -> None:
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [
-                "\n".join(
-                    [
-                        "## 审计汇总",
-                        "",
-                        "### 审计 1（GPT-5.4 xhigh）",
-                        "zero findings",
-                        "FINAL-VERDICT: ACCEPT",
-                        "",
-                        "### 审计 2（GPT-5.3 Codex xhigh）",
-                        "zero findings",
-                        "FINAL-VERDICT: ACCEPT",
-                        "",
-                        "### 审计 3（Claude Opus 4.6 high）",
-                        "zero findings",
-                        "FINAL-VERDICT: ACCEPT",
-                        "",
-                        "### 审计 4（Claude Sonnet 4.6 high）",
-                        "zero findings",
-                        "FINAL-VERDICT: ACCEPT",
-                    ]
-                ),
+                self._consolidated_comment(),
             ]
         )
 
@@ -171,27 +182,7 @@ class AuditGateTests(unittest.TestCase):
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [
                 {
-                    "body": "\n".join(
-                        [
-                            "## 审计汇总",
-                            "",
-                            "### 审计 1（GPT-5.4 xhigh）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 2（GPT-5.3 Codex xhigh）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 3（Claude Opus 4.6 high）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 4（Claude Sonnet 4.6 high）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                        ]
-                    ),
+                    "body": self._consolidated_comment(),
                     "author": "reviewer-agent",
                 },
             ],
@@ -209,27 +200,7 @@ class AuditGateTests(unittest.TestCase):
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [
                 {
-                    "body": "\n".join(
-                        [
-                            "## 审计汇总",
-                            "",
-                            "### 审计 1（GPT-5.4 xhigh）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 2（GPT-5.3 Codex xhigh）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 3（Claude Opus 4.6 high）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 4（Claude Sonnet 4.6 high）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                        ]
-                    ),
+                    "body": self._consolidated_comment(),
                     "author": "random-engineer",
                 },
             ],
@@ -274,78 +245,34 @@ class AuditGateTests(unittest.TestCase):
         self.assertEqual(0, evaluation.distinct_authors)
         self.assertTrue(evaluation.author_check_enforced)
 
-    def test_audit_pass_should_fail_when_consolidated_comment_includes_non_blocking_findings(self) -> None:
+    def test_audit_pass_should_pass_when_policy_text_mentions_reject_or_suggestion(self) -> None:
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [
                 {
-                    "body": "\n".join(
-                        [
-                            "## 审计汇总",
-                            "",
-                            "### 审计 1（GPT-5.4 xhigh）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 2（GPT-5.3 Codex xhigh）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 3（Claude Opus 4.6 high）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 4（Claude Sonnet 4.6 high）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "non-blocking: wording tweak",
-                        ]
+                    "body": self._consolidated_comment(
+                        seat4_extra="policy quote: non-blocking / suggestion / nit 即 REJECT"
                     ),
                     "author": "reviewer-agent",
                 },
-            ]
+            ],
+            trusted_reviewers=["reviewer-agent"],
         )
 
-        self.assertFalse(evaluation.audit_pass)
-        self.assertEqual(0, evaluation.matching_comments)
-        self.assertEqual(0, evaluation.distinct_authors)
+        self.assertTrue(evaluation.audit_pass)
+        self.assertEqual(1, evaluation.matching_comments)
+        self.assertEqual(1, evaluation.distinct_authors)
         self.assertTrue(evaluation.author_check_enforced)
 
-    def test_audit_pass_should_fail_when_comments_include_finding_word_variants(self) -> None:
-        variants = ["nonblocking", "suggestions", "nitpick"]
-        for variant in variants:
-            with self.subTest(variant=variant):
-                evaluation = agent_github_delivery.evaluate_audit_pass_comments(
-                    [
-                        {
-                            "body": "\n".join(
-                                [
-                                    "## 审计汇总",
-                                    "",
-                                    "### 审计 1（GPT-5.4 xhigh）",
-                                    "zero findings",
-                                    "FINAL-VERDICT: ACCEPT",
-                                    "",
-                                    "### 审计 2（GPT-5.3 Codex xhigh）",
-                                    "zero findings",
-                                    "FINAL-VERDICT: ACCEPT",
-                                    "",
-                                    "### 审计 3（Claude Opus 4.6 high）",
-                                    "zero findings",
-                                    "FINAL-VERDICT: ACCEPT",
-                                    "",
-                                    "### 审计 4（Claude Sonnet 4.6 high）",
-                                    "zero findings",
-                                    "FINAL-VERDICT: ACCEPT",
-                                    "",
-                                    f"{variant}: follow-up",
-                                ]
-                            ),
-                            "author": "reviewer-agent",
-                        },
-                    ]
-                )
-                self.assertFalse(evaluation.audit_pass)
+    def test_audit_pass_should_fail_when_any_audit_seat_reports_reject(self) -> None:
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [
+                {
+                    "body": self._consolidated_comment(seat4_verdict="REJECT"),
+                    "author": "reviewer-agent",
+                }
+            ]
+        )
+        self.assertFalse(evaluation.audit_pass)
 
     def test_audit_pass_should_fail_without_zero_findings_or_accept(self) -> None:
         self.assertFalse(
@@ -375,33 +302,15 @@ class AuditGateTests(unittest.TestCase):
                     json.dumps(
                         [
                             {
-                                "body": "\n".join(
-                                    [
-                                        "## 审计汇总",
-                                        "",
-                                        "### 审计 1（GPT-5.4 xhigh）",
-                                        "zero findings",
-                                        "FINAL-VERDICT: ACCEPT",
-                                        "",
-                                        "### 审计 2（GPT-5.3 Codex xhigh）",
-                                        "zero findings",
-                                        "FINAL-VERDICT: ACCEPT",
-                                        "",
-                                        "### 审计 3（Claude Opus 4.6 high）",
-                                        "zero findings",
-                                        "FINAL-VERDICT: ACCEPT",
-                                        "",
-                                        "### 审计 4（Claude Sonnet 4.6 high）",
-                                        "zero findings",
-                                        "FINAL-VERDICT: ACCEPT",
-                                    ]
-                                ),
+                                "body": self._consolidated_comment(head="abc1234"),
                                 "author": "reviewer-agent",
                             },
                         ]
                     ),
                     "--trusted-reviewer",
                     "reviewer-agent",
+                    "--expected-head-sha",
+                    "abc1234567890",
                 ]
             )
 
@@ -413,6 +322,28 @@ class AuditGateTests(unittest.TestCase):
         self.assertTrue(payload["author_check_enforced"])
         self.assertTrue(payload["trusted_reviewer_check_enforced"])
         self.assertEqual(1, payload["matching_trusted_authors"])
+        self.assertTrue(payload["head_check_enforced"])
+        self.assertEqual(1, payload["matching_head_comments"])
+
+    def test_audit_pass_should_fail_when_expected_head_does_not_match_comment_head(self) -> None:
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [{"body": self._consolidated_comment(head="deadbeef"), "author": "reviewer-agent"}],
+            trusted_reviewers=["reviewer-agent"],
+            expected_head_sha="abc1234567890",
+        )
+        self.assertFalse(evaluation.audit_pass)
+        self.assertTrue(evaluation.head_check_enforced)
+        self.assertEqual(0, evaluation.matching_head_comments)
+
+    def test_audit_pass_should_fail_when_expected_head_missing_from_comment(self) -> None:
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [{"body": self._consolidated_comment(), "author": "reviewer-agent"}],
+            trusted_reviewers=["reviewer-agent"],
+            expected_head_sha="abc1234567890",
+        )
+        self.assertFalse(evaluation.audit_pass)
+        self.assertTrue(evaluation.head_check_enforced)
+        self.assertEqual(0, evaluation.matching_head_comments)
 
     def test_build_blocker_comment_should_explain_audit_requirement(self) -> None:
         body = agent_github_delivery.build_blocker_comment(

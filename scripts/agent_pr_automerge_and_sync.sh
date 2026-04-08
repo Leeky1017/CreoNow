@@ -13,6 +13,9 @@ Behavior:
   - Ensures a PR exists (creates one unless --no-create)
   - Keeps auto-merge disabled by default; only enables it when --enable-auto-merge is passed
   - --enable-auto-merge requires 4 zero-finding audit reports plus 1 reviewer consolidated verbatim comment
+  - Trusted reviewer policy:
+    - CODEX_AUDIT_TRUSTED_REVIEWERS="<login1>,<login2>" enforces explicit trusted reviewer list
+    - CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true|false controls fallback to PR author only when trusted list is empty (default: true)
   - Syncs local controlplane main to origin/main (unless --no-sync)
 
 Options:
@@ -127,6 +130,7 @@ require_audit_pass_comment() {
   local pr_url="$2"
   local comments_json audit_payload audit_pass matching_comments distinct_authors author_check_enforced stats_summary
   local trusted_reviewer_check_enforced matching_trusted_authors pr_author reviewer_env
+  local pr_head_sha head_check_enforced matching_head_comments allow_pr_author_fallback
   local -a audit_command trusted_reviewer_args
 
   reviewer_env="${CODEX_AUDIT_TRUSTED_REVIEWERS:-}"
@@ -136,13 +140,19 @@ require_audit_pass_comment() {
     trusted_reviewer_args=()
   fi
 
-  pr_author="$(run_gh_with_retry gh pr view "$pr_number" --json author --jq '.author.login // empty')"
-  if [[ -n "$pr_author" ]]; then
+  allow_pr_author_fallback="${CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK:-true}"
+  if [[ "${#trusted_reviewer_args[@]}" -eq 0 && "$allow_pr_author_fallback" == "true" ]]; then
+    pr_author="$(run_gh_with_retry gh pr view "$pr_number" --json author --jq '.author.login // empty')"
+  else
+    pr_author=""
+  fi
+  if [[ "${#trusted_reviewer_args[@]}" -eq 0 && -n "$pr_author" ]]; then
     trusted_reviewer_args+=("$pr_author")
   fi
 
+  pr_head_sha="$(run_gh_with_retry gh pr view "$pr_number" --json headRefOid --jq '.headRefOid // empty')"
   comments_json="$(run_gh_with_retry gh pr view "$pr_number" --json comments --jq '.comments | map({body: (.body // ""), author: (.author.login? // .author.name? // "")})')"
-  audit_command=(python3 scripts/agent_github_delivery.py audit-pass --comments-json "$comments_json")
+  audit_command=(python3 scripts/agent_github_delivery.py audit-pass --comments-json "$comments_json" --expected-head-sha "$pr_head_sha")
   for reviewer in "${trusted_reviewer_args[@]}"; do
     if [[ -n "$reviewer" ]]; then
       audit_command+=(--trusted-reviewer "$reviewer")
@@ -155,6 +165,8 @@ require_audit_pass_comment() {
   author_check_enforced="$(json_get author_check_enforced <<<"$audit_payload" || true)"
   trusted_reviewer_check_enforced="$(json_get trusted_reviewer_check_enforced <<<"$audit_payload" || true)"
   matching_trusted_authors="$(json_get matching_trusted_authors <<<"$audit_payload" || true)"
+  head_check_enforced="$(json_get head_check_enforced <<<"$audit_payload" || true)"
+  matching_head_comments="$(json_get matching_head_comments <<<"$audit_payload" || true)"
 
   if [[ "$audit_pass" == "true" ]]; then
     return 0
@@ -166,6 +178,9 @@ require_audit_pass_comment() {
   fi
   if [[ "$trusted_reviewer_check_enforced" == "true" ]]; then
     stats_summary="${stats_summary}, matching_trusted_authors=${matching_trusted_authors:-0}"
+  fi
+  if [[ "$head_check_enforced" == "true" ]]; then
+    stats_summary="${stats_summary}, matching_head_comments=${matching_head_comments:-0}"
   fi
 
   echo "ERROR: PR #${pr_number} does not yet satisfy the 1+4+1 reviewer-consolidated zero-findings gate ('FINAL-VERDICT' + 'ACCEPT'; ${stats_summary}). A trusted Reviewer account must post one consolidated verbatim comment containing all four qualifying audit reports before auto-merge." >&2

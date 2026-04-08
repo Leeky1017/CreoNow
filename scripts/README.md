@@ -11,7 +11,7 @@
 | `agent_task_begin.sh`                | gh-only fail-closed 任务入口：capabilities + sync + worktree + hook 安装 | 阶段 3：环境隔离   |
 | `agent_worktree_setup.sh`            | 创建 worktree 隔离环境                                                   | 阶段 3：环境隔离   |
 | `agent_pr_preflight.sh`              | 提交前 / 请求审计前的预检查（必要不充分）                                | 阶段 5：提交前     |
-| `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，四审 zero findings 全部通过后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
+| `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，四审 zero findings 全部通过、Reviewer 汇总评论匹配当前 HEAD 后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
 | `agent_github_delivery.py`           | GitHub 能力探测、PR/评论模板、gh/MCP 通道选择                            | 阶段 5：提交与合并 |
 | `review-audit.sh`                    | 分层自适应审计命令入口（Tier L/S/D），仅用于已达可交审条件的 PR          | 审计：分类后执行   |
 | `daily_doc_audit.sh`                 | 每日文档健康检查：校验路径引用、INV 定义、spec 完整性                    | 手动 / 定期       |
@@ -72,3 +72,4 @@
 - 任一 finding（含 non-blocking / suggestion / nit）都必须维持 `REJECT`；仅当 4 个审计 Subagent 均给出 zero-findings `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条原样（verbatim）汇总评论，才可收口。
 - 所有实现、提 PR、修 CI、回应审计都必须在 `.worktrees/issue-<N>-<slug>` 内完成；控制面根目录不负责“补最后一步”。
 - 默认不自动开启 auto-merge；只有在四审全绿且 Reviewer 单条原样汇总评论已发布后，才可显式传入 `--enable-auto-merge`。
+- `CODEX_AUDIT_TRUSTED_REVIEWERS` 可显式锁定可信 Reviewer 账号；仅当该变量为空且 `CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true` 时，才允许回退使用 PR 作者账号。

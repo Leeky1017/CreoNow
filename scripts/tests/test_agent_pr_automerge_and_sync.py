@@ -27,6 +27,7 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
         audit_pass: bool = True,
         matching_comments: int = 1,
         distinct_authors: int = 1,
+        pr_author: str = "engineering-bot",
     ) -> tuple[Path, Path]:
         temp_dir = Path(tempfile.mkdtemp(prefix="automerge-script-"))
         controlplane_root = temp_dir / "repo"
@@ -85,6 +86,7 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
                 f"""
                 #!/usr/bin/env python3
                 import sys
+                import os
 
                 command = sys.argv[1]
                 if command == "capabilities":
@@ -92,6 +94,10 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
                 elif command == "comment-payload":
                     print({blocker_comment_payload!r})
                 elif command == "audit-pass":
+                    log_path = os.environ.get("AUDIT_ARGS_LOG", "")
+                    if log_path:
+                        with open(log_path, "a", encoding="utf-8") as handle:
+                            handle.write(" ".join(sys.argv[2:]) + "\\n")
                     print({audit_payload!r})
                 else:
                     raise SystemExit(f"unsupported command: {{command}}")
@@ -171,7 +177,13 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
                     elif json_field == "author" and "--jq" in args:
                         jq = args[args.index("--jq") + 1]
                         if jq == ".author.login // empty":
-                            print("reviewer-agent")
+                            print({repr(pr_author)})
+                        else:
+                            raise SystemExit(f"unexpected gh jq: {{jq}}")
+                    elif json_field == "headRefOid" and "--jq" in args:
+                        jq = args[args.index("--jq") + 1]
+                        if jq == ".headRefOid // empty":
+                            print("3730256a0ba1c088504746e42923afc84b1e7d41")
                         else:
                             raise SystemExit(f"unexpected gh jq: {{jq}}")
                     elif "--jq" in args:
@@ -204,11 +216,21 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
 
         return temp_dir, worktree
 
-    def _run_script(self, worktree: Path, temp_dir: Path, *, extra_args: list[str]) -> subprocess.CompletedProcess[str]:
+    def _run_script(
+        self,
+        worktree: Path,
+        temp_dir: Path,
+        *,
+        extra_args: list[str],
+        extra_env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
+        if extra_env:
+            env.update(extra_env)
         env["PATH"] = f"{temp_dir / 'bin'}:{env['PATH']}"
         env["SYNC_LOG"] = str(temp_dir / "sync.log")
         env["SLEEP_LOG"] = str(temp_dir / "sleep.log")
+        env["AUDIT_ARGS_LOG"] = str(temp_dir / "audit-args.log")
         return subprocess.run(
             [
                 str(worktree / "scripts" / "agent_pr_automerge_and_sync.sh"),
@@ -283,6 +305,75 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
             self.assertIn("matching_comments=0", result.stdout)
             self.assertIn("distinct_authors=0", result.stdout)
             self.assertFalse((temp_dir / "sync.log").exists(), result.stdout)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_should_not_append_pr_author_when_explicit_trusted_reviewers_are_configured(self) -> None:
+        temp_dir, worktree = self._make_sandbox(
+            pr_merged=False,
+            preflight_success=True,
+            audit_pass=False,
+            matching_comments=0,
+            distinct_authors=0,
+            pr_author="engineering-bot",
+        )
+        try:
+            result = self._run_script(
+                worktree,
+                temp_dir,
+                extra_args=["--enable-auto-merge"],
+                extra_env={"CODEX_AUDIT_TRUSTED_REVIEWERS": "reviewer-bot"},
+            )
+            self.assertEqual(1, result.returncode, result.stdout)
+            args_log = (temp_dir / "audit-args.log").read_text()
+            self.assertIn("--trusted-reviewer reviewer-bot", args_log)
+            self.assertNotIn("--trusted-reviewer engineering-bot", args_log)
+            self.assertIn("--expected-head-sha 3730256a0ba1c088504746e42923afc84b1e7d41", args_log)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_should_fallback_to_pr_author_only_when_trusted_reviewers_are_empty(self) -> None:
+        temp_dir, worktree = self._make_sandbox(
+            pr_merged=False,
+            preflight_success=True,
+            audit_pass=False,
+            matching_comments=0,
+            distinct_authors=0,
+            pr_author="engineering-bot",
+        )
+        try:
+            result = self._run_script(
+                worktree,
+                temp_dir,
+                extra_args=["--enable-auto-merge"],
+            )
+            self.assertEqual(1, result.returncode, result.stdout)
+            args_log = (temp_dir / "audit-args.log").read_text()
+            self.assertIn("--trusted-reviewer engineering-bot", args_log)
+            self.assertIn("--expected-head-sha 3730256a0ba1c088504746e42923afc84b1e7d41", args_log)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_should_disable_pr_author_fallback_when_flag_is_false(self) -> None:
+        temp_dir, worktree = self._make_sandbox(
+            pr_merged=False,
+            preflight_success=True,
+            audit_pass=False,
+            matching_comments=0,
+            distinct_authors=0,
+            pr_author="engineering-bot",
+        )
+        try:
+            result = self._run_script(
+                worktree,
+                temp_dir,
+                extra_args=["--enable-auto-merge"],
+                extra_env={"CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK": "false"},
+            )
+            self.assertEqual(1, result.returncode, result.stdout)
+            args_log = (temp_dir / "audit-args.log").read_text()
+            self.assertNotIn("--trusted-reviewer engineering-bot", args_log)
+            self.assertIn("--expected-head-sha 3730256a0ba1c088504746e42923afc84b1e7d41", args_log)
         finally:
             shutil.rmtree(temp_dir)
 

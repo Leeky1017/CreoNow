@@ -44,6 +44,8 @@ class AuditPassEvaluation:
     author_check_enforced: bool
     trusted_reviewer_check_enforced: bool
     matching_trusted_authors: int
+    head_check_enforced: bool
+    matching_head_comments: int
 
 
 TRUTHY = {"1", "true", "yes", "on"}
@@ -60,21 +62,20 @@ DEFAULT_FRONTEND_STORYBOOK_PLACEHOLDER = "TODO: add a clickable Storybook artifa
 DEFAULT_FRONTEND_VISUAL_NOTE_PLACEHOLDER = "TODO: describe the states covered by visual acceptance"
 
 
-AUDIT_PASS_COMMENT_PATTERN = re.compile(
-    r"(?is)(?=.*\bFINAL-VERDICT\b)(?=.*\bACCEPT\b)(?=.*\bzero(?:\s+|-)findings\b)"
+CONSOLIDATED_AUDIT_SECTION_HEADERS = (
+    "### 审计 1（GPT-5.4 xhigh）",
+    "### 审计 2（GPT-5.3 Codex xhigh）",
+    "### 审计 3（Claude Opus 4.6 high）",
+    "### 审计 4（Claude Sonnet 4.6 high）",
 )
-AUDIT_DISQUALIFY_PATTERN = re.compile(
-    r"(?is)\b(non[-\s]?blocking|suggestions?|nits?|nitpick(?:s|ing)?|tiny\s+issues?|accept\s+with\s+risk|accept\s+but|\bREJECT\b)\b"
+SEAT_FINAL_VERDICT_ACCEPT_PATTERN = re.compile(
+    r"(?is)(\bFINAL-VERDICT\b[^\n]{0,200}\bACCEPT\b|最终判定[^\n]{0,120}\bACCEPT\b)"
 )
-CONSOLIDATED_AUDIT_SECTION_PATTERNS = (
-    re.compile(r"(?im)^###\s*审计 1（GPT-5\.4 xhigh）\s*$"),
-    re.compile(r"(?im)^###\s*审计 2（GPT-5\.3 Codex xhigh）\s*$"),
-    re.compile(r"(?im)^###\s*审计 3（Claude Opus 4\.6 high）\s*$"),
-    re.compile(r"(?im)^###\s*审计 4（Claude Sonnet 4\.6 high）\s*$"),
+SEAT_FINAL_VERDICT_REJECT_PATTERN = re.compile(
+    r"(?is)(\bFINAL-VERDICT\b[^\n]{0,200}\bREJECT\b|最终判定[^\n]{0,120}\bREJECT\b)"
 )
-FINAL_VERDICT_COUNT_PATTERN = re.compile(r"(?i)\bFINAL-VERDICT\b")
-ACCEPT_COUNT_PATTERN = re.compile(r"(?i)\bACCEPT\b")
-ZERO_FINDINGS_COUNT_PATTERN = re.compile(r"(?i)\bzero(?:\s+|-)findings\b")
+SEAT_ZERO_FINDINGS_PATTERN = re.compile(r"(?i)\bzero(?:\s+|-)findings\b")
+AUDIT_HEAD_CAPTURE_PATTERN = re.compile(r"审计 HEAD[^0-9a-fA-F`]{0,40}`?([0-9a-fA-F]{7,40})`?", re.IGNORECASE)
 
 
 def run(cmd: Sequence[str], *, cwd: str | None = None) -> CmdResult:
@@ -403,18 +404,47 @@ def _normalize_audit_comments(raw_comments: Sequence[object]) -> list[AuditComme
     return normalized_comments
 
 
+def _extract_consolidated_audit_sections(body: str) -> dict[str, str]:
+    sections: dict[str, list[str]] = {}
+    current_header: str | None = None
+    known_headers = set(CONSOLIDATED_AUDIT_SECTION_HEADERS)
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped in known_headers:
+            current_header = stripped
+            sections[current_header] = []
+            continue
+        if current_header is not None:
+            sections[current_header].append(line)
+    return {header: "\n".join(lines) for header, lines in sections.items()}
+
+
 def _is_consolidated_reviewer_audit_comment(body: str) -> bool:
-    if AUDIT_DISQUALIFY_PATTERN.search(body):
+    sections = _extract_consolidated_audit_sections(body)
+    if any(header not in sections for header in CONSOLIDATED_AUDIT_SECTION_HEADERS):
         return False
-    if not all(pattern.search(body) for pattern in CONSOLIDATED_AUDIT_SECTION_PATTERNS):
-        return False
-    if len(FINAL_VERDICT_COUNT_PATTERN.findall(body)) < 4:
-        return False
-    if len(ACCEPT_COUNT_PATTERN.findall(body)) < 4:
-        return False
-    if len(ZERO_FINDINGS_COUNT_PATTERN.findall(body)) < 4:
-        return False
+    for header in CONSOLIDATED_AUDIT_SECTION_HEADERS:
+        seat_body = sections[header]
+        if SEAT_FINAL_VERDICT_REJECT_PATTERN.search(seat_body):
+            return False
+        if SEAT_FINAL_VERDICT_ACCEPT_PATTERN.search(seat_body) is None:
+            return False
+        if SEAT_ZERO_FINDINGS_PATTERN.search(seat_body) is None:
+            return False
     return True
+
+
+def _extract_audit_head_sha(body: str) -> str | None:
+    match = AUDIT_HEAD_CAPTURE_PATTERN.search(body)
+    if match is None:
+        return None
+    return match.group(1).lower()
+
+
+def _head_matches_expected(comment_head: str, expected_head_sha: str) -> bool:
+    comment_head_norm = comment_head.lower()
+    expected_head_norm = expected_head_sha.lower()
+    return expected_head_norm.startswith(comment_head_norm) or comment_head_norm.startswith(expected_head_norm)
 
 
 def _normalize_trusted_reviewers(trusted_reviewers: Sequence[str] | None) -> set[str]:
@@ -441,6 +471,7 @@ def evaluate_audit_pass_comments(
     raw_comments: Sequence[object],
     *,
     trusted_reviewers: Sequence[str] | None = None,
+    expected_head_sha: str | None = None,
 ) -> AuditPassEvaluation:
     comments = _normalize_audit_comments(raw_comments)
     matching_comments = [
@@ -459,8 +490,20 @@ def evaluate_audit_pass_comments(
             if comment.author and comment.author.casefold() in trusted_reviewer_set
         }
     )
+    expected_head_norm = (expected_head_sha or "").strip().lower()
+    head_check_enforced = bool(expected_head_norm)
+    matching_head_comments = len(
+        [
+            comment
+            for comment in matching_comments
+            if (comment_head := _extract_audit_head_sha(comment.body))
+            and _head_matches_expected(comment_head, expected_head_norm)
+        ]
+    )
 
     if not matching_comments:
+        audit_pass = False
+    elif head_check_enforced and matching_head_comments < 1:
         audit_pass = False
     elif trusted_reviewer_check_enforced:
         audit_pass = matching_trusted_authors >= 1
@@ -474,6 +517,8 @@ def evaluate_audit_pass_comments(
         author_check_enforced=author_check_enforced,
         trusted_reviewer_check_enforced=trusted_reviewer_check_enforced,
         matching_trusted_authors=matching_trusted_authors,
+        head_check_enforced=head_check_enforced,
+        matching_head_comments=matching_head_comments,
     )
 
 
@@ -635,6 +680,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="CODEX_AUDIT_TRUSTED_REVIEWERS",
         help="Environment variable that stores comma-separated trusted reviewer logins.",
     )
+    audit_parser.add_argument(
+        "--expected-head-sha",
+        default=None,
+        help="Expected PR HEAD SHA. Consolidated comment must contain matching `审计 HEAD` marker.",
+    )
 
     comment_parser = subparsers.add_parser("comment-payload", help="Build blocker comment.")
     comment_parser.add_argument(
@@ -695,7 +745,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.trusted_reviewers_env:
             trusted_reviewers.extend(_trusted_reviewers_from_env(os.environ, args.trusted_reviewers_env))
         try:
-            evaluation = evaluate_audit_pass_comments(comments, trusted_reviewers=trusted_reviewers)
+            evaluation = evaluate_audit_pass_comments(
+                comments,
+                trusted_reviewers=trusted_reviewers,
+                expected_head_sha=args.expected_head_sha,
+            )
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
         print(json.dumps(asdict(evaluation), ensure_ascii=False, indent=2))
