@@ -7,6 +7,7 @@ from contextlib import redirect_stdout
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import agent_github_delivery  # noqa: E402
+import agent_pr_preflight  # noqa: E402
 
 
 class ChannelSelectionTests(unittest.TestCase):
@@ -77,6 +78,22 @@ class PullRequestTemplateTests(unittest.TestCase):
         self.assertIn("- 工程：GPT-5.3 Codex (xhigh)", body)
         self.assertIn("- [ ] 审计 4（Claude Sonnet 4.6）：FINAL-VERDICT ___", body)
         self.assertIn("`pytest -q scripts/tests/test_agent_github_delivery.py`", body)
+
+    def test_build_pr_body_should_pass_preflight_body_validation(self) -> None:
+        body = agent_github_delivery.build_pr_body(
+            issue_number="1005",
+            summary="统一 Agent 的 GitHub 交付控制面。",
+            user_impact="Agent 可自行完成 PR 与评论收口。",
+            worst_case="不同环境下继续出现 PR 交付半途而废。",
+            verification_commands=["pytest -q scripts/tests/test_agent_github_delivery.py"],
+            rollback_ref="git revert HEAD",
+        )
+        pr = agent_pr_preflight.PullRequest(
+            number=1005,
+            body=body,
+            url="https://github.com/Leeky1017/CreoNow/pull/1005",
+        )
+        agent_pr_preflight.validate_pr_body_format(pr, "1005")
 
     def test_build_pr_body_should_emit_frontend_placeholders_when_visual_inputs_are_missing(self) -> None:
         body = agent_github_delivery.build_pr_body(

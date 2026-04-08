@@ -36,10 +36,19 @@ NA_VALUE_PATTERN = re.compile(r"(?i)^(?:-\s*\[[xX]\]\s*)?N/A(?:（[^）]+）|\([
 EMPTY_BULLET_PATTERN = re.compile(r"^-\s*$")
 EMPTY_CHECKBOX_PATTERN = re.compile(r"^-\s*\[[ xX]\]\s*$")
 EMPTY_LABEL_PATTERN = re.compile(r"^-\s*[^:：]+[:：]\s*$")
-POSITIVE_STATUS_PATTERN = re.compile(r"\b(pass|passed|ok|green|success)\b", re.IGNORECASE)
-NEGATIVE_STATUS_PATTERN = re.compile(
-    r"\b(pending|running|fail|failed|error|red|blocked|cancelled|canceled)\b",
-    re.IGNORECASE,
+AUDIT_GATE_MODEL_LINES = (
+    "- 工程：GPT-5.3 Codex (xhigh)",
+    "- 审计 1：GPT-5.4 (xhigh)",
+    "- 审计 2：GPT-5.3 Codex (xhigh)",
+    "- 审计 3：Claude Opus 4.6 (high)",
+    "- 审计 4：Claude Sonnet 4.6 (high)",
+    "- 评论汇总：Claude Opus 4.6 (high)",
+)
+AUDIT_GATE_SEAT_PATTERNS = (
+    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 1（GPT-5\.4）[:：]\s*FINAL-VERDICT\b.+$"),
+    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 2（GPT-5\.3 Codex）[:：]\s*FINAL-VERDICT\b.+$"),
+    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 3（Claude Opus 4\.6）[:：]\s*FINAL-VERDICT\b.+$"),
+    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 4（Claude Sonnet 4\.6）[:：]\s*FINAL-VERDICT\b.+$"),
 )
 
 
@@ -299,27 +308,19 @@ def validate_visual_evidence(pr: PullRequest, *, frontend_required: bool) -> Non
 
 def validate_audit_gate(pr: PullRequest) -> None:
     audit_gate = require_any_section(pr, ("审计门禁", "Audit Gate"), level=2)
-    preflight_status = extract_labeled_value(audit_gate, "`scripts/agent_pr_preflight.sh`")
-    if not has_meaningful_content(preflight_status):
-        raise RuntimeError(
-            f"[PR] #{pr.number} audit gate must include a non-empty `scripts/agent_pr_preflight.sh` entry (url: {pr.url})"
-        )
-    preflight_normalized = normalize_section_content(preflight_status)
-    if NEGATIVE_STATUS_PATTERN.search(preflight_normalized) or not POSITIVE_STATUS_PATTERN.search(preflight_normalized):
-        raise RuntimeError(
-            f"[PR] #{pr.number} audit gate preflight status must be PASS/OK/GREEN (url: {pr.url})"
-        )
+    normalized = normalize_section_content(audit_gate)
 
-    required_checks = extract_labeled_value(audit_gate, "Required checks")
-    if not has_meaningful_content(required_checks):
-        raise RuntimeError(
-            f"[PR] #{pr.number} audit gate must include a non-empty `Required checks` entry (url: {pr.url})"
-        )
-    checks_normalized = normalize_section_content(required_checks)
-    if NEGATIVE_STATUS_PATTERN.search(checks_normalized) or not POSITIVE_STATUS_PATTERN.search(checks_normalized):
-        raise RuntimeError(
-            f"[PR] #{pr.number} audit gate required checks must indicate GREEN/SUCCESS status (url: {pr.url})"
-        )
+    for model_line in AUDIT_GATE_MODEL_LINES:
+        if model_line not in normalized:
+            raise RuntimeError(
+                f"[PR] #{pr.number} audit gate must include fixed model line `{model_line}` (url: {pr.url})"
+            )
+
+    for index, seat_pattern in enumerate(AUDIT_GATE_SEAT_PATTERNS, start=1):
+        if seat_pattern.search(normalized) is None:
+            raise RuntimeError(
+                f"[PR] #{pr.number} audit gate must include seat {index} FINAL-VERDICT checklist entry (url: {pr.url})"
+            )
 
 
 def branch_touches_frontend(repo: str) -> bool:

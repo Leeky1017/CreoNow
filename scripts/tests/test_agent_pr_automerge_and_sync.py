@@ -216,6 +216,28 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
             stderr=subprocess.STDOUT,
         )
 
+    def test_help_should_describe_reviewer_consolidated_gate(self) -> None:
+        temp_dir, worktree = self._make_sandbox(pr_merged=False)
+        try:
+            env = os.environ.copy()
+            env["PATH"] = f"{temp_dir / 'bin'}:{env['PATH']}"
+            result = subprocess.run(
+                [str(worktree / "scripts" / "agent_pr_automerge_and_sync.sh"), "--help"],
+                cwd=worktree,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            self.assertEqual(0, result.returncode, result.stdout)
+            self.assertIn(
+                "4 zero-finding audit reports plus 1 reviewer consolidated verbatim comment",
+                result.stdout,
+            )
+            self.assertNotIn("four independent audit comments", result.stdout)
+        finally:
+            shutil.rmtree(temp_dir)
+
     def test_should_treat_merged_pr_as_terminal_success_when_issue_is_closed(self) -> None:
         temp_dir, worktree = self._make_sandbox(pr_merged=True)
         try:

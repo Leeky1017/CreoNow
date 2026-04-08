@@ -52,8 +52,6 @@ DEFAULT_VERIFICATION_COMMANDS = (
 )
 DEFAULT_ADDITIONAL_VALIDATION_NOTE = "Pending: add any extra local or CI evidence here."
 DEFAULT_TEST_COVERAGE_NOTE = "Pending: summarize the tests added or updated for this change."
-DEFAULT_PREFLIGHT_STATUS = "Pending: run `scripts/agent_pr_preflight.sh` before requesting audit."
-DEFAULT_REQUIRED_CHECKS = "Pending: list the required checks and latest status before requesting audit."
 DEFAULT_NON_FRONTEND_VISUAL = "N/A（非前端改动）"
 DEFAULT_FRONTEND_SCREENSHOT_PLACEHOLDER = "<!-- TODO: embed at least 1 screenshot here before requesting audit -->"
 DEFAULT_FRONTEND_STORYBOOK_PLACEHOLDER = "TODO: add a clickable Storybook artifact or preview URL"
@@ -284,8 +282,6 @@ def build_pr_body(
     visual_acceptance_note: str | None = None,
     test_coverage: str = DEFAULT_TEST_COVERAGE_NOTE,
     additional_validation_note: str = DEFAULT_ADDITIONAL_VALIDATION_NOTE,
-    preflight_status: str = DEFAULT_PREFLIGHT_STATUS,
-    required_checks: str = DEFAULT_REQUIRED_CHECKS,
 ) -> str:
     verification_lines = [f"- [ ] `{command}`" for command in verification_commands]
     verification_block = "\n".join(verification_lines)
@@ -576,14 +572,6 @@ def build_parser() -> argparse.ArgumentParser:
             DEFAULT_ADDITIONAL_VALIDATION_NOTE,
         ),
     )
-    pr_payload_parser.add_argument(
-        "--preflight-status",
-        default=os.environ.get("AGENT_PR_PREFLIGHT_STATUS", DEFAULT_PREFLIGHT_STATUS),
-    )
-    pr_payload_parser.add_argument(
-        "--required-checks",
-        default=os.environ.get("AGENT_PR_REQUIRED_CHECKS", DEFAULT_REQUIRED_CHECKS),
-    )
 
     audit_parser = subparsers.add_parser(
         "audit-pass",
@@ -641,8 +629,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 visual_acceptance_note=args.visual_acceptance_note,
                 test_coverage=args.test_coverage,
                 additional_validation_note=args.additional_validation_note,
-                preflight_status=args.preflight_status,
-                required_checks=args.required_checks,
             ),
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))

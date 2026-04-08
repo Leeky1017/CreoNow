@@ -2,61 +2,37 @@
 import json
 import os
 import sys
-import textwrap
 import unittest
 from unittest import mock
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import agent_pr_preflight  # noqa: E402
+import agent_github_delivery  # noqa: E402
 
 
 def make_pr_body(issue_number: str = "42", *, frontend: bool = False) -> str:
+    kwargs = {
+        "issue_number": issue_number,
+        "summary": "Delivery script contract update.",
+        "user_impact": "PR preflight and PR body generator stay aligned.",
+        "worst_case": "stale delivery gates stay bypassable.",
+        "verification_commands": ["pytest -q scripts/tests/test_agent_pr_preflight.py"],
+        "rollback_ref": "git revert HEAD",
+        "recovery_note": "none",
+        "test_coverage": "Covers delivery script contract regressions.",
+        "additional_validation_note": "local preflight contract verified.",
+    }
     if frontend:
-        screenshots = "![Renderer panel](https://example.com/screenshot.png)"
-        storybook_link = "https://storybook.example.com/?path=/story/renderer-panel"
-        visual_note = "Checked default, loading, and error states."
-        non_frontend_checkbox = "- [ ] N/A（非前端改动）"
-    else:
-        screenshots = "N/A（非前端改动）"
-        storybook_link = "N/A（非前端改动）"
-        visual_note = "N/A（非前端改动）"
-        non_frontend_checkbox = "- [x] N/A（非前端改动）"
-
-    return textwrap.dedent(
-        f"""\
-        ## Summary
-        - Delivery script contract update.
-
-        Closes #{issue_number}
-
-        ## Validation Evidence
-        - [x] `pytest -q scripts/tests/test_agent_pr_preflight.py`
-        - Additional validation note: local preflight contract verified.
-
-        ## Visual Evidence
-
-        ### Embedded Screenshots
-        {screenshots}
-
-        ### Storybook Artifact / Link
-        - Link: {storybook_link}
-        - Visual acceptance note: {visual_note}
-
-        {non_frontend_checkbox}
-
-        ## Test Coverage
-        - Covers delivery script contract regressions.
-
-        ## Risk & Rollback
-        - Worst case if not fixed: stale delivery gates stay bypassable.
-        - Rollback ref: git revert HEAD
-        - Recovery note: none
-
-        ## 审计门禁
-        - `scripts/agent_pr_preflight.sh`: PASS (local)
-        - Required checks: check=green
-        """
-    )
+        kwargs.update(
+            {
+                "frontend_pr": True,
+                "embedded_screenshots": ["![Renderer panel](https://example.com/screenshot.png)"],
+                "storybook_link": "https://storybook.example.com/?path=/story/renderer-panel",
+                "visual_acceptance_note": "Checked default, loading, and error states.",
+            }
+        )
+    return agent_github_delivery.build_pr_body(**kwargs)
 
 
 class WorktreeIsolationTests(unittest.TestCase):
@@ -185,12 +161,12 @@ class PRBodyFormatTests(unittest.TestCase):
 
     def test_validate_pr_body_format_should_accept_fullwidth_colon_labels(self) -> None:
         body = make_pr_body().replace(
-            "- `scripts/agent_pr_preflight.sh`: PASS (local)",
-            "- `scripts/agent_pr_preflight.sh`：PASS (local)",
+            "- [ ] 审计 1（GPT-5.4）：FINAL-VERDICT ___",
+            "- [ ] 审计 1（GPT-5.4）: FINAL-VERDICT ___",
             1,
         ).replace(
-            "- Required checks: check=green",
-            "- Required checks：check=green",
+            "- [ ] 审计 2（GPT-5.3 Codex）：FINAL-VERDICT ___",
+            "- [ ] 审计 2（GPT-5.3 Codex）: FINAL-VERDICT ___",
             1,
         )
         pr = agent_pr_preflight.PullRequest(
@@ -207,6 +183,32 @@ class PRBodyFormatTests(unittest.TestCase):
             url="https://github.com/test/test/pull/100",
         )
         agent_pr_preflight.validate_pr_body_format(pr, "42", frontend_required=True)
+
+    def test_validate_pr_body_format_should_accept_repository_template_audit_gate(self) -> None:
+        template_path = Path(__file__).resolve().parents[2] / ".github" / "PULL_REQUEST_TEMPLATE.md"
+        template_body = template_path.read_text(encoding="utf-8")
+        audit_gate_section = agent_pr_preflight.extract_section(template_body, "审计门禁", level=2)
+        self.assertIsNotNone(audit_gate_section)
+        body = (
+            "## Summary\n- contract validation\n\n"
+            "Closes #42\n\n"
+            "## Validation Evidence\n- [x] `pytest -q scripts/tests/test_agent_pr_preflight.py`\n\n"
+            "## Visual Evidence\n\n"
+            "### Embedded Screenshots\nN/A（非前端改动）\n\n"
+            "### Storybook Artifact / Link\n"
+            "- Link: N/A（非前端改动）\n"
+            "- Visual acceptance note: N/A（非前端改动）\n\n"
+            "- [x] N/A（非前端改动）\n\n"
+            "## Risk & Rollback\n- Rollback ref: git revert HEAD\n\n"
+            "## 审计门禁\n"
+            f"{audit_gate_section}\n"
+        )
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=body,
+            url="https://github.com/test/test/pull/100",
+        )
+        agent_pr_preflight.validate_pr_body_format(pr, "42")
 
     def test_validate_pr_body_format_should_fail_when_frontend_marked_na(self) -> None:
         pr = agent_pr_preflight.PullRequest(
@@ -230,7 +232,7 @@ class PRBodyFormatTests(unittest.TestCase):
         pr = agent_pr_preflight.PullRequest(
             number=100,
             body=make_pr_body().replace(
-                "- [x] `pytest -q scripts/tests/test_agent_pr_preflight.py`\n- Additional validation note: local preflight contract verified.",
+                "- [ ] `pytest -q scripts/tests/test_agent_pr_preflight.py`\n- Additional validation note: local preflight contract verified.",
                 "-",
                 1,
             ),
@@ -278,43 +280,43 @@ class PRBodyFormatTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, r"Visual acceptance note"):
             agent_pr_preflight.validate_pr_body_format(pr, "42")
 
-    def test_validate_pr_body_format_should_fail_when_required_checks_entry_is_blank(self) -> None:
+    def test_validate_pr_body_format_should_fail_when_audit_model_line_is_missing(self) -> None:
         pr = agent_pr_preflight.PullRequest(
             number=100,
             body=make_pr_body().replace(
-                "- Required checks: check=green",
-                "- Required checks:",
+                "- 评论汇总：Claude Opus 4.6 (high)",
+                "",
                 1,
             ),
             url="https://github.com/test/test/pull/100",
         )
-        with self.assertRaisesRegex(RuntimeError, r"Required checks"):
+        with self.assertRaisesRegex(RuntimeError, r"must include fixed model line"):
             agent_pr_preflight.validate_pr_body_format(pr, "42")
 
-    def test_validate_pr_body_format_should_fail_when_required_checks_are_not_green(self) -> None:
+    def test_validate_pr_body_format_should_fail_when_audit_seat_checklist_is_missing(self) -> None:
         pr = agent_pr_preflight.PullRequest(
             number=100,
             body=make_pr_body().replace(
-                "- Required checks: check=green",
-                "- Required checks: check=pending",
+                "- [ ] 审计 4（Claude Sonnet 4.6）：FINAL-VERDICT ___",
+                "",
                 1,
             ),
             url="https://github.com/test/test/pull/100",
         )
-        with self.assertRaisesRegex(RuntimeError, r"required checks must indicate GREEN"):
+        with self.assertRaisesRegex(RuntimeError, r"seat 4 FINAL-VERDICT checklist"):
             agent_pr_preflight.validate_pr_body_format(pr, "42")
 
-    def test_validate_pr_body_format_should_fail_when_preflight_status_is_not_pass(self) -> None:
+    def test_validate_pr_body_format_should_fail_when_audit_seat_lacks_final_verdict(self) -> None:
         pr = agent_pr_preflight.PullRequest(
             number=100,
             body=make_pr_body().replace(
-                "- `scripts/agent_pr_preflight.sh`: PASS (local)",
-                "- `scripts/agent_pr_preflight.sh`: pending",
+                "- [ ] 审计 3（Claude Opus 4.6）：FINAL-VERDICT ___",
+                "- [ ] 审计 3（Claude Opus 4.6）：PENDING",
                 1,
             ),
             url="https://github.com/test/test/pull/100",
         )
-        with self.assertRaisesRegex(RuntimeError, r"preflight status must be PASS"):
+        with self.assertRaisesRegex(RuntimeError, r"seat 3 FINAL-VERDICT checklist"):
             agent_pr_preflight.validate_pr_body_format(pr, "42")
 
 

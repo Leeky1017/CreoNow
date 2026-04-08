@@ -12,12 +12,12 @@ Behavior:
     - If preflight fails: creates/keeps PR as draft and waits by default
   - Ensures a PR exists (creates one unless --no-create)
   - Keeps auto-merge disabled by default; only enables it when --enable-auto-merge is passed
-  - --enable-auto-merge requires four independent audit comments with zero findings + FINAL-VERDICT + ACCEPT
+  - --enable-auto-merge requires 4 zero-finding audit reports plus 1 reviewer consolidated verbatim comment
   - Syncs local controlplane main to origin/main (unless --no-sync)
 
 Options:
   --skip-preflight           Skip preflight entirely
-  --enable-auto-merge        Explicitly enable auto-merge after four independent zero-findings audit comments are present
+  --enable-auto-merge        Explicitly enable auto-merge after 4 zero-finding reports and reviewer consolidated verbatim comment are present
   --force                   Proceed even if preflight fails
   --no-wait-preflight        Fail fast if preflight fails (still creates draft PR)
   --wait-interval <seconds>  Preflight polling interval (default: 60)
