@@ -16,10 +16,9 @@
 | 单元/集成测试（匹配） | `pnpm -C apps/desktop vitest run <pattern>` | 按文件名匹配 |
 | 单元/集成测试（watch） | `pnpm -C apps/desktop vitest <pattern>` | 开发时持续运行 |
 | 类型检查 | `pnpm typecheck` | TypeScript strict 编译 |
-| Lint | `pnpm lint` | ESLint（含自定义规则） |
+| IPC 契约检查 | `pnpm contract:check` | IPC 类型定义一致性 |
 | Storybook 构建 | `pnpm -C apps/desktop storybook:build` | 前端必验 |
 | Storybook 本地 | `pnpm -C apps/desktop storybook` | 预览开发 |
-| 格式检查 | `pnpm format:check` | Prettier 格式 |
 
 ### 高级命令
 
@@ -34,17 +33,22 @@
 
 ## 二、CI Job 映射表
 
-| CI Job 名称 | 对应本地命令 | 说明 |
+CI 配置文件 `.github/workflows/ci.yml` 定义一个 `check` job，包含以下步骤：
+
+| CI Step 名称 | 对应本地命令 | 说明 |
 |-------------|-------------|------|
-| `lint-and-typecheck` | `pnpm lint && pnpm typecheck` | Lint + 类型检查 |
-| `unit-test-core` | `pnpm -C apps/desktop vitest run --config vitest.config.core.ts` | 主进程/preload 测试 |
-| `unit-test-renderer` | `pnpm -C apps/desktop vitest run --config vitest.config.ts` | 渲染进程测试 |
-| `integration-test` | `pnpm -C apps/desktop vitest run --config vitest.config.core.ts *.integration.*` | 集成测试 |
-| `test-discovery-consistency` | `pnpm -C apps/desktop tsx scripts/test-discovery-consistency-gate.ts` | 测试发现一致性 |
-| `coverage-gate` | `pnpm -C apps/desktop vitest run --coverage` | 覆盖率门禁 |
-| `cross-module-check` | `pnpm -C apps/desktop tsx scripts/cross-module-contract-gate.ts` | 跨模块契约 |
-| `storybook-build` | `pnpm -C apps/desktop storybook:build` | Storybook 构建 |
-| `format-check` | `pnpm format:check` | 格式检查 |
+| Type check | `pnpm typecheck` | TypeScript strict 编译 |
+| IPC contract check | `pnpm contract:check` | IPC 类型定义一致性 |
+| Spec-test mapping gate | `pnpm gate:spec-test-mapping` | Spec Scenario 必须有对应测试 |
+| Stub gate | `node --import tsx scripts/service-stub-detector-gate.ts` | Service 桩方法检测 |
+| Unit tests | `pnpm test:unit` | 主进程/preload 单元测试 |
+| Integration tests | `pnpm test:integration` | 集成测试 |
+| Renderer tests | `pnpm -C apps/desktop test:renderer` | 渲染进程测试 |
+| Desktop core coverage gate | `pnpm -C apps/desktop test:coverage:core` | 覆盖率门禁 |
+| Python tests | `pytest -q scripts/tests` | Python 脚本测试 |
+| Electron build | `pnpm desktop:build` | Electron 构建 |
+| Desktop Storybook build | `pnpm -C apps/desktop storybook:build` | Storybook 构建 |
+| Storybook chunk budget gate | `pnpm gate:storybook-budget` | Storybook chunk 体积预算 |
 
 ---
 
@@ -67,13 +71,14 @@
 
 | 失败现象 | 排查步骤 |
 |---------|---------|
-| `lint-and-typecheck` 失败 | 本地 `pnpm lint && pnpm typecheck`；注意自定义 ESLint 规则 |
-| `unit-test-*` 失败 | 本地跑对应 vitest config；检查 mock 是否完整 |
-| `storybook-build` 失败 | 本地 `pnpm -C apps/desktop storybook:build`；通常是 import 错误 |
-| `test-discovery-consistency` 失败 | 检查新测试文件是否被 vitest config 发现 |
-| `spec-test-mapping` 失败 | 检查 spec.md 中新增 Scenario 是否有对应 `.test.ts` |
-| `cross-module-contract` 失败 | 检查是否修改了模块间接口；运行 `contract-generate.ts` 更新 baseline |
-| `format-check` 失败 | `pnpm format` 自动修复后提交 |
+| Type check 失败 | 本地 `pnpm typecheck`；检查 strict mode 类型错误 |
+| Unit tests / Integration tests 失败 | 本地跑 `pnpm test:unit` / `pnpm test:integration`；检查 mock 是否完整 |
+| Renderer tests 失败 | 本地 `pnpm -C apps/desktop test:renderer`；检查 DOM/component mock |
+| Desktop Storybook build 失败 | 本地 `pnpm -C apps/desktop storybook:build`；通常是 import 错误 |
+| Spec-test mapping gate 失败 | 检查 spec.md 中新增 Scenario 是否有对应 `.test.ts` |
+| IPC contract check 失败 | 运行 `pnpm contract:check`；检查是否修改了 IPC 接口 |
+| Stub gate 失败 | 检查是否有未实现的 service 桩方法 |
+| Storybook chunk budget gate 失败 | 检查 Storybook 产物体积是否超标 |
 
 ---
 
@@ -81,11 +86,10 @@
 
 ```bash
 # 必须全部通过后再推送
-pnpm lint                                    # Lint
 pnpm typecheck                               # 类型
+pnpm contract:check                          # IPC 契约
 pnpm -C apps/desktop vitest run <changed>    # 相关测试
 pnpm -C apps/desktop storybook:build         # 前端任务必验
-pnpm format:check                            # 格式
 ```
 
 ---
