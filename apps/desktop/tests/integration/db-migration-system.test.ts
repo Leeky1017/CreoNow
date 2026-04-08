@@ -16,6 +16,7 @@
  *   DB-INT-9C: bridge path rejects shape drift and does not record migration
  *   DB-INT-9D: bridge path rejects same-column semantic drift (missing UNIQUE)
  *   DB-INT-9E: bridge path rejects same-column semantic drift (wrong type)
+ *   DB-INT-9F: bridge path rejects kg_entities missing normalized-name UNIQUE index
  *   DB-INT-10: kg_relations table FKs to kg_entities and project scope
  *   DB-INT-11: FTS5 external-content trigger correctness (no phantom tokens; DELETE removes tokens)
  */
@@ -253,6 +254,11 @@ const LEGACY_KG_ENTITIES_SQL = `
   );
 `;
 
+const LEGACY_KG_ENTITIES_UNIQUE_NAME_INDEX_SQL = `
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_kg_entities_project_type_name
+    ON kg_entities (project_id, type, lower(trim(name)));
+`;
+
 const LEGACY_BAD_KG_RELATION_TYPES_SQL = `
   CREATE TABLE IF NOT EXISTS kg_relation_types (
     id         TEXT PRIMARY KEY,
@@ -304,6 +310,7 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
   bridgeDb.exec(LEGACY_PROJECTS_SQL);
   bridgeDb.exec(LEGACY_SETTINGS_SQL);
   bridgeDb.exec(LEGACY_KG_ENTITIES_SQL);
+  bridgeDb.exec(LEGACY_KG_ENTITIES_UNIQUE_NAME_INDEX_SQL);
   bridgeDb.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-legacy");
   bridgeDb.prepare(
     "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?)",
@@ -375,6 +382,7 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
   mismatchDb.exec(LEGACY_PROJECTS_SQL);
   mismatchDb.exec(LEGACY_SETTINGS_SQL);
   mismatchDb.exec(LEGACY_KG_ENTITIES_SQL);
+  mismatchDb.exec(LEGACY_KG_ENTITIES_UNIQUE_NAME_INDEX_SQL);
   mismatchDb.exec(LEGACY_BAD_KG_RELATION_TYPES_SQL);
 
   assert.throws(
@@ -406,6 +414,7 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
   mismatchDb.exec(LEGACY_PROJECTS_SQL);
   mismatchDb.exec(LEGACY_SETTINGS_SQL);
   mismatchDb.exec(LEGACY_KG_ENTITIES_SQL);
+  mismatchDb.exec(LEGACY_KG_ENTITIES_UNIQUE_NAME_INDEX_SQL);
   mismatchDb.exec(LEGACY_BAD_KG_RELATION_TYPES_MISSING_UNIQUE_SQL);
 
   assert.throws(
@@ -437,6 +446,7 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
   mismatchDb.exec(LEGACY_PROJECTS_SQL);
   mismatchDb.exec(LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL);
   mismatchDb.exec(LEGACY_KG_ENTITIES_SQL);
+  mismatchDb.exec(LEGACY_KG_ENTITIES_UNIQUE_NAME_INDEX_SQL);
 
   assert.throws(
     () => runMigrations(mismatchDb, [initialSchemaMigration]),
@@ -451,6 +461,37 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
     migrationRow,
     undefined,
     "DB-INT-9E: failed migration must not record version 1",
+  );
+
+  mismatchDb.close();
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-9F: bridge path rejects missing kg_entities normalized-name UNIQUE index
+// ---------------------------------------------------------------------------
+{
+  const mismatchDb = new Database(":memory:");
+  mismatchDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(mismatchDb);
+
+  mismatchDb.exec(LEGACY_PROJECTS_SQL);
+  mismatchDb.exec(LEGACY_SETTINGS_SQL);
+  mismatchDb.exec(LEGACY_KG_ENTITIES_SQL);
+  // intentionally do NOT create idx_kg_entities_project_type_name
+
+  assert.throws(
+    () => runMigrations(mismatchDb, [initialSchemaMigration]),
+    /schema contract mismatch for kg_entities: missing unique index\/constraint unique\(project_id, type, lower\(trim\(name\)\)\)/i,
+    "DB-INT-9F: missing normalized-name UNIQUE index must fail bridge migration",
+  );
+
+  const migrationRow = mismatchDb
+    .prepare("SELECT version FROM _migrations WHERE version = 1")
+    .get() as { version: number } | undefined;
+  assert.equal(
+    migrationRow,
+    undefined,
+    "DB-INT-9F: failed migration must not record version 1",
   );
 
   mismatchDb.close();

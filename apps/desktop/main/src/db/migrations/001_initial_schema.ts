@@ -389,6 +389,34 @@ function assertUniqueIndexOnColumns(
   }
 }
 
+function assertUniqueIndexSqlContains(
+  db: Database.Database,
+  args: { table: string; label: string; requiredSnippets: readonly string[] },
+): void {
+  if (!hasTable(db, args.table)) {
+    return;
+  }
+
+  const rows = db
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL",
+    )
+    .all(args.table) as Array<{ sql: string }>;
+
+  const matchFound = rows.some((row) => {
+    const normalized = normalizeSql(row.sql);
+    return args.requiredSnippets.every((snippet) =>
+      normalized.includes(normalizeSql(snippet)),
+    );
+  });
+
+  if (!matchFound) {
+    throw new Error(
+      `schema contract mismatch for ${args.table}: missing unique index/constraint ${args.label}`,
+    );
+  }
+}
+
 function up(db: Database.Database): void {
   const entitiesFtsExistsBeforeMigration = Boolean(
     db
@@ -603,6 +631,14 @@ function up(db: Database.Database): void {
         to: "project_id",
         onDelete: "CASCADE",
       },
+    ],
+  });
+  assertUniqueIndexSqlContains(db, {
+    table: "kg_entities",
+    label: "UNIQUE(project_id, type, lower(trim(name)))",
+    requiredSnippets: [
+      "create unique index",
+      "on kg_entities(project_id, type, lower(trim(name)))",
     ],
   });
   assertUniqueIndexOnColumns(db, {
