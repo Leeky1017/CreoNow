@@ -15,7 +15,7 @@ Behavior:
   - --enable-auto-merge requires 4 zero-finding audit reports plus 1 reviewer consolidated verbatim comment
   - Trusted reviewer policy:
     - CODEX_AUDIT_TRUSTED_REVIEWERS="<login1>,<login2>" enforces explicit trusted reviewer list
-    - CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true|false controls fallback to PR author only when trusted list is empty (default: false)
+    - CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true|false controls fallback to PR author only when trusted list is empty (default: false; otherwise gate fails closed)
   - Syncs local controlplane main to origin/main (unless --no-sync)
 
 Options:
@@ -148,6 +148,11 @@ require_audit_pass_comment() {
   fi
   if [[ "${#trusted_reviewer_args[@]}" -eq 0 && -n "$pr_author" ]]; then
     trusted_reviewer_args+=("$pr_author")
+  fi
+  if [[ "${#trusted_reviewer_args[@]}" -eq 0 ]]; then
+    echo "ERROR: trusted reviewer gate is not configured. Set CODEX_AUDIT_TRUSTED_REVIEWERS or explicitly enable CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true." >&2
+    comment_pr_with_kind "$pr_number" "audit-required" "$pr_url"
+    exit 1
   fi
 
   pr_head_sha="$(run_gh_with_retry gh pr view "$pr_number" --json headRefOid --jq '.headRefOid // empty')"

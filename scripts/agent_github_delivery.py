@@ -524,7 +524,9 @@ def evaluate_audit_pass_comments(
         )
     ]
 
-    if matching_comments and not trusted_reviewer_check_enforced and not head_check_enforced:
+    if author_check_enforced and not trusted_reviewer_check_enforced:
+        audit_pass = False
+    elif matching_comments and not trusted_reviewer_check_enforced and not head_check_enforced:
         audit_pass = not author_check_enforced
     else:
         audit_pass = len(eligible_comments) >= 1

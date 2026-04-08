@@ -298,7 +298,12 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
             distinct_authors=0,
         )
         try:
-            result = self._run_script(worktree, temp_dir, extra_args=["--enable-auto-merge"])
+            result = self._run_script(
+                worktree,
+                temp_dir,
+                extra_args=["--enable-auto-merge"],
+                extra_env={"CODEX_AUDIT_TRUSTED_REVIEWERS": "reviewer-bot"},
+            )
             self.assertEqual(1, result.returncode, result.stdout)
             self.assertIn("1+4+1 reviewer-consolidated zero-findings gate", result.stdout)
             self.assertIn("trusted reviewer account must post one consolidated verbatim comment", result.stdout.lower())
@@ -348,9 +353,8 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
                 extra_args=["--enable-auto-merge"],
             )
             self.assertEqual(1, result.returncode, result.stdout)
-            args_log = (temp_dir / "audit-args.log").read_text()
-            self.assertNotIn("--trusted-reviewer engineering-bot", args_log)
-            self.assertIn("--expected-head-sha 3730256a0ba1c088504746e42923afc84b1e7d41", args_log)
+            self.assertIn("trusted reviewer gate is not configured", result.stdout.lower())
+            self.assertFalse((temp_dir / "audit-args.log").exists())
         finally:
             shutil.rmtree(temp_dir)
 

@@ -214,6 +214,21 @@ class AuditGateTests(unittest.TestCase):
         self.assertTrue(evaluation.trusted_reviewer_check_enforced)
         self.assertEqual(0, evaluation.matching_trusted_authors)
 
+    def test_audit_pass_should_fail_for_forged_authored_comment_without_trusted_reviewer_config(self) -> None:
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [
+                {
+                    "body": self._consolidated_comment(head="abc1234"),
+                    "author": "random-outsider",
+                },
+            ],
+            expected_head_sha="abc1234567890",
+        )
+        self.assertFalse(evaluation.audit_pass)
+        self.assertTrue(evaluation.author_check_enforced)
+        self.assertFalse(evaluation.trusted_reviewer_check_enforced)
+        self.assertTrue(evaluation.head_check_enforced)
+
     def test_audit_pass_should_fail_when_consolidated_comment_is_missing_a_seat(self) -> None:
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [
