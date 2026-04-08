@@ -44,10 +44,10 @@ Closes #<!-- Issue 编号 -->
 - [ ] **INV-1 原稿保护** — AI 写操作经 Permission Gate + 版本快照
 - [ ] **INV-2 并发安全** — isConcurrencySafe 标记正确，未标记的串行执行
 - [ ] **INV-3 CJK Token** — Token 估算区分 CJK/ASCII，未使用 UTF8_BYTES/4
-- [ ] **INV-4 Memory-First** — 未新增额外向量存储（KG+FTS5 为主检索路径）
+- [ ] **INV-4 Memory-First** — 未新增额外向量存储（KG+FTS5 为主检索路径，现有 sqlite-vec/RAG 作为降级补充保留）
 - [ ] **INV-5 叙事压缩** — AutoCompact 保留 KG 实体、角色设定、未解伏笔
 - [ ] **INV-6 一切皆 Skill** — 新能力通过 Skill 体系注册，未裸调 LLM
-- [ ] **INV-7 统一入口** — 操作走 CommandDispatcher / IPC handler，新增操作已注册
+- [ ] **INV-7 统一入口** — 操作走 CommandDispatcher.execute()，禁止 IPC handler 直调 Service
 - [ ] **INV-8 Hook 链** — 写操作后 post-writing hooks 正常触发
 - [ ] **INV-9 成本追踪** — AI 调用已记录 model/tokens/费用
 - [ ] **INV-10 错误不丢上下文** — 中断时生成错误事件，未静默丢弃
