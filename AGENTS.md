@@ -133,7 +133,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 - 实现 → 委派工程 Subagent
 - 审计 → 每轮并行委派 **4 个独立审计 Subagent** 做同一变更的全量交叉审计（固定模型见 §九）
 - 任一 finding（含 non-blocking / suggestion / nit）→ 回工程 Subagent 修复 → 重跑四审
-- 只有四审都 zero findings + `FINAL-VERDICT` + `ACCEPT` → 收口
+- 只有四审都 zero findings + `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 发布单条原样汇总评论 → 收口
 
 ### P1. Spec-First（规范优先）
 
@@ -148,7 +148,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 ### P3. Gates（门禁全绿）
 
-CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。auto-merge 默认关闭；只有四审都 zero findings + `FINAL-VERDICT` + `ACCEPT` 后才可显式开启。详见 `docs/references/gates-design/README.md`。
+CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。auto-merge 默认关闭；只有四审都 zero findings + `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条原样汇总评论后才可显式开启。详见 `docs/references/gates-design/README.md`。
 
 ### P4. Deterministic & Isolated（确定性与隔离）
 

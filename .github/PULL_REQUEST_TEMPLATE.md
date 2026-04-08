@@ -98,12 +98,6 @@ N/A
 - 审计 4：Claude Sonnet 4.6 (high)
 - 评论汇总：Claude Opus 4.6 (high)
 
-**审计强制规则：**
-- 四个审计席位都必须做独立全量审计（不分维度，不分工种）。
-- 任一 finding（含 non-blocking / suggestion / nit）= `REJECT`。
-- 只有四席都 `zero findings` 且 `FINAL-VERDICT: ACCEPT`，才可合并。
-- Reviewer（Claude Opus 4.6 high）必须发布一条评论，并在该评论中原样（verbatim）粘贴四份审计报告。
-
 - [ ] 审计 1（GPT-5.4）：FINAL-VERDICT ___
 - [ ] 审计 2（GPT-5.3 Codex）：FINAL-VERDICT ___
 - [ ] 审计 3（Claude Opus 4.6）：FINAL-VERDICT ___

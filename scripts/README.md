@@ -48,4 +48,4 @@
 - 每一轮实现完成后，必须由 4 个独立审计 Subagent 对同一变更做全量交叉审计；任一审计报告任何问题，就必须回到工程 Subagent 修复，再次四审。
 - 任一 finding（含 non-blocking / suggestion / nit）都必须维持 `REJECT`；仅当 4 个审计 Subagent 均给出 zero-findings `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条原样（verbatim）汇总评论，才可收口。
 - 所有实现、提 PR、修 CI、回应审计都必须在 `.worktrees/issue-<N>-<slug>` 内完成；控制面根目录不负责“补最后一步”。
-- 默认不自动开启 auto-merge；只有在四审全绿后，才可显式传入 `--enable-auto-merge`。
+- 默认不自动开启 auto-merge；只有在四审全绿且 Reviewer 单条原样汇总评论已发布后，才可显式传入 `--enable-auto-merge`。
