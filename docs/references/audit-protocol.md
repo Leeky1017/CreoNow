@@ -27,8 +27,10 @@
 3. 每一轮审计必须并行启动 **4 个独立审计 Subagent**，且都对同一变更执行**全量审计**。
 4. 四名审计必须独立给出结论，不能因为“已有其他审计结论”而跳步。
 5. 任一审计提出任何问题，本轮必须 `REJECT`，回工程修复后重跑全部四审。
-6. 四审都 zero findings、都给出 `FINAL-VERDICT: ACCEPT`、required checks 全绿且证据完整后，交由 Reviewer 汇总发布。
-7. Reviewer 在 PR discussion timeline 发布**一条**结构化 issue comment，按标题原样粘贴四份审计报告（verbatim）。
+6. 每次 Reviewer 汇总评论发布后，主会话 Agent 与下一轮新 Engineering Subagent 都必须先读取该最新评论，再继续。
+7. 工程席按轮次重建：每轮都必须启动一个新的 Engineering Subagent（附完整 issue/PR/审计上下文），禁止复用单个长生命周期工程席跨轮次累计上下文。
+8. 四审都 zero findings、都给出 `FINAL-VERDICT: ACCEPT`、required checks 全绿且证据完整后，交由 Reviewer 汇总发布。
+9. Reviewer 在 PR discussion timeline 发布**一条**结构化 issue comment，按标题原样粘贴四份审计报告（verbatim）。
 
 ## 1. 固定模型配置
 
@@ -97,6 +99,8 @@
 4. 无证据下结论。
 5. PR 要件不全（`Closes #N` / `Invariant Checklist`（INV-1~INV-10） / 证据 / 回滚点 / 审计门禁 / 前端视觉证据）仍给放行结论。
 6. 用 `Accept with risk` 等措辞绕过零问题原则。
+7. Reviewer 汇总评论发布后不读取最新评论就继续推进下一轮。
+8. 复用单个长生命周期 Engineering Subagent 跨轮次累计上下文。
 
 ## 8. 必须做白名单
 
@@ -106,6 +110,8 @@
 4. 附实际执行命令与结果。
 5. 与其他三席审计一起完成同轮四审。
 6. 发现问题后要求工程修复并重跑四审。
+7. 每轮开启前明确已读取最新 Reviewer 汇总评论。
+8. 每轮修复阶段明确由新的 Engineering Subagent 承担实现。
 
 ## 9. Reviewer 发布规则
 

@@ -42,6 +42,8 @@
 - 任一 finding（含 non-blocking / suggestion / nit）→ 回工程修复
 - 修复后必须重跑全部 4 审
 - Reviewer 重新发布汇总
+- 每次 Reviewer 汇总评论发布后，主会话与下一轮新的 Engineering Subagent 都必须先读取该最新评论，再继续
+- 工程席必须按轮次重建：每轮都启动一个新的 Engineering Subagent（附完整 issue/PR/审计上下文），禁止复用单个长生命周期工程席跨轮次累计上下文
 - 仅当 4 审都 zero findings 时才允许合并
 
 ## 审计规则（四审并行、全量独立）

@@ -133,6 +133,8 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 - 实现 → 委派工程 Subagent
 - 审计 → 每轮并行委派 **4 个独立审计 Subagent** 做同一变更的全量交叉审计（固定模型见 §九）
 - 任一 finding（含 non-blocking / suggestion / nit）→ 回工程 Subagent 修复 → 重跑四审
+- 每轮 Reviewer 汇总评论发布后，主会话与工程席都必须先读取该最新评论，再继续下一轮
+- 工程席必须“按轮次重建”：每轮都启动一个**新的** Engineering Subagent（附完整 issue/PR/审计上下文），禁止复用单个长生命周期工程席跨轮次累计上下文
 - 只有四审都 zero findings + `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 发布单条原样汇总评论 → 收口
 
 ### P1. Spec-First（规范优先）
@@ -267,7 +269,9 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 - 同一变更必须 **4 个独立审计 Agent** 并行交叉审计（均为全量审计）
 - 四席模型固定为：GPT-5.4（xhigh）/ GPT-5.3 Codex（xhigh）/ Claude Opus 4.6（high）/ Claude Sonnet 4.6（high）
 - 任一 finding → `REJECT`（含 non-blocking / suggestion / nit）
-- 只有四审都 zero findings + `ACCEPT` → 可合并
+- 每轮 Reviewer 汇总评论发布后，主会话与下一轮新工程席都必须先读取该最新评论
+- 工程席按轮次重建：每轮必须启动新的 Engineering Subagent（附完整上下文），禁止复用长生命周期工程席
+- 只有四审都 zero findings + `ACCEPT`，且 Reviewer 发布单条原样汇总评论 → 可合并
 - 每条结论必须有证据（diff 引用或命令输出）
 - CI 能查的信任 CI；审计主战场是语义正确性、spec 对齐、架构合理性
 - `creonow-reviewer` 是唯一拥有 PR discussion timeline（issue comment）汇总评论发布权限的 Agent，必须将 4 份审计报告原样（verbatim）粘贴为一条评论一次性发出

@@ -25,6 +25,7 @@
 - 四个审计席位固定且均为独立全量审计：GPT-5.4（xhigh）、GPT-5.3 Codex（xhigh）、Claude Opus 4.6（high）、Claude Sonnet 4.6（high）。
 - 只要任一席存在任何 finding（含 non-blocking / suggestion / nit），结论必须维持 `REJECT`。
 - Reviewer（Claude Opus 4.6 high）只发布一条汇总评论，且必须原样（verbatim）粘贴四份审计报告。
+- 每轮 Reviewer 汇总评论发布后，主会话与下一轮工程席都必须先读取该最新评论，再继续；工程席必须按轮次重建，禁止复用单个长生命周期工程席跨轮次累计上下文。
 - `auto-merge 默认关闭`；只有在四审都对 zero findings 给出 `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 单条原样汇总评论已发布后，才可显式开启。
 - 禁止用 `Accept with risk` 或其他“带问题通过”的表述替代 `REJECT`。
 
