@@ -148,7 +148,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 ### P3. Gates（门禁全绿）
 
-CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。auto-merge 默认关闭；只有四审都 zero findings + `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条原样汇总评论后才可显式开启。详见 `docs/references/gates-design/README.md`。
+CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + `Invariant Checklist`（INV-1~INV-10 勾选项）+ 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。auto-merge 默认关闭；只有四审都 zero findings + `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条原样汇总评论后才可显式开启。详见 `docs/references/gates-design/README.md`。
 
 ### P4. Deterministic & Isolated（确定性与隔离）
 
@@ -240,7 +240,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | 阶段 | 完成条件 |
 | --- | --- |
 | **准备** | Issue 已创建 · spec 已阅读 · 分支已创建 · 已进入 worktree |
-| **可交审** | PR 含 `Closes #N`  • 证据 · `agent_pr_preflight.sh` 通过 · required checks 全绿 · 前端 PR 已嵌入截图 |
+| **可交审** | PR 含 `Closes #N` + `Invariant Checklist`（INV-1~INV-10） • 证据 · `agent_pr_preflight.sh` 通过 · required checks 全绿 · 前端 PR 已嵌入截图 |
 | **交付** | 四审 zero findings + `FINAL-VERDICT` • `ACCEPT` · Reviewer 单条汇总评论完成 · 合并到 `main` |
 
 ---

@@ -45,7 +45,7 @@
 工程 Subagent 的“完成”不是“代码写完”，而是已经达到可交审条件。以下条件必须全部满足，才可请求审计：
 
 1. 全程在 `.worktrees/issue-<N>-<slug>` 中完成实现、提 PR、修 CI、回应审计。
-2. PR 已创建或更新，正文包含 `Closes #N`、验证证据、回滚点、审计门禁。
+2. PR 已创建或更新，正文包含 `Closes #N`、`Invariant Checklist`（INV-1~INV-10 勾选项）、验证证据、回滚点、审计门禁。
 3. `scripts/agent_pr_preflight.sh` 通过。
 4. required checks / CI / 门禁全部为绿。
 5. 前端 PR 正文直接嵌入至少 1 张截图，并附可点击 Storybook artifact/link（适用）与视觉验收说明。

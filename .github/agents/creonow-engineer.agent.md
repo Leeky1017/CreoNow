@@ -32,7 +32,7 @@ target: "vscode"
 
 # 可交审条件（必须全部满足）
 
-- PR 已创建或更新，正文包含 `Closes #N`、验证证据、回滚点、审计门禁。
+- PR 已创建或更新，正文包含 `Closes #N`、`Invariant Checklist`（INV-1~INV-10 勾选项）、验证证据、回滚点、审计门禁。
 - `scripts/agent_pr_preflight.sh` 通过。
 - required checks 全绿。
 - 前端 PR 正文直接可见截图，并附可点击 Storybook artifact/link 与视觉验收说明。

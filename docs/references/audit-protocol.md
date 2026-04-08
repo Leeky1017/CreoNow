@@ -95,7 +95,7 @@
 2. 在任何 finding 存在时给出 `ACCEPT`。
 3. required checks 未绿就给可合并结论。
 4. 无证据下结论。
-5. PR 要件不全（`Closes #N` / 证据 / 回滚点 / 审计门禁 / 前端视觉证据）仍给放行结论。
+5. PR 要件不全（`Closes #N` / `Invariant Checklist`（INV-1~INV-10） / 证据 / 回滚点 / 审计门禁 / 前端视觉证据）仍给放行结论。
 6. 用 `Accept with risk` 等措辞绕过零问题原则。
 
 ## 8. 必须做白名单

@@ -19,7 +19,7 @@
 
 - 主会话 Agent 只做编排，不直接写代码，也不直接输出最终审计结论。
 - 工程 Subagent 只有达到“可交审条件”后才可转审；实现、提 PR、修 CI、回应审计都必须全程在 `.worktrees/issue-<N>-<slug>` 中完成。
-- “可交审条件”至少包括：PR 已创建或更新，正文含 `Closes #N`、验证证据、回滚点、审计门禁；`scripts/agent_pr_preflight.sh` 已通过；required checks 全绿。
+- “可交审条件”至少包括：PR 已创建或更新，正文含 `Closes #N`、`Invariant Checklist`（INV-1~INV-10 勾选项）、验证证据、回滚点、审计门禁；`scripts/agent_pr_preflight.sh` 已通过；required checks 全绿。
 - 前端 PR 还需在正文直接可见截图，并附可点击 Storybook artifact/link 与视觉验收说明。
 - 审计采用 1+4+1 四审交叉制；只有 zero findings，且四名独立审计 Agent 全部给出 `FINAL-VERDICT` + `ACCEPT`，并由 Reviewer 发布单条原样（verbatim）汇总评论时，才可视为收口。
 - 四个审计席位固定且均为独立全量审计：GPT-5.4（xhigh）、GPT-5.3 Codex（xhigh）、Claude Opus 4.6（high）、Claude Sonnet 4.6（high）。

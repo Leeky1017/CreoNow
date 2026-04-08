@@ -85,7 +85,7 @@
   - auto-merge 默认关闭。
   - 仅当 4 份审计报告均为 zero findings，且 Reviewer 已发布单条原样汇总评论后，才允许显式执行 `scripts/agent_pr_automerge_and_sync.sh --enable-auto-merge`。
 - 不要在尚未尝试 `gh` 与 GitHub MCP 两条通道前，把 PR 创建、PR 评论、Issue 更新甩回给用户手工完成。
-- PR 文案必须包含 `Closes #N`、验证证据、回滚点、审计门禁；前端 PR 还必须在正文直接嵌入截图，并附可点击 Storybook artifact/link 与视觉验收说明。
+- PR 文案必须包含 `Closes #N`、`Invariant Checklist`（INV-1~INV-10 勾选项）、验证证据、回滚点、审计门禁；前端 PR 还必须在正文直接嵌入截图，并附可点击 Storybook artifact/link 与视觉验收说明。
 - 修改 GitHub 交付脚本或文档时，要同步维护 `AGENTS.md`、`docs/references/audit-protocol.md`、`scripts/README.md` 的一致性。
 
 可在 VS Code Chat Diagnostics 中确认这些 instructions / prompt files / agents 是否已加载。
