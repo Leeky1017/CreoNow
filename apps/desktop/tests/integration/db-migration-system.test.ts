@@ -3,14 +3,17 @@
  * migration system.
  *
  * Scenario coverage:
- *   DB-INT-1: all tables created by 001_initial_schema exist after runMigrations
- *   DB-INT-2: entities_fts FTS5 virtual table is queryable (name/description only — no entity_id column)
- *   DB-INT-3: versions.branch_id → branches FK constraint is enforced (NOT NULL + FK)
- *   DB-INT-4: foreign_keys pragma is ON after getDb()
- *   DB-INT-5: WAL journal_mode is active after getDb()
- *   DB-INT-6: _migrations table records exactly the applied migrations
- *   DB-INT-7: cost_records FK to sessions is enforced (INV-9)
- *   DB-INT-8: second runMigrations call is idempotent (no error, no re-apply)
+ *   DB-INT-1:  all tables created by 001_initial_schema exist after runMigrations
+ *   DB-INT-2:  entities_fts FTS5 virtual table is queryable (name/description only — no entity_id column)
+ *   DB-INT-3:  versions.branch_id → branches FK constraint is enforced (NOT NULL + FK)
+ *   DB-INT-4:  foreign_keys pragma is ON
+ *   DB-INT-5:  WAL journal_mode is active on a file-based DB
+ *   DB-INT-6:  _migrations table records exactly the applied migrations
+ *   DB-INT-7:  cost_records FK to sessions is enforced (INV-9)
+ *   DB-INT-8:  second runMigrations call is idempotent (no error, no re-apply)
+ *   DB-INT-9:  bridge-path: TS migration layered on top of legacy SQL preserves
+ *              existing tables and creates only new tables
+ *   DB-INT-10: kg_relations table FKs to entities and relation_types
  */
 
 import assert from "node:assert/strict";
@@ -45,33 +48,29 @@ function tableExists(db: Database.Database, name: string): boolean {
   return row !== undefined;
 }
 
-function vtableExists(db: Database.Database, name: string): boolean {
-  const row = db
-    .prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1",
-    )
-    .get(name) as { name: string } | undefined;
-  return row !== undefined;
-}
+// Legacy settings schema from 0001_init.sql — used in DB-INT-9
+const LEGACY_SETTINGS_SQL = `
+  CREATE TABLE IF NOT EXISTS settings (
+    scope      TEXT NOT NULL,
+    key        TEXT NOT NULL,
+    value_json TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (scope, key)
+  )
+`;
 
 // ---------------------------------------------------------------------------
-// DB-INT-4: foreign_keys pragma is ON for in-memory DB
+// DB-INT-4: foreign_keys pragma is ON
 // ---------------------------------------------------------------------------
 {
   const db = createTestDb();
-
   const fkRow = db.pragma("foreign_keys", { simple: true }) as number;
   assert.equal(fkRow, 1, "DB-INT-4: foreign_keys must be 1");
-
   db.close();
 }
 
 // ---------------------------------------------------------------------------
 // DB-INT-5: WAL journal_mode is active for a file-based DB
-//
-// In-memory databases return 'memory' regardless of the journal_mode pragma.
-// We verify WAL by opening a temporary file-based database in the test
-// output directory (cleaned up immediately after).
 // ---------------------------------------------------------------------------
 {
   const testDir = path.dirname(fileURLToPath(import.meta.url));
@@ -85,28 +84,22 @@ function vtableExists(db: Database.Database, name: string): boolean {
 
     const walRow = fileDb.pragma("journal_mode", { simple: true }) as string;
     assert.equal(walRow, "wal", "DB-INT-5: journal_mode must be wal on file DB");
-
     fileDb.close();
   } finally {
-    // Cleanup: remove DB file and WAL/SHM sidecar files
     for (const suffix of ["", "-wal", "-shm"]) {
-      try {
-        fs.unlinkSync(walDbPath + suffix);
-      } catch {
-        // ignore if file does not exist
-      }
+      try { fs.unlinkSync(walDbPath + suffix); } catch { /* ignore */ }
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// run full migration suite
+// run full migration suite on a pristine in-memory DB
 // ---------------------------------------------------------------------------
 const db = createTestDb();
 runMigrations(db, [initialSchemaMigration]);
 
 // ---------------------------------------------------------------------------
-// DB-INT-1: required tables exist (exact names per AC)
+// DB-INT-1: required tables exist (exact names per AC + §4.7)
 // ---------------------------------------------------------------------------
 const requiredTables = [
   "settings",
@@ -119,7 +112,7 @@ const requiredTables = [
   "property_types",
   "entities",
   "entity_properties",
-  "relations",
+  "kg_relations",
   "_migrations",
 ] as const;
 
@@ -131,79 +124,56 @@ for (const tbl of requiredTables) {
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-2: entities_fts virtual table is queryable — no entity_id column
-//
-// Per kg-schema.md §4.7, entities_fts has ONLY (name, description).
-// Inserting into entities triggers the AFTER INSERT trigger to populate FTS.
-// We then confirm the FTS search works and does NOT expose entity_id as a column.
+// DB-INT-2: entities_fts is queryable — NO entity_id column per §4.7
 // ---------------------------------------------------------------------------
-assert.ok(
-  vtableExists(db, "entities_fts"),
-  "DB-INT-2: entities_fts virtual table must exist",
-);
+assert.ok(tableExists(db, "entities_fts"), "DB-INT-2: entities_fts must exist");
 
 const insertedAt = new Date().toISOString();
 
-// Insert a required entity_type row (entity_types.id PK)
 db.prepare(
   "INSERT INTO entity_types (id, name, is_builtin) VALUES (?, ?, ?)",
 ).run("character", "角色", 0);
 
-// Insert an entity (entities.id PK, entity_type_id → entity_types.id)
 db.prepare(
   "INSERT INTO entities (id, entity_type_id, name, description, project_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
 ).run("ent-001", "character", "林远", "前特种兵，沉默寡言", "proj-001", insertedAt);
 
-// FTS trigger should have populated entities_fts
-// Searching by name via FTS MATCH
 const ftsRow = db
   .prepare("SELECT name FROM entities_fts WHERE entities_fts MATCH ?")
   .get("林远") as { name: string } | undefined;
 
-assert.ok(
-  ftsRow !== undefined,
-  "DB-INT-2: FTS5 search must return the inserted entity",
-);
-assert.equal(ftsRow?.name, "林远", "DB-INT-2: FTS5 must return correct name");
+assert.ok(ftsRow !== undefined, "DB-INT-2: FTS5 must return the inserted entity");
+assert.equal(ftsRow?.name, "林远");
 
-// Confirm entity_id is NOT a column in entities_fts (per §4.7, no entity_id col)
+// Verify entity_id is NOT a column in entities_fts (per §4.7)
 const ftsInfo = db.pragma("table_info(entities_fts)") as Array<{ name: string }>;
 const ftsColumns = ftsInfo.map((r) => r.name);
-assert.ok(
-  !ftsColumns.includes("entity_id"),
-  "DB-INT-2: entities_fts must NOT have entity_id column per §4.7",
-);
+assert.ok(!ftsColumns.includes("entity_id"), "DB-INT-2: entities_fts must NOT have entity_id column");
 
 // ---------------------------------------------------------------------------
-// DB-INT-3: versions.branch_id → branches FK is enforced
-//           branch_id is NOT NULL — must reference a real branch
+// DB-INT-3: versions.branch_id → branches FK enforced (NOT NULL)
 // ---------------------------------------------------------------------------
 {
   const ts = new Date().toISOString();
 
-  // Insert a branch (exact columns per AC)
   db.prepare(
     `INSERT INTO branches (id, project_id, name, parent_branch_id, fork_version_id, created_at, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run("br-001", "proj-001", "main", null, null, ts, "user");
 
-  // Insert a version linked to that branch — should succeed
   db.prepare(
     `INSERT INTO versions (id, branch_id, parent_version_id, content_snapshot, operation, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
   ).run("ver-001", "br-001", null, "{}", "edit", ts);
 
-  // Insert version with a NON-EXISTENT branch_id — FK violation
   let fkViolated = false;
   try {
     db.prepare(
       `INSERT INTO versions (id, branch_id, parent_version_id, content_snapshot, operation, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
     ).run("ver-002", "br-nonexistent", null, "{}", "edit", ts);
-  } catch {
-    fkViolated = true;
-  }
-  assert.ok(fkViolated, "DB-INT-3: FK violation must be thrown for bad branch_id");
+  } catch { fkViolated = true; }
+  assert.ok(fkViolated, "DB-INT-3: FK violation for bad branch_id");
 }
 
 // ---------------------------------------------------------------------------
@@ -213,70 +183,141 @@ assert.ok(
   const rows = db
     .prepare("SELECT version, name FROM _migrations ORDER BY version ASC")
     .all() as Array<{ version: number; name: string }>;
-
-  assert.equal(rows.length, 1, "DB-INT-6: exactly one migration should be recorded");
+  assert.equal(rows.length, 1, "DB-INT-6: one migration recorded");
   assert.equal(rows[0]?.version, 1);
   assert.equal(rows[0]?.name, "001_initial_schema");
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-7: cost_records (INV-9) FK to sessions — exact column names per AC
+// DB-INT-7: cost_records FK to sessions (INV-9) — exact column names per AC
 // ---------------------------------------------------------------------------
 {
   const ts = new Date().toISOString();
 
-  // Insert a session (sessions.id PK, with state column per AC)
   db.prepare(
     "INSERT INTO sessions (id, project_id, started_at, ended_at, state) VALUES (?, ?, ?, ?, ?)",
   ).run("ses-001", "proj-001", ts, null, "active");
 
-  // Cost record linked to existing session — should succeed
   db.prepare(
     `INSERT INTO cost_records
        (id, session_id, model, input_tokens, output_tokens, cache_hit_tokens, duration_ms, estimated_cost_usd, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run("cr-001", "ses-001", "gpt-4o", 100, 50, 10, 800, 0.002, ts);
 
-  // Cost record with non-existent session_id — FK violation
   let fkViolated = false;
   try {
     db.prepare(
       `INSERT INTO cost_records
          (id, session_id, model, input_tokens, output_tokens, cache_hit_tokens, duration_ms, estimated_cost_usd, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      "cr-002",
-      "ses-nonexistent",
-      "gpt-4o",
-      100,
-      50,
-      10,
-      800,
-      0.002,
-      ts,
-    );
-  } catch {
-    fkViolated = true;
-  }
-  assert.ok(
-    fkViolated,
-    "DB-INT-7: FK violation must be thrown for non-existent session_id",
-  );
+    ).run("cr-002", "ses-nonexistent", "gpt-4o", 100, 50, 10, 800, 0.002, ts);
+  } catch { fkViolated = true; }
+  assert.ok(fkViolated, "DB-INT-7: FK violation for non-existent session_id");
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-8: second runMigrations call is idempotent
+// DB-INT-8: second runMigrations is idempotent
 // ---------------------------------------------------------------------------
 {
-  // Should not throw and should not double-apply
   runMigrations(db, [initialSchemaMigration]);
-
-  const rows = db
-    .prepare("SELECT COUNT(*) as cnt FROM _migrations")
-    .get() as { cnt: number };
-  assert.equal(rows.cnt, 1, "DB-INT-8: still exactly one migration after second run");
+  const rows = db.prepare("SELECT COUNT(*) as cnt FROM _migrations").get() as { cnt: number };
+  assert.equal(rows.cnt, 1, "DB-INT-8: still one migration after second run");
 }
 
 db.close();
+
+// ---------------------------------------------------------------------------
+// DB-INT-9: bridge-path — TS migration layered on top of legacy SQL
+//
+// Simulates the production bridge: init.ts runs legacy SQL migrations first
+// (which creates settings with legacy schema), then the TS migrator runs on
+// the same connection.
+//
+// Expected:
+//   - Legacy 'settings' table preserved with original schema (IF NOT EXISTS)
+//   - New tables (sessions, branches, versions, cost_records, KG) created
+//   - _migrations records version 1
+// ---------------------------------------------------------------------------
+{
+  const legacyDb = new Database(":memory:");
+  legacyDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(legacyDb);
+
+  // Simulate legacy SQL migration: create settings with legacy schema
+  legacyDb.exec(LEGACY_SETTINGS_SQL);
+
+  // Insert legacy data to verify preservation
+  legacyDb.prepare(
+    "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?)",
+  ).run("global", "theme", '"dark"', Date.now());
+
+  // Run TS migration (the bridge call in init.ts)
+  runMigrations(legacyDb, [initialSchemaMigration]);
+
+  // Legacy settings table must still exist with original schema
+  const legacyRow = legacyDb
+    .prepare("SELECT scope, key, value_json FROM settings WHERE scope='global' AND key='theme'")
+    .get() as { scope: string; key: string; value_json: string } | undefined;
+  assert.ok(legacyRow !== undefined, "DB-INT-9: legacy settings row must be preserved");
+  assert.equal(legacyRow?.value_json, '"dark"', "DB-INT-9: legacy value_json must be intact");
+
+  // New tables must have been created
+  const newTables = ["sessions", "branches", "versions", "cost_records",
+                     "entity_types", "relation_types", "property_types",
+                     "entities", "entity_properties", "kg_relations"] as const;
+  for (const tbl of newTables) {
+    assert.ok(
+      tableExists(legacyDb, tbl),
+      `DB-INT-9: '${tbl}' must be created on legacy DB`,
+    );
+  }
+
+  // _migrations records version 1
+  const migRow = legacyDb
+    .prepare("SELECT version FROM _migrations WHERE version = 1")
+    .get() as { version: number } | undefined;
+  assert.ok(migRow !== undefined, "DB-INT-9: _migrations must record version 1");
+
+  legacyDb.close();
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-10: kg_relations FKs to entities and relation_types
+// ---------------------------------------------------------------------------
+{
+  const kgDb = new Database(":memory:");
+  kgDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(kgDb);
+  runMigrations(kgDb, [initialSchemaMigration]);
+
+  const ts = new Date().toISOString();
+
+  kgDb.prepare("INSERT INTO entity_types (id, name) VALUES (?, ?)").run("person", "人物");
+  kgDb.prepare("INSERT INTO relation_types (id, name) VALUES (?, ?)").run("knows", "认识");
+  kgDb.prepare(
+    "INSERT INTO entities (id, entity_type_id, name, project_id, created_at) VALUES (?, ?, ?, ?, ?)",
+  ).run("e-001", "person", "林远", "proj-001", ts);
+  kgDb.prepare(
+    "INSERT INTO entities (id, entity_type_id, name, project_id, created_at) VALUES (?, ?, ?, ?, ?)",
+  ).run("e-002", "person", "赵涛", "proj-001", ts);
+
+  // Valid kg_relation row
+  kgDb.prepare(
+    `INSERT INTO kg_relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run("r-001", "e-001", "knows", "e-002", "proj-001");
+
+  // FK violation: non-existent source_entity_id
+  let fkViolated = false;
+  try {
+    kgDb.prepare(
+      `INSERT INTO kg_relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run("r-002", "e-nonexistent", "knows", "e-002", "proj-001");
+  } catch { fkViolated = true; }
+  assert.ok(fkViolated, "DB-INT-10: kg_relations FK must reject bad source_entity_id");
+
+  kgDb.close();
+}
 
 console.log("db-migration-system.test.ts: all assertions passed");

@@ -41,6 +41,14 @@ import type { Migration } from "../../migrator";
 const UP_SQL = /* sql */ `
   -- =========================================================================
   -- Application configuration
+  --
+  -- COEXISTENCE NOTE: the legacy SQL migration (0001_init.sql) creates a
+  -- settings table with schema (scope TEXT, key TEXT, value_json TEXT,
+  -- updated_at INTEGER, PRIMARY KEY (scope, key)). On existing installs,
+  -- CREATE TABLE IF NOT EXISTS preserves the legacy shape. On fresh installs
+  -- (TS-only path), this schema is used instead. Consumers must not assume
+  -- column names beyond the common subset until a reconciliation migration
+  -- explicitly aligns the two schemas.
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS settings (
     key        TEXT PRIMARY KEY,
@@ -200,12 +208,13 @@ const UP_SQL = /* sql */ `
   -- =========================================================================
   -- Knowledge Graph — relations (directed edges per kg-schema.md §4.7)
   --
-  -- Table name is 'relations' (not 'kg_relations') per AC requirement.
+  -- Table is named 'kg_relations' to match the §4.7 target schema name and
+  -- existing KG service expectations. Column structure follows §4.7 fully.
   -- target_value: free-text target when target_entity_id is NULL.
   -- relation_detail: qualifier or annotation on the edge.
   -- confidence/source_chapter: same semantics as entity_properties above.
   -- =========================================================================
-  CREATE TABLE IF NOT EXISTS relations (
+  CREATE TABLE IF NOT EXISTS kg_relations (
     id               TEXT PRIMARY KEY,
     source_entity_id TEXT NOT NULL,
     relation_type_id TEXT NOT NULL,
@@ -225,11 +234,11 @@ const UP_SQL = /* sql */ `
     FOREIGN KEY (target_entity_id) REFERENCES entities (id)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_relations_source
-    ON relations (source_entity_id);
+  CREATE INDEX IF NOT EXISTS idx_kg_relations_source
+    ON kg_relations (source_entity_id);
 
-  CREATE INDEX IF NOT EXISTS idx_relations_target
-    ON relations (target_entity_id);
+  CREATE INDEX IF NOT EXISTS idx_kg_relations_target
+    ON kg_relations (target_entity_id);
 
   -- =========================================================================
   -- Full-text search over entities (per kg-schema.md §4.7)
