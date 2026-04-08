@@ -43,8 +43,9 @@
 ## 使用约定
 
 - 主会话 Agent 只负责编排，不直接写代码、不直接做审计结论；实现工作交给工程 Subagent，审计工作交给 4 个独立审计 Subagent，最终评论由 Reviewer Subagent 发布。
+- 工程席固定为 GPT-5.3 Codex（xhigh）；四审席固定为 GPT-5.4（xhigh）、GPT-5.3 Codex（xhigh）、Claude Opus 4.6（high）、Claude Sonnet 4.6（high）；Reviewer 席固定为 Claude Opus 4.6（high）。
 - 主会话 Agent 只有在工程 Subagent 达到“可交审条件”后，才可转给审计 Subagent。
 - 每一轮实现完成后，必须由 4 个独立审计 Subagent 对同一变更做全量交叉审计；任一审计报告任何问题，就必须回到工程 Subagent 修复，再次四审。
-- 仅当 4 个审计 Subagent 均给出 zero-findings `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条汇总评论，才可收口。
+- 任一 finding（含 non-blocking / suggestion / nit）都必须维持 `REJECT`；仅当 4 个审计 Subagent 均给出 zero-findings `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条原样（verbatim）汇总评论，才可收口。
 - 所有实现、提 PR、修 CI、回应审计都必须在 `.worktrees/issue-<N>-<slug>` 内完成；控制面根目录不负责“补最后一步”。
 - 默认不自动开启 auto-merge；只有在四审全绿后，才可显式传入 `--enable-auto-merge`。
