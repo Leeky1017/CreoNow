@@ -15,7 +15,7 @@
  *     property_types    — property type registry
  *     entities          — KG entity nodes
  *     entity_properties — attribute key-value pairs per entity
- *     relations         — directed edges between entities
+ *     relations         — directed edges between entities (table: kg_relations)
  *
  *   entities_fts    — FTS5 virtual table (content='entities', content_rowid='rowid')
  *                     columns: name, description — NO entity_id column per §4.7
@@ -200,11 +200,14 @@ const UP_SQL = /* sql */ `
   -- =========================================================================
   -- Knowledge Graph — relations (directed edges per kg-schema.md §4.7)
   --
+  -- Table is named 'kg_relations' to match the §4.7 target schema name and
+  -- existing KG service expectations. Column structure follows §4.7 fully.
+  --
   -- target_value: free-text target when target_entity_id is NULL.
   -- relation_detail: qualifier or annotation on the edge.
   -- confidence/source_chapter: same semantics as entity_properties above.
   -- =========================================================================
-  CREATE TABLE IF NOT EXISTS relations (
+  CREATE TABLE IF NOT EXISTS kg_relations (
     id               TEXT PRIMARY KEY,
     source_entity_id TEXT NOT NULL,
     relation_type_id TEXT NOT NULL,
@@ -224,11 +227,11 @@ const UP_SQL = /* sql */ `
     FOREIGN KEY (target_entity_id) REFERENCES entities (id)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_relations_source
-    ON relations (source_entity_id);
+  CREATE INDEX IF NOT EXISTS idx_kg_relations_source
+    ON kg_relations (source_entity_id);
 
-  CREATE INDEX IF NOT EXISTS idx_relations_target
-    ON relations (target_entity_id);
+  CREATE INDEX IF NOT EXISTS idx_kg_relations_target
+    ON kg_relations (target_entity_id);
 
   -- =========================================================================
   -- Full-text search over entities (per kg-schema.md §4.7)
@@ -255,15 +258,21 @@ const UP_SQL = /* sql */ `
   CREATE TRIGGER IF NOT EXISTS entities_au_fts
     AFTER UPDATE ON entities
   BEGIN
-    DELETE FROM entities_fts WHERE rowid = old.rowid;
-    INSERT INTO entities_fts (rowid, name, description)
-      VALUES (new.rowid, new.name, new.description);
+    -- Use the FTS5 'delete' command to remove stale tokens before re-inserting.
+    -- Plain DELETE FROM ... WHERE rowid causes phantom tokens on update.
+    INSERT INTO entities_fts(entities_fts, rowid, name, description)
+      VALUES('delete', old.rowid, old.name, old.description);
+    INSERT INTO entities_fts(rowid, name, description)
+      VALUES(new.rowid, new.name, new.description);
   END;
 
   CREATE TRIGGER IF NOT EXISTS entities_ad_fts
     AFTER DELETE ON entities
   BEGIN
-    DELETE FROM entities_fts WHERE rowid = old.rowid;
+    -- Use the FTS5 'delete' command to remove index entries on row deletion.
+    -- Plain DELETE FROM ... WHERE rowid causes 'fts5: missing row' corruption.
+    INSERT INTO entities_fts(entities_fts, rowid, name, description)
+      VALUES('delete', old.rowid, old.name, old.description);
   END;
 `;
 
