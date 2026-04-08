@@ -17,6 +17,29 @@
 | `daily_doc_audit.sh`                 | 每日文档健康检查：校验路径引用、INV 定义、spec 完整性                    | 手动 / 定期       |
 | `agent_worktree_cleanup.sh`          | 清理 worktree                                                            | 阶段 6：收口       |
 
+### TypeScript 门禁脚本清单（CI / preflight）
+
+| 脚本 | 职责 |
+| --- | --- |
+| `ai-rate-limit-coverage-gate.ts` | AI 限流与覆盖率门禁 |
+| `architecture-health-gate.ts` | 架构健康度门禁 |
+| `bundle-size-budget.ts` | 打包体积预算门禁 |
+| `contract-generate.ts` | 生成并更新跨模块契约产物 |
+| `cross-module-contract-autofix.ts` | 契约门禁自动修复辅助 |
+| `cross-module-contract-gate.ts` | 跨模块契约一致性门禁 |
+| `ensure-desktop-native-node-abi.ts` | Electron native ABI 一致性检查 |
+| `error-boundary-coverage-gate.ts` | Error Boundary 覆盖率门禁 |
+| `ipc-acceptance-gate.ts` | IPC 验收门禁 |
+| `ipc-handler-validation-gate.ts` | IPC handler 输入校验门禁 |
+| `ipc-testability-mapping-gate.ts` | IPC 可测性映射门禁 |
+| `lint-ratchet.ts` | lint ratchet（告警预算收敛） |
+| `resource-size-gate.ts` | 资源尺寸/预算门禁 |
+| `run-discovered-tests.ts` | 按发现清单执行测试 |
+| `service-stub-detector-gate.ts` | Service stub/伪实现探测门禁 |
+| `spec-test-mapping-gate.ts` | spec 与测试映射完整性门禁 |
+| `storybook-chunk-budget.ts` | Storybook chunk 预算门禁 |
+| `test-discovery-consistency-gate.ts` | 测试发现一致性门禁 |
+
 ## 工程 Subagent 可交审定义
 
 工程 Subagent 的“完成”不是“代码写完”，而是已经达到可交审条件。以下条件必须全部满足，才可请求审计：

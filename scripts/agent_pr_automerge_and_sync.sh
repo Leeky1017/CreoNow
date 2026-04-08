@@ -126,13 +126,35 @@ require_audit_pass_comment() {
   local pr_number="$1"
   local pr_url="$2"
   local comments_json audit_payload audit_pass matching_comments distinct_authors author_check_enforced stats_summary
+  local trusted_reviewer_check_enforced matching_trusted_authors pr_author reviewer_env
+  local -a audit_command trusted_reviewer_args
+
+  reviewer_env="${CODEX_AUDIT_TRUSTED_REVIEWERS:-}"
+  if [[ -n "$reviewer_env" ]]; then
+    IFS=',' read -r -a trusted_reviewer_args <<<"$reviewer_env"
+  else
+    trusted_reviewer_args=()
+  fi
+
+  pr_author="$(run_gh_with_retry gh pr view "$pr_number" --json author --jq '.author.login // empty')"
+  if [[ -n "$pr_author" ]]; then
+    trusted_reviewer_args+=("$pr_author")
+  fi
 
   comments_json="$(run_gh_with_retry gh pr view "$pr_number" --json comments --jq '.comments | map({body: (.body // ""), author: (.author.login? // .author.name? // "")})')"
-  audit_payload="$(python3 scripts/agent_github_delivery.py audit-pass --comments-json "$comments_json")"
+  audit_command=(python3 scripts/agent_github_delivery.py audit-pass --comments-json "$comments_json")
+  for reviewer in "${trusted_reviewer_args[@]}"; do
+    if [[ -n "$reviewer" ]]; then
+      audit_command+=(--trusted-reviewer "$reviewer")
+    fi
+  done
+  audit_payload="$("${audit_command[@]}")"
   audit_pass="$(json_get audit_pass <<<"$audit_payload")"
   matching_comments="$(json_get matching_comments <<<"$audit_payload" || true)"
   distinct_authors="$(json_get distinct_authors <<<"$audit_payload" || true)"
   author_check_enforced="$(json_get author_check_enforced <<<"$audit_payload" || true)"
+  trusted_reviewer_check_enforced="$(json_get trusted_reviewer_check_enforced <<<"$audit_payload" || true)"
+  matching_trusted_authors="$(json_get matching_trusted_authors <<<"$audit_payload" || true)"
 
   if [[ "$audit_pass" == "true" ]]; then
     return 0
@@ -142,8 +164,11 @@ require_audit_pass_comment() {
   if [[ "$author_check_enforced" == "true" ]]; then
     stats_summary="${stats_summary}, distinct_authors=${distinct_authors:-0}"
   fi
+  if [[ "$trusted_reviewer_check_enforced" == "true" ]]; then
+    stats_summary="${stats_summary}, matching_trusted_authors=${matching_trusted_authors:-0}"
+  fi
 
-  echo "ERROR: PR #${pr_number} does not yet satisfy the 1+4+1 reviewer-consolidated zero-findings gate (`FINAL-VERDICT` + `ACCEPT`; ${stats_summary}). Reviewer must post one consolidated verbatim comment containing all four qualifying audit reports before auto-merge." >&2
+  echo "ERROR: PR #${pr_number} does not yet satisfy the 1+4+1 reviewer-consolidated zero-findings gate ('FINAL-VERDICT' + 'ACCEPT'; ${stats_summary}). A trusted Reviewer account must post one consolidated verbatim comment containing all four qualifying audit reports before auto-merge." >&2
   comment_pr_with_kind "$pr_number" "audit-required" "$pr_url"
   exit 1
 }

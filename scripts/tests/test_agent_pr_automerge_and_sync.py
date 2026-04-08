@@ -68,6 +68,8 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
                 "matching_comments": matching_comments,
                 "distinct_authors": distinct_authors,
                 "author_check_enforced": True,
+                "trusted_reviewer_check_enforced": True,
+                "matching_trusted_authors": 1 if audit_pass else 0,
             }
         )
         capabilities_payload = json.dumps(
@@ -166,6 +168,12 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
                     json_field = args[args.index("--json") + 1]
                     if json_field == "comments":
                         print(comments_payload)
+                    elif json_field == "author" and "--jq" in args:
+                        jq = args[args.index("--jq") + 1]
+                        if jq == ".author.login // empty":
+                            print("reviewer-agent")
+                        else:
+                            raise SystemExit(f"unexpected gh jq: {{jq}}")
                     elif "--jq" in args:
                         jq = args[args.index("--jq") + 1]
                         if jq.startswith(".mergedAt //"):
@@ -271,7 +279,7 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
             result = self._run_script(worktree, temp_dir, extra_args=["--enable-auto-merge"])
             self.assertEqual(1, result.returncode, result.stdout)
             self.assertIn("1+4+1 reviewer-consolidated zero-findings gate", result.stdout)
-            self.assertIn("reviewer must post one consolidated verbatim comment", result.stdout.lower())
+            self.assertIn("trusted reviewer account must post one consolidated verbatim comment", result.stdout.lower())
             self.assertIn("matching_comments=0", result.stdout)
             self.assertIn("distinct_authors=0", result.stdout)
             self.assertFalse((temp_dir / "sync.log").exists(), result.stdout)

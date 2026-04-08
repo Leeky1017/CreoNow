@@ -194,13 +194,54 @@ class AuditGateTests(unittest.TestCase):
                     ),
                     "author": "reviewer-agent",
                 },
-            ]
+            ],
+            trusted_reviewers=["reviewer-agent"],
         )
 
         self.assertTrue(evaluation.audit_pass)
         self.assertEqual(1, evaluation.matching_comments)
         self.assertEqual(1, evaluation.distinct_authors)
         self.assertTrue(evaluation.author_check_enforced)
+        self.assertTrue(evaluation.trusted_reviewer_check_enforced)
+        self.assertEqual(1, evaluation.matching_trusted_authors)
+
+    def test_audit_pass_should_fail_for_named_author_when_not_in_trusted_reviewer_list(self) -> None:
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [
+                {
+                    "body": "\n".join(
+                        [
+                            "## 审计汇总",
+                            "",
+                            "### 审计 1（GPT-5.4 xhigh）",
+                            "zero findings",
+                            "FINAL-VERDICT: ACCEPT",
+                            "",
+                            "### 审计 2（GPT-5.3 Codex xhigh）",
+                            "zero findings",
+                            "FINAL-VERDICT: ACCEPT",
+                            "",
+                            "### 审计 3（Claude Opus 4.6 high）",
+                            "zero findings",
+                            "FINAL-VERDICT: ACCEPT",
+                            "",
+                            "### 审计 4（Claude Sonnet 4.6 high）",
+                            "zero findings",
+                            "FINAL-VERDICT: ACCEPT",
+                        ]
+                    ),
+                    "author": "random-engineer",
+                },
+            ],
+            trusted_reviewers=["reviewer-agent"],
+        )
+
+        self.assertFalse(evaluation.audit_pass)
+        self.assertEqual(1, evaluation.matching_comments)
+        self.assertEqual(1, evaluation.distinct_authors)
+        self.assertTrue(evaluation.author_check_enforced)
+        self.assertTrue(evaluation.trusted_reviewer_check_enforced)
+        self.assertEqual(0, evaluation.matching_trusted_authors)
 
     def test_audit_pass_should_fail_when_consolidated_comment_is_missing_a_seat(self) -> None:
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
@@ -359,6 +400,8 @@ class AuditGateTests(unittest.TestCase):
                             },
                         ]
                     ),
+                    "--trusted-reviewer",
+                    "reviewer-agent",
                 ]
             )
 
@@ -368,6 +411,8 @@ class AuditGateTests(unittest.TestCase):
         self.assertEqual(1, payload["matching_comments"])
         self.assertEqual(1, payload["distinct_authors"])
         self.assertTrue(payload["author_check_enforced"])
+        self.assertTrue(payload["trusted_reviewer_check_enforced"])
+        self.assertEqual(1, payload["matching_trusted_authors"])
 
     def test_build_blocker_comment_should_explain_audit_requirement(self) -> None:
         body = agent_github_delivery.build_blocker_comment(

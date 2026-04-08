@@ -42,6 +42,8 @@ class AuditPassEvaluation:
     matching_comments: int
     distinct_authors: int
     author_check_enforced: bool
+    trusted_reviewer_check_enforced: bool
+    matching_trusted_authors: int
 
 
 TRUTHY = {"1", "true", "yes", "on"}
@@ -415,7 +417,31 @@ def _is_consolidated_reviewer_audit_comment(body: str) -> bool:
     return True
 
 
-def evaluate_audit_pass_comments(raw_comments: Sequence[object]) -> AuditPassEvaluation:
+def _normalize_trusted_reviewers(trusted_reviewers: Sequence[str] | None) -> set[str]:
+    if trusted_reviewers is None:
+        return set()
+    normalized: set[str] = set()
+    for reviewer in trusted_reviewers:
+        if not isinstance(reviewer, str):
+            continue
+        name = reviewer.strip()
+        if name:
+            normalized.add(name.casefold())
+    return normalized
+
+
+def _trusted_reviewers_from_env(env: Mapping[str, str], key: str) -> list[str]:
+    raw = env.get(key, "")
+    if not raw.strip():
+        return []
+    return [candidate.strip() for candidate in raw.split(",") if candidate.strip()]
+
+
+def evaluate_audit_pass_comments(
+    raw_comments: Sequence[object],
+    *,
+    trusted_reviewers: Sequence[str] | None = None,
+) -> AuditPassEvaluation:
     comments = _normalize_audit_comments(raw_comments)
     matching_comments = [
         comment
@@ -424,14 +450,30 @@ def evaluate_audit_pass_comments(raw_comments: Sequence[object]) -> AuditPassEva
     ]
     author_check_enforced = any(comment.author for comment in comments)
     distinct_authors = len({comment.author.casefold() for comment in matching_comments if comment.author})
+    trusted_reviewer_set = _normalize_trusted_reviewers(trusted_reviewers)
+    trusted_reviewer_check_enforced = bool(trusted_reviewer_set)
+    matching_trusted_authors = len(
+        {
+            comment.author.casefold()
+            for comment in matching_comments
+            if comment.author and comment.author.casefold() in trusted_reviewer_set
+        }
+    )
 
-    audit_pass = len(matching_comments) >= 1
+    if not matching_comments:
+        audit_pass = False
+    elif trusted_reviewer_check_enforced:
+        audit_pass = matching_trusted_authors >= 1
+    else:
+        audit_pass = not author_check_enforced
 
     return AuditPassEvaluation(
         audit_pass=audit_pass,
         matching_comments=len(matching_comments),
         distinct_authors=distinct_authors,
         author_check_enforced=author_check_enforced,
+        trusted_reviewer_check_enforced=trusted_reviewer_check_enforced,
+        matching_trusted_authors=matching_trusted_authors,
     )
 
 
@@ -476,7 +518,7 @@ def build_blocker_comment(
     if normalized_kind == "audit-required":
         return (
             "Auto-merge remains disabled until the Reviewer posts one consolidated "
-            "verbatim comment containing all four zero-findings `FINAL-VERDICT` audit reports "
+            "verbatim comment from a trusted reviewer account containing all four zero-findings `FINAL-VERDICT` audit reports "
             "with `ACCEPT`. "
             f"PR: {pr_url}"
         )
@@ -582,6 +624,17 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="JSON array of comment strings or {body, author} objects.",
     )
+    audit_parser.add_argument(
+        "--trusted-reviewer",
+        action="append",
+        dest="trusted_reviewers",
+        help="Repeatable trusted reviewer login allowed to satisfy the consolidated gate.",
+    )
+    audit_parser.add_argument(
+        "--trusted-reviewers-env",
+        default="CODEX_AUDIT_TRUSTED_REVIEWERS",
+        help="Environment variable that stores comma-separated trusted reviewer logins.",
+    )
 
     comment_parser = subparsers.add_parser("comment-payload", help="Build blocker comment.")
     comment_parser.add_argument(
@@ -638,8 +691,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         comments = json.loads(args.comments_json)
         if not isinstance(comments, list):
             raise SystemExit("comments-json must be a JSON array of strings or {body, author} objects")
+        trusted_reviewers = list(args.trusted_reviewers or [])
+        if args.trusted_reviewers_env:
+            trusted_reviewers.extend(_trusted_reviewers_from_env(os.environ, args.trusted_reviewers_env))
         try:
-            evaluation = evaluate_audit_pass_comments(comments)
+            evaluation = evaluate_audit_pass_comments(comments, trusted_reviewers=trusted_reviewers)
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
         print(json.dumps(asdict(evaluation), ensure_ascii=False, indent=2))
