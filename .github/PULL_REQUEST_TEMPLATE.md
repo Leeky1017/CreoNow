@@ -4,8 +4,6 @@
 
 Closes #<!-- Issue 编号 -->
 
----
-
 ## 变更类型
 
 - [ ] Feature（新功能）
@@ -41,44 +39,30 @@ Closes #<!-- Issue 编号 -->
 
 ## 阶段 B：Invariant Checklist
 
-CI 自动解析以下 Checklist（计划实现，当前由人工审查确认）。
-每条必须勾选「遵守」或「不涉及」。如果违反，必须附理由。
+<!-- 每条勾选表示「遵守」或「不涉及」。若违反，取消勾选并在行末括号内注明理由。 -->
 
-- [ ] **INV-1 原稿保护** -- AI 写操作经 Permission Gate + 版本快照
-  - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-2 并发安全** -- isConcurrencySafe 标记正确，未标记的串行执行
-  - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-3 CJK Token** -- Token 估算区分 CJK/ASCII，未使用 UTF8_BYTES/4
-  - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-4 Memory-First** -- 未新增额外向量存储（KG+FTS5 为主检索路径，现有 sqlite-vec/RAG 作为降级补充保留）
-  - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-5 叙事压缩** -- AutoCompact 保留 KG 实体、角色设定、未解伏笔
-  - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-6 一切皆 Skill** -- 新能力通过 Skill 体系注册，未裸调 LLM
-  - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-7 统一入口** -- 操作走 CommandDispatcher（計劃实现，当前 IPC handler 直调 Service），新增操作已注册到 IPC handler
-  - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-8 Hook 链** -- 写操作后 post-writing hooks 正常触发
-  - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-9 成本追踪** -- AI 调用已记录 model/tokens/费用（`cachedTokens` 接口已预留但当前未传入）
-  - 遵守 / 不涉及 / 违反（理由：___）
-- [ ] **INV-10 错误不丢上下文** -- 中断时生成错误事件，未静默丢弃
-  - 遵守 / 不涉及 / 违反（理由：___）
+- [ ] **INV-1 原稿保护** — AI 写操作经 Permission Gate + 版本快照
+- [ ] **INV-2 并发安全** — isConcurrencySafe 标记正确，未标记的串行执行
+- [ ] **INV-3 CJK Token** — Token 估算区分 CJK/ASCII，未使用 UTF8_BYTES/4
+- [ ] **INV-4 Memory-First** — 未新增额外向量存储（KG+FTS5 为主检索路径）
+- [ ] **INV-5 叙事压缩** — AutoCompact 保留 KG 实体、角色设定、未解伏笔
+- [ ] **INV-6 一切皆 Skill** — 新能力通过 Skill 体系注册，未裸调 LLM
+- [ ] **INV-7 统一入口** — 操作走 CommandDispatcher / IPC handler，新增操作已注册
+- [ ] **INV-8 Hook 链** — 写操作后 post-writing hooks 正常触发
+- [ ] **INV-9 成本追踪** — AI 调用已记录 model/tokens/费用
+- [ ] **INV-10 错误不丢上下文** — 中断时生成错误事件，未静默丢弃
 
 ---
 
 ## Validation Evidence
 
-### 测试
-
-<!-- 贴出测试运行结果或截图 -->
-<!-- 粘贴关键验证命令、CI 结果或门禁摘要 -->
+<!-- 贴出测试运行结果、类型检查、lint 结果或 CI 门禁摘要 -->
 
 -
 
 ## Visual Evidence
 
-<!-- 前端改动必须在本节直接嵌入至少 1 张截图；仅写“本地有截图 / 之后补”视为未完成 -->
+<!-- 前端改动必须在本节直接嵌入至少 1 张截图；仅写"本地有截图 / 之后补"视为未完成 -->
 <!-- 不涉及前端的改动写 N/A -->
 
 ### Embedded Screenshots
@@ -96,12 +80,6 @@ N/A
 
 - [ ] N/A（非前端改动）
 
-## Test Coverage
-
-<!-- 说明新增/修改了哪些测试，测试覆盖了什么回归场景 -->
-
--
-
 ## Risk & Rollback
 
 <!-- 本次改动最可能出什么问题？如何回滚？ -->
@@ -115,17 +93,12 @@ N/A
 - `scripts/agent_pr_preflight.sh`:
 - Required checks:
 
-## Checklist
+---
 
-- [ ] 本 PR 在 `.worktrees/issue-<N>-<slug>` 中完成实现、提 PR、修 CI、回应审计
-- [ ] PR 正文包含 `Closes #N`、验证证据、回滚点、审计门禁
-- [ ] `scripts/agent_pr_preflight.sh` 通过
+## Final Checklist
+
+- [ ] 全程在 `.worktrees/issue-<N>-<slug>` 中完成
 - [ ] `pnpm typecheck` 通过
 - [ ] 相关测试通过
-- [ ] required checks 全绿后才请求审计/合并
-- [ ] 前端改动：`pnpm -C apps/desktop storybook:build` 通过
-- [ ] 前端改动：PR 正文已直接嵌入至少 1 张截图；无可见视觉证据视为未完成
-- [ ] 前端改动：已提供可点击的 Storybook Artifact / Link 与视觉验收说明
-- [ ] 无硬编码颜色/间距值（使用 Design Token）
 - [ ] 无 `any` 类型
-- [ ] 新组件有 Storybook Story
+- [ ] 前端改动：Storybook 可构建、无硬编码颜色/间距、新组件有 Story
