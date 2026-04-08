@@ -3,6 +3,7 @@
 # 扫描仓库中所有文档，校验路径引用、INV 定义、spec 完整性、脚本引用。
 # 用法: scripts/daily_doc_audit.sh [--verbose]
 # 退出码: 0 = 无问题, 1 = 发现问题
+# 已知问题可写入 .doc-audit-ignore（每行一个 pattern，支持 # 注释）
 
 set -euo pipefail
 
@@ -14,9 +15,37 @@ VERBOSE=false
 
 ISSUES=()
 
+# ─────────────────────────────────────────────
+# 0. 加载 ignore patterns
+# ─────────────────────────────────────────────
+IGNORE_PATTERNS=()
+IGNORE_FILE="$REPO_ROOT/.doc-audit-ignore"
+if [[ -f "$IGNORE_FILE" ]]; then
+  while IFS= read -r line; do
+    # Skip blank lines and comments
+    [[ -z "$line" || "$line" =~ ^# ]] && continue
+    IGNORE_PATTERNS+=("$line")
+  done < "$IGNORE_FILE"
+fi
+
+is_ignored() {
+  local msg="$1"
+  for pat in "${IGNORE_PATTERNS[@]+"${IGNORE_PATTERNS[@]}"}"; do
+    if [[ "$msg" == *"$pat"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 log_issue() {
+  if is_ignored "$1"; then
+    $VERBOSE && echo "[IGNR] $1" || true
+    return 1  # signal: ignored
+  fi
   ISSUES+=("$1")
   echo "[FAIL] $1"
+  return 0  # signal: counted
 }
 
 log_ok() {
@@ -105,8 +134,7 @@ for md in "${MD_FILES[@]}"; do
         if grep -q "目标架构\|尚未实现\|待创建\|<!-- planned -->" "$md" 2>/dev/null; then
           log_skip "$md → $path_ref (marked as planned)"
         else
-          log_issue "$md: 引用路径不存在 → $path_ref"
-          path_issues=$((path_issues + 1))
+          log_issue "$md: 引用路径不存在 → $path_ref" && path_issues=$((path_issues + 1)) || true
         fi
       fi
     fi
@@ -138,8 +166,7 @@ for md in "${MD_FILES[@]}"; do
       [[ "$inv_ref" == "$defined" ]] && found=true && break
     done
     if ! $found; then
-      log_issue "$md: 引用 $inv_ref 未在 ARCHITECTURE.md 中定义"
-      inv_issues=$((inv_issues + 1))
+      log_issue "$md: 引用 $inv_ref 未在 ARCHITECTURE.md 中定义" && inv_issues=$((inv_issues + 1)) || true
     else
       log_ok "$md → $inv_ref"
     fi
@@ -159,8 +186,7 @@ if [[ -d "openspec/specs" ]]; then
   for dir in openspec/specs/*/; do
     module="$(basename "$dir")"
     if [[ ! -f "${dir}spec.md" ]]; then
-      log_issue "openspec/specs/$module/ 缺少 spec.md"
-      spec_issues=$((spec_issues + 1))
+      log_issue "openspec/specs/$module/ 缺少 spec.md" && spec_issues=$((spec_issues + 1)) || true
     else
       log_ok "openspec/specs/$module/spec.md"
     fi
@@ -195,8 +221,7 @@ for md in "${MD_FILES[@]}"; do
     if [[ -f "$script_file" ]]; then
       log_ok "$md → $script_file"
     else
-      log_issue "$md: 引用脚本不存在 → $script_ref"
-      script_issues=$((script_issues + 1))
+      log_issue "$md: 引用脚本不存在 → $script_ref" && script_issues=$((script_issues + 1)) || true
     fi
   done < <(grep -oP '`(scripts/[^`]+)`' "$md" 2>/dev/null | sed 's/^`//;s/`$//' || true)
 done
@@ -225,8 +250,7 @@ for md in "${MD_FILES[@]}"; do
       script_name="${cmd#pnpm }"
       script_name="${script_name%% *}"
       if ! python3 -c "import json; d=json.load(open('package.json')); exit(0 if '$script_name' in d.get('scripts',{}) else 1)" 2>/dev/null; then
-        log_issue "$md: 引用不存在的根级命令 '$cmd'（不在 root package.json 中）"
-        stale_issues=$((stale_issues + 1))
+        log_issue "$md: 引用不存在的根级命令 '$cmd'（不在 root package.json 中）" && stale_issues=$((stale_issues + 1)) || true
       fi
     fi
   done

@@ -1,0 +1,23 @@
+# .doc-audit-ignore — daily_doc_audit.sh 已知问题白名单
+# 每行一个 pattern（子字符串匹配）。空行和 # 开头的行会被忽略。
+# 本文件记录的是已确认的、暂不修复的历史文档引用问题。
+# 新增条目时必须注明原因。
+
+# ─── cc-analysis 历史分析文档 ───
+# 这些是 Claude Code 源码分析报告中的计划路径，不是当前代码引用。
+# 作为历史参考保留，不做修改。
+docs/references/cc-analysis/P2-CHANGES.md: 引用路径不存在
+docs/references/cc-analysis/P3-CHANGES.md: 引用路径不存在
+docs/references/cc-analysis/13-CN-FINAL-ARCHITECTURE.md: 引用路径不存在
+docs/references/cc-analysis/15-CC-CROSS-AUDIT-AND-CN-MIGRATION.md: 引用路径不存在
+
+# ─── openspec 计划路径 ───
+# spec 中对未来实现的描述，待功能实现时同步更新。
+openspec/specs/ipc/spec.md: 引用路径不存在
+openspec/specs/workbench/spec.md: 引用路径不存在
+openspec/specs/workbench/spec.md: 引用脚本不存在
+
+# ─── doc-audit-report.md 自引用 ───
+# 审计报告中描述"已修复/已移除"的命令，属于历史上下文，非活跃引用。
+docs/references/doc-audit-report.md: 引用脚本不存在
+docs/references/doc-audit-report.md: 引用不存在的根级命令

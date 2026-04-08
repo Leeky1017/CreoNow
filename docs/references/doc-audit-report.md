@@ -1,7 +1,7 @@
 # 文档审计报告
 
 > **审计时间**：2025-07-17
-> **审计范围**：全仓库 Markdown 文档（85 个文件）
+> **审计范围**：全仓库 Markdown 文档（87 个文件）
 > **触发原因**：PR #78 合并治理文档后，对全仓库文档做一致性审计
 
 ---
@@ -12,7 +12,7 @@
 |------|--------|------|
 | 根目录 | 5 | AGENTS.md, ARCHITECTURE.md, README.md, CLAUDE.md, COMPREHENSIVE-ANALYSIS.md |
 | `docs/references/` | 10 | 开发参考文档 |
-| `docs/references/cc-analysis/` | 22 | Claude Code 分析报告（含 P1-P3 阶段文档） |
+| `docs/references/cc-analysis/` | 24 | Claude Code 分析报告（含 P1-P3 阶段文档） |
 | `openspec/specs/*/spec.md` | 13 | 模块行为规范 |
 | `.github/` | 8 | PR 模板、Copilot 指令、Agent/Prompt 定义 |
 | `scripts/` | 2 | 脚本文档 |
@@ -35,7 +35,7 @@
 - **问题**：CI Job 映射表列出 9 个不存在的 job 名称（`lint-and-typecheck`、`unit-test-core`、`unit-test-renderer` 等），实际 CI 只有一个 `check` job 包含 12 个 step
 - **修复**：重写映射表，改为按 `.github/workflows/ci.yml` 实际 step 名称列出
 - **同时修复**：
-  - 移除不存在的 `pnpm lint` 和 `pnpm format:check` 命令引用（root `package.json` 中无这两个 script）
+  - 移除不存在的 lint 和 format:check 命令引用（root package.json 中无这两个 script）
   - 更新 CI 失败排查表，匹配实际 step 名称
   - 更新 PR 提交前本地验证最小集
 
@@ -46,7 +46,7 @@
 | `tokens.css` 标记"（待创建）"但文件已存在 | 移除"（待创建）" |
 | `components/` 标记"（待创建）"但目录已存在 | 移除"（待创建）" |
 | `components/patterns/` 作为组件层级但目录不存在 | 从层级表中删除（仅保留已存在的 `primitives/` 和 `composites/`） |
-| `pnpm test:visual` 命令不存在 | 从 CI 验证命令中删除 |
+| test:visual 命令不存在 | 从 CI 验证命令中删除 |
 
 ### 2.4 cc-analysis/00-INDEX.md — 缺少阶段补充文档
 
@@ -85,7 +85,7 @@
 | .github/copilot-instructions.md | ✅ 脚本引用正确，治理规则与 AGENTS.md 一致 |
 | .github/agents/*.agent.md（4 个） | ✅ 角色定义与 AGENTS.md 一致 |
 | .github/prompts/*.prompt.md（3 个） | ✅ 流程指令与对应 agent 一致 |
-| scripts/README.md | ✅ 24 个脚本全部存在 |
+| scripts/README.md | ✅ 25 个脚本全部存在 |
 | 13 个 openspec/specs/*/spec.md | ✅ 模块与 services/ 目录对应 |
 
 ---
@@ -99,7 +99,7 @@
 ### 4.2 OpenSpec 中的计划路径
 
 - `ipc/spec.md` 引用 `packages/shared/types/ipc/` 等目录（实际结构为 `packages/shared/types/ipc-generated.ts`）
-- `workbench/spec.md` 引用 `docs/release/` 和 `scripts/i18n-inventory-scan.ts`（未实现）
+- `workbench/spec.md` 引用 docs/release/ 和 i18n-inventory-scan 脚本（均未实现）
 
 这些属于 spec 对未来实现的描述，待对应功能实现时同步更新。
 

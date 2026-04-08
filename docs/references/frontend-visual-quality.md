@@ -141,8 +141,8 @@ Figma Make 设计优化 → Figma MCP 推送上下文
 ### 开发时验证
 
 ```bash
-pnpm -C apps/desktop storybook        # 本地启动
-pnpm -C apps/desktop storybook:wsl    # WSL 环境
+pnpm -C apps/desktop storybook                              # 本地启动
+# WSL 环境请参照 docs/references/wsl-development-guide.md
 ```
 
 ### CI 验证
