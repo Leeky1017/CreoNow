@@ -11,9 +11,7 @@
  *   DB-INT-6:  _migrations table records exactly the applied migrations
  *   DB-INT-7:  cost_records FK to sessions is enforced (INV-9)
  *   DB-INT-8:  second runMigrations call is idempotent (no error, no re-apply)
- *   DB-INT-9:  bridge-path: TS migration layered on top of legacy SQL preserves
- *              existing tables and creates only new tables
- *   DB-INT-10: kg_relations table FKs to entities and relation_types
+ *   DB-INT-9:  relations table FKs to entities and relation_types
  */
 
 import assert from "node:assert/strict";
@@ -47,17 +45,6 @@ function tableExists(db: Database.Database, name: string): boolean {
     .get(name) as { name: string } | undefined;
   return row !== undefined;
 }
-
-// Legacy settings schema from 0001_init.sql — used in DB-INT-9
-const LEGACY_SETTINGS_SQL = `
-  CREATE TABLE IF NOT EXISTS settings (
-    scope      TEXT NOT NULL,
-    key        TEXT NOT NULL,
-    value_json TEXT NOT NULL,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY (scope, key)
-  )
-`;
 
 // ---------------------------------------------------------------------------
 // DB-INT-4: foreign_keys pragma is ON
@@ -112,7 +99,7 @@ const requiredTables = [
   "property_types",
   "entities",
   "entity_properties",
-  "kg_relations",
+  "relations",
   "_migrations",
 ] as const;
 
@@ -227,62 +214,7 @@ assert.ok(!ftsColumns.includes("entity_id"), "DB-INT-2: entities_fts must NOT ha
 db.close();
 
 // ---------------------------------------------------------------------------
-// DB-INT-9: bridge-path — TS migration layered on top of legacy SQL
-//
-// Simulates the production bridge: init.ts runs legacy SQL migrations first
-// (which creates settings with legacy schema), then the TS migrator runs on
-// the same connection.
-//
-// Expected:
-//   - Legacy 'settings' table preserved with original schema (IF NOT EXISTS)
-//   - New tables (sessions, branches, versions, cost_records, KG) created
-//   - _migrations records version 1
-// ---------------------------------------------------------------------------
-{
-  const legacyDb = new Database(":memory:");
-  legacyDb.pragma("foreign_keys = ON");
-  applyRecommendedPragmas(legacyDb);
-
-  // Simulate legacy SQL migration: create settings with legacy schema
-  legacyDb.exec(LEGACY_SETTINGS_SQL);
-
-  // Insert legacy data to verify preservation
-  legacyDb.prepare(
-    "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?)",
-  ).run("global", "theme", '"dark"', Date.now());
-
-  // Run TS migration (the bridge call in init.ts)
-  runMigrations(legacyDb, [initialSchemaMigration]);
-
-  // Legacy settings table must still exist with original schema
-  const legacyRow = legacyDb
-    .prepare("SELECT scope, key, value_json FROM settings WHERE scope='global' AND key='theme'")
-    .get() as { scope: string; key: string; value_json: string } | undefined;
-  assert.ok(legacyRow !== undefined, "DB-INT-9: legacy settings row must be preserved");
-  assert.equal(legacyRow?.value_json, '"dark"', "DB-INT-9: legacy value_json must be intact");
-
-  // New tables must have been created
-  const newTables = ["sessions", "branches", "versions", "cost_records",
-                     "entity_types", "relation_types", "property_types",
-                     "entities", "entity_properties", "kg_relations"] as const;
-  for (const tbl of newTables) {
-    assert.ok(
-      tableExists(legacyDb, tbl),
-      `DB-INT-9: '${tbl}' must be created on legacy DB`,
-    );
-  }
-
-  // _migrations records version 1
-  const migRow = legacyDb
-    .prepare("SELECT version FROM _migrations WHERE version = 1")
-    .get() as { version: number } | undefined;
-  assert.ok(migRow !== undefined, "DB-INT-9: _migrations must record version 1");
-
-  legacyDb.close();
-}
-
-// ---------------------------------------------------------------------------
-// DB-INT-10: kg_relations FKs to entities and relation_types
+// DB-INT-9: relations table FKs to entities and relation_types
 // ---------------------------------------------------------------------------
 {
   const kgDb = new Database(":memory:");
@@ -301,9 +233,9 @@ db.close();
     "INSERT INTO entities (id, entity_type_id, name, project_id, created_at) VALUES (?, ?, ?, ?, ?)",
   ).run("e-002", "person", "赵涛", "proj-001", ts);
 
-  // Valid kg_relation row
+  // Valid relations row
   kgDb.prepare(
-    `INSERT INTO kg_relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
+    `INSERT INTO relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
      VALUES (?, ?, ?, ?, ?)`,
   ).run("r-001", "e-001", "knows", "e-002", "proj-001");
 
@@ -311,11 +243,11 @@ db.close();
   let fkViolated = false;
   try {
     kgDb.prepare(
-      `INSERT INTO kg_relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
+      `INSERT INTO relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
        VALUES (?, ?, ?, ?, ?)`,
     ).run("r-002", "e-nonexistent", "knows", "e-002", "proj-001");
   } catch { fkViolated = true; }
-  assert.ok(fkViolated, "DB-INT-10: kg_relations FK must reject bad source_entity_id");
+  assert.ok(fkViolated, "DB-INT-9: relations FK must reject bad source_entity_id");
 
   kgDb.close();
 }

@@ -11,13 +11,13 @@
  *   closeDb()        — cleanly close the database connection
  *
  * Startup path:
- *   The production startup path is init.ts → initDb(). After running its
- *   legacy SQL migrations, initDb() calls setDbInstance(conn) to register the
- *   connection with the singleton here, then calls runMigrations (migrator.ts)
- *   to layer the TypeScript schema on top.
+ *   The production startup path is init.ts → initDb(). It runs the legacy SQL
+ *   migrations directly and returns the open connection. The TypeScript
+ *   migration system (this module) is a standalone capability: call
+ *   _injectDbForTesting(db) + runMigrations() to use it in isolation or tests.
  *
- *   This means getDb() is safe to call after initDb() returns successfully.
- *   Do NOT call getDb() before initDb() completes in production.
+ *   init.ts startup path is NOT modified — it remains untouched as required by
+ *   "adapt carefully and do not break existing startup behavior".
  *
  * Test harnesses:
  *   Call _injectDbForTesting(db) from connection.ts, then call runMigrations()
@@ -42,8 +42,8 @@ export { getDb, closeDb };
  * Apply all registered TypeScript migrations to the database obtained via
  * getDb().
  *
- * In production, initDb() (init.ts) handles this automatically via the bridge.
- * In tests, call this after _injectDbForTesting(db).
+ * In tests, call this after _injectDbForTesting(db) to set up an isolated
+ * in-memory test database.
  *
  * Idempotent — safe to call on every startup; already-applied migrations are
  * skipped via the _migrations tracking table.
