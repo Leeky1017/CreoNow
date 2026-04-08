@@ -19,8 +19,9 @@
  *   database. It assumes core legacy tables (for example `projects`) already
  *   exist. Use it as a migration layer on top of the established initDb flow.
  *
- *   init.ts startup path is NOT modified — it remains untouched as required by
- *   "adapt carefully and do not break existing startup behavior".
+ *   init.ts startup path remains legacy-first by design, but now consumes the
+ *   shared `DB_MIGRATIONS` registry so TS bridge registration stays consistent
+ *   across init and direct migration entrypoints.
  *
  * Test harnesses:
  *   Call setDbInstance(db) from connection.ts, then call runMigrations()
