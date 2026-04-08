@@ -18,7 +18,7 @@ import { setDbInitError } from "../ipc/dbError";
 import initSql from "./migrations/0001_init.sql?raw";
 import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
 import judgeSql from "./migrations/0003_judge.sql?raw";
-import { setDbInstance } from "./connection";
+import { closeDb, setDbInstance } from "./connection";
 import { runMigrations } from "./migrator";
 import { initialSchemaMigration } from "./migrations/001_initial_schema";
 import skillsSql from "./migrations/0004_skills.sql?raw";
@@ -293,10 +293,9 @@ export function initDb(args: {
       migration_applied: appliedVersions,
     });
 
-    // Register the connection singleton and run the TS migration layer.
-    // Must happen after legacy SQL migrations so the schema is fully prepared.
-    setDbInstance(conn);
+    // Run TS migration bridge first; only publish singleton after bridge success.
     runMigrations(conn, [initialSchemaMigration]);
+    setDbInstance(conn);
 
     return { ok: true, db: conn, schemaVersion: finalSchemaVersion };
   } catch (error) {
@@ -307,6 +306,11 @@ export function initDb(args: {
         message:
           closeError instanceof Error ? closeError.message : String(closeError),
       });
+    }
+    try {
+      closeDb();
+    } catch {
+      // Ignore singleton cleanup failures; initialization error is reported below.
     }
 
     const diagnosed = diagnoseDbInitFailure(error);

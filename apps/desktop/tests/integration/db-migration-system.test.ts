@@ -3,17 +3,17 @@
  * migration system.
  *
  * Scenario coverage:
- *   DB-INT-1:  all tables created by 001_initial_schema exist after runMigrations
- *   DB-INT-2:  entities_fts FTS5 virtual table is queryable (name/description only — no entity_id column)
+ *   DB-INT-1:  all runtime-aligned tables created by 001_initial_schema exist
+ *   DB-INT-2:  entities_fts FTS5 virtual table is queryable (content='kg_entities')
  *   DB-INT-3:  versions.branch_id → branches FK constraint is enforced (NOT NULL + FK)
  *   DB-INT-4:  foreign_keys pragma is ON
  *   DB-INT-5:  WAL journal_mode is active on a file-based DB
  *   DB-INT-6:  _migrations table records exactly the applied migrations
  *   DB-INT-7:  cost_records FK to sessions is enforced (INV-9)
  *   DB-INT-8:  second runMigrations call is idempotent (no error, no re-apply)
- *   DB-INT-9:  bridge path — runMigrations works alongside legacy settings rows (coexistence)
- *   DB-INT-10: relations table FKs to entities and relation_types
- *   DB-INT-11: FTS5 external-content trigger correctness (no phantom tokens, no corruption)
+ *   DB-INT-9:  bridge path — migration bookkeeping remains truthful with legacy settings schema
+ *   DB-INT-10: kg_relations table FKs to kg_entities and project scope
+ *   DB-INT-11: FTS5 external-content trigger correctness (no phantom tokens; DELETE removes tokens)
  */
 
 import assert from "node:assert/strict";
@@ -88,7 +88,7 @@ const db = createTestDb();
 runMigrations(db, [initialSchemaMigration]);
 
 // ---------------------------------------------------------------------------
-// DB-INT-1: required tables exist (exact names per AC + §4.7)
+// DB-INT-1: required tables exist (runtime-aligned schema)
 // ---------------------------------------------------------------------------
 const requiredTables = [
   "settings",
@@ -96,12 +96,10 @@ const requiredTables = [
   "branches",
   "versions",
   "cost_records",
-  "entity_types",
-  "relation_types",
-  "property_types",
-  "entities",
-  "entity_properties",
-  "relations",
+  "kg_entities",
+  "kg_relation_types",
+  "kg_relations",
+  "entities_fts",
   "_migrations",
 ] as const;
 
@@ -113,19 +111,17 @@ for (const tbl of requiredTables) {
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-2: entities_fts is queryable — NO entity_id column per §4.7
+// DB-INT-2: entities_fts is queryable against kg_entities content table
 // ---------------------------------------------------------------------------
 assert.ok(tableExists(db, "entities_fts"), "DB-INT-2: entities_fts must exist");
 
 const insertedAt = new Date().toISOString();
+db.exec("CREATE TABLE IF NOT EXISTS projects (project_id TEXT PRIMARY KEY)");
+db.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-001");
 
 db.prepare(
-  "INSERT INTO entity_types (id, name, is_builtin) VALUES (?, ?, ?)",
-).run("character", "角色", 0);
-
-db.prepare(
-  "INSERT INTO entities (id, entity_type_id, name, description, project_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-).run("ent-001", "character", "林远", "前特种兵，沉默寡言", "proj-001", insertedAt);
+  "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+).run("ent-001", "proj-001", "character", "林远", "前特种兵，沉默寡言", "{}", insertedAt, insertedAt);
 
 const ftsRow = db
   .prepare("SELECT name FROM entities_fts WHERE entities_fts MATCH ?")
@@ -134,7 +130,7 @@ const ftsRow = db
 assert.ok(ftsRow !== undefined, "DB-INT-2: FTS5 must return the inserted entity");
 assert.equal(ftsRow?.name, "林远");
 
-// Verify entity_id is NOT a column in entities_fts (per §4.7)
+// Verify entities_fts remains name/description index table
 const ftsInfo = db.pragma("table_info(entities_fts)") as Array<{ name: string }>;
 const ftsColumns = ftsInfo.map((r) => r.name);
 assert.ok(!ftsColumns.includes("entity_id"), "DB-INT-2: entities_fts must NOT have entity_id column");
@@ -235,7 +231,8 @@ const LEGACY_SETTINGS_SQL = `
 // Simulates what happens on an existing install: legacy SQL migration has
 // already created 'settings' with a different schema, then the TS migration
 // runs via init.ts bridge. The TS migration must not error (IF NOT EXISTS
-// silently skips), legacy row must survive, and new tables must be created.
+// + schema compatibility guard), legacy row must survive, and bookkeeping is
+// truthful about the expected settings contract.
 {
   const bridgeDb = new Database(":memory:");
   bridgeDb.pragma("foreign_keys = ON");
@@ -257,48 +254,71 @@ const LEGACY_SETTINGS_SQL = `
   assert.ok(legacyRow !== undefined, "DB-INT-9: legacy settings row must survive");
   assert.equal(legacyRow?.value_json, '"dark"', "DB-INT-9: legacy settings value must be intact");
 
-  // New tables must exist
-  assert.ok(tableExists(bridgeDb, "relations"), "DB-INT-9: relations must exist after bridge migration");
-  assert.ok(tableExists(bridgeDb, "entities"), "DB-INT-9: entities must exist after bridge migration");
+  const settingsColumns = (
+    bridgeDb.pragma("table_info(settings)") as Array<{ name: string }>
+  ).map((item) => item.name);
+  assert.deepEqual(
+    settingsColumns,
+    ["scope", "key", "value_json", "updated_at"],
+    "DB-INT-9: settings schema must remain legacy-compatible in bridge mode",
+  );
+
+  const migrationRow = bridgeDb
+    .prepare("SELECT version, name FROM _migrations WHERE version = 1")
+    .get() as { version: number; name: string } | undefined;
+  assert.ok(migrationRow, "DB-INT-9: baseline migration must be recorded once schema is compatible");
+
+  assert.ok(tableExists(bridgeDb, "kg_entities"), "DB-INT-9: kg_entities must exist after bridge migration");
+  assert.ok(tableExists(bridgeDb, "kg_relations"), "DB-INT-9: kg_relations must exist after bridge migration");
 
   bridgeDb.close();
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-10: relations table FKs to entities and relation_types
+// DB-INT-10: kg_relations table FKs to entities and project scope
 // ---------------------------------------------------------------------------
 {
   const kgDb = new Database(":memory:");
   kgDb.pragma("foreign_keys = ON");
   applyRecommendedPragmas(kgDb);
+  kgDb.exec("CREATE TABLE IF NOT EXISTS projects (project_id TEXT PRIMARY KEY)");
+  kgDb.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-001");
   runMigrations(kgDb, [initialSchemaMigration]);
 
   const ts = new Date().toISOString();
 
-  kgDb.prepare("INSERT INTO entity_types (id, name) VALUES (?, ?)").run("person", "人物");
-  kgDb.prepare("INSERT INTO relation_types (id, name) VALUES (?, ?)").run("knows", "认识");
   kgDb.prepare(
-    "INSERT INTO entities (id, entity_type_id, name, project_id, created_at) VALUES (?, ?, ?, ?, ?)",
-  ).run("e-001", "person", "林远", "proj-001", ts);
+    "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run("e-001", "proj-001", "character", "林远", "", "{}", ts, ts);
   kgDb.prepare(
-    "INSERT INTO entities (id, entity_type_id, name, project_id, created_at) VALUES (?, ?, ?, ?, ?)",
-  ).run("e-002", "person", "赵涛", "proj-001", ts);
+    "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run("e-002", "proj-001", "character", "赵涛", "", "{}", ts, ts);
 
-  // Valid relations row
+  // Valid kg_relations row
   kgDb.prepare(
-    `INSERT INTO relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run("r-001", "e-001", "knows", "e-002", "proj-001");
+    `INSERT INTO kg_relations (id, project_id, source_entity_id, target_entity_id, relation_type, description, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run("r-001", "proj-001", "e-001", "e-002", "knows", "", ts);
 
   // FK violation: non-existent source_entity_id
   let fkViolated = false;
   try {
     kgDb.prepare(
-      `INSERT INTO relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
-       VALUES (?, ?, ?, ?, ?)`,
-    ).run("r-002", "e-nonexistent", "knows", "e-002", "proj-001");
+      `INSERT INTO kg_relations (id, project_id, source_entity_id, target_entity_id, relation_type, description, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run("r-002", "proj-001", "e-nonexistent", "e-002", "knows", "", ts);
   } catch { fkViolated = true; }
-  assert.ok(fkViolated, "DB-INT-10: relations FK must reject bad source_entity_id");
+  assert.ok(fkViolated, "DB-INT-10: kg_relations FK must reject bad source_entity_id");
+
+  // FK violation: non-existent project_id
+  let projectFkViolated = false;
+  try {
+    kgDb.prepare(
+      `INSERT INTO kg_relations (id, project_id, source_entity_id, target_entity_id, relation_type, description, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run("r-003", "proj-missing", "e-001", "e-002", "knows", "", ts);
+  } catch { projectFkViolated = true; }
+  assert.ok(projectFkViolated, "DB-INT-10: kg_relations FK must reject bad project_id");
 
   kgDb.close();
 }
@@ -315,16 +335,17 @@ const LEGACY_SETTINGS_SQL = `
   runMigrations(ftsDb, [initialSchemaMigration]);
 
   const ts = new Date().toISOString();
-  ftsDb.prepare("INSERT INTO entity_types (id, name) VALUES (?, ?)").run("char", "角色");
+  ftsDb.exec("CREATE TABLE IF NOT EXISTS projects (project_id TEXT PRIMARY KEY)");
+  ftsDb.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-001");
 
   // Insert entity — triggers entities_ai_fts
   ftsDb.prepare(
-    "INSERT INTO entities (id, entity_type_id, name, description, project_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-  ).run("fts-e1", "char", "旧名字", "旧描述", "proj-001", ts);
+    "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run("fts-e1", "proj-001", "character", "旧名字", "旧描述", "{}", ts, ts);
 
   // Update entity — triggers entities_au_fts (must remove old tokens)
-  ftsDb.prepare("UPDATE entities SET name = ?, description = ? WHERE id = ?")
-    .run("新名字", "新描述", "fts-e1");
+  ftsDb.prepare("UPDATE kg_entities SET name = ?, description = ?, updated_at = ? WHERE id = ?")
+    .run("新名字", "新描述", ts, "fts-e1");
 
   // Old tokens must NOT appear — phantom token check
   const phantomRow = ftsDb
@@ -339,14 +360,18 @@ const LEGACY_SETTINGS_SQL = `
   assert.ok(newRow !== undefined, "DB-INT-11: UPDATE must index new tokens");
 
   // Delete entity — triggers entities_ad_fts (must not corrupt FTS)
-  ftsDb.prepare("DELETE FROM entities WHERE id = ?").run("fts-e1");
+  ftsDb.prepare("DELETE FROM kg_entities WHERE id = ?").run("fts-e1");
 
   // After delete, no rows for deleted name — no corruption check
   let deleteErrored = false;
+  let deletedToken: { name: string } | undefined;
   try {
-    ftsDb.prepare("SELECT name FROM entities_fts WHERE entities_fts MATCH ?").get("新名字");
+    deletedToken = ftsDb
+      .prepare("SELECT name FROM entities_fts WHERE entities_fts MATCH ?")
+      .get("新名字") as { name: string } | undefined;
   } catch { deleteErrored = true; }
   assert.ok(!deleteErrored, "DB-INT-11: DELETE trigger must not corrupt FTS5 index");
+  assert.ok(deletedToken === undefined, "DB-INT-11: DELETE trigger must remove deleted tokens");
 
   ftsDb.close();
 }
