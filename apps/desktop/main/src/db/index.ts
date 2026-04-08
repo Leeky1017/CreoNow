@@ -12,16 +12,20 @@
  *
  * Startup path:
  *   The production startup path is init.ts → initDb(). It runs the legacy SQL
- *   migrations directly and returns the open connection. The TypeScript
- *   migration system (this module) is a standalone capability: call
- *   _injectDbForTesting(db) + runMigrations() to use it in isolation or tests.
+ *   migrations directly and returns the open connection, then bridges this TS
+ *   migration layer.
+ *
+ *   This module is NOT a full standalone bootstrap for an empty application
+ *   database. It assumes core legacy tables (for example `projects`) already
+ *   exist. Use it as a migration layer on top of the established initDb flow.
  *
  *   init.ts startup path is NOT modified — it remains untouched as required by
  *   "adapt carefully and do not break existing startup behavior".
  *
  * Test harnesses:
  *   Call _injectDbForTesting(db) from connection.ts, then call runMigrations()
- *   from this module, to set up an isolated in-memory test database.
+ *   from this module; seed legacy dependency tables (e.g. `projects`) when a
+ *   test scenario needs FK-backed inserts.
  *
  * Invariant obligations (must be satisfied by callers):
  *

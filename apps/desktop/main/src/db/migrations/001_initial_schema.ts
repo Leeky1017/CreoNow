@@ -78,11 +78,11 @@ const UP_SQL = /* sql */ `
     description    TEXT NOT NULL DEFAULT '',
     attributes_json TEXT NOT NULL DEFAULT '{}',
     version        INTEGER NOT NULL DEFAULT 1,
+    created_at     TEXT NOT NULL,
+    updated_at     TEXT NOT NULL,
     ai_context_level TEXT NOT NULL DEFAULT 'when_detected',
     aliases        TEXT NOT NULL DEFAULT '[]',
     last_seen_state TEXT,
-    created_at     TEXT NOT NULL,
-    updated_at     TEXT NOT NULL,
     FOREIGN KEY (project_id) REFERENCES projects (project_id) ON DELETE CASCADE
   );
 
@@ -194,6 +194,14 @@ function assertTableColumns(
 }
 
 function up(db: Database.Database): void {
+  const entitiesFtsExistsBeforeMigration = Boolean(
+    db
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+      )
+      .get("entities_fts"),
+  );
+
   // Guard migration bookkeeping truthfulness:
   // if a table already exists with an incompatible shape, fail instead of
   // silently recording version 1 as applied.
@@ -232,6 +240,13 @@ function up(db: Database.Database): void {
   });
 
   db.exec(UP_SQL);
+
+  // Bridge path fix: when entities_fts is first created on existing databases
+  // with pre-existing kg_entities rows, rebuild the FTS index immediately so
+  // search coverage is truthful right after migration.
+  if (!entitiesFtsExistsBeforeMigration) {
+    db.prepare("INSERT INTO entities_fts(entities_fts) VALUES('rebuild')").run();
+  }
 }
 
 // @rollback: manual — baseline schema rollback requires a manual DB reset.

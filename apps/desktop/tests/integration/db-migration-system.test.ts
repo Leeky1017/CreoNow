@@ -12,6 +12,7 @@
  *   DB-INT-7:  cost_records FK to sessions is enforced (INV-9)
  *   DB-INT-8:  second runMigrations call is idempotent (no error, no re-apply)
  *   DB-INT-9:  bridge path — migration bookkeeping remains truthful with legacy settings schema
+ *   DB-INT-9B: bridge path rebuilds entities_fts for pre-existing kg_entities rows
  *   DB-INT-10: kg_relations table FKs to kg_entities and project scope
  *   DB-INT-11: FTS5 external-content trigger correctness (no phantom tokens; DELETE removes tokens)
  */
@@ -225,6 +226,30 @@ const LEGACY_SETTINGS_SQL = `
   );
 `;
 
+const LEGACY_PROJECTS_SQL = `
+  CREATE TABLE IF NOT EXISTS projects (
+    project_id TEXT PRIMARY KEY
+  );
+`;
+
+const LEGACY_KG_ENTITIES_SQL = `
+  CREATE TABLE IF NOT EXISTS kg_entities (
+    id               TEXT PRIMARY KEY,
+    project_id       TEXT NOT NULL,
+    type             TEXT NOT NULL CHECK (type IN ('character', 'location', 'event', 'item', 'faction')),
+    name             TEXT NOT NULL,
+    description      TEXT NOT NULL DEFAULT '',
+    attributes_json  TEXT NOT NULL DEFAULT '{}',
+    version          INTEGER NOT NULL DEFAULT 1,
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT NOT NULL,
+    ai_context_level TEXT NOT NULL DEFAULT 'when_detected',
+    aliases          TEXT NOT NULL DEFAULT '[]',
+    last_seen_state  TEXT,
+    FOREIGN KEY(project_id) REFERENCES projects(project_id) ON DELETE CASCADE
+  );
+`;
+
 // ---------------------------------------------------------------------------
 // DB-INT-9: bridge path — runMigrations works alongside legacy settings rows
 // ---------------------------------------------------------------------------
@@ -239,10 +264,29 @@ const LEGACY_SETTINGS_SQL = `
   applyRecommendedPragmas(bridgeDb);
 
   // Simulate legacy SQL migration pre-populating settings
+  bridgeDb.exec(LEGACY_PROJECTS_SQL);
   bridgeDb.exec(LEGACY_SETTINGS_SQL);
+  bridgeDb.exec(LEGACY_KG_ENTITIES_SQL);
+  bridgeDb.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-legacy");
   bridgeDb.prepare(
     "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?)",
   ).run("global", "theme", '"dark"', Date.now());
+  bridgeDb.prepare(
+    "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, version, created_at, updated_at, ai_context_level, aliases, last_seen_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run(
+    "legacy-ent-1",
+    "proj-legacy",
+    "character",
+    "旧角色",
+    "桥接前已有实体",
+    "{}",
+    1,
+    new Date().toISOString(),
+    new Date().toISOString(),
+    "when_detected",
+    "[]",
+    null,
+  );
 
   // Bridge calls runMigrations after legacy setup
   runMigrations(bridgeDb, [initialSchemaMigration]);
@@ -270,6 +314,15 @@ const LEGACY_SETTINGS_SQL = `
 
   assert.ok(tableExists(bridgeDb, "kg_entities"), "DB-INT-9: kg_entities must exist after bridge migration");
   assert.ok(tableExists(bridgeDb, "kg_relations"), "DB-INT-9: kg_relations must exist after bridge migration");
+
+  const rebuiltFtsRow = bridgeDb
+    .prepare("SELECT name FROM entities_fts WHERE entities_fts MATCH ?")
+    .get("旧角色") as { name: string } | undefined;
+  assert.ok(
+    rebuiltFtsRow !== undefined,
+    "DB-INT-9B: entities_fts must be rebuilt to include pre-existing kg_entities rows",
+  );
+  assert.equal(rebuiltFtsRow?.name, "旧角色");
 
   bridgeDb.close();
 }

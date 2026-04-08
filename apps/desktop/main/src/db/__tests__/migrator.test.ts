@@ -8,6 +8,7 @@
  *   MIG-U4: records applied version in _migrations table
  *   MIG-U5: idempotent second run (no re-apply)
  *   MIG-U6: partial apply continues from last applied version
+ *   MIG-U7: duplicate migration versions fail fast before execution
  */
 
 import assert from "node:assert/strict";
@@ -214,6 +215,38 @@ function makeMigration(
     [2, 3],
     "MIG-U6: only unnapplied versions should run",
   );
+}
+
+// ---------------------------------------------------------------------------
+// MIG-U7: duplicate version inputs are rejected before execution
+// ---------------------------------------------------------------------------
+{
+  const db = makeDb();
+
+  let executed = 0;
+  const duplicateA: Migration = {
+    version: 1,
+    name: "001_dup_a",
+    up(d: Database.Database): void {
+      executed += 1;
+      d.exec("CREATE TABLE t_dup_a (id TEXT PRIMARY KEY)");
+    },
+  };
+  const duplicateB: Migration = {
+    version: 1,
+    name: "001_dup_b",
+    up(d: Database.Database): void {
+      executed += 1;
+      d.exec("CREATE TABLE t_dup_b (id TEXT PRIMARY KEY)");
+    },
+  };
+
+  assert.throws(
+    () => runMigrations(db, [duplicateA, duplicateB]),
+    /duplicate migration version detected: 1/i,
+    "MIG-U7: duplicate versions must throw before applying any migration",
+  );
+  assert.equal(executed, 0, "MIG-U7: no up() function should execute");
 }
 
 console.log("migrator.test.ts: all assertions passed");

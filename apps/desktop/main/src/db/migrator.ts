@@ -87,6 +87,24 @@ export function recordMigrationApplied(
   ).run(version, name, new Date().toISOString());
 }
 
+/**
+ * Ensure the migration list has unique version numbers.
+ *
+ * Why: duplicate versions can execute multiple `up()` blocks while `_migrations`
+ * only persists one row (INTEGER PRIMARY KEY), which makes bookkeeping false.
+ */
+function assertUniqueMigrationVersions(migrations: Migration[]): void {
+  const seen = new Set<number>();
+  for (const migration of migrations) {
+    if (seen.has(migration.version)) {
+      throw new Error(
+        `duplicate migration version detected: ${migration.version.toString()}`,
+      );
+    }
+    seen.add(migration.version);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -101,6 +119,7 @@ export function buildPendingMigrations(
   db: Database.Database,
   migrations: Migration[],
 ): Migration[] {
+  assertUniqueMigrationVersions(migrations);
   const applied = getAppliedVersions(db);
   return [...migrations]
     .filter((m) => !applied.has(m.version))
@@ -120,6 +139,7 @@ export function runMigrations(
   db: Database.Database,
   migrations: Migration[],
 ): void {
+  assertUniqueMigrationVersions(migrations);
   ensureMigrationsTable(db);
   const pending = buildPendingMigrations(db, migrations);
 
