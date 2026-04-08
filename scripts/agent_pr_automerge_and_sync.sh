@@ -12,7 +12,7 @@ Behavior:
     - If preflight fails: creates/keeps PR as draft and waits by default
   - Ensures a PR exists (creates one unless --no-create)
   - Keeps auto-merge disabled by default; only enables it when --enable-auto-merge is passed
-  - --enable-auto-merge requires 4 zero-finding audit reports plus 1 reviewer consolidated verbatim comment
+  - --enable-auto-merge requires 4 zero-finding audit reports plus 1 reviewer consolidated verbatim PR discussion comment (issue comment)
   - Trusted reviewer policy:
     - CODEX_AUDIT_TRUSTED_REVIEWERS="<login1>,<login2>" enforces explicit trusted reviewer list
     - CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true|false controls fallback to PR author only when trusted list is empty (default: false; otherwise gate fails closed)
@@ -20,7 +20,7 @@ Behavior:
 
 Options:
   --skip-preflight           Skip preflight entirely
-  --enable-auto-merge        Explicitly enable auto-merge after 4 zero-finding reports and reviewer consolidated verbatim comment are present
+  --enable-auto-merge        Explicitly enable auto-merge after 4 zero-finding reports and reviewer consolidated verbatim PR discussion comment (issue comment) is present
   --force                   Proceed even if preflight fails
   --no-wait-preflight        Fail fast if preflight fails (still creates draft PR)
   --wait-interval <seconds>  Preflight polling interval (default: 60)
@@ -156,6 +156,7 @@ require_audit_pass_comment() {
   fi
 
   pr_head_sha="$(run_gh_with_retry gh pr view "$pr_number" --json headRefOid --jq '.headRefOid // empty')"
+  # NOTE: gate source is PR discussion timeline comments (issue comments), not review threads.
   comments_json="$(run_gh_with_retry gh pr view "$pr_number" --json comments --jq '.comments | map({body: (.body // ""), author: (.author.login? // .author.name? // "")})')"
   audit_command=(python3 scripts/agent_github_delivery.py audit-pass --comments-json "$comments_json" --expected-head-sha "$pr_head_sha")
   for reviewer in "${trusted_reviewer_args[@]}"; do

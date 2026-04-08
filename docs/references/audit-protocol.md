@@ -28,7 +28,7 @@
 4. 四名审计必须独立给出结论，不能因为“已有其他审计结论”而跳步。
 5. 任一审计提出任何问题，本轮必须 `REJECT`，回工程修复后重跑全部四审。
 6. 四审都 zero findings、都给出 `FINAL-VERDICT: ACCEPT`、required checks 全绿且证据完整后，交由 Reviewer 汇总发布。
-7. Reviewer 发布**一条**结构化评论，按标题原样粘贴四份审计报告（verbatim）。
+7. Reviewer 在 PR discussion timeline 发布**一条**结构化 issue comment，按标题原样粘贴四份审计报告（verbatim）。
 
 ## 1. 固定模型配置
 
@@ -111,7 +111,7 @@
 
 1. Reviewer（Claude Opus 4.6 high）仅汇总，不做独立审计判断。
 2. 四份审计报告必须按标题分节**原样粘贴**，不得删减、改写、降级。
-3. Reviewer 只发布**一条**结构化评论，不发布四条散评。
+3. Reviewer 只发布**一条**结构化 PR discussion issue comment，不发布四条散评。
 4. 汇总结论规则：四份报告均 `FINAL-VERDICT: ACCEPT` 且 zero findings 时才 `ACCEPT`，否则 `REJECT`。
 
 ## 10. 审计命令

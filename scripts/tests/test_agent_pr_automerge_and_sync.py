@@ -261,7 +261,7 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
             )
             self.assertEqual(0, result.returncode, result.stdout)
             self.assertIn(
-                "4 zero-finding audit reports plus 1 reviewer consolidated verbatim comment",
+                "4 zero-finding audit reports plus 1 reviewer consolidated verbatim PR discussion comment (issue comment)",
                 result.stdout,
             )
             self.assertNotIn("four independent audit comments", result.stdout)

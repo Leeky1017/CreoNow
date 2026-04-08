@@ -68,6 +68,7 @@ CONSOLIDATED_AUDIT_SECTION_HEADERS = (
     "### 审计 3（Claude Opus 4.6 high）",
     "### 审计 4（Claude Sonnet 4.6 high）",
 )
+CONSOLIDATED_AUDIT_METADATA_HEADER = "## 审计元信息"
 SEAT_FINAL_VERDICT_ACCEPT_PATTERN = re.compile(
     r"(?im)^\s*(?:\*{0,2}\s*)?(?:FINAL-VERDICT|最终判定)(?:\s*\*{0,2})?\s*[:：]\s*ACCEPT\b"
 )
@@ -77,6 +78,8 @@ SEAT_FINAL_VERDICT_REJECT_LINE_PATTERN = re.compile(
 SEAT_ZERO_FINDINGS_PATTERN = re.compile(r"(?i)\bzero(?:\s+|-)findings\b")
 AUDIT_HEAD_CAPTURE_PATTERN = re.compile(r"审计 HEAD[^0-9a-fA-F`]{0,40}`?([0-9a-fA-F]{7,40})`?", re.IGNORECASE)
 FENCED_CODE_BLOCK_PATTERN = re.compile(r"(?ms)^[ \t]*(```|~~~)[^\n]*\n.*?^[ \t]*\1[^\n]*(?:\n|$)")
+REVIEWER_FINAL_VERDICT_ACCEPT_PATTERN = re.compile(r"(?im)^\s*\*\*FINAL-VERDICT\*\*\s*[:：]\s*ACCEPT\b")
+REVIEWER_FINAL_VERDICT_REJECT_PATTERN = re.compile(r"(?im)^\s*\*\*FINAL-VERDICT\*\*\s*[:：]\s*REJECT\b")
 
 
 def run(cmd: Sequence[str], *, cwd: str | None = None) -> CmdResult:
@@ -426,17 +429,12 @@ def _extract_consolidated_audit_sections(body: str) -> dict[str, str]:
     if [header for _, header in ordered_headers] != list(CONSOLIDATED_AUDIT_SECTION_HEADERS):
         return {}
 
-    trailer_start = len(lines)
-    seat4_start = ordered_headers[-1][0] + 1
-    for index in range(seat4_start, len(lines)):
-        stripped = lines[index].strip()
-        if (
-            stripped.startswith("**审计 HEAD**")
-            or re.match(r"(?i)^\*\*FINAL-VERDICT\*\*\s*[:：]", stripped) is not None
-            or stripped.startswith("## ")
-        ):
-            trailer_start = index
-            break
+    metadata_indexes = [index for index, line in enumerate(lines) if line.strip() == CONSOLIDATED_AUDIT_METADATA_HEADER]
+    if len(metadata_indexes) != 1:
+        return {}
+    trailer_start = metadata_indexes[0]
+    if trailer_start <= ordered_headers[-1][0]:
+        return {}
 
     sections: dict[str, str] = {}
     for seat_index, (start_index, header) in enumerate(ordered_headers):
@@ -466,6 +464,14 @@ def _is_consolidated_reviewer_audit_comment(body: str) -> bool:
             return False
         if SEAT_ZERO_FINDINGS_PATTERN.search(seat_body) is None:
             return False
+    metadata_index = body.find(CONSOLIDATED_AUDIT_METADATA_HEADER)
+    if metadata_index < 0:
+        return False
+    metadata_body = body[metadata_index + len(CONSOLIDATED_AUDIT_METADATA_HEADER):]
+    if REVIEWER_FINAL_VERDICT_REJECT_PATTERN.search(metadata_body):
+        return False
+    if REVIEWER_FINAL_VERDICT_ACCEPT_PATTERN.search(metadata_body) is None:
+        return False
     return True
 
 

@@ -11,7 +11,7 @@
 | `agent_task_begin.sh`                | gh-only fail-closed 任务入口：capabilities + sync + worktree + hook 安装 | 阶段 3：环境隔离   |
 | `agent_worktree_setup.sh`            | 创建 worktree 隔离环境                                                   | 阶段 3：环境隔离   |
 | `agent_pr_preflight.sh`              | 提交前 / 请求审计前的预检查（必要不充分）                                | 阶段 5：提交前     |
-| `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，四审 zero findings 全部通过、Reviewer 汇总评论匹配当前 HEAD 后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
+| `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，四审 zero findings 全部通过、Reviewer 在 PR discussion timeline 的汇总 issue comment 匹配当前 HEAD 后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
 | `agent_github_delivery.py`           | GitHub 能力探测、PR/评论模板、gh/MCP 通道选择                            | 阶段 5：提交与合并 |
 | `review-audit.sh`                    | 分层自适应审计命令入口（Tier L/S/D），仅用于已达可交审条件的 PR          | 审计：分类后执行   |
 | `daily_doc_audit.sh`                 | 每日文档健康检查：校验路径引用、INV 定义、spec 完整性                    | 手动 / 定期       |

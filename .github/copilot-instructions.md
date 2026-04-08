@@ -110,7 +110,7 @@
 - Use `creonow-delivery` for end-to-end Issue / PR handoff.
 - Use `creonow-audit` for 1+4+1 audit orchestration and enforcing four independent full audits per round.
 - Use `creonow-fix-ci` when the task is to repair failing CI on an existing Issue / PR chain without breaking audit continuity.
-- Use `creonow-reviewer` when consolidating the four audit reports into one structured PR Review Comment. This is the only agent permitted to publish PR review comments.
+- Use `creonow-reviewer` when consolidating the four audit reports into one structured PR discussion comment (issue comment). This is the only agent permitted to publish that consolidated discussion comment.
 
 ## Audit system
 

@@ -36,6 +36,6 @@ target: "vscode"
 
 # Reviewer 交付约束
 
-- Reviewer 必须将四份审计报告原样（verbatim）粘贴到一条结构化 PR 评论中。
+- Reviewer 必须将四份审计报告原样（verbatim）粘贴到一条结构化 PR discussion issue comment 中。
 - Reviewer 不得做独立判断，不得删改或降级任何 finding。
 - 四审未齐全时不得发布最终汇总。

@@ -124,13 +124,17 @@ class CommentTemplateTests(unittest.TestCase):
 
 class AuditGateTests(unittest.TestCase):
     @staticmethod
-    def _consolidated_comment(*, head: str | None = None, seat4_extra: str | None = None, seat4_verdict: str = "ACCEPT") -> str:
+    def _consolidated_comment(
+        *,
+        head: str | None = None,
+        seat4_extra: str | None = None,
+        seat4_verdict: str = "ACCEPT",
+        reviewer_verdict: str = "ACCEPT",
+    ) -> str:
         lines = [
             "## 审计汇总",
             "",
         ]
-        if head is not None:
-            lines.extend([f"**审计 HEAD**：`{head}`", ""])
         lines.extend(
             [
                 "### 审计 1（GPT-5.4 xhigh）",
@@ -152,6 +156,10 @@ class AuditGateTests(unittest.TestCase):
         )
         if seat4_extra:
             lines.extend(["", seat4_extra])
+        lines.extend(["", "## 审计元信息"])
+        if head is not None:
+            lines.append(f"**审计 HEAD**：`{head}`")
+        lines.append(f"**FINAL-VERDICT**: {reviewer_verdict}")
         return "\n".join(lines)
 
     def test_audit_pass_should_fail_with_only_one_individual_audit_comment(self) -> None:
@@ -405,6 +413,7 @@ FINAL-VERDICT: ACCEPT
 ### 审计 4（Claude Sonnet 4.6 high）
 zero findings
 FINAL-VERDICT: ACCEPT
+## 审计元信息
 **审计 HEAD**：`abc1234`
 **FINAL-VERDICT**: ACCEPT
 """
@@ -459,6 +468,32 @@ zero findings
 Seat 4 is pending.
 **FINAL-VERDICT**: ACCEPT
 **审计 HEAD**：`abc1234`
+"""
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [{"body": body, "author": "reviewer-agent"}],
+            trusted_reviewers=["reviewer-agent"],
+            expected_head_sha="abc1234567890",
+        )
+        self.assertFalse(evaluation.audit_pass)
+
+    def test_audit_pass_should_fail_when_trailing_plain_final_verdict_appears_before_metadata_section(self) -> None:
+        body = """## 审计汇总
+### 审计 1（GPT-5.4 xhigh）
+zero findings
+FINAL-VERDICT: ACCEPT
+### 审计 2（GPT-5.3 Codex xhigh）
+zero findings
+FINAL-VERDICT: ACCEPT
+### 审计 3（Claude Opus 4.6 high）
+zero findings
+FINAL-VERDICT: ACCEPT
+### 审计 4（Claude Sonnet 4.6 high）
+zero findings
+FINAL-VERDICT: ACCEPT
+Summary line
+FINAL-VERDICT: ACCEPT
+**审计 HEAD**：`abc1234`
+**FINAL-VERDICT**: ACCEPT
 """
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [{"body": body, "author": "reviewer-agent"}],
