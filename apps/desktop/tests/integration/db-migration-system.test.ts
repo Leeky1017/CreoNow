@@ -13,6 +13,7 @@
  *   DB-INT-8:  second runMigrations call is idempotent (no error, no re-apply)
  *   DB-INT-9:  bridge path — migration bookkeeping remains truthful with legacy settings schema
  *   DB-INT-9B: bridge path rebuilds entities_fts for pre-existing kg_entities rows
+ *   DB-INT-9C: bridge path rejects schema drift and does not record migration
  *   DB-INT-10: kg_relations table FKs to kg_entities and project scope
  *   DB-INT-11: FTS5 external-content trigger correctness (no phantom tokens; DELETE removes tokens)
  */
@@ -250,6 +251,18 @@ const LEGACY_KG_ENTITIES_SQL = `
   );
 `;
 
+const LEGACY_BAD_KG_RELATION_TYPES_SQL = `
+  CREATE TABLE IF NOT EXISTS kg_relation_types (
+    id         TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    key        TEXT NOT NULL,
+    label      TEXT NOT NULL,
+    builtin    INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    extra_col  TEXT
+  );
+`;
+
 // ---------------------------------------------------------------------------
 // DB-INT-9: bridge path — runMigrations works alongside legacy settings rows
 // ---------------------------------------------------------------------------
@@ -325,6 +338,37 @@ const LEGACY_KG_ENTITIES_SQL = `
   assert.equal(rebuiltFtsRow?.name, "旧角色");
 
   bridgeDb.close();
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-9C: bridge path rejects schema drift without recording migration
+// ---------------------------------------------------------------------------
+{
+  const mismatchDb = new Database(":memory:");
+  mismatchDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(mismatchDb);
+
+  mismatchDb.exec(LEGACY_PROJECTS_SQL);
+  mismatchDb.exec(LEGACY_SETTINGS_SQL);
+  mismatchDb.exec(LEGACY_KG_ENTITIES_SQL);
+  mismatchDb.exec(LEGACY_BAD_KG_RELATION_TYPES_SQL);
+
+  assert.throws(
+    () => runMigrations(mismatchDb, [initialSchemaMigration]),
+    /schema contract mismatch for kg_relation_types/i,
+    "DB-INT-9C: schema drift must fail bridge migration",
+  );
+
+  const migrationRow = mismatchDb
+    .prepare("SELECT version FROM _migrations WHERE version = 1")
+    .get() as { version: number } | undefined;
+  assert.equal(
+    migrationRow,
+    undefined,
+    "DB-INT-9C: failed migration must not record version 1",
+  );
+
+  mismatchDb.close();
 }
 
 // ---------------------------------------------------------------------------

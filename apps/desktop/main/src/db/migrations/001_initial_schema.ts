@@ -227,6 +227,10 @@ function up(db: Database.Database): void {
     ],
   });
   assertTableColumns(db, {
+    table: "kg_relation_types",
+    expected: ["id", "project_id", "key", "label", "builtin", "created_at"],
+  });
+  assertTableColumns(db, {
     table: "kg_relations",
     expected: [
       "id",
