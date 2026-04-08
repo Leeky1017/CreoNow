@@ -26,6 +26,11 @@ docs/references/doc-audit-report.md: 引用脚本不存在 → scripts/i18n-inve
 docs/references/doc-audit-report.md: 引用不存在的根级命令
 docs/references/doc-audit-report.md: 引用路径不存在 → packages/shared/types/ipc/
 
+# ─── 前端构想文档 ───
+# 语音记录中的设计构想路径，功能尚未实现。
+docs/CreoNow前端构想（语音记录）.md: 引用路径不存在 → .cn/history/
+docs/CreoNow前端构想（语音记录）.md: 引用路径不存在 → .cn/logs/
+
 # ─── ARCHITECTURE.md 路径模板 ───
 # `services/X` 和 `core/X` 是路径约定中的变量占位符（见 ARCHITECTURE.md 第 108 行说明），非真实路径。
 ARCHITECTURE.md: 引用路径不存在 → apps/desktop/main/src/services/X

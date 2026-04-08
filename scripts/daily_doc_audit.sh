@@ -109,7 +109,7 @@ for md in "${MD_FILES[@]}"; do
     path_ref="${path_ref%%）}"
 
     # Only check paths that start with known project directories
-    if [[ "$path_ref" =~ ^(apps/|packages/|scripts/|openspec/|docs/|\.github/|design/|figma_design/|creonow-app/) ]]; then
+    if [[ "$path_ref" =~ ^(apps/|packages/|scripts/|openspec/|docs/|\.github/|\.cn/|design/|figma_design/|creonow-app/) ]]; then
       # Strip arguments from script-like paths (e.g. "scripts/foo.sh L [ref]" → "scripts/foo.sh")
       check_path="$path_ref"
       if [[ "$check_path" =~ \.(sh|py|ts|js|mjs) ]]; then
