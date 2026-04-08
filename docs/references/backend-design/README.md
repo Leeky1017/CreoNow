@@ -1,6 +1,6 @@
 # CN Backend Design — 索引
 
-本目录是 CN 后端技术规范的模块化拆解，原文件为 `docs/references/backend-design.md`。后端开发时按需查阅对应子文件。
+本目录是 CN 后端技术规范的模块化拆解（原单文件已拆解至此目录）。后端开发时按需查阅对应子文件。
 
 ---
 

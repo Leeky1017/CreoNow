@@ -60,7 +60,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 - **上游**：谁会调用我写的东西？我改了之后他们会不会坏？
 - **下游**：我依赖的模块会不会变？如果它变了，我的代码会不会静默失败？
 - **INV 影响**：这次改动涉及哪些不变量？Permission Gate（INV-1）、并发安全（INV-2）、Hook 链（INV-8）——是否都已处理？
-- **副作用**：我的改动会不会影响性能预算（`ARCHITECTURE.md` §三）、离线模式（`backend-design.md` §六）、成本追踪（INV-9）？
+- **副作用**：我的改动会不会影响性能预算（`ARCHITECTURE.md` §三）、离线模式（`docs/references/backend-design/offline-and-export.md`）、成本追踪（INV-9）？
 
 只有当你能回答这四个问题，这次改动才算「想清楚了」。
 
@@ -148,7 +148,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 ### P3. Gates（门禁全绿）
 
-CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。auto-merge 默认关闭；只有双审都 zero findings + `FINAL-VERDICT` + `ACCEPT` 后才可显式开启。详见 `docs/references/gates-design.md`。
+CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。auto-merge 默认关闭；只有双审都 zero findings + `FINAL-VERDICT` + `ACCEPT` 后才可显式开启。详见 `docs/references/gates-design/README.md`。
 
 ### P4. Deterministic & Isolated（确定性与隔离）
 
@@ -269,14 +269,14 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | 文档 | 路径 | 查阅时机 |
 | --- | --- | --- |
 | **架构规则 + INV 详解** | `ARCHITECTURE.md` | **任何任务前必读** |
-| 后端设计规范 | `docs/references/backend-design.md` | 后端开发时 |
+| 后端设计规范 | `docs/references/backend-design/README.md` | 后端开发时 |
 | 测试指南 | `docs/references/testing-guide.md` | 写测试前 |
 | 测试命令 | `docs/references/test-commands.md` | 跑测试时 |
 | 前端视觉规范 | `docs/references/frontend-visual-quality.md` | 写前端组件前 |
 | 审计协议 | `docs/references/audit-protocol.md` | 审计/Review 时 |
 | 架构经验 | `docs/references/architecture-lessons.md` | 架构决策时 |
 | 产品质量清单 | `docs/references/product-quality-checklist.md` | PR 自检时 |
-| 门禁规范 | `docs/references/gates-design.md` | 门禁配置时 |
+| 门禁规范 | `docs/references/gates-design/README.md` | 门禁配置时 |
 | UI Prompt 工程 | `docs/references/prompt-engineering-for-ui.md` | AI UI 生成时 |
 | WSL 开发指南 | `docs/references/wsl-development-guide.md` | 启动服务/浏览器访问时 |
 

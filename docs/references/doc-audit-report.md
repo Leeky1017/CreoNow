@@ -77,8 +77,8 @@
 | COMPREHENSIVE-ANALYSIS.md | ✅ 仍有参考价值，分析结论与当前代码结构一致 |
 | docs/references/architecture-lessons.md | ✅ INV 引用正确 |
 | docs/references/audit-protocol.md | ✅ 与 AGENTS.md §九一致 |
-| docs/references/backend-design.md | ✅ 计划路径明确标记 |
-| docs/references/gates-design.md | ✅ `pnpm lint` 已标记为"计划实现"，无误导 |
+| docs/references/backend-design/README.md | ✅ 已拆为 9 个子文件，计划路径明确标记 |
+| docs/references/gates-design/README.md | ✅ 已拆为 5 个子文件，`pnpm lint` 已标记为"计划实现"，无误导 |
 | docs/references/product-quality-checklist.md | ✅ 脚本引用正确 |
 | docs/references/prompt-engineering-for-ui.md | ✅ Token 引用正确 |
 | docs/references/testing-guide.md | ✅ 无过时引用 |
