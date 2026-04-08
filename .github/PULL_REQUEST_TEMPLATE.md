@@ -86,12 +86,24 @@ N/A
 
 -
 
-## Audit Gate
+## 审计门禁
 
-<!-- 只有达到可交审条件后才请求审计 -->
+<!-- 以下由审计流程自动填写，PR 作者不要修改 -->
 
-- `scripts/agent_pr_preflight.sh`:
-- Required checks:
+**审计模型配置：**
+- 工程：GPT-5.3 Codex (xhigh)
+- 审计 1：GPT-5.4 (xhigh)
+- 审计 2：GPT-5.3 Codex (xhigh)
+- 审计 3：Claude Opus 4.6 (high)
+- 审计 4：Claude Sonnet 4.6 (high)
+- 评论汇总：Claude Opus 4.6 (high)
+
+- [ ] 审计 1（GPT-5.4）：FINAL-VERDICT ___
+- [ ] 审计 2（GPT-5.3 Codex）：FINAL-VERDICT ___
+- [ ] 审计 3（Claude Opus 4.6）：FINAL-VERDICT ___
+- [ ] 审计 4（Claude Sonnet 4.6）：FINAL-VERDICT ___
+
+<!-- 4 个都 ACCEPT 才可合并 -->
 
 ---
 

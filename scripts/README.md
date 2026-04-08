@@ -11,68 +11,65 @@
 | `agent_task_begin.sh`                | gh-only fail-closed 任务入口：capabilities + sync + worktree + hook 安装 | 阶段 3：环境隔离   |
 | `agent_worktree_setup.sh`            | 创建 worktree 隔离环境                                                   | 阶段 3：环境隔离   |
 | `agent_pr_preflight.sh`              | 提交前 / 请求审计前的预检查（必要不充分）                                | 阶段 5：提交前     |
-| `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，zero findings 双审通过后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
+| `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，四审 zero findings 全部通过、Reviewer 在 PR discussion timeline 的汇总 issue comment 匹配当前 HEAD 后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
 | `agent_github_delivery.py`           | GitHub 能力探测、PR/评论模板、gh/MCP 通道选择                            | 阶段 5：提交与合并 |
 | `review-audit.sh`                    | 分层自适应审计命令入口（Tier L/S/D），仅用于已达可交审条件的 PR          | 审计：分类后执行   |
 | `daily_doc_audit.sh`                 | 每日文档健康检查：校验路径引用、INV 定义、spec 完整性                    | 手动 / 定期       |
 | `agent_worktree_cleanup.sh`          | 清理 worktree                                                            | 阶段 6：收口       |
-| `ipc-acceptance-gate.ts`             | IPC acceptance SLO 门禁                                                  | 阶段 4：实现与测试 |
-| `test-discovery-consistency-gate.ts` | 测试发现与执行计划一致性校验                                             | 阶段 4：实现与测试 |
-| `contract-generate.ts`               | 生成 IPC 契约类型定义                                                    | CI / 手动          |
-| `cross-module-contract-gate.ts`      | cross-module 契约对齐门禁（含 skill-output / api-key-format 维度）       | CI / preflight     |
-| `cross-module-contract-autofix.ts`   | cross-module 失败分类与安全自动修复（开发分支）                          | 开发分支手动触发   |
-| `resource-size-gate.ts`              | 资源文件大小门禁（baseline ratchet）                                     | CI / preflight     |
-| `bundle-size-budget.ts`              | 构建产物体积预算门禁                                                     | CI / preflight     |
-| `storybook-chunk-budget.ts`          | Storybook chunk 体积预算（500KiB 报警；默认 700KiB hard-cap 阻断，可由 `STORYBOOK_CHUNK_HARD_CAP_BYTES` 覆盖；`sb-manager/sb-addons/DocsRenderer/axe` 仅告警不阻断） | CI / preflight     |
-| `ipc-handler-validation-gate.ts`     | IPC handler schema 校验覆盖门禁                                          | CI / preflight     |
-| `service-stub-detector-gate.ts`      | Service 桩方法检测门禁                                                   | CI / preflight     |
-| `error-boundary-coverage-gate.ts`    | ErrorBoundary 覆盖门禁                                                   | CI / preflight     |
-| `architecture-health-gate.ts`        | 架构健康度门禁                                                           | CI / preflight     |
-| `spec-test-mapping-gate.ts`          | Spec Scenario→测试映射门禁（无 spec 变更时回退 fallback baseline，避免 0/0 空通过） | CI / preflight     |
-| `ai-rate-limit-coverage-gate.ts`     | AI 请求限流 + scheduler / queue coverage gate                            | CI / preflight     |
-| `lint-ratchet.ts`                    | ESLint warning budget ratchet                                            | CI / preflight     |
+
+### TypeScript 门禁脚本清单（CI / preflight）
+
+| 脚本 | 职责 |
+| --- | --- |
+| `ai-rate-limit-coverage-gate.ts` | AI 限流与覆盖率门禁 |
+| `architecture-health-gate.ts` | 架构健康度门禁 |
+| `bundle-size-budget.ts` | 打包体积预算门禁 |
+| `contract-generate.ts` | 生成并更新跨模块契约产物 |
+| `cross-module-contract-autofix.ts` | 契约门禁自动修复辅助 |
+| `cross-module-contract-gate.ts` | 跨模块契约一致性门禁 |
+| `ensure-desktop-native-node-abi.ts` | Electron native ABI 一致性检查 |
+| `error-boundary-coverage-gate.ts` | Error Boundary 覆盖率门禁 |
+| `ipc-acceptance-gate.ts` | IPC 验收门禁 |
+| `ipc-handler-validation-gate.ts` | IPC handler 输入校验门禁 |
+| `ipc-testability-mapping-gate.ts` | IPC 可测性映射门禁 |
+| `lint-ratchet.ts` | lint ratchet（告警预算收敛） |
+| `resource-size-gate.ts` | 资源尺寸/预算门禁 |
+| `run-discovered-tests.ts` | 按发现清单执行测试 |
+| `service-stub-detector-gate.ts` | Service stub/伪实现探测门禁 |
+| `spec-test-mapping-gate.ts` | spec 与测试映射完整性门禁 |
+| `storybook-chunk-budget.ts` | Storybook chunk 预算门禁 |
+| `test-discovery-consistency-gate.ts` | 测试发现一致性门禁 |
 
 ## 工程 Subagent 可交审定义
 
 工程 Subagent 的“完成”不是“代码写完”，而是已经达到可交审条件。以下条件必须全部满足，才可请求审计：
 
 1. 全程在 `.worktrees/issue-<N>-<slug>` 中完成实现、提 PR、修 CI、回应审计。
-2. PR 已创建或更新，正文包含 `Closes #N`、验证证据、回滚点、审计门禁。
+2. PR 已创建或更新，正文包含 `Closes #N`、`Invariant Checklist`（INV-1~INV-10 勾选项）、验证证据、回滚点、审计门禁。
 3. `scripts/agent_pr_preflight.sh` 通过。
 4. required checks / CI / 门禁全部为绿。
 5. 前端 PR 正文直接嵌入至少 1 张截图，并附可点击 Storybook artifact/link（适用）与视觉验收说明。
 6. 任一条件缺失，工程阶段都不得宣称完成，也不得把任务转交审计 Agent。
 
+## 1+4+1 固定模型配置
+
+| 角色 | 模型 | reasoning effort | 数量 |
+| --- | --- | --- | --- |
+| Engineering Subagent | GPT-5.3 Codex | extra high（xhigh） | 1 |
+| Audit Subagent 1 | GPT-5.4 | extra high（xhigh） | 1 |
+| Audit Subagent 2 | GPT-5.3 Codex | extra high（xhigh） | 1 |
+| Audit Subagent 3 | Claude Opus 4.6 | high | 1 |
+| Audit Subagent 4 | Claude Sonnet 4.6 | high | 1 |
+| Reviewer Subagent | Claude Opus 4.6 | high | 1 |
+| Main session Agent | 与用户当前对话模型 | 不固定 | 1 |
+
 ## 使用约定
 
-- 主会话 Agent 只负责编排，不直接写代码、不直接做审计结论；实现工作交给工程 Subagent，审计工作交给独立审计 Subagent。
+- 主会话 Agent 只负责编排，不直接写代码、不直接做审计结论；实现工作交给工程 Subagent，审计工作交给 4 个独立审计 Subagent，最终评论由 Reviewer Subagent 发布。
+- 工程席固定为 GPT-5.3 Codex（xhigh）；四审席固定为 GPT-5.4（xhigh）、GPT-5.3 Codex（xhigh）、Claude Opus 4.6（high）、Claude Sonnet 4.6（high）；Reviewer 席固定为 Claude Opus 4.6（high）。
 - 主会话 Agent 只有在工程 Subagent 达到“可交审条件”后，才可转给审计 Subagent。
-- 每一轮实现完成后，必须由 2 个独立审计 Subagent 对同一变更做交叉审计；任一审计报告任何问题，就必须回到工程 Subagent 修复，再次双审。
+- 每一轮实现完成后，必须由 4 个独立审计 Subagent 对同一变更做全量交叉审计；任一审计报告任何问题，就必须回到工程 Subagent 修复，再次四审。
+- 任一 finding（含 non-blocking / suggestion / nit）都必须维持 `REJECT`；仅当 4 个审计 Subagent 均给出 zero-findings `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条原样（verbatim）汇总评论，才可收口。
 - 所有实现、提 PR、修 CI、回应审计都必须在 `.worktrees/issue-<N>-<slug>` 内完成；控制面根目录不负责“补最后一步”。
-- 所有脚本使用 `set -euo pipefail`
-- 退出码：`0` 成功，`1` 可恢复失败，`2` 不可恢复失败
-- 输出前缀：`[OK]` / `[FAIL]` / `[SKIP]` / `[WARN]`
-- 脚本入口校验必要参数，缺失时打印 usage 并退出
-- `agent_pr_preflight.py` 会校验：
-  - 分支命名必须符合 `task/<N>-<slug>`
-  - `task/<N>-<slug>` 对应 GitHub Issue `#N` 必须为 `OPEN`（阻断复用已关闭/历史 Issue）
-  - 当前分支的开放 PR body 必须包含 `Closes #N`
-- `agent_pr_automerge_and_sync.sh` 对**未完成任务**沿用上述 preflight；但若已检测到 PR 成功合并，且 Issue 因 `Closes #N` 自动关闭，则应直接完成 sync / 退出，不再把 CLOSED Issue 当成合并后的阻断条件。
-- `agent_pr_preflight.sh` 为轻量预检入口，直接执行：
-  - `scripts/agent_pr_preflight.sh`
-- 一键提交前预检命令（可直接复制）：
-  - `scripts/agent_pr_preflight.sh`
-- `agent_pr_preflight.sh` 通过只是必要条件，不等于已经可交审；工程 Agent 仍需自行确认 PR 文案齐全、required checks 全绿、前端可见视觉证据齐全。
-- `agent_worktree_setup.sh` 默认会在新 worktree 内执行 `pnpm install --frozen-lockfile`（可用 `--no-bootstrap` 关闭）。
-- `agent_pr_automerge_and_sync.sh` 默认只创建/更新 PR，不自动开启 auto-merge；必须在两个独立审计 Agent 都留下 zero-findings `FINAL-VERDICT` + `ACCEPT` 评论后，显式传入 `--enable-auto-merge` 才会继续。
-- 若脚本 rerun 时发现当前 PR 已合并，则应将其视为终局成功：允许直接收口并同步控制面，不再等待 preflight 中的 OPEN Issue 条件恢复。
-- `agent_github_delivery.py capabilities` 会输出结构化能力探测结果：`gh` 是否安装/认证、GitHub MCP 是否可用/可写、以及当前应选通道。
-- `agent_pr_automerge_and_sync.sh` 进入 GitHub 远程操作前会先校验所选通道；若结果不是 `gh`，会明确阻断并提示改用 GitHub MCP + `agent_github_delivery.py` 生成的 payload。
-- GitHub MCP 回退路径依赖环境变量：`CODEX_GITHUB_CHANNEL`（`auto|gh|mcp|none`）、`CODEX_GITHUB_MCP_AVAILABLE`、`CODEX_GITHUB_MCP_WRITE_CAPABLE`。
-- `agent_github_delivery.py pr-payload` / `comment-payload` 负责统一 PR title/body 与阻断评论文案，避免不同通道各写一套模板。
-- 可选环境变量：`AGENT_PR_SUMMARY`、`AGENT_PR_USER_IMPACT`、`AGENT_PR_WORST_CASE`、`AGENT_PR_ROLLBACK_REF`，用于在自动创建 PR 时覆盖默认占位文案。
-- `agent_pr_automerge_and_sync.sh` 在 GitHub TLS 抖动时会标记 `transient` 并自动重试，必要时回退到 `gh run list` 快照通道。
-- `review-audit.sh` 的结论口径为零问题收口：只要存在任何 finding，包括 `non-blocking`，都必须维持 `REJECT`；禁止 `Accept with risk`。
-
-- 控制面根目录（controlplane root）禁止直接提交受管改动；在运行 `agent_task_begin.sh`、`agent_worktree_setup.sh` 或 `agent_controlplane_sync.sh` 后，由 `.githooks/pre-commit` / `.githooks/pre-push` 阻止。
-- 紧急热修若必须绕过，需显式设置 `CREONOW_ALLOW_CONTROLPLANE_BYPASS=1`，并在 PR / 审计记录中说明原因。
+- 默认不自动开启 auto-merge；只有在四审全绿且 Reviewer 单条原样汇总评论已发布后，才可显式传入 `--enable-auto-merge`。
+- `CODEX_AUDIT_TRUSTED_REVIEWERS` 可显式锁定可信 Reviewer 账号；默认不允许 PR 作者回退。仅当该变量为空且显式设置 `CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true` 时，才允许回退使用 PR 作者账号；否则门禁 fail-closed 并直接拒绝自动合并。

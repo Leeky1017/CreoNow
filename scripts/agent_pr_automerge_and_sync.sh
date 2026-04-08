@@ -12,12 +12,15 @@ Behavior:
     - If preflight fails: creates/keeps PR as draft and waits by default
   - Ensures a PR exists (creates one unless --no-create)
   - Keeps auto-merge disabled by default; only enables it when --enable-auto-merge is passed
-  - --enable-auto-merge requires two independent audit comments with zero findings + FINAL-VERDICT + ACCEPT
+  - --enable-auto-merge requires 4 zero-finding audit reports plus 1 reviewer consolidated verbatim PR discussion comment (issue comment)
+  - Trusted reviewer policy:
+    - CODEX_AUDIT_TRUSTED_REVIEWERS="<login1>,<login2>" enforces explicit trusted reviewer list
+    - CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true|false controls fallback to PR author only when trusted list is empty (default: false; otherwise gate fails closed)
   - Syncs local controlplane main to origin/main (unless --no-sync)
 
 Options:
   --skip-preflight           Skip preflight entirely
-  --enable-auto-merge        Explicitly enable auto-merge after two independent zero-findings audit comments are present
+  --enable-auto-merge        Explicitly enable auto-merge after 4 zero-finding reports and reviewer consolidated verbatim PR discussion comment (issue comment) is present
   --force                   Proceed even if preflight fails
   --no-wait-preflight        Fail fast if preflight fails (still creates draft PR)
   --wait-interval <seconds>  Preflight polling interval (default: 60)
@@ -126,13 +129,50 @@ require_audit_pass_comment() {
   local pr_number="$1"
   local pr_url="$2"
   local comments_json audit_payload audit_pass matching_comments distinct_authors author_check_enforced stats_summary
+  local trusted_reviewer_check_enforced matching_trusted_authors pr_author reviewer_env
+  local pr_head_sha head_check_enforced matching_head_comments allow_pr_author_fallback
+  local -a audit_command trusted_reviewer_args
 
+  reviewer_env="${CODEX_AUDIT_TRUSTED_REVIEWERS:-}"
+  if [[ -n "$reviewer_env" ]]; then
+    IFS=',' read -r -a trusted_reviewer_args <<<"$reviewer_env"
+  else
+    trusted_reviewer_args=()
+  fi
+
+  allow_pr_author_fallback="${CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK:-false}"
+  if [[ "${#trusted_reviewer_args[@]}" -eq 0 && "$allow_pr_author_fallback" == "true" ]]; then
+    pr_author="$(run_gh_with_retry gh pr view "$pr_number" --json author --jq '.author.login // empty')"
+  else
+    pr_author=""
+  fi
+  if [[ "${#trusted_reviewer_args[@]}" -eq 0 && -n "$pr_author" ]]; then
+    trusted_reviewer_args+=("$pr_author")
+  fi
+  if [[ "${#trusted_reviewer_args[@]}" -eq 0 ]]; then
+    echo "ERROR: trusted reviewer gate is not configured. Set CODEX_AUDIT_TRUSTED_REVIEWERS or explicitly enable CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true." >&2
+    comment_pr_with_kind "$pr_number" "audit-required" "$pr_url"
+    exit 1
+  fi
+
+  pr_head_sha="$(run_gh_with_retry gh pr view "$pr_number" --json headRefOid --jq '.headRefOid // empty')"
+  # NOTE: gate source is PR discussion timeline comments (issue comments), not review threads.
   comments_json="$(run_gh_with_retry gh pr view "$pr_number" --json comments --jq '.comments | map({body: (.body // ""), author: (.author.login? // .author.name? // "")})')"
-  audit_payload="$(python3 scripts/agent_github_delivery.py audit-pass --comments-json "$comments_json")"
+  audit_command=(python3 scripts/agent_github_delivery.py audit-pass --comments-json "$comments_json" --expected-head-sha "$pr_head_sha")
+  for reviewer in "${trusted_reviewer_args[@]}"; do
+    if [[ -n "$reviewer" ]]; then
+      audit_command+=(--trusted-reviewer "$reviewer")
+    fi
+  done
+  audit_payload="$("${audit_command[@]}")"
   audit_pass="$(json_get audit_pass <<<"$audit_payload")"
   matching_comments="$(json_get matching_comments <<<"$audit_payload" || true)"
   distinct_authors="$(json_get distinct_authors <<<"$audit_payload" || true)"
   author_check_enforced="$(json_get author_check_enforced <<<"$audit_payload" || true)"
+  trusted_reviewer_check_enforced="$(json_get trusted_reviewer_check_enforced <<<"$audit_payload" || true)"
+  matching_trusted_authors="$(json_get matching_trusted_authors <<<"$audit_payload" || true)"
+  head_check_enforced="$(json_get head_check_enforced <<<"$audit_payload" || true)"
+  matching_head_comments="$(json_get matching_head_comments <<<"$audit_payload" || true)"
 
   if [[ "$audit_pass" == "true" ]]; then
     return 0
@@ -142,8 +182,14 @@ require_audit_pass_comment() {
   if [[ "$author_check_enforced" == "true" ]]; then
     stats_summary="${stats_summary}, distinct_authors=${distinct_authors:-0}"
   fi
+  if [[ "$trusted_reviewer_check_enforced" == "true" ]]; then
+    stats_summary="${stats_summary}, matching_trusted_authors=${matching_trusted_authors:-0}"
+  fi
+  if [[ "$head_check_enforced" == "true" ]]; then
+    stats_summary="${stats_summary}, matching_head_comments=${matching_head_comments:-0}"
+  fi
 
-  echo "ERROR: PR #${pr_number} does not yet satisfy the double-audit zero-findings gate (`FINAL-VERDICT` + `ACCEPT`; ${stats_summary}). Two independent audit agents must each post a qualifying comment before auto-merge." >&2
+  echo "ERROR: PR #${pr_number} does not yet satisfy the 1+4+1 reviewer-consolidated zero-findings gate ('FINAL-VERDICT' + 'ACCEPT'; ${stats_summary}). A trusted Reviewer account must post one consolidated verbatim comment containing all four qualifying audit reports before auto-merge." >&2
   comment_pr_with_kind "$pr_number" "audit-required" "$pr_url"
   exit 1
 }
@@ -490,7 +536,7 @@ fi
 PR_URL="$(run_gh_with_retry gh pr view "$PR_NUMBER" --json url --jq '.url')"
 
 if [[ "$ENABLE_AUTO_MERGE" != "true" ]]; then
-  echo "INFO: PR #${PR_NUMBER} is ready. Auto-merge is disabled by default; rerun with --enable-auto-merge after two independent zero-findings audit comments (`FINAL-VERDICT` + `ACCEPT`) are present." >&2
+  echo "INFO: PR #${PR_NUMBER} is ready. Auto-merge is disabled by default; rerun with --enable-auto-merge after Reviewer has posted the single consolidated zero-findings audit comment." >&2
   exit 0
 fi
 
