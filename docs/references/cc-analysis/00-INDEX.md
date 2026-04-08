@@ -99,3 +99,18 @@ Week 3-4:  P1 — LLM 路由 + 延迟加载 + 任务状态机 + 成本追踪
 Week 5-6:  P1 — 并发编排器 + Post-Writing Hooks
 Week 7-8:  P2 — Fork Cache 共享 + CommandDispatcher
 ```
+
+---
+
+## 阶段补充文档（Phase Supplements）
+
+以下为各实施阶段的架构蒸馏与变更记录，不计入上述 16 份主报告：
+
+| 文件 | 内容 |
+|------|------|
+| [P1-ARCHITECTURE-DISTILL.md](./P1-ARCHITECTURE-DISTILL.md) | Phase 1 架构蒸馏 |
+| [P1-CHANGES.md](./P1-CHANGES.md) | Phase 1 变更记录 |
+| [P2-ARCHITECTURE-DISTILL.md](./P2-ARCHITECTURE-DISTILL.md) | Phase 2 架构蒸馏 |
+| [P2-CHANGES.md](./P2-CHANGES.md) | Phase 2 变更记录 |
+| [P3-ARCHITECTURE-DISTILL.md](./P3-ARCHITECTURE-DISTILL.md) | Phase 3 架构蒸馏 |
+| [P3-CHANGES.md](./P3-CHANGES.md) | Phase 3 变更记录 |

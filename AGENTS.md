@@ -293,6 +293,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | `agent_worktree_cleanup.sh` | 清理 worktree |
 | `agent_github_delivery.py` | GitHub 交付工具 |
 | `review-audit.sh` | 分层审计入口 |
+| `daily_doc_audit.sh` | 每日文档健康检查 |
 
 ---
 

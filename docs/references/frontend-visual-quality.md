@@ -49,7 +49,7 @@
 
 ### Token 源文件
 
-**唯一主源**：`apps/desktop/renderer/src/styles/tokens.css`（待创建）
+**唯一主源**：`apps/desktop/renderer/src/styles/tokens.css`
 
 ---
 
@@ -76,12 +76,12 @@
 
 **前端任务开始前，Agent 必须按顺序执行：**
 
-1. **读取 Token 文件**：`apps/desktop/renderer/src/styles/tokens.css`（待创建）
+1. **读取 Token 文件**：`apps/desktop/renderer/src/styles/tokens.css`
 2. **读取组件规范卡片**：`design/system/02-component-cards/<组件名>.md`（如存在）
 3. **通过 Figma MCP 读取设计上下文**：如 Issue 附 Figma 链接，优先用 MCP 加载
 4. **检查视觉参考**：`design/references/<feature>/`（如存在）
 5. **读取 HTML 设计稿**：`design/Variant/designs/<文件>.html`（如存在）
-6. **检查可复用组件**：`apps/desktop/renderer/src/components/`（待创建）
+6. **检查可复用组件**：`apps/desktop/renderer/src/components/`
 
 ---
 
@@ -93,7 +93,6 @@
 |------|------|------|
 | Primitives | `components/primitives/` | Button、Input、Badge 等基础组件 |
 | Composites | `components/composites/` | PanelHeader、EmptyState 等复合组件 |
-| Patterns | `components/patterns/` | ErrorState、LoadingState 等模式 |
 | Features | `features/` | 业务功能组件 |
 
 ### 铁律
@@ -142,15 +141,14 @@ Figma Make 设计优化 → Figma MCP 推送上下文
 ### 开发时验证
 
 ```bash
-pnpm -C apps/desktop storybook        # 本地启动
-pnpm -C apps/desktop storybook:wsl    # WSL 环境
+pnpm -C apps/desktop storybook                              # 本地启动
+# WSL 环境请参照 docs/references/wsl-development-guide.md
 ```
 
 ### CI 验证
 
 ```bash
 pnpm -C apps/desktop storybook:build  # 必须通过
-pnpm test:visual                       # 视觉回归截图对比
 ```
 
 - 将 Storybook artifact / 预览链接填入 PR 正文，确保 reviewer 可直接点击。

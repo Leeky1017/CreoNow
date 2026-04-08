@@ -1,0 +1,37 @@
+# .doc-audit-ignore — daily_doc_audit.sh 已知问题白名单
+# 每行一个 pattern（子字符串匹配）。空行和 # 开头的行会被忽略。
+# 本文件记录的是已确认的、暂不修复的历史文档引用问题。
+# 新增条目时必须注明原因，pattern 要尽量精确以避免吞掉新问题。
+
+# ─── cc-analysis 历史分析文档 ───
+# cc-analysis/ 目录整体跳过路径引用检查（在 daily_doc_audit.sh 中配置）。
+# 这些是 Claude Code 源码分析报告中的计划路径，不是当前代码引用。
+# 作为历史参考保留，不做修改。
+
+# ─── openspec 计划路径 ───
+# spec 中对未来实现的描述，待功能实现时同步更新。
+# 每条指定具体的缺失路径，避免覆盖同文件中的新引用。
+openspec/specs/ipc/spec.md: 引用路径不存在 → packages/shared/types/ipc/
+openspec/specs/ipc/spec.md: 引用路径不存在 → packages/shared/types/ipc/memory.ts
+openspec/specs/ipc/spec.md: 引用路径不存在 → packages/shared/types/ipc/generated/
+openspec/specs/ipc/spec.md: 引用路径不存在 → packages/shared/constants/channels.ts
+openspec/specs/workbench/spec.md: 引用路径不存在 → docs/release/
+openspec/specs/workbench/spec.md: 引用路径不存在 → apps/desktop/tests/i18n/
+openspec/specs/workbench/spec.md: 引用路径不存在 → scripts/i18n-inventory-scan.ts
+openspec/specs/workbench/spec.md: 引用脚本不存在 → scripts/i18n-inventory-scan.ts
+
+# ─── doc-audit-report.md 自引用 ───
+# 审计报告中描述"已修复/已移除"的命令和"已知差异"的路径，属于历史上下文，非活跃引用。
+docs/references/doc-audit-report.md: 引用脚本不存在 → scripts/i18n-inventory-scan
+docs/references/doc-audit-report.md: 引用不存在的根级命令
+docs/references/doc-audit-report.md: 引用路径不存在 → packages/shared/types/ipc/
+
+# ─── 前端构想文档 ───
+# 语音记录中的设计构想路径，功能尚未实现。
+docs/CreoNow前端构想（语音记录）.md: 引用路径不存在 → .cn/history/
+docs/CreoNow前端构想（语音记录）.md: 引用路径不存在 → .cn/logs/
+
+# ─── ARCHITECTURE.md 路径模板 ───
+# `services/X` 和 `core/X` 是路径约定中的变量占位符（见 ARCHITECTURE.md 第 108 行说明），非真实路径。
+ARCHITECTURE.md: 引用路径不存在 → apps/desktop/main/src/services/X
+ARCHITECTURE.md: 引用路径不存在 → apps/desktop/main/src/core/X

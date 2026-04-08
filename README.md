@@ -22,7 +22,7 @@ pytest -q scripts/tests
 ## Architecture
 
 - `apps/desktop/main/` — Electron main process
-  - `src/services/` — 13 service modules
+  - `src/services/` — 20 service modules
   - `src/ipc/` — IPC handlers + contract
   - `src/db/migrations/` — SQLite migrations
 - `apps/desktop/main/skills/` — builtin skills

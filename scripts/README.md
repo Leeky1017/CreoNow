@@ -14,6 +14,7 @@
 | `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，zero findings 双审通过后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
 | `agent_github_delivery.py`           | GitHub 能力探测、PR/评论模板、gh/MCP 通道选择                            | 阶段 5：提交与合并 |
 | `review-audit.sh`                    | 分层自适应审计命令入口（Tier L/S/D），仅用于已达可交审条件的 PR          | 审计：分类后执行   |
+| `daily_doc_audit.sh`                 | 每日文档健康检查：校验路径引用、INV 定义、spec 完整性                    | 手动 / 定期       |
 | `agent_worktree_cleanup.sh`          | 清理 worktree                                                            | 阶段 6：收口       |
 | `ipc-acceptance-gate.ts`             | IPC acceptance SLO 门禁                                                  | 阶段 4：实现与测试 |
 | `test-discovery-consistency-gate.ts` | 测试发现与执行计划一致性校验                                             | 阶段 4：实现与测试 |
