@@ -4,12 +4,9 @@
 # 新增条目时必须注明原因，pattern 要尽量精确以避免吞掉新问题。
 
 # ─── cc-analysis 历史分析文档 ───
+# cc-analysis/ 目录整体跳过路径引用检查（在 daily_doc_audit.sh 中配置）。
 # 这些是 Claude Code 源码分析报告中的计划路径，不是当前代码引用。
 # 作为历史参考保留，不做修改。
-docs/references/cc-analysis/P2-CHANGES.md: 引用路径不存在
-docs/references/cc-analysis/P3-CHANGES.md: 引用路径不存在
-docs/references/cc-analysis/13-CN-FINAL-ARCHITECTURE.md: 引用路径不存在
-docs/references/cc-analysis/15-CC-CROSS-AUDIT-AND-CN-MIGRATION.md: 引用路径不存在
 
 # ─── openspec 计划路径 ───
 # spec 中对未来实现的描述，待功能实现时同步更新。

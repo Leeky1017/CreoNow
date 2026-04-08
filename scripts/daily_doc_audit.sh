@@ -81,6 +81,11 @@ path_checked=0
 path_issues=0
 
 for md in "${MD_FILES[@]}"; do
+  # Skip historical analysis documents — they reference planned/analyzed paths
+  # that don't exist in the current codebase. These are reference material, not
+  # active documentation that needs to track real code paths.
+  [[ "$md" == *"/cc-analysis/"* ]] && continue
+
   # Extract backtick-quoted paths that look like file paths
   # Match patterns like `apps/desktop/...`, `packages/...`, `scripts/...`, `src/...`, `openspec/...`, `docs/...`
   while IFS= read -r path_ref; do

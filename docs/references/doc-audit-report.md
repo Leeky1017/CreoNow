@@ -16,11 +16,11 @@
 | `openspec/specs/` | 15 | 模块行为规范（含 rate-limiting-rfc、cross-module-integration） |
 | `.github/` | 9 | PR 模板、Copilot 指令、Agent/Prompt 定义 |
 | `.cn/` | 1 | 设计系统配置 |
-| `apps/desktop/main/skills/` | 21 | Skill 定义文档（SKILL.md） |
+| `apps/desktop/main/skills/` | 20 | Skill 定义文档（SKILL.md） |
 | `scripts/` | 2 | 脚本文档 |
 | `creonow-app/` | 3 | 子项目文档 |
 | `figma_design/` | 8 | Figma 设计导出（含 guidelines、design tokens） |
-| `docs/` (其他) | 2 | 前端规划文档 |
+| `docs/` (其他) | 3 | 前端规划文档 |
 
 ---
 

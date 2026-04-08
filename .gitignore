@@ -17,5 +17,3 @@ __pycache__/
 docs/references/cc-source/
 docs/references/cc-source-verified/
 docs/references/cc-best-meta/
-# temp files from daily_doc_audit.sh
-.audit_md_list.txt
