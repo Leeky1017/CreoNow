@@ -70,6 +70,94 @@ const UP_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_cost_records_session
     ON cost_records (session_id, created_at DESC);
 
+  CREATE TABLE IF NOT EXISTS entity_types (
+    id                 TEXT PRIMARY KEY,
+    name               TEXT NOT NULL,
+    aliases            TEXT,
+    is_builtin         INTEGER DEFAULT 0,
+    icon               TEXT,
+    default_properties TEXT,
+    project_id         TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS relation_types (
+    id                      TEXT PRIMARY KEY,
+    name                    TEXT NOT NULL,
+    aliases                 TEXT,
+    is_builtin              INTEGER DEFAULT 0,
+    is_directional          INTEGER DEFAULT 1,
+    allowed_source_types    TEXT,
+    allowed_target_types    TEXT,
+    allow_free_text_target  INTEGER DEFAULT 1,
+    project_id              TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS property_types (
+    id                      TEXT PRIMARY KEY,
+    name                    TEXT NOT NULL,
+    aliases                 TEXT,
+    is_builtin              INTEGER DEFAULT 0,
+    value_type              TEXT NOT NULL,
+    options                 TEXT,
+    allow_multiple          INTEGER DEFAULT 0,
+    applicable_entity_types TEXT,
+    project_id              TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS entities (
+    id             TEXT PRIMARY KEY,
+    entity_type_id TEXT NOT NULL,
+    name           TEXT NOT NULL,
+    description    TEXT,
+    icon           TEXT,
+    project_id     TEXT NOT NULL,
+    created_by     TEXT DEFAULT 'user',
+    created_at     TEXT NOT NULL,
+    FOREIGN KEY (entity_type_id) REFERENCES entity_types (id)
+  );
+
+  CREATE TABLE IF NOT EXISTS entity_properties (
+    id               TEXT PRIMARY KEY,
+    entity_id        TEXT NOT NULL,
+    property_type_id TEXT NOT NULL,
+    value            TEXT,
+    layer            TEXT,
+    known_by         TEXT,
+    valid_from       TEXT,
+    valid_until      TEXT,
+    confidence       REAL DEFAULT 1.0,
+    source_chapter   TEXT,
+    created_by       TEXT DEFAULT 'user',
+    FOREIGN KEY (entity_id) REFERENCES entities (id),
+    FOREIGN KEY (property_type_id) REFERENCES property_types (id)
+  );
+
+  CREATE TABLE IF NOT EXISTS relations (
+    id               TEXT PRIMARY KEY,
+    source_entity_id TEXT NOT NULL,
+    relation_type_id TEXT NOT NULL,
+    target_entity_id TEXT,
+    target_value     TEXT,
+    layer            TEXT,
+    known_by         TEXT,
+    valid_from       TEXT,
+    valid_until      TEXT,
+    relation_detail  TEXT,
+    confidence       REAL DEFAULT 1.0,
+    source_chapter   TEXT,
+    created_by       TEXT DEFAULT 'user',
+    project_id       TEXT NOT NULL,
+    FOREIGN KEY (source_entity_id) REFERENCES entities (id),
+    FOREIGN KEY (relation_type_id) REFERENCES relation_types (id),
+    FOREIGN KEY (target_entity_id) REFERENCES entities (id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_relations_source
+    ON relations (source_entity_id);
+
+  CREATE INDEX IF NOT EXISTS idx_relations_target
+    ON relations (target_entity_id);
+
   CREATE TABLE IF NOT EXISTS kg_entities (
     id             TEXT PRIMARY KEY,
     project_id     TEXT NOT NULL,
@@ -137,19 +225,19 @@ const UP_SQL = /* sql */ `
   CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5 (
     name,
     description,
-    content='kg_entities',
+    content='entities',
     content_rowid='rowid'
   );
 
   CREATE TRIGGER IF NOT EXISTS entities_ai_fts
-    AFTER INSERT ON kg_entities
+    AFTER INSERT ON entities
   BEGIN
     INSERT INTO entities_fts (rowid, name, description)
       VALUES (new.rowid, new.name, new.description);
   END;
 
   CREATE TRIGGER IF NOT EXISTS entities_au_fts
-    AFTER UPDATE ON kg_entities
+    AFTER UPDATE ON entities
   BEGIN
     INSERT INTO entities_fts(entities_fts, rowid, name, description)
       VALUES('delete', old.rowid, old.name, old.description);
@@ -158,7 +246,7 @@ const UP_SQL = /* sql */ `
   END;
 
   CREATE TRIGGER IF NOT EXISTS entities_ad_fts
-    AFTER DELETE ON kg_entities
+    AFTER DELETE ON entities
   BEGIN
     INSERT INTO entities_fts(entities_fts, rowid, name, description)
       VALUES('delete', old.rowid, old.name, old.description);
@@ -461,6 +549,329 @@ function up(db: Database.Database): void {
         defaultValue: null,
       },
     ],
+  });
+  assertTableColumnContract(db, {
+    table: "entity_types",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      { name: "name", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "aliases", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      {
+        name: "is_builtin",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: "0",
+      },
+      { name: "icon", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      {
+        name: "default_properties",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "project_id", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "relation_types",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      { name: "name", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "aliases", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      {
+        name: "is_builtin",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: "0",
+      },
+      {
+        name: "is_directional",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: "1",
+      },
+      {
+        name: "allowed_source_types",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "allowed_target_types",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "allow_free_text_target",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: "1",
+      },
+      { name: "project_id", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "property_types",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      { name: "name", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "aliases", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      {
+        name: "is_builtin",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: "0",
+      },
+      {
+        name: "value_type",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "options", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      {
+        name: "allow_multiple",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: "0",
+      },
+      {
+        name: "applicable_entity_types",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "project_id", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "entities",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "entity_type_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "name", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      {
+        name: "description",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "icon", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      {
+        name: "project_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "created_by",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: "'user'",
+      },
+      {
+        name: "created_at",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "entity_properties",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "entity_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "property_type_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "value", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      { name: "layer", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      { name: "known_by", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      { name: "valid_from", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      { name: "valid_until", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      {
+        name: "confidence",
+        type: "REAL",
+        notNull: false,
+        pk: 0,
+        defaultValue: "1.0",
+      },
+      {
+        name: "source_chapter",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "created_by",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: "'user'",
+      },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "relations",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "source_entity_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "relation_type_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "target_entity_id",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "target_value",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "layer", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      { name: "known_by", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      { name: "valid_from", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      { name: "valid_until", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+      {
+        name: "relation_detail",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "confidence",
+        type: "REAL",
+        notNull: false,
+        pk: 0,
+        defaultValue: "1.0",
+      },
+      {
+        name: "source_chapter",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "created_by",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: "'user'",
+      },
+      {
+        name: "project_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
+  });
+  assertForeignKeys(db, {
+    table: "entities",
+    expected: [
+      {
+        table: "entity_types",
+        from: "entity_type_id",
+        to: "id",
+        onDelete: "NO ACTION",
+      },
+    ],
+  });
+  assertForeignKeys(db, {
+    table: "entity_properties",
+    expected: [
+      {
+        table: "entities",
+        from: "entity_id",
+        to: "id",
+        onDelete: "NO ACTION",
+      },
+      {
+        table: "property_types",
+        from: "property_type_id",
+        to: "id",
+        onDelete: "NO ACTION",
+      },
+    ],
+  });
+  assertForeignKeys(db, {
+    table: "relations",
+    expected: [
+      {
+        table: "entities",
+        from: "source_entity_id",
+        to: "id",
+        onDelete: "NO ACTION",
+      },
+      {
+        table: "relation_types",
+        from: "relation_type_id",
+        to: "id",
+        onDelete: "NO ACTION",
+      },
+      {
+        table: "entities",
+        from: "target_entity_id",
+        to: "id",
+        onDelete: "NO ACTION",
+      },
+    ],
+  });
+  assertTableSqlContains(db, {
+    table: "entities_fts",
+    requiredSnippets: ["content='entities'", "content_rowid='rowid'"],
   });
   assertTableColumnContract(db, {
     table: "kg_entities",

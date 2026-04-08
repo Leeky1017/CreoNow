@@ -3,8 +3,8 @@
  * migration system.
  *
  * Scenario coverage:
- *   DB-INT-1:  all runtime-aligned tables created by 001_initial_schema exist
- *   DB-INT-2:  entities_fts FTS5 virtual table is queryable (content='kg_entities')
+ *   DB-INT-1:  baseline tables created by 001_initial_schema exist (incl. 6 KG tables)
+ *   DB-INT-2:  entities_fts FTS5 virtual table is queryable (content='entities')
  *   DB-INT-3:  versions.branch_id → branches FK constraint is enforced (NOT NULL + FK)
  *   DB-INT-4:  foreign_keys pragma is ON
  *   DB-INT-5:  WAL journal_mode is active on a file-based DB
@@ -12,13 +12,13 @@
  *   DB-INT-7:  cost_records FK to sessions is enforced (INV-9)
  *   DB-INT-8:  second runMigrations call is idempotent (no error, no re-apply)
  *   DB-INT-9:  bridge path — migration bookkeeping remains truthful with legacy settings schema
- *   DB-INT-9B: bridge path rebuilds entities_fts for pre-existing kg_entities rows
+ *   DB-INT-9B: bridge path rebuilds entities_fts for pre-existing entities rows
  *   DB-INT-9C: bridge path rejects shape drift and does not record migration
  *   DB-INT-9D: bridge path rejects same-column semantic drift (missing UNIQUE)
  *   DB-INT-9E: bridge path rejects same-column semantic drift (wrong type)
  *   DB-INT-9F: bridge path rejects kg_entities missing normalized-name UNIQUE index
  *   DB-INT-10: kg_relations table FKs to kg_entities and project scope
- *   DB-INT-11: FTS5 external-content trigger correctness (no phantom tokens; DELETE removes tokens)
+ *   DB-INT-11: FTS5 external-content trigger correctness on entities (no phantom tokens; DELETE removes tokens)
  */
 
 import assert from "node:assert/strict";
@@ -93,7 +93,7 @@ const db = createTestDb();
 runMigrations(db, [initialSchemaMigration]);
 
 // ---------------------------------------------------------------------------
-// DB-INT-1: required tables exist (runtime-aligned schema)
+// DB-INT-1: required tables exist (includes 6-table KG baseline)
 // ---------------------------------------------------------------------------
 const requiredTables = [
   "settings",
@@ -101,6 +101,12 @@ const requiredTables = [
   "branches",
   "versions",
   "cost_records",
+  "entity_types",
+  "relation_types",
+  "property_types",
+  "entities",
+  "entity_properties",
+  "relations",
   "kg_entities",
   "kg_relation_types",
   "kg_relations",
@@ -116,17 +122,20 @@ for (const tbl of requiredTables) {
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-2: entities_fts is queryable against kg_entities content table
+// DB-INT-2: entities_fts is queryable against entities content table
 // ---------------------------------------------------------------------------
 assert.ok(tableExists(db, "entities_fts"), "DB-INT-2: entities_fts must exist");
 
 const insertedAt = new Date().toISOString();
 db.exec("CREATE TABLE IF NOT EXISTS projects (project_id TEXT PRIMARY KEY)");
 db.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-001");
+db.prepare(
+  "INSERT INTO entity_types (id, name, aliases, is_builtin, icon, default_properties, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+).run("etype-001", "character", null, 1, null, null, "proj-001");
 
 db.prepare(
-  "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-).run("ent-001", "proj-001", "character", "林远", "前特种兵，沉默寡言", "{}", insertedAt, insertedAt);
+  "INSERT INTO entities (id, entity_type_id, name, description, icon, project_id, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+).run("ent-001", "etype-001", "林远", "前特种兵，沉默寡言", null, "proj-001", "user", insertedAt);
 
 const ftsRow = db
   .prepare("SELECT name FROM entities_fts WHERE entities_fts MATCH ?")
@@ -236,6 +245,32 @@ const LEGACY_PROJECTS_SQL = `
   );
 `;
 
+const LEGACY_ENTITY_TYPES_SQL = `
+  CREATE TABLE IF NOT EXISTS entity_types (
+    id                 TEXT PRIMARY KEY,
+    name               TEXT NOT NULL,
+    aliases            TEXT,
+    is_builtin         INTEGER DEFAULT 0,
+    icon               TEXT,
+    default_properties TEXT,
+    project_id         TEXT
+  );
+`;
+
+const LEGACY_ENTITIES_SQL = `
+  CREATE TABLE IF NOT EXISTS entities (
+    id             TEXT PRIMARY KEY,
+    entity_type_id TEXT NOT NULL,
+    name           TEXT NOT NULL,
+    description    TEXT,
+    icon           TEXT,
+    project_id     TEXT NOT NULL,
+    created_by     TEXT DEFAULT 'user',
+    created_at     TEXT NOT NULL,
+    FOREIGN KEY (entity_type_id) REFERENCES entity_types (id)
+  );
+`;
+
 const LEGACY_KG_ENTITIES_SQL = `
   CREATE TABLE IF NOT EXISTS kg_entities (
     id               TEXT PRIMARY KEY,
@@ -309,9 +344,26 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
   // Simulate legacy SQL migration pre-populating settings
   bridgeDb.exec(LEGACY_PROJECTS_SQL);
   bridgeDb.exec(LEGACY_SETTINGS_SQL);
+  bridgeDb.exec(LEGACY_ENTITY_TYPES_SQL);
+  bridgeDb.exec(LEGACY_ENTITIES_SQL);
   bridgeDb.exec(LEGACY_KG_ENTITIES_SQL);
   bridgeDb.exec(LEGACY_KG_ENTITIES_UNIQUE_NAME_INDEX_SQL);
   bridgeDb.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-legacy");
+  bridgeDb.prepare(
+    "INSERT INTO entity_types (id, name, aliases, is_builtin, icon, default_properties, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run("etype-legacy", "character", null, 1, null, null, "proj-legacy");
+  bridgeDb.prepare(
+    "INSERT INTO entities (id, entity_type_id, name, description, icon, project_id, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run(
+    "legacy-ent-fts-1",
+    "etype-legacy",
+    "旧角色",
+    "桥接前已有实体",
+    null,
+    "proj-legacy",
+    "user",
+    new Date().toISOString(),
+  );
   bridgeDb.prepare(
     "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?)",
   ).run("global", "theme", '"dark"', Date.now());
@@ -358,13 +410,19 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
 
   assert.ok(tableExists(bridgeDb, "kg_entities"), "DB-INT-9: kg_entities must exist after bridge migration");
   assert.ok(tableExists(bridgeDb, "kg_relations"), "DB-INT-9: kg_relations must exist after bridge migration");
+  assert.ok(tableExists(bridgeDb, "entity_types"), "DB-INT-9: entity_types must exist after bridge migration");
+  assert.ok(tableExists(bridgeDb, "relation_types"), "DB-INT-9: relation_types must exist after bridge migration");
+  assert.ok(tableExists(bridgeDb, "property_types"), "DB-INT-9: property_types must exist after bridge migration");
+  assert.ok(tableExists(bridgeDb, "entities"), "DB-INT-9: entities must exist after bridge migration");
+  assert.ok(tableExists(bridgeDb, "entity_properties"), "DB-INT-9: entity_properties must exist after bridge migration");
+  assert.ok(tableExists(bridgeDb, "relations"), "DB-INT-9: relations must exist after bridge migration");
 
   const rebuiltFtsRow = bridgeDb
     .prepare("SELECT name FROM entities_fts WHERE entities_fts MATCH ?")
     .get("旧角色") as { name: string } | undefined;
   assert.ok(
     rebuiltFtsRow !== undefined,
-    "DB-INT-9B: entities_fts must be rebuilt to include pre-existing kg_entities rows",
+    "DB-INT-9B: entities_fts must be rebuilt to include pre-existing entities rows",
   );
   assert.equal(rebuiltFtsRow?.name, "旧角色");
 
@@ -547,7 +605,7 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-11: FTS5 external-content trigger correctness
+// DB-INT-11: FTS5 external-content trigger correctness on entities
 // ---------------------------------------------------------------------------
 // Verifies that the UPDATE trigger uses the 'delete' command (no phantom
 // tokens) and the DELETE trigger uses the 'delete' command (no corruption).
@@ -560,15 +618,18 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
   const ts = new Date().toISOString();
   ftsDb.exec("CREATE TABLE IF NOT EXISTS projects (project_id TEXT PRIMARY KEY)");
   ftsDb.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-001");
+  ftsDb.prepare(
+    "INSERT INTO entity_types (id, name, aliases, is_builtin, icon, default_properties, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run("etype-fts", "character", null, 1, null, null, "proj-001");
 
   // Insert entity — triggers entities_ai_fts
   ftsDb.prepare(
-    "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-  ).run("fts-e1", "proj-001", "character", "旧名字", "旧描述", "{}", ts, ts);
+    "INSERT INTO entities (id, entity_type_id, name, description, icon, project_id, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run("fts-e1", "etype-fts", "旧名字", "旧描述", null, "proj-001", "user", ts);
 
   // Update entity — triggers entities_au_fts (must remove old tokens)
-  ftsDb.prepare("UPDATE kg_entities SET name = ?, description = ?, updated_at = ? WHERE id = ?")
-    .run("新名字", "新描述", ts, "fts-e1");
+  ftsDb.prepare("UPDATE entities SET name = ?, description = ? WHERE id = ?")
+    .run("新名字", "新描述", "fts-e1");
 
   // Old tokens must NOT appear — phantom token check
   const phantomRow = ftsDb
@@ -583,7 +644,7 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
   assert.ok(newRow !== undefined, "DB-INT-11: UPDATE must index new tokens");
 
   // Delete entity — triggers entities_ad_fts (must not corrupt FTS)
-  ftsDb.prepare("DELETE FROM kg_entities WHERE id = ?").run("fts-e1");
+  ftsDb.prepare("DELETE FROM entities WHERE id = ?").run("fts-e1");
 
   // After delete, no rows for deleted name — no corruption check
   let deleteErrored = false;
