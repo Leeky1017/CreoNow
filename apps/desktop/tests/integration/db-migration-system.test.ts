@@ -4,8 +4,8 @@
  *
  * Scenario coverage:
  *   DB-INT-1: all tables created by 001_initial_schema exist after runMigrations
- *   DB-INT-2: entities_fts FTS5 virtual table is queryable
- *   DB-INT-3: versions.branch_id → branches FK constraint is enforced
+ *   DB-INT-2: entities_fts FTS5 virtual table is queryable (name/description only — no entity_id column)
+ *   DB-INT-3: versions.branch_id → branches FK constraint is enforced (NOT NULL + FK)
  *   DB-INT-4: foreign_keys pragma is ON after getDb()
  *   DB-INT-5: WAL journal_mode is active after getDb()
  *   DB-INT-6: _migrations table records exactly the applied migrations
@@ -106,7 +106,7 @@ const db = createTestDb();
 runMigrations(db, [initialSchemaMigration]);
 
 // ---------------------------------------------------------------------------
-// DB-INT-1: required tables exist
+// DB-INT-1: required tables exist (exact names per AC)
 // ---------------------------------------------------------------------------
 const requiredTables = [
   "settings",
@@ -131,93 +131,75 @@ for (const tbl of requiredTables) {
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-2: entities_fts virtual table is queryable
+// DB-INT-2: entities_fts virtual table is queryable — no entity_id column
+//
+// Per kg-schema.md §4.7, entities_fts has ONLY (name, description).
+// Inserting into entities triggers the AFTER INSERT trigger to populate FTS.
+// We then confirm the FTS search works and does NOT expose entity_id as a column.
 // ---------------------------------------------------------------------------
 assert.ok(
   vtableExists(db, "entities_fts"),
   "DB-INT-2: entities_fts virtual table must exist",
 );
 
-// Insert a row to confirm FTS5 works
 const insertedAt = new Date().toISOString();
-// First insert a required entity_type row
-db.prepare(
-  "INSERT INTO entity_types (type_id, display_name, is_builtin, created_at) VALUES (?, ?, ?, ?)",
-).run("character", "角色", 1, insertedAt);
 
+// Insert a required entity_type row (entity_types.id PK)
 db.prepare(
-  "INSERT INTO entities (entity_id, project_id, type_id, name, description, aliases, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-).run(
-  "ent-001",
-  "proj-001",
-  "character",
-  "林远",
-  "前特种兵，沉默寡言",
-  "[]",
-  insertedAt,
-  insertedAt,
-);
+  "INSERT INTO entity_types (id, name, is_builtin) VALUES (?, ?, ?)",
+).run("character", "角色", 0);
 
-// FTS5 content table — rebuild triggers should have populated entities_fts
-// Perform FTS search
+// Insert an entity (entities.id PK, entity_type_id → entity_types.id)
+db.prepare(
+  "INSERT INTO entities (id, entity_type_id, name, description, project_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+).run("ent-001", "character", "林远", "前特种兵，沉默寡言", "proj-001", insertedAt);
+
+// FTS trigger should have populated entities_fts
+// Searching by name via FTS MATCH
 const ftsRow = db
-  .prepare("SELECT entity_id FROM entities_fts WHERE entities_fts MATCH ?")
-  .get("林远") as { entity_id: string } | undefined;
+  .prepare("SELECT name FROM entities_fts WHERE entities_fts MATCH ?")
+  .get("林远") as { name: string } | undefined;
 
 assert.ok(
   ftsRow !== undefined,
   "DB-INT-2: FTS5 search must return the inserted entity",
 );
-assert.equal(ftsRow?.entity_id, "ent-001");
+assert.equal(ftsRow?.name, "林远", "DB-INT-2: FTS5 must return correct name");
+
+// Confirm entity_id is NOT a column in entities_fts (per §4.7, no entity_id col)
+const ftsInfo = db.pragma("table_info(entities_fts)") as Array<{ name: string }>;
+const ftsColumns = ftsInfo.map((r) => r.name);
+assert.ok(
+  !ftsColumns.includes("entity_id"),
+  "DB-INT-2: entities_fts must NOT have entity_id column per §4.7",
+);
 
 // ---------------------------------------------------------------------------
 // DB-INT-3: versions.branch_id → branches FK is enforced
+//           branch_id is NOT NULL — must reference a real branch
 // ---------------------------------------------------------------------------
 {
-  const branchInsertedAt = new Date().toISOString();
+  const ts = new Date().toISOString();
 
-  // Insert a branch
+  // Insert a branch (exact columns per AC)
   db.prepare(
-    "INSERT INTO branches (branch_id, document_id, project_id, name, created_at) VALUES (?, ?, ?, ?, ?)",
-  ).run("br-001", "doc-001", "proj-001", "main", branchInsertedAt);
+    `INSERT INTO branches (id, project_id, name, parent_branch_id, fork_version_id, created_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run("br-001", "proj-001", "main", null, null, ts, "user");
 
-  // Insert version linked to that branch (should succeed)
+  // Insert a version linked to that branch — should succeed
   db.prepare(
-    `INSERT INTO versions
-       (version_id, document_id, project_id, branch_id, actor, reason, content_json, word_count, parent_snapshot_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    "ver-001",
-    "doc-001",
-    "proj-001",
-    "br-001",
-    "user",
-    "manual-save",
-    "{}",
-    0,
-    null,
-    branchInsertedAt,
-  );
+    `INSERT INTO versions (id, branch_id, parent_version_id, content_snapshot, operation, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run("ver-001", "br-001", null, "{}", "edit", ts);
 
-  // Insert version with a NON-EXISTENT branch_id must fail
+  // Insert version with a NON-EXISTENT branch_id — FK violation
   let fkViolated = false;
   try {
     db.prepare(
-      `INSERT INTO versions
-         (version_id, document_id, project_id, branch_id, actor, reason, content_json, word_count, parent_snapshot_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      "ver-002",
-      "doc-001",
-      "proj-001",
-      "br-nonexistent",
-      "user",
-      "manual-save",
-      "{}",
-      0,
-      null,
-      branchInsertedAt,
-    );
+      `INSERT INTO versions (id, branch_id, parent_version_id, content_snapshot, operation, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run("ver-002", "br-nonexistent", null, "{}", "edit", ts);
   } catch {
     fkViolated = true;
   }
@@ -238,37 +220,38 @@ assert.equal(ftsRow?.entity_id, "ent-001");
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-7: cost_records (INV-9) FK to sessions
+// DB-INT-7: cost_records (INV-9) FK to sessions — exact column names per AC
 // ---------------------------------------------------------------------------
 {
   const ts = new Date().toISOString();
 
-  // Insert a session
+  // Insert a session (sessions.id PK, with state column per AC)
   db.prepare(
-    "INSERT INTO sessions (session_id, project_id, started_at, ended_at, metadata_json) VALUES (?, ?, ?, ?, ?)",
-  ).run("ses-001", "proj-001", ts, null, "{}");
+    "INSERT INTO sessions (id, project_id, started_at, ended_at, state) VALUES (?, ?, ?, ?, ?)",
+  ).run("ses-001", "proj-001", ts, null, "active");
 
   // Cost record linked to existing session — should succeed
   db.prepare(
     `INSERT INTO cost_records
-       (record_id, session_id, project_id, model, prompt_tokens, completion_tokens, cost_usd, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run("cr-001", "ses-001", "proj-001", "gpt-4o", 100, 50, 0.002, ts);
+       (id, session_id, model, input_tokens, output_tokens, cache_hit_tokens, duration_ms, estimated_cost_usd, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run("cr-001", "ses-001", "gpt-4o", 100, 50, 10, 800, 0.002, ts);
 
   // Cost record with non-existent session_id — FK violation
   let fkViolated = false;
   try {
     db.prepare(
       `INSERT INTO cost_records
-         (record_id, session_id, project_id, model, prompt_tokens, completion_tokens, cost_usd, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, session_id, model, input_tokens, output_tokens, cache_hit_tokens, duration_ms, estimated_cost_usd, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       "cr-002",
       "ses-nonexistent",
-      "proj-001",
       "gpt-4o",
       100,
       50,
+      10,
+      800,
       0.002,
       ts,
     );

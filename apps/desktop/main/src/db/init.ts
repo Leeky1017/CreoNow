@@ -14,6 +14,9 @@ import {
   toErrorMessage,
 } from "./nativeDoctor";
 import { setDbInitError } from "../ipc/dbError";
+import { setDbInstance } from "./connection";
+import { runMigrations } from "./migrator";
+import { initialSchemaMigration } from "./migrations/ts/001_initial_schema";
 
 import initSql from "./migrations/0001_init.sql?raw";
 import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
@@ -289,6 +292,13 @@ export function initDb(args: {
       schema_version: finalSchemaVersion,
       migration_applied: appliedVersions,
     });
+
+    // Bridge: register the already-opened connection with the TypeScript
+    // connection singleton so that getDb() works for all downstream consumers,
+    // then layer the TypeScript migration schema on top of the SQL migrations.
+    // Using IF NOT EXISTS in all DDL makes this safe to run on an existing DB.
+    setDbInstance(conn);
+    runMigrations(conn, [initialSchemaMigration]);
 
     return { ok: true, db: conn, schemaVersion: finalSchemaVersion };
   } catch (error) {

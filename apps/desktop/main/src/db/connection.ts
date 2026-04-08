@@ -2,18 +2,19 @@
  * connection.ts — SQLite connection singleton for CreoNow
  *
  * Responsibilities:
- *  - Open exactly one Database instance per process (singleton pattern)
- *  - Apply mandatory pragmas on first open:
- *      journal_mode = WAL     (concurrent readers without blocking writers)
- *      foreign_keys = ON      (enforce referential integrity — required by INV-1)
+ *  - Hold exactly one Database instance per process (singleton pattern)
+ *  - Apply mandatory pragmas when opening a new connection:
+ *      journal_mode = WAL     (concurrent reads without blocking writes)
+ *      foreign_keys = ON      (referential integrity — required by INV-1)
  *  - Delegate performance pragmas to applyRecommendedPragmas
+ *  - Allow init.ts to register its already-opened connection via setDbInstance
  *  - Provide closeDb() for clean shutdown
  *
  * Boundary: does NOT run migrations. Callers must call runMigrations() after
  * obtaining the db handle via getDb().
  *
- * INV-1: versions table write-path depends on foreign_keys being enforced here.
- * INV-9: cost_records table FK to sessions is enforced by this pragma setting.
+ * INV-1: versions.branch_id FK depends on foreign_keys being ON.
+ * INV-9: cost_records.session_id FK depends on foreign_keys being ON.
  */
 
 import Database from "better-sqlite3";
@@ -33,14 +34,13 @@ let _instance: Database.Database | null = null;
 /**
  * Return the active Database instance.
  *
- * Throws if the connection has not been initialised with initConnection().
- * Why explicit error: silent null returns would let callers proceed with an
- * uninitialised DB and produce confusing runtime failures.
+ * Throws if no connection has been registered.
+ * Why explicit error: silent null returns hide initialisation ordering bugs.
  */
 export function getDb(): Database.Database {
   if (!_instance) {
     throw new Error(
-      "DB connection not initialised. Call initConnection() before getDb().",
+      "DB connection not initialised. Call initConnection() or setDbInstance() first.",
     );
   }
   return _instance;
@@ -49,12 +49,10 @@ export function getDb(): Database.Database {
 /**
  * Open (or return cached) SQLite connection at `dbPath`.
  *
- * Safe to call multiple times — subsequent calls with the same path are no-ops
- * and return the existing instance.
+ * Safe to call multiple times — subsequent calls are no-ops and return the
+ * existing instance.
  *
  * Why `:memory:` is allowed: integration tests use in-memory databases.
- *
- * @param dbPath  Absolute filesystem path or `:memory:` for in-memory DBs.
  */
 export function initConnection(dbPath: string): Database.Database {
   if (_instance) {
@@ -63,10 +61,9 @@ export function initConnection(dbPath: string): Database.Database {
 
   const db = new Database(dbPath);
 
-  // Mandatory pragmas applied before any schema work.
-  // journal_mode = WAL: allows concurrent reads during write; required for
-  //   Electron where renderer IPC may read while main writes.
-  // foreign_keys = ON: enforces FK constraints — INV-1 relies on this.
+  // journal_mode = WAL: concurrent readers don't block writers — required for
+  //   Electron where renderer IPC reads while main process writes.
+  // foreign_keys = ON: enforces FK constraints — INV-1 / INV-9 rely on this.
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
 
@@ -74,6 +71,20 @@ export function initConnection(dbPath: string): Database.Database {
 
   _instance = db;
   return db;
+}
+
+/**
+ * Register an already-opened Database instance as the singleton.
+ *
+ * Used by init.ts to bridge the existing raw-SQL startup flow into the new
+ * TypeScript migration system: init.ts opens and configures the connection
+ * itself (applying WAL / foreign_keys / recommendedPragmas), then hands it
+ * to this module so that getDb() works for all downstream consumers.
+ *
+ * Idempotent when called with the same instance.
+ */
+export function setDbInstance(db: Database.Database): void {
+  _instance = db;
 }
 
 /**
@@ -89,12 +100,10 @@ export function closeDb(): void {
 }
 
 /**
- * Replace the singleton with a pre-constructed Database instance.
+ * Inject a pre-constructed Database instance for test harnesses.
  *
- * Intended for test harnesses that need to inject an already-configured
- * in-memory database without going through the filesystem path.
- *
- * Why: avoids leaking the mutable singleton while keeping tests isolated.
+ * Why separate from setDbInstance: makes test-only usage explicit and
+ * searchable, preventing accidental use in production code paths.
  */
 export function _injectDbForTesting(db: Database.Database): void {
   _instance = db;

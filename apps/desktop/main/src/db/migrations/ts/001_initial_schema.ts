@@ -9,15 +9,16 @@
  *   versions        — linear document snapshots; branch_id → branches (INV-1)
  *   cost_records    — per-call AI cost log (INV-9: cost tracking obligation)
  *
- *   KG schema (6 tables):
- *     entity_types      — registered entity type registry
- *     relation_types    — registered relation type registry
- *     property_types    — registered property type registry
+ *   KG schema (6 tables, target design per kg-schema.md §4.7):
+ *     entity_types      — entity type registry
+ *     relation_types    — relation type registry
+ *     property_types    — property type registry
  *     entities          — KG entity nodes
- *     entity_properties — KG entity attribute key-value pairs
- *     relations         — KG directed edges between entities
+ *     entity_properties — attribute key-value pairs per entity
+ *     relations         — directed edges between entities
  *
  *   entities_fts    — FTS5 virtual table (content='entities', content_rowid='rowid')
+ *                     columns: name, description — NO entity_id column per §4.7
  *   _migrations     — applied migration log (managed by migrator.ts)
  *
  * INV-1: versions.branch_id → branches FK ensures snapshot integrity.
@@ -25,6 +26,8 @@
  *         attributable to a session.
  *
  * @rollback: manual — dropping the baseline schema requires a full DB reset.
+ *   Reason: no automated down() is safe for a baseline schema in production.
+ *   To roll back, use a subsequent migration to ALTER/DROP individual tables.
  */
 
 import type Database from "better-sqlite3";
@@ -41,160 +44,202 @@ const UP_SQL = /* sql */ `
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS settings (
     key        TEXT PRIMARY KEY,
-    value      TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    value      TEXT,
+    updated_at TEXT
   );
 
   -- =========================================================================
-  -- AI interaction sessions
+  -- AI interaction sessions (INV-9: cost_records FK root)
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS sessions (
-    session_id    TEXT PRIMARY KEY,
-    project_id    TEXT,
-    started_at    TEXT NOT NULL,
-    ended_at      TEXT,
-    metadata_json TEXT NOT NULL DEFAULT '{}'
+    id         TEXT PRIMARY KEY,
+    project_id TEXT,
+    started_at TEXT,
+    ended_at   TEXT,
+    state      TEXT
   );
 
   -- =========================================================================
-  -- Document branches (version control, INV-1)
+  -- Document branches (INV-1: versions must reference a branch)
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS branches (
-    branch_id   TEXT PRIMARY KEY,
-    document_id TEXT NOT NULL,
-    project_id  TEXT NOT NULL,
-    name        TEXT NOT NULL,
-    created_at  TEXT NOT NULL,
-    UNIQUE (document_id, name)
+    id               TEXT PRIMARY KEY,
+    project_id       TEXT NOT NULL,
+    name             TEXT NOT NULL,
+    parent_branch_id TEXT,
+    fork_version_id  TEXT,
+    created_at       TEXT NOT NULL,
+    created_by       TEXT NOT NULL
   );
 
   -- =========================================================================
-  -- Linear document snapshots (INV-1: write-path must version before mutating)
+  -- Document snapshots (INV-1: write-path must snapshot before mutating)
   --
-  -- branch_id → branches FK: a snapshot may be associated with a named branch.
-  -- parent_snapshot_id forms a singly-linked list (linear chain, no forks).
+  -- branch_id → branches FK (NOT NULL): every snapshot belongs to a branch.
+  -- parent_version_id forms a singly-linked history chain within a branch.
+  -- operation: describes the write action (e.g. "edit", "revert", "merge").
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS versions (
-    version_id         TEXT PRIMARY KEY,
-    document_id        TEXT NOT NULL,
-    project_id         TEXT NOT NULL,
-    branch_id          TEXT REFERENCES branches (branch_id) ON DELETE SET NULL,
-    actor              TEXT NOT NULL,
-    reason             TEXT NOT NULL,
-    content_json       TEXT NOT NULL,
-    word_count         INTEGER NOT NULL DEFAULT 0,
-    parent_snapshot_id TEXT,
-    created_at         TEXT NOT NULL
+    id               TEXT PRIMARY KEY,
+    branch_id        TEXT NOT NULL REFERENCES branches (id),
+    parent_version_id TEXT,
+    content_snapshot TEXT,
+    operation        TEXT,
+    created_at       TEXT NOT NULL
   );
 
-  CREATE INDEX IF NOT EXISTS idx_versions_document_created
-    ON versions (document_id, created_at DESC, version_id ASC);
+  CREATE INDEX IF NOT EXISTS idx_versions_branch_created
+    ON versions (branch_id, created_at DESC);
 
   -- =========================================================================
-  -- AI cost records (INV-9: every call must be logged with model + tokens)
+  -- AI cost records (INV-9: every AI call must be logged with model + tokens)
   --
-  -- session_id → sessions FK: cost is always attributable to a session.
+  -- session_id → sessions FK: every cost entry is attributable to a session.
+  -- cache_hit_tokens: prompt tokens served from provider cache (reduce billing).
+  -- duration_ms: wall-clock latency for SLA tracking.
+  -- estimated_cost_usd: derived at write-time from model pricing tables.
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS cost_records (
-    record_id         TEXT PRIMARY KEY,
-    session_id        TEXT REFERENCES sessions (session_id) ON DELETE SET NULL,
-    project_id        TEXT,
-    model             TEXT NOT NULL,
-    prompt_tokens     INTEGER NOT NULL DEFAULT 0,
-    completion_tokens INTEGER NOT NULL DEFAULT 0,
-    cost_usd          REAL    NOT NULL DEFAULT 0.0,
-    created_at        TEXT    NOT NULL
+    id                 TEXT PRIMARY KEY,
+    session_id         TEXT REFERENCES sessions (id),
+    model              TEXT NOT NULL,
+    input_tokens       INTEGER,
+    output_tokens      INTEGER,
+    cache_hit_tokens   INTEGER,
+    duration_ms        INTEGER,
+    estimated_cost_usd REAL,
+    created_at         TEXT NOT NULL
   );
 
   CREATE INDEX IF NOT EXISTS idx_cost_records_session
     ON cost_records (session_id, created_at DESC);
 
   -- =========================================================================
-  -- Knowledge Graph — type registries
+  -- Knowledge Graph — type registries (target schema per kg-schema.md §4.7)
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS entity_types (
-    type_id      TEXT PRIMARY KEY,
-    display_name TEXT    NOT NULL,
-    is_builtin   INTEGER NOT NULL DEFAULT 1,
-    created_at   TEXT    NOT NULL
+    id                 TEXT PRIMARY KEY,
+    name               TEXT NOT NULL,
+    aliases            TEXT,
+    is_builtin         INTEGER DEFAULT 0,
+    icon               TEXT,
+    default_properties TEXT,
+    project_id         TEXT
   );
 
   CREATE TABLE IF NOT EXISTS relation_types (
-    type_id      TEXT PRIMARY KEY,
-    display_name TEXT    NOT NULL,
-    is_builtin   INTEGER NOT NULL DEFAULT 1,
-    created_at   TEXT    NOT NULL
+    id                     TEXT PRIMARY KEY,
+    name                   TEXT NOT NULL,
+    aliases                TEXT,
+    is_builtin             INTEGER DEFAULT 0,
+    is_directional         INTEGER DEFAULT 1,
+    allowed_source_types   TEXT,
+    allowed_target_types   TEXT,
+    allow_free_text_target INTEGER DEFAULT 1,
+    project_id             TEXT
   );
 
   CREATE TABLE IF NOT EXISTS property_types (
-    type_id        TEXT PRIMARY KEY,
-    display_name   TEXT    NOT NULL,
-    value_type     TEXT    NOT NULL DEFAULT 'text',
-    allow_multiple INTEGER NOT NULL DEFAULT 0,
-    is_builtin     INTEGER NOT NULL DEFAULT 1,
-    created_at     TEXT    NOT NULL
+    id                      TEXT PRIMARY KEY,
+    name                    TEXT NOT NULL,
+    aliases                 TEXT,
+    is_builtin              INTEGER DEFAULT 0,
+    value_type              TEXT NOT NULL,
+    options                 TEXT,
+    allow_multiple          INTEGER DEFAULT 0,
+    applicable_entity_types TEXT,
+    project_id              TEXT
   );
 
   -- =========================================================================
   -- Knowledge Graph — entities (nodes)
+  --
+  -- entity_type_id → entity_types FK: every entity must have a registered type.
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS entities (
-    entity_id  TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL,
-    type_id    TEXT NOT NULL REFERENCES entity_types (type_id),
-    name       TEXT NOT NULL,
-    description TEXT,
-    aliases    TEXT NOT NULL DEFAULT '[]',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    id             TEXT PRIMARY KEY,
+    entity_type_id TEXT NOT NULL,
+    name           TEXT NOT NULL,
+    description    TEXT,
+    icon           TEXT,
+    project_id     TEXT NOT NULL,
+    created_by     TEXT DEFAULT 'user',
+    created_at     TEXT NOT NULL,
+    FOREIGN KEY (entity_type_id) REFERENCES entity_types (id)
   );
 
   CREATE INDEX IF NOT EXISTS idx_entities_project_type
-    ON entities (project_id, type_id, updated_at DESC);
+    ON entities (project_id, entity_type_id);
 
   -- =========================================================================
-  -- Knowledge Graph — entity properties (attribute key-value pairs)
+  -- Knowledge Graph — entity properties (attribute key-value pairs per §4.7)
+  --
+  -- layer/known_by/valid_from/valid_until: narrative context dimensions.
+  -- confidence: 0.0–1.0; lower values from uncertain AI extraction.
+  -- source_chapter: which chapter introduced this property (provenance).
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS entity_properties (
     id               TEXT PRIMARY KEY,
-    entity_id        TEXT NOT NULL REFERENCES entities (entity_id) ON DELETE CASCADE,
-    property_type_id TEXT NOT NULL REFERENCES property_types (type_id),
-    value            TEXT NOT NULL,
-    created_at       TEXT NOT NULL
+    entity_id        TEXT NOT NULL,
+    property_type_id TEXT NOT NULL,
+    value            TEXT,
+    layer            TEXT,
+    known_by         TEXT,
+    valid_from       TEXT,
+    valid_until      TEXT,
+    confidence       REAL DEFAULT 1.0,
+    source_chapter   TEXT,
+    created_by       TEXT DEFAULT 'user',
+    FOREIGN KEY (entity_id)        REFERENCES entities (id),
+    FOREIGN KEY (property_type_id) REFERENCES property_types (id)
   );
 
   CREATE INDEX IF NOT EXISTS idx_entity_properties_entity
-    ON entity_properties (entity_id, property_type_id);
+    ON entity_properties (entity_id);
 
   -- =========================================================================
-  -- Knowledge Graph — relations (directed edges)
+  -- Knowledge Graph — relations (directed edges per kg-schema.md §4.7)
+  --
+  -- Table name is 'relations' (not 'kg_relations') per AC requirement.
+  -- target_value: free-text target when target_entity_id is NULL.
+  -- relation_detail: qualifier or annotation on the edge.
+  -- confidence/source_chapter: same semantics as entity_properties above.
   -- =========================================================================
   CREATE TABLE IF NOT EXISTS relations (
-    relation_id      TEXT PRIMARY KEY,
-    project_id       TEXT NOT NULL,
-    source_entity_id TEXT NOT NULL REFERENCES entities (entity_id) ON DELETE CASCADE,
-    relation_type_id TEXT NOT NULL REFERENCES relation_types (type_id),
-    target_entity_id TEXT REFERENCES entities (entity_id) ON DELETE SET NULL,
+    id               TEXT PRIMARY KEY,
+    source_entity_id TEXT NOT NULL,
+    relation_type_id TEXT NOT NULL,
+    target_entity_id TEXT,
     target_value     TEXT,
-    description      TEXT,
-    created_at       TEXT NOT NULL
+    layer            TEXT,
+    known_by         TEXT,
+    valid_from       TEXT,
+    valid_until      TEXT,
+    relation_detail  TEXT,
+    confidence       REAL DEFAULT 1.0,
+    source_chapter   TEXT,
+    created_by       TEXT DEFAULT 'user',
+    project_id       TEXT NOT NULL,
+    FOREIGN KEY (source_entity_id) REFERENCES entities (id),
+    FOREIGN KEY (relation_type_id) REFERENCES relation_types (id),
+    FOREIGN KEY (target_entity_id) REFERENCES entities (id)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_relations_project_source
-    ON relations (project_id, source_entity_id, relation_id ASC);
+  CREATE INDEX IF NOT EXISTS idx_relations_source
+    ON relations (source_entity_id);
 
-  CREATE INDEX IF NOT EXISTS idx_relations_project_target
-    ON relations (project_id, target_entity_id, relation_id ASC);
+  CREATE INDEX IF NOT EXISTS idx_relations_target
+    ON relations (target_entity_id);
 
   -- =========================================================================
-  -- Full-text search over entities
+  -- Full-text search over entities (per kg-schema.md §4.7)
   --
-  -- content='entities': the FTS index is backed by the entities table.
-  -- content_rowid='rowid': links FTS rowids to entities.rowid for content sync.
-  -- Triggers below keep the FTS index in sync on INSERT / UPDATE / DELETE.
+  -- content='entities': FTS index backed by the entities table.
+  -- content_rowid='rowid': links FTS rowids to entities.rowid for sync.
+  -- Columns: name, description ONLY — no entity_id column per §4.7 spec.
+  -- Triggers below keep the FTS index consistent on INSERT / UPDATE / DELETE.
   -- =========================================================================
   CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5 (
-    entity_id UNINDEXED,
     name,
     description,
     content='entities',
@@ -204,16 +249,16 @@ const UP_SQL = /* sql */ `
   CREATE TRIGGER IF NOT EXISTS entities_ai_fts
     AFTER INSERT ON entities
   BEGIN
-    INSERT INTO entities_fts (rowid, entity_id, name, description)
-      VALUES (new.rowid, new.entity_id, new.name, new.description);
+    INSERT INTO entities_fts (rowid, name, description)
+      VALUES (new.rowid, new.name, new.description);
   END;
 
   CREATE TRIGGER IF NOT EXISTS entities_au_fts
     AFTER UPDATE ON entities
   BEGIN
     DELETE FROM entities_fts WHERE rowid = old.rowid;
-    INSERT INTO entities_fts (rowid, entity_id, name, description)
-      VALUES (new.rowid, new.entity_id, new.name, new.description);
+    INSERT INTO entities_fts (rowid, name, description)
+      VALUES (new.rowid, new.name, new.description);
   END;
 
   CREATE TRIGGER IF NOT EXISTS entities_ad_fts
