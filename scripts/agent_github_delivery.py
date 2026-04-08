@@ -60,6 +60,18 @@ DEFAULT_NON_FRONTEND_VISUAL = "N/A（非前端改动）"
 DEFAULT_FRONTEND_SCREENSHOT_PLACEHOLDER = "<!-- TODO: embed at least 1 screenshot here before requesting audit -->"
 DEFAULT_FRONTEND_STORYBOOK_PLACEHOLDER = "TODO: add a clickable Storybook artifact or preview URL"
 DEFAULT_FRONTEND_VISUAL_NOTE_PLACEHOLDER = "TODO: describe the states covered by visual acceptance"
+DEFAULT_INVARIANT_CHECKLIST_LINES = (
+    "- [ ] INV-1 原稿保护 — TODO: 标注遵守 / 不涉及 / 违反+理由",
+    "- [ ] INV-2 并发安全 — TODO: 标注遵守 / 不涉及 / 违反+理由",
+    "- [ ] INV-3 CJK Token — TODO: 标注遵守 / 不涉及 / 违反+理由",
+    "- [ ] INV-4 Memory-First — TODO: 标注遵守 / 不涉及 / 违反+理由",
+    "- [ ] INV-5 叙事压缩 — TODO: 标注遵守 / 不涉及 / 违反+理由",
+    "- [ ] INV-6 一切皆 Skill — TODO: 标注遵守 / 不涉及 / 违反+理由",
+    "- [ ] INV-7 统一入口 — TODO: 标注遵守 / 不涉及 / 违反+理由",
+    "- [ ] INV-8 Hook 链 — TODO: 标注遵守 / 不涉及 / 违反+理由",
+    "- [ ] INV-9 成本追踪 — TODO: 标注遵守 / 不涉及 / 违反+理由",
+    "- [ ] INV-10 错误不丢上下文 — TODO: 标注遵守 / 不涉及 / 违反+理由",
+)
 
 
 CONSOLIDATED_AUDIT_SECTION_HEADERS = (
@@ -287,6 +299,7 @@ def build_pr_body(
     embedded_screenshots: Sequence[str] | None = None,
     storybook_link: str | None = None,
     visual_acceptance_note: str | None = None,
+    invariant_checklist_lines: Sequence[str] | None = None,
     test_coverage: str = DEFAULT_TEST_COVERAGE_NOTE,
     additional_validation_note: str = DEFAULT_ADDITIONAL_VALIDATION_NOTE,
 ) -> str:
@@ -318,6 +331,10 @@ def build_pr_body(
         storybook_value = DEFAULT_NON_FRONTEND_VISUAL
         visual_note_value = DEFAULT_NON_FRONTEND_VISUAL
         non_frontend_checkbox = "- [x] N/A（非前端改动）"
+    invariant_checklist_block = _normalize_multiline_block(
+        invariant_checklist_lines,
+        "\n".join(DEFAULT_INVARIANT_CHECKLIST_LINES),
+    )
 
     return f"""Skip-Reason: {skip_reason}
 
@@ -328,6 +345,9 @@ Closes #{issue_number}
 
 ## Impact Scope
 - {user_impact}
+
+## Invariant Checklist
+{invariant_checklist_block}
 
 ## Validation Evidence
 {verification_block}

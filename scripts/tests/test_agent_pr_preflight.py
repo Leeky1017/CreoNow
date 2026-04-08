@@ -187,11 +187,19 @@ class PRBodyFormatTests(unittest.TestCase):
     def test_validate_pr_body_format_should_accept_repository_template_audit_gate(self) -> None:
         template_path = Path(__file__).resolve().parents[2] / ".github" / "PULL_REQUEST_TEMPLATE.md"
         template_body = template_path.read_text(encoding="utf-8")
+        invariant_section = agent_pr_preflight.extract_section(
+            template_body,
+            "阶段 B：Invariant Checklist",
+            level=2,
+        )
+        self.assertIsNotNone(invariant_section)
         audit_gate_section = agent_pr_preflight.extract_section(template_body, "审计门禁", level=2)
         self.assertIsNotNone(audit_gate_section)
         body = (
             "## Summary\n- contract validation\n\n"
             "Closes #42\n\n"
+            "## 阶段 B：Invariant Checklist\n"
+            f"{invariant_section}\n\n"
             "## Validation Evidence\n- [x] `pytest -q scripts/tests/test_agent_pr_preflight.py`\n\n"
             "## Visual Evidence\n\n"
             "### Embedded Screenshots\nN/A（非前端改动）\n\n"
@@ -317,6 +325,19 @@ class PRBodyFormatTests(unittest.TestCase):
             url="https://github.com/test/test/pull/100",
         )
         with self.assertRaisesRegex(RuntimeError, r"seat 3 FINAL-VERDICT checklist"):
+            agent_pr_preflight.validate_pr_body_format(pr, "42")
+
+    def test_validate_pr_body_format_should_fail_when_invariant_checklist_is_missing(self) -> None:
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=make_pr_body().replace("## Invariant Checklist\n", "", 1).replace(
+                "- [ ] INV-1 原稿保护 — TODO: 标注遵守 / 不涉及 / 违反+理由\n",
+                "",
+                1,
+            ),
+            url="https://github.com/test/test/pull/100",
+        )
+        with self.assertRaisesRegex(RuntimeError, r"Invariant Checklist"):
             agent_pr_preflight.validate_pr_body_format(pr, "42")
 
 

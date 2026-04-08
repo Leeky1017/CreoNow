@@ -50,6 +50,7 @@ AUDIT_GATE_SEAT_PATTERNS = (
     re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 3（Claude Opus 4\.6）[:：]\s*FINAL-VERDICT\b.+$"),
     re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 4（Claude Sonnet 4\.6）[:：]\s*FINAL-VERDICT\b.+$"),
 )
+INVARIANT_IDS = tuple(f"INV-{index}" for index in range(1, 11))
 
 
 def run(cmd: list[str], *, cwd: str | None = None) -> CmdResult:
@@ -323,6 +324,17 @@ def validate_audit_gate(pr: PullRequest) -> None:
             )
 
 
+def validate_invariant_checklist(pr: PullRequest) -> None:
+    checklist = require_any_section(pr, ("Invariant Checklist", "阶段 B：Invariant Checklist"), level=2)
+    normalized = normalize_section_content(checklist)
+    for inv_id in INVARIANT_IDS:
+        pattern = re.compile(rf"(?m)^-\s*\[[ xX]\]\s*(?:\*\*)?{re.escape(inv_id)}\b")
+        if pattern.search(normalized) is None:
+            raise RuntimeError(
+                f"[PR] #{pr.number} invariant checklist must include checkbox entry for `{inv_id}` (url: {pr.url})"
+            )
+
+
 def branch_touches_frontend(repo: str) -> bool:
     cmd = ["git", "diff", "--name-only", "origin/main...HEAD"]
     result = run(cmd, cwd=repo)
@@ -347,6 +359,7 @@ def validate_pr_body_format(pr: PullRequest, issue_number: str, *, frontend_requ
         raise RuntimeError(
             f"[PR] #{pr.number} body must contain `Closes #{issue_number}` (url: {pr.url})"
         )
+    validate_invariant_checklist(pr)
     require_section(pr, "Validation Evidence", level=2)
     require_section(pr, "Risk & Rollback", level=2)
     validate_visual_evidence(pr, frontend_required=frontend_required)
