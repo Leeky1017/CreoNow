@@ -33,7 +33,7 @@
  */
 
 import { closeDb, getDb, initConnection } from "./connection";
-import { initialSchemaMigration } from "./migrations/ts/001_initial_schema";
+import { initialSchemaMigration } from "./migrations/001_initial_schema";
 import { runMigrations as _runMigrations } from "./migrator";
 
 export { getDb, closeDb };

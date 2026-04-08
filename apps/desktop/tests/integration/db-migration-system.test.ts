@@ -12,7 +12,7 @@
  *   DB-INT-7:  cost_records FK to sessions is enforced (INV-9)
  *   DB-INT-8:  second runMigrations call is idempotent (no error, no re-apply)
  *   DB-INT-9:  bridge path — runMigrations works alongside legacy settings rows (coexistence)
- *   DB-INT-10: kg_relations table FKs to entities and relation_types
+ *   DB-INT-10: relations table FKs to entities and relation_types
  *   DB-INT-11: FTS5 external-content trigger correctness (no phantom tokens, no corruption)
  */
 
@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 
 import { runMigrations } from "../../main/src/db/migrator";
-import { initialSchemaMigration } from "../../main/src/db/migrations/ts/001_initial_schema";
+import { initialSchemaMigration } from "../../main/src/db/migrations/001_initial_schema";
 import { applyRecommendedPragmas } from "../../main/src/db/recommendedPragmas";
 
 // ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ const requiredTables = [
   "property_types",
   "entities",
   "entity_properties",
-  "kg_relations",
+  "relations",
   "_migrations",
 ] as const;
 
@@ -258,14 +258,14 @@ const LEGACY_SETTINGS_SQL = `
   assert.equal(legacyRow?.value_json, '"dark"', "DB-INT-9: legacy settings value must be intact");
 
   // New tables must exist
-  assert.ok(tableExists(bridgeDb, "kg_relations"), "DB-INT-9: kg_relations must exist after bridge migration");
+  assert.ok(tableExists(bridgeDb, "relations"), "DB-INT-9: relations must exist after bridge migration");
   assert.ok(tableExists(bridgeDb, "entities"), "DB-INT-9: entities must exist after bridge migration");
 
   bridgeDb.close();
 }
 
 // ---------------------------------------------------------------------------
-// DB-INT-10: kg_relations table FKs to entities and relation_types
+// DB-INT-10: relations table FKs to entities and relation_types
 // ---------------------------------------------------------------------------
 {
   const kgDb = new Database(":memory:");
@@ -284,9 +284,9 @@ const LEGACY_SETTINGS_SQL = `
     "INSERT INTO entities (id, entity_type_id, name, project_id, created_at) VALUES (?, ?, ?, ?, ?)",
   ).run("e-002", "person", "赵涛", "proj-001", ts);
 
-  // Valid kg_relations row
+  // Valid relations row
   kgDb.prepare(
-    `INSERT INTO kg_relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
+    `INSERT INTO relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
      VALUES (?, ?, ?, ?, ?)`,
   ).run("r-001", "e-001", "knows", "e-002", "proj-001");
 
@@ -294,11 +294,11 @@ const LEGACY_SETTINGS_SQL = `
   let fkViolated = false;
   try {
     kgDb.prepare(
-      `INSERT INTO kg_relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
+      `INSERT INTO relations (id, source_entity_id, relation_type_id, target_entity_id, project_id)
        VALUES (?, ?, ?, ?, ?)`,
     ).run("r-002", "e-nonexistent", "knows", "e-002", "proj-001");
   } catch { fkViolated = true; }
-  assert.ok(fkViolated, "DB-INT-10: kg_relations FK must reject bad source_entity_id");
+  assert.ok(fkViolated, "DB-INT-10: relations FK must reject bad source_entity_id");
 
   kgDb.close();
 }

@@ -20,7 +20,7 @@ import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
 import judgeSql from "./migrations/0003_judge.sql?raw";
 import { setDbInstance } from "./connection";
 import { runMigrations } from "./migrator";
-import { initialSchemaMigration } from "./migrations/ts/001_initial_schema";
+import { initialSchemaMigration } from "./migrations/001_initial_schema";
 import skillsSql from "./migrations/0004_skills.sql?raw";
 import knowledgeGraphSql from "./migrations/0005_knowledge_graph.sql?raw";
 import searchFtsSql from "./migrations/0006_search_fts.sql?raw";
