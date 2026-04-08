@@ -345,6 +345,34 @@ class AuditGateTests(unittest.TestCase):
         self.assertTrue(evaluation.head_check_enforced)
         self.assertEqual(0, evaluation.matching_head_comments)
 
+    def test_audit_pass_should_fail_when_trusted_and_head_match_different_comments(self) -> None:
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [
+                {"body": self._consolidated_comment(head="deadbeef"), "author": "reviewer-agent"},
+                {"body": self._consolidated_comment(head="abc1234"), "author": "random-engineer"},
+            ],
+            trusted_reviewers=["reviewer-agent"],
+            expected_head_sha="abc1234567890",
+        )
+        self.assertFalse(evaluation.audit_pass)
+        self.assertEqual(2, evaluation.matching_comments)
+        self.assertEqual(1, evaluation.matching_trusted_authors)
+        self.assertEqual(1, evaluation.matching_head_comments)
+
+    def test_audit_pass_should_allow_policy_quote_line_with_reject_when_verdict_line_is_accept(self) -> None:
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [
+                {
+                    "body": self._consolidated_comment(
+                        seat4_extra="Per protocol: any finding means FINAL-VERDICT: REJECT; this round stays zero findings."
+                    ),
+                    "author": "reviewer-agent",
+                }
+            ],
+            trusted_reviewers=["reviewer-agent"],
+        )
+        self.assertTrue(evaluation.audit_pass)
+
     def test_build_blocker_comment_should_explain_audit_requirement(self) -> None:
         body = agent_github_delivery.build_blocker_comment(
             kind="audit-required",

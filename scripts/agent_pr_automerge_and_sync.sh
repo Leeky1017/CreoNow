@@ -15,7 +15,7 @@ Behavior:
   - --enable-auto-merge requires 4 zero-finding audit reports plus 1 reviewer consolidated verbatim comment
   - Trusted reviewer policy:
     - CODEX_AUDIT_TRUSTED_REVIEWERS="<login1>,<login2>" enforces explicit trusted reviewer list
-    - CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true|false controls fallback to PR author only when trusted list is empty (default: true)
+    - CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true|false controls fallback to PR author only when trusted list is empty (default: false)
   - Syncs local controlplane main to origin/main (unless --no-sync)
 
 Options:
@@ -140,7 +140,7 @@ require_audit_pass_comment() {
     trusted_reviewer_args=()
   fi
 
-  allow_pr_author_fallback="${CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK:-true}"
+  allow_pr_author_fallback="${CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK:-false}"
   if [[ "${#trusted_reviewer_args[@]}" -eq 0 && "$allow_pr_author_fallback" == "true" ]]; then
     pr_author="$(run_gh_with_retry gh pr view "$pr_number" --json author --jq '.author.login // empty')"
   else

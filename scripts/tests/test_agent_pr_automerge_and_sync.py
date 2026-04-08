@@ -332,7 +332,7 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
         finally:
             shutil.rmtree(temp_dir)
 
-    def test_should_fallback_to_pr_author_only_when_trusted_reviewers_are_empty(self) -> None:
+    def test_should_not_fallback_to_pr_author_by_default_when_trusted_reviewers_are_empty(self) -> None:
         temp_dir, worktree = self._make_sandbox(
             pr_merged=False,
             preflight_success=True,
@@ -346,33 +346,33 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
                 worktree,
                 temp_dir,
                 extra_args=["--enable-auto-merge"],
-            )
-            self.assertEqual(1, result.returncode, result.stdout)
-            args_log = (temp_dir / "audit-args.log").read_text()
-            self.assertIn("--trusted-reviewer engineering-bot", args_log)
-            self.assertIn("--expected-head-sha 3730256a0ba1c088504746e42923afc84b1e7d41", args_log)
-        finally:
-            shutil.rmtree(temp_dir)
-
-    def test_should_disable_pr_author_fallback_when_flag_is_false(self) -> None:
-        temp_dir, worktree = self._make_sandbox(
-            pr_merged=False,
-            preflight_success=True,
-            audit_pass=False,
-            matching_comments=0,
-            distinct_authors=0,
-            pr_author="engineering-bot",
-        )
-        try:
-            result = self._run_script(
-                worktree,
-                temp_dir,
-                extra_args=["--enable-auto-merge"],
-                extra_env={"CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK": "false"},
             )
             self.assertEqual(1, result.returncode, result.stdout)
             args_log = (temp_dir / "audit-args.log").read_text()
             self.assertNotIn("--trusted-reviewer engineering-bot", args_log)
+            self.assertIn("--expected-head-sha 3730256a0ba1c088504746e42923afc84b1e7d41", args_log)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_should_enable_pr_author_fallback_only_when_flag_is_true(self) -> None:
+        temp_dir, worktree = self._make_sandbox(
+            pr_merged=False,
+            preflight_success=True,
+            audit_pass=False,
+            matching_comments=0,
+            distinct_authors=0,
+            pr_author="engineering-bot",
+        )
+        try:
+            result = self._run_script(
+                worktree,
+                temp_dir,
+                extra_args=["--enable-auto-merge"],
+                extra_env={"CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK": "true"},
+            )
+            self.assertEqual(1, result.returncode, result.stdout)
+            args_log = (temp_dir / "audit-args.log").read_text()
+            self.assertIn("--trusted-reviewer engineering-bot", args_log)
             self.assertIn("--expected-head-sha 3730256a0ba1c088504746e42923afc84b1e7d41", args_log)
         finally:
             shutil.rmtree(temp_dir)

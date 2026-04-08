@@ -69,10 +69,10 @@ CONSOLIDATED_AUDIT_SECTION_HEADERS = (
     "### 审计 4（Claude Sonnet 4.6 high）",
 )
 SEAT_FINAL_VERDICT_ACCEPT_PATTERN = re.compile(
-    r"(?is)(\bFINAL-VERDICT\b[^\n]{0,200}\bACCEPT\b|最终判定[^\n]{0,120}\bACCEPT\b)"
+    r"(?im)^\s*(?:\*{0,2}\s*)?(?:FINAL-VERDICT|最终判定)(?:\s*\*{0,2})?\s*[:：]\s*ACCEPT\b"
 )
-SEAT_FINAL_VERDICT_REJECT_PATTERN = re.compile(
-    r"(?is)(\bFINAL-VERDICT\b[^\n]{0,200}\bREJECT\b|最终判定[^\n]{0,120}\bREJECT\b)"
+SEAT_FINAL_VERDICT_REJECT_LINE_PATTERN = re.compile(
+    r"(?im)^\s*(?:\*{0,2}\s*)?(?:FINAL-VERDICT|最终判定)(?:\s*\*{0,2})?\s*[:：]\s*REJECT\b"
 )
 SEAT_ZERO_FINDINGS_PATTERN = re.compile(r"(?i)\bzero(?:\s+|-)findings\b")
 AUDIT_HEAD_CAPTURE_PATTERN = re.compile(r"审计 HEAD[^0-9a-fA-F`]{0,40}`?([0-9a-fA-F]{7,40})`?", re.IGNORECASE)
@@ -425,9 +425,10 @@ def _is_consolidated_reviewer_audit_comment(body: str) -> bool:
         return False
     for header in CONSOLIDATED_AUDIT_SECTION_HEADERS:
         seat_body = sections[header]
-        if SEAT_FINAL_VERDICT_REJECT_PATTERN.search(seat_body):
+        if SEAT_FINAL_VERDICT_REJECT_LINE_PATTERN.search(seat_body):
             return False
-        if SEAT_FINAL_VERDICT_ACCEPT_PATTERN.search(seat_body) is None:
+        verdict_lines = SEAT_FINAL_VERDICT_ACCEPT_PATTERN.findall(seat_body)
+        if not verdict_lines:
             return False
         if SEAT_ZERO_FINDINGS_PATTERN.search(seat_body) is None:
             return False
@@ -500,15 +501,28 @@ def evaluate_audit_pass_comments(
             and _head_matches_expected(comment_head, expected_head_norm)
         ]
     )
+    eligible_comments = [
+        comment
+        for comment in matching_comments
+        if (
+            (
+                not trusted_reviewer_check_enforced
+                or (comment.author and comment.author.casefold() in trusted_reviewer_set)
+            )
+            and (
+                not head_check_enforced
+                or (
+                    (comment_head := _extract_audit_head_sha(comment.body))
+                    and _head_matches_expected(comment_head, expected_head_norm)
+                )
+            )
+        )
+    ]
 
-    if not matching_comments:
-        audit_pass = False
-    elif head_check_enforced and matching_head_comments < 1:
-        audit_pass = False
-    elif trusted_reviewer_check_enforced:
-        audit_pass = matching_trusted_authors >= 1
-    else:
+    if matching_comments and not trusted_reviewer_check_enforced and not head_check_enforced:
         audit_pass = not author_check_enforced
+    else:
+        audit_pass = len(eligible_comments) >= 1
 
     return AuditPassEvaluation(
         audit_pass=audit_pass,
