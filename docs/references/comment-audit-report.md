@@ -15,7 +15,7 @@
 | Total comments | 742 (single-line: 339, JSDoc: 399, multi-line: 4) |
 | Comment-to-LOC ratio | 1.1% |
 | Files with zero comments | 48 (27.9%) |
-| **Overall Quality Score** | **38 / 100** |
+| **Overall Quality Score** | **35 / 100** |
 
 CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals CC's explanatory depth. However, three critical gaps remain: **zero `@module` boundary declarations**, **near-zero threshold/magic number coverage** (1.9%), and **no formal decision tags** (`@why`, `@risk`, `@invariant`, `@rollback` = 0 uses). The codebase has pockets of excellent commenting (orchestrator.ts, simpleMemoryService.ts) surrounded by large comment deserts (kgCoreService.ts at 2,452 LOC with 3 comments).
 
@@ -23,7 +23,7 @@ CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals C
 
 ## 2. Dimension Scores
 
-### D1: Safety Default Comments — 12 / 20
+### D1: Safety Default Comments — 9 / 20
 
 **What CC does**: Every `catch` block, boolean default, and fallback path has a 1-line comment explaining the fail-closed/fail-safe reasoning (e.g., `// isConcurrencySafe=false — fail-closed: untagged tools assumed unsafe`).
 
@@ -44,7 +44,7 @@ CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals C
 
 **Gap**: 338 of 398 `catch` blocks have no comment explaining recovery strategy. 53 of 54 boolean defaults lack reasoning.
 
-**Score rationale**: Strong intent visible in key modules, but systematic coverage is extremely low. 12/20.
+**Score rationale**: Strong intent visible in key modules, but systematic coverage is extremely low at 15.1% catch-block and 1.9% boolean-default coverage — both below the 20% threshold for the 10–13 band. 9/20.
 
 ---
 
@@ -222,7 +222,7 @@ Ordered by impact (refactoring risk × code size × comment gap):
 |----------|---------|--------|--------|
 | **P0** | All 20 service `index.ts` / entry files | Add `@module` JSDoc with scope, boundaries, dep direction | Unlocks AI-assisted refactoring, prevents scope creep |
 | **P1** | `services/kg/kgCoreService.ts` (2,452 LOC, 3 comments) | Add threshold comments for `DEFAULT_NODE_LIMIT`, `DEFAULT_EDGE_LIMIT`; add pipeline overview | Largest uncommented service |
-| **P2** | `services/memory/episodicMemoryService.ts` (2,629 LOC, 6 comments) | Add `@module`, catch-block reasoning, threshold provenance | Second-largest comment desert |
+| **P2** | `services/memory/episodicMemoryService.ts` (2,629 LOC, 7 comments) | Add `@module`, catch-block reasoning, threshold provenance | Second-largest comment desert |
 | **P3** | `services/ai/runtimeConfig.ts` | Document all timeout/limit constants with provenance | Single file, 4 unexplained thresholds, referenced everywhere |
 | **P4** | `services/skills/skillScheduler.ts` | Document `DEFAULT_SLOT_RECOVERY_TIMEOUT_MS` and scheduling constants | Critical runtime behaviour |
 | **P5** | `services/export/exportRichText.ts` (1,070 LOC, 0 comments) | Add `@module`, function JSDoc for 6 exported functions | Largest zero-comment file |
@@ -343,12 +343,12 @@ Each dimension scores 0–20 based on:
 
 | Dimension | Score | Rationale |
 |-----------|-------|-----------|
-| D1: Safety Defaults | 12 | 68 safety comments exist; 85% of catch blocks and 98% of boolean-default sites uncovered |
+| D1: Safety Defaults | 9 | 68 safety comments exist; 85% of catch blocks and 98% of boolean-default sites uncovered — coverage below 20% places D1 in the 5–9 band |
 | D2: Performance | 10 | 50 perf comments exist, missing timing annotations and "otherwise" patterns |
 | D3: Thresholds | 2 | 9/475 (1.9%) — near-total absence |
 | D4: Intent Preservation | 10 | orchestrator.ts is exemplary; not replicated in other pipelines |
 | D5: Boundary/@module | 4 | 0/20 services have @module; "Why:" JSDoc provides partial mitigation |
-| **Total** | **38** | |
+| **Total** | **35** | |
 
 ---
 
