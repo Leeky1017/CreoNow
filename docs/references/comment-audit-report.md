@@ -1,7 +1,7 @@
 # Comment Quality Audit Report (CC vs CN)
 
 > **Scope**: `apps/desktop/main/src/**/*.ts` (excluding `__tests__/`)
-> **Date**: 2025-07-18
+> **Date**: 2025-07-19
 > **Method**: Automated scan + manual classification against ARCHITECTURE.md §四 patterns
 
 ---
@@ -11,13 +11,13 @@
 | Metric | Value |
 |--------|-------|
 | Files scanned | 172 |
-| Total LOC | 66,735 |
+| Total LOC | 66,563 |
 | Total comments | 744 (single-line: 341, JSDoc: 399, multi-line: 4) |
 | Comment-to-LOC ratio | 1.1% |
 | Files with zero comments | 48 (27.9%) |
 | **Overall Quality Score** | **38 / 100** |
 
-CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals CC's explanatory depth. However, three critical gaps remain: **zero `@module` boundary declarations**, **near-zero threshold/magic number coverage** (1.9%), and **no formal decision tags** (`@why`, `@risk`, `@invariant`, `@rollback` = 0 uses). The codebase has pockets of excellent commenting (orchestrator.ts, simpleMemoryService.ts) surrounded by large comment deserts (kgCoreService.ts at 2,453 LOC with 3 comments).
+CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals CC's explanatory depth. However, three critical gaps remain: **zero `@module` boundary declarations**, **near-zero threshold/magic number coverage** (1.9%), and **no formal decision tags** (`@why`, `@risk`, `@invariant`, `@rollback` = 0 uses). The codebase has pockets of excellent commenting (orchestrator.ts, simpleMemoryService.ts) surrounded by large comment deserts (kgCoreService.ts at 2,452 LOC with 3 comments).
 
 ---
 
@@ -31,8 +31,8 @@ CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals C
 
 | Sub-metric | Count | Coverage |
 |------------|-------|----------|
-| `catch` blocks total | 303 | — |
-| `catch` blocks with nearby comment | 6 | 2.0% |
+| `catch` blocks total | 398 (303 with param + 95 parameterless) | — |
+| `catch` blocks with nearby comment | 6 | 1.5% |
 | Boolean defaults (`= true/false`) | 54 | — |
 | Boolean defaults with comment | 1 | 1.9% |
 | Safety-themed comments total | 68 | — |
@@ -42,7 +42,7 @@ CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals C
 - `services/memory/simpleMemoryService.ts:163` — `Sync failure should not block`
 - `services/editor/diffEngine.ts:409` — `Stale document check BEFORE applying (D21 — fail-fast)`
 
-**Gap**: 297 of 303 `catch` blocks have no comment explaining recovery strategy. 53 of 54 boolean defaults lack reasoning.
+**Gap**: 392 of 398 `catch` blocks have no comment explaining recovery strategy. 53 of 54 boolean defaults lack reasoning.
 
 **Score rationale**: Strong intent visible in key modules, but systematic coverage is extremely low. 12/20.
 
@@ -229,7 +229,7 @@ Ordered by impact (refactoring risk × code size × comment gap):
 | **P6** | `services/context/layerAssemblyService.ts` | Add pipeline overview, document `maxInputTokens: 64000` | Token budget = LLM quality |
 | **P7** | `services/documents/documentCoreService.ts` | Add `@module`, document snapshot limits, lifecycle overview | Core data layer |
 | **P8** | `ipc/contract/ipc-contract.ts` (2,870 LOC, 1 comment) | Add type-level doc comments for channel groups | Largest file, near-zero comments |
-| **P9** | All `catch` blocks (303 total) | Add recovery strategy comments (batch via codemod) | Systematic safety gap |
+| **P9** | All `catch` blocks (398 total) | Add recovery strategy comments (batch via codemod) | Systematic safety gap |
 
 ---
 
@@ -258,7 +258,7 @@ Ordered by impact (refactoring risk × code size × comment gap):
 // Stage 6: Permission gate
 // Stage 8: Post-writing hooks
 ```
-*Strength*: Numbered stages give instant overview of the 940-line orchestration flow.
+*Strength*: Numbered stages give instant overview of the 939-line orchestration flow.
 
 **Example 3 — Boundary at IPC layer** (`ipc/judge.ts:22`):
 ```ts
@@ -319,7 +319,7 @@ export function buildDocxBuffer(...) { ... }
 ```
 *Risk*: 6 exported functions, 0 JSDoc. Export is user-facing; incorrect output = data loss. No boundary between parse/render/build phases.
 
-**Gap 5 — Silent catch pattern** (303 instances across codebase):
+**Gap 5 — Silent catch pattern** (398 instances across codebase):
 ```ts
 } catch (err) {
   // (no comment explaining recovery strategy)
