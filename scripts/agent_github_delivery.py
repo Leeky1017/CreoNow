@@ -76,6 +76,7 @@ SEAT_FINAL_VERDICT_REJECT_LINE_PATTERN = re.compile(
 )
 SEAT_ZERO_FINDINGS_PATTERN = re.compile(r"(?i)\bzero(?:\s+|-)findings\b")
 AUDIT_HEAD_CAPTURE_PATTERN = re.compile(r"审计 HEAD[^0-9a-fA-F`]{0,40}`?([0-9a-fA-F]{7,40})`?", re.IGNORECASE)
+FENCED_CODE_BLOCK_PATTERN = re.compile(r"(?ms)^[ \t]*(```|~~~)[^\n]*\n.*?^[ \t]*\1[^\n]*(?:\n|$)")
 
 
 def run(cmd: Sequence[str], *, cwd: str | None = None) -> CmdResult:
@@ -419,12 +420,16 @@ def _extract_consolidated_audit_sections(body: str) -> dict[str, str]:
     return {header: "\n".join(lines) for header, lines in sections.items()}
 
 
+def _strip_fenced_code_blocks(text: str) -> str:
+    return FENCED_CODE_BLOCK_PATTERN.sub("", text)
+
+
 def _is_consolidated_reviewer_audit_comment(body: str) -> bool:
     sections = _extract_consolidated_audit_sections(body)
     if any(header not in sections for header in CONSOLIDATED_AUDIT_SECTION_HEADERS):
         return False
     for header in CONSOLIDATED_AUDIT_SECTION_HEADERS:
-        seat_body = sections[header]
+        seat_body = _strip_fenced_code_blocks(sections[header])
         if SEAT_FINAL_VERDICT_REJECT_LINE_PATTERN.search(seat_body):
             return False
         verdict_lines = SEAT_FINAL_VERDICT_ACCEPT_PATTERN.findall(seat_body)

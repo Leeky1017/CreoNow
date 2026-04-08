@@ -373,6 +373,33 @@ class AuditGateTests(unittest.TestCase):
         )
         self.assertTrue(evaluation.audit_pass)
 
+    def test_audit_pass_should_ignore_reject_example_inside_fenced_code_block(self) -> None:
+        body = """## 审计汇总
+### 审计 1（GPT-5.4 xhigh）
+zero findings
+FINAL-VERDICT: ACCEPT
+### 审计 2（GPT-5.3 Codex xhigh）
+zero findings
+FINAL-VERDICT: ACCEPT
+### 审计 3（Claude Opus 4.6 high）
+zero findings
+```text
+FINAL-VERDICT: REJECT
+```
+FINAL-VERDICT: ACCEPT
+### 审计 4（Claude Sonnet 4.6 high）
+zero findings
+FINAL-VERDICT: ACCEPT
+**审计 HEAD**：`abc1234`
+**FINAL-VERDICT**: ACCEPT
+"""
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [{"body": body, "author": "reviewer-agent"}],
+            trusted_reviewers=["reviewer-agent"],
+            expected_head_sha="abc1234567890",
+        )
+        self.assertTrue(evaluation.audit_pass)
+
     def test_build_blocker_comment_should_explain_audit_requirement(self) -> None:
         body = agent_github_delivery.build_blocker_comment(
             kind="audit-required",
