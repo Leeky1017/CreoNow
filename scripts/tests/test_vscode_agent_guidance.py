@@ -84,7 +84,7 @@ class VsCodeAgentGuidanceTests(unittest.TestCase):
             "## Visual Evidence",
             "### Embedded Screenshots",
             "### Storybook Artifact / Link",
-            "## Audit Gate",
+            "## 审计门禁",
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)

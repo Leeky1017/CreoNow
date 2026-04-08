@@ -224,6 +224,28 @@ def require_section(
     return content
 
 
+def require_any_section(
+    pr: PullRequest,
+    headings: tuple[str, ...],
+    *,
+    level: int = 2,
+    require_content: bool = True,
+) -> str:
+    for heading in headings:
+        content = extract_section(pr.body, heading, level=level)
+        if content is None:
+            continue
+        if require_content and not has_meaningful_content(content):
+            section_name = f"{'#' * level} {heading}"
+            raise RuntimeError(
+                f"[PR] #{pr.number} section `{section_name}` must not be blank (url: {pr.url})"
+            )
+        return content
+
+    expected = " / ".join(f"`{'#' * level} {heading}`" for heading in headings)
+    raise RuntimeError(f"[PR] #{pr.number} body is missing one of {expected} (url: {pr.url})")
+
+
 def extract_labeled_value(content: str, label: str) -> str:
     normalized = normalize_section_content(content)
     for line in normalized.splitlines():
@@ -276,7 +298,7 @@ def validate_visual_evidence(pr: PullRequest, *, frontend_required: bool) -> Non
 
 
 def validate_audit_gate(pr: PullRequest) -> None:
-    audit_gate = require_section(pr, "Audit Gate", level=2)
+    audit_gate = require_any_section(pr, ("审计门禁", "Audit Gate"), level=2)
     preflight_status = extract_labeled_value(audit_gate, "`scripts/agent_pr_preflight.sh`")
     if not has_meaningful_content(preflight_status):
         raise RuntimeError(

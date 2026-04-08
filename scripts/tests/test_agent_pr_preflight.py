@@ -52,7 +52,7 @@ def make_pr_body(issue_number: str = "42", *, frontend: bool = False) -> str:
         - Rollback ref: git revert HEAD
         - Recovery note: none
 
-        ## Audit Gate
+        ## 审计门禁
         - `scripts/agent_pr_preflight.sh`: PASS (local)
         - Required checks: check=green
         """
