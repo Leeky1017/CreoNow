@@ -25,8 +25,8 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
         pr_merged: bool,
         preflight_success: bool = False,
         audit_pass: bool = True,
-        matching_comments: int = 2,
-        distinct_authors: int = 2,
+        matching_comments: int = 1,
+        distinct_authors: int = 1,
     ) -> tuple[Path, Path]:
         temp_dir = Path(tempfile.mkdtemp(prefix="automerge-script-"))
         controlplane_root = temp_dir / "repo"
@@ -237,21 +237,21 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
         finally:
             shutil.rmtree(temp_dir)
 
-    def test_should_block_auto_merge_until_four_independent_zero_findings_audits_exist(self) -> None:
+    def test_should_block_auto_merge_until_reviewer_consolidated_zero_findings_comment_exists(self) -> None:
         temp_dir, worktree = self._make_sandbox(
             pr_merged=False,
             preflight_success=True,
             audit_pass=False,
-            matching_comments=1,
-            distinct_authors=1,
+            matching_comments=0,
+            distinct_authors=0,
         )
         try:
             result = self._run_script(worktree, temp_dir, extra_args=["--enable-auto-merge"])
             self.assertEqual(1, result.returncode, result.stdout)
-            self.assertIn("1+4+1 four-audit zero-findings gate", result.stdout)
-            self.assertIn("four independent audit agents", result.stdout.lower())
-            self.assertIn("matching_comments=1", result.stdout)
-            self.assertIn("distinct_authors=1", result.stdout)
+            self.assertIn("1+4+1 reviewer-consolidated zero-findings gate", result.stdout)
+            self.assertIn("reviewer must post one consolidated verbatim comment", result.stdout.lower())
+            self.assertIn("matching_comments=0", result.stdout)
+            self.assertIn("distinct_authors=0", result.stdout)
             self.assertFalse((temp_dir / "sync.log").exists(), result.stdout)
         finally:
             shutil.rmtree(temp_dir)

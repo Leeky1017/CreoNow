@@ -36,22 +36,21 @@ target: "vscode"
 # 评论模板
 
 ```markdown
-## 🔍 1+4+1 Audit Consolidation — PR #<number>
+## 审计汇总
+
+### 审计 1（GPT-5.4 xhigh）
+<原文粘贴>
+
+### 审计 2（GPT-5.3 Codex xhigh）
+<原文粘贴>
+
+### 审计 3（Claude Opus 4.6 high）
+<原文粘贴>
+
+### 审计 4（Claude Sonnet 4.6 high）
+<原文粘贴>
 
 **审计 HEAD**：<commit-sha>
-
-### Audit Report 1 — GPT-5.4 (xhigh)
-<原文粘贴>
-
-### Audit Report 2 — GPT-5.3 Codex (xhigh)
-<原文粘贴>
-
-### Audit Report 3 — Claude Opus 4.6 (high)
-<原文粘贴>
-
-### Audit Report 4 — Claude Sonnet 4.6 (high)
-<原文粘贴>
-
 **FINAL-VERDICT**: ACCEPT / REJECT
 ```
 

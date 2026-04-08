@@ -13,6 +13,6 @@ Always:
 - Require `scripts/agent_pr_preflight.sh` to pass and required checks to be green before audit handoff.
 - Require frontend PRs to include visible 截图 (screenshots) and a clickable Storybook artifact/link before audit handoff.
 - Enforce the 1+4+1 loop: 1 engineer + 4 independent full-audit subagents + 1 reviewer.
-- Treat delivery as closed only after all four audit subagents post zero-findings `FINAL-VERDICT` + `ACCEPT`, and reviewer posts one consolidated verbatim comment.
+- Treat delivery as closed only after all four audit reports are zero-findings with `FINAL-VERDICT` + `ACCEPT`, and the reviewer posts one consolidated verbatim comment.
 - Keep auto-merge disabled by default; only enable after the above condition is met.
 - If delivery cannot proceed, report exact blocker: `missing_tool`, `missing_auth`, or `missing_permission`.

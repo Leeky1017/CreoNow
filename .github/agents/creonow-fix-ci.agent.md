@@ -14,5 +14,5 @@ Always:
 - Prefer the smallest fix that restores the broken gate.
 - Re-run relevant tests and report evidence before claiming CI is fixed.
 - Before calling the PR ready again, verify “可交审条件”: `scripts/agent_pr_preflight.sh` passes, required checks are green, and frontend PRs keep visible 截图 (screenshots) plus clickable Storybook artifact/link.
-- Keep the delivery loop open until four independent audit agents all post zero-findings `FINAL-VERDICT` + `ACCEPT`.
-- Keep auto-merge off unless the four independent zero-findings audit `FINAL-VERDICT` comments already exist.
+- Keep the delivery loop open until all four audit reports are zero findings with `FINAL-VERDICT` + `ACCEPT`, and the reviewer has posted the single consolidated comment.
+- Keep auto-merge off unless the reviewer-consolidated zero-findings audit comment already exists.

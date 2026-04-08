@@ -143,7 +143,7 @@ require_audit_pass_comment() {
     stats_summary="${stats_summary}, distinct_authors=${distinct_authors:-0}"
   fi
 
-  echo "ERROR: PR #${pr_number} does not yet satisfy the 1+4+1 four-audit zero-findings gate (`FINAL-VERDICT` + `ACCEPT`; ${stats_summary}). Four independent audit agents must each post a qualifying comment before auto-merge." >&2
+  echo "ERROR: PR #${pr_number} does not yet satisfy the 1+4+1 reviewer-consolidated zero-findings gate (`FINAL-VERDICT` + `ACCEPT`; ${stats_summary}). Reviewer must post one consolidated verbatim comment containing all four qualifying audit reports before auto-merge." >&2
   comment_pr_with_kind "$pr_number" "audit-required" "$pr_url"
   exit 1
 }
@@ -490,7 +490,7 @@ fi
 PR_URL="$(run_gh_with_retry gh pr view "$PR_NUMBER" --json url --jq '.url')"
 
 if [[ "$ENABLE_AUTO_MERGE" != "true" ]]; then
-  echo "INFO: PR #${PR_NUMBER} is ready. Auto-merge is disabled by default; rerun with --enable-auto-merge after four independent zero-findings audit comments (`FINAL-VERDICT` + `ACCEPT`) are present." >&2
+  echo "INFO: PR #${PR_NUMBER} is ready. Auto-merge is disabled by default; rerun with --enable-auto-merge after Reviewer has posted the single consolidated zero-findings audit comment." >&2
   exit 0
 fi
 

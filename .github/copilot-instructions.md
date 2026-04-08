@@ -83,7 +83,7 @@
   - `selected_channel=none`：明确报告 `missing_tool / missing_auth / missing_permission`，不要只说“没有 gh 上下文”。
 - 默认策略：**只创建 / 更新 PR，不自动开启 auto-merge**。
   - auto-merge 默认关闭。
-  - 仅当 4 个审计 Subagent 均发布 zero-findings `FINAL-VERDICT` + `ACCEPT` 后，才允许显式执行 `scripts/agent_pr_automerge_and_sync.sh --enable-auto-merge`。
+  - 仅当 4 份审计报告均为 zero findings，且 Reviewer 已发布单条原样汇总评论后，才允许显式执行 `scripts/agent_pr_automerge_and_sync.sh --enable-auto-merge`。
 - 不要在尚未尝试 `gh` 与 GitHub MCP 两条通道前，把 PR 创建、PR 评论、Issue 更新甩回给用户手工完成。
 - PR 文案必须包含 `Closes #N`、验证证据、回滚点、审计门禁；前端 PR 还必须在正文直接嵌入截图，并附可点击 Storybook artifact/link 与视觉验收说明。
 - 修改 GitHub 交付脚本或文档时，要同步维护 `AGENTS.md`、`docs/references/audit-protocol.md`、`scripts/README.md` 的一致性。

@@ -47,7 +47,7 @@ class AuditPassEvaluation:
 TRUTHY = {"1", "true", "yes", "on"}
 DEFAULT_VERIFICATION_COMMANDS = (
     "pnpm typecheck",
-    "pnpm lint",
+    "pnpm contract:check",
     "pnpm test:unit",
 )
 DEFAULT_ADDITIONAL_VALIDATION_NOTE = "Pending: add any extra local or CI evidence here."
@@ -66,6 +66,15 @@ AUDIT_PASS_COMMENT_PATTERN = re.compile(
 AUDIT_DISQUALIFY_PATTERN = re.compile(
     r"(?is)\b(non[-\s]?blocking|suggestions?|nits?|nitpick(?:s|ing)?|tiny\s+issues?|accept\s+with\s+risk|accept\s+but|\bREJECT\b)\b"
 )
+CONSOLIDATED_AUDIT_SECTION_PATTERNS = (
+    re.compile(r"(?im)^###\s*审计 1（GPT-5\.4 xhigh）\s*$"),
+    re.compile(r"(?im)^###\s*审计 2（GPT-5\.3 Codex xhigh）\s*$"),
+    re.compile(r"(?im)^###\s*审计 3（Claude Opus 4\.6 high）\s*$"),
+    re.compile(r"(?im)^###\s*审计 4（Claude Sonnet 4\.6 high）\s*$"),
+)
+FINAL_VERDICT_COUNT_PATTERN = re.compile(r"(?i)\bFINAL-VERDICT\b")
+ACCEPT_COUNT_PATTERN = re.compile(r"(?i)\bACCEPT\b")
+ZERO_FINDINGS_COUNT_PATTERN = re.compile(r"(?i)\bzero(?:\s+|-)findings\b")
 
 
 def run(cmd: Sequence[str], *, cwd: str | None = None) -> CmdResult:
@@ -340,9 +349,24 @@ Closes #{issue_number}
 - Rollback ref: {rollback_ref}
 - Recovery note: {recovery_note}
 
-## Audit Gate
-- `scripts/agent_pr_preflight.sh`: {_normalize_optional_text(preflight_status, DEFAULT_PREFLIGHT_STATUS)}
-- Required checks: {_normalize_optional_text(required_checks, DEFAULT_REQUIRED_CHECKS)}
+## 审计门禁
+
+<!-- 以下由审计流程自动填写，PR 作者不要修改 -->
+
+**审计模型配置：**
+- 工程：GPT-5.3 Codex (xhigh)
+- 审计 1：GPT-5.4 (xhigh)
+- 审计 2：GPT-5.3 Codex (xhigh)
+- 审计 3：Claude Opus 4.6 (high)
+- 审计 4：Claude Sonnet 4.6 (high)
+- 评论汇总：Claude Opus 4.6 (high)
+
+- [ ] 审计 1（GPT-5.4）：FINAL-VERDICT ___
+- [ ] 审计 2（GPT-5.3 Codex）：FINAL-VERDICT ___
+- [ ] 审计 3（Claude Opus 4.6）：FINAL-VERDICT ___
+- [ ] 审计 4（Claude Sonnet 4.6）：FINAL-VERDICT ___
+
+<!-- 4 个都 ACCEPT 才可合并 -->
 """.strip() + "\n"
 
 
@@ -381,20 +405,31 @@ def _normalize_audit_comments(raw_comments: Sequence[object]) -> list[AuditComme
     return normalized_comments
 
 
+def _is_consolidated_reviewer_audit_comment(body: str) -> bool:
+    if AUDIT_DISQUALIFY_PATTERN.search(body):
+        return False
+    if not all(pattern.search(body) for pattern in CONSOLIDATED_AUDIT_SECTION_PATTERNS):
+        return False
+    if len(FINAL_VERDICT_COUNT_PATTERN.findall(body)) < 4:
+        return False
+    if len(ACCEPT_COUNT_PATTERN.findall(body)) < 4:
+        return False
+    if len(ZERO_FINDINGS_COUNT_PATTERN.findall(body)) < 4:
+        return False
+    return True
+
+
 def evaluate_audit_pass_comments(raw_comments: Sequence[object]) -> AuditPassEvaluation:
     comments = _normalize_audit_comments(raw_comments)
     matching_comments = [
         comment
         for comment in comments
-        if AUDIT_PASS_COMMENT_PATTERN.search(comment.body)
-        and not AUDIT_DISQUALIFY_PATTERN.search(comment.body)
+        if _is_consolidated_reviewer_audit_comment(comment.body)
     ]
     author_check_enforced = any(comment.author for comment in comments)
     distinct_authors = len({comment.author.casefold() for comment in matching_comments if comment.author})
 
-    audit_pass = len(matching_comments) >= 4
-    if author_check_enforced:
-        audit_pass = audit_pass and distinct_authors >= 4
+    audit_pass = len(matching_comments) >= 1
 
     return AuditPassEvaluation(
         audit_pass=audit_pass,
@@ -444,8 +479,9 @@ def build_blocker_comment(
         )
     if normalized_kind == "audit-required":
         return (
-            "Auto-merge remains disabled until four independent audit agents each post a "
-            "zero-findings `FINAL-VERDICT` comment with `ACCEPT`. "
+            "Auto-merge remains disabled until the Reviewer posts one consolidated "
+            "verbatim comment containing all four zero-findings `FINAL-VERDICT` audit reports "
+            "with `ACCEPT`. "
             f"PR: {pr_url}"
         )
     raise ValueError(f"Unsupported blocker comment kind: {kind}")
@@ -551,7 +587,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit_parser = subparsers.add_parser(
         "audit-pass",
-        help="Check whether four independent zero-findings audit comments exist.",
+        help="Check whether a Reviewer-consolidated zero-findings audit comment exists.",
     )
     audit_parser.add_argument(
         "--comments-json",
