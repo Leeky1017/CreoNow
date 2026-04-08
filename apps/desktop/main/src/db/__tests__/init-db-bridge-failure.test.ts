@@ -27,17 +27,25 @@ it("DB-INIT-F1: clears singleton when TS bridge migration fails in initDb", () =
     .mockImplementation((_db: Database.Database) => {
       throw new Error("forced migration failure for DB-INIT-F1");
     });
+  const infoSpy = vi.fn();
+  const errorSpy = vi.fn();
 
   const logger = {
     logPath: path.join(userDataDir, "logs", "main.log"),
-    info: () => {},
-    error: () => {},
+    info: infoSpy,
+    error: errorSpy,
   };
 
   try {
     const result = initDb({ userDataDir, logger });
     expect(result.ok).toBe(false);
     expect(() => getDb()).toThrow(/not initialised/i);
+    expect(
+      infoSpy.mock.calls.some(([event]) => event === "db_ready"),
+    ).toBe(false);
+    expect(
+      errorSpy.mock.calls.some(([event]) => event === "migration_failed"),
+    ).toBe(true);
   } finally {
     migrationSpy.mockRestore();
     fs.rmSync(userDataDir, { recursive: true, force: true });

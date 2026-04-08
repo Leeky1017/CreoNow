@@ -287,15 +287,15 @@ export function initDb(args: {
     const finalSchemaVersion = ensureSchemaVersion(conn);
     schemaVersion = finalSchemaVersion;
 
+    // Run TS migration bridge first; only publish singleton after bridge success.
+    runMigrations(conn, [initialSchemaMigration]);
+    setDbInstance(conn);
+
     args.logger.info("db_ready", {
       db_path: dbPathRedacted,
       schema_version: finalSchemaVersion,
       migration_applied: appliedVersions,
     });
-
-    // Run TS migration bridge first; only publish singleton after bridge success.
-    runMigrations(conn, [initialSchemaMigration]);
-    setDbInstance(conn);
 
     return { ok: true, db: conn, schemaVersion: finalSchemaVersion };
   } catch (error) {
