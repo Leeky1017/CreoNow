@@ -9,6 +9,7 @@
  *   MIG-U5: idempotent second run (no re-apply)
  *   MIG-U6: partial apply continues from last applied version
  *   MIG-U7: duplicate migration versions fail fast before execution
+ *   MIG-U8: migration ledger duplicate insert fails loud
  */
 
 import assert from "node:assert/strict";
@@ -247,6 +248,20 @@ function makeMigration(
     "MIG-U7: duplicate versions must throw before applying any migration",
   );
   assert.equal(executed, 0, "MIG-U7: no up() function should execute");
+}
+
+// ---------------------------------------------------------------------------
+// MIG-U8: duplicate records in _migrations fail loud (no INSERT OR IGNORE)
+// ---------------------------------------------------------------------------
+{
+  const db = makeDb();
+  ensureMigrationsTable(db);
+  recordMigrationApplied(db, 1, "001_first");
+  assert.throws(
+    () => recordMigrationApplied(db, 1, "001_first_duplicate"),
+    /unique constraint failed: _migrations\.version/i,
+    "MIG-U8: duplicate ledger records must throw",
+  );
 }
 
 console.log("migrator.test.ts: all assertions passed");

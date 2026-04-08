@@ -95,13 +95,3 @@ export function closeDb(): void {
     _instance = null;
   }
 }
-
-/**
- * Inject a pre-constructed Database instance for test harnesses.
- *
- * Why separate from setDbInstance: makes test-only usage explicit and
- * searchable, preventing accidental use in production code paths.
- */
-export function _injectDbForTesting(db: Database.Database): void {
-  _instance = db;
-}

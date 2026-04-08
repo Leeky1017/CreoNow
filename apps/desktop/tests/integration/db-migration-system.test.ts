@@ -13,7 +13,9 @@
  *   DB-INT-8:  second runMigrations call is idempotent (no error, no re-apply)
  *   DB-INT-9:  bridge path — migration bookkeeping remains truthful with legacy settings schema
  *   DB-INT-9B: bridge path rebuilds entities_fts for pre-existing kg_entities rows
- *   DB-INT-9C: bridge path rejects schema drift and does not record migration
+ *   DB-INT-9C: bridge path rejects shape drift and does not record migration
+ *   DB-INT-9D: bridge path rejects same-column semantic drift (missing UNIQUE)
+ *   DB-INT-9E: bridge path rejects same-column semantic drift (wrong type)
  *   DB-INT-10: kg_relations table FKs to kg_entities and project scope
  *   DB-INT-11: FTS5 external-content trigger correctness (no phantom tokens; DELETE removes tokens)
  */
@@ -263,6 +265,28 @@ const LEGACY_BAD_KG_RELATION_TYPES_SQL = `
   );
 `;
 
+const LEGACY_BAD_KG_RELATION_TYPES_MISSING_UNIQUE_SQL = `
+  CREATE TABLE IF NOT EXISTS kg_relation_types (
+    id         TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    key        TEXT NOT NULL,
+    label      TEXT NOT NULL,
+    builtin    INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (project_id) REFERENCES projects (project_id) ON DELETE CASCADE
+  );
+`;
+
+const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
+  CREATE TABLE IF NOT EXISTS settings (
+    scope      TEXT NOT NULL,
+    key        TEXT NOT NULL,
+    value_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (scope, key)
+  );
+`;
+
 // ---------------------------------------------------------------------------
 // DB-INT-9: bridge path — runMigrations works alongside legacy settings rows
 // ---------------------------------------------------------------------------
@@ -366,6 +390,67 @@ const LEGACY_BAD_KG_RELATION_TYPES_SQL = `
     migrationRow,
     undefined,
     "DB-INT-9C: failed migration must not record version 1",
+  );
+
+  mismatchDb.close();
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-9D: bridge path rejects missing UNIQUE(project_id, key) constraint
+// ---------------------------------------------------------------------------
+{
+  const mismatchDb = new Database(":memory:");
+  mismatchDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(mismatchDb);
+
+  mismatchDb.exec(LEGACY_PROJECTS_SQL);
+  mismatchDb.exec(LEGACY_SETTINGS_SQL);
+  mismatchDb.exec(LEGACY_KG_ENTITIES_SQL);
+  mismatchDb.exec(LEGACY_BAD_KG_RELATION_TYPES_MISSING_UNIQUE_SQL);
+
+  assert.throws(
+    () => runMigrations(mismatchDb, [initialSchemaMigration]),
+    /missing unique index\/constraint unique\(project_id, key\)/i,
+    "DB-INT-9D: missing UNIQUE(project_id, key) must fail bridge migration",
+  );
+
+  const migrationRow = mismatchDb
+    .prepare("SELECT version FROM _migrations WHERE version = 1")
+    .get() as { version: number } | undefined;
+  assert.equal(
+    migrationRow,
+    undefined,
+    "DB-INT-9D: failed migration must not record version 1",
+  );
+
+  mismatchDb.close();
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-9E: bridge path rejects wrong settings.updated_at column type
+// ---------------------------------------------------------------------------
+{
+  const mismatchDb = new Database(":memory:");
+  mismatchDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(mismatchDb);
+
+  mismatchDb.exec(LEGACY_PROJECTS_SQL);
+  mismatchDb.exec(LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL);
+  mismatchDb.exec(LEGACY_KG_ENTITIES_SQL);
+
+  assert.throws(
+    () => runMigrations(mismatchDb, [initialSchemaMigration]),
+    /schema contract mismatch for settings\.updated_at: expected type integer, got text/i,
+    "DB-INT-9E: wrong settings.updated_at type must fail bridge migration",
+  );
+
+  const migrationRow = mismatchDb
+    .prepare("SELECT version FROM _migrations WHERE version = 1")
+    .get() as { version: number } | undefined;
+  assert.equal(
+    migrationRow,
+    undefined,
+    "DB-INT-9E: failed migration must not record version 1",
   );
 
   mismatchDb.close();

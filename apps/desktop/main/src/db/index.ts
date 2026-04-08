@@ -23,7 +23,7 @@
  *   "adapt carefully and do not break existing startup behavior".
  *
  * Test harnesses:
- *   Call _injectDbForTesting(db) from connection.ts, then call runMigrations()
+ *   Call setDbInstance(db) from connection.ts, then call runMigrations()
  *   from this module; seed legacy dependency tables (e.g. `projects`) when a
  *   test scenario needs FK-backed inserts.
  *
@@ -37,7 +37,7 @@
  */
 
 import { closeDb, getDb, initConnection } from "./connection";
-import { initialSchemaMigration } from "./migrations/001_initial_schema";
+import { DB_MIGRATIONS } from "./migrations/registry";
 import { runMigrations as _runMigrations } from "./migrator";
 
 export { getDb, closeDb };
@@ -46,7 +46,7 @@ export { getDb, closeDb };
  * Apply all registered TypeScript migrations to the database obtained via
  * getDb().
  *
- * In tests, call this after _injectDbForTesting(db) to set up an isolated
+ * In tests, call this after setDbInstance(db) to set up an isolated
  * in-memory test database.
  *
  * Idempotent — safe to call on every startup; already-applied migrations are
@@ -54,7 +54,7 @@ export { getDb, closeDb };
  */
 export function runMigrations(): void {
   const db = getDb();
-  _runMigrations(db, [initialSchemaMigration]);
+  _runMigrations(db, [...DB_MIGRATIONS]);
 }
 
 export { initConnection };

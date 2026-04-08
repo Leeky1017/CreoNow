@@ -193,6 +193,202 @@ function assertTableColumns(
   }
 }
 
+function hasTable(db: Database.Database, table: string): boolean {
+  return Boolean(
+    db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1").get(
+      table,
+    ),
+  );
+}
+
+type ExpectedColumn = {
+  name: string;
+  type: string;
+  notNull: boolean;
+  pk: number;
+  defaultValue: string | null;
+};
+
+function normalizeSql(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\s*\(\s*/g, "(")
+    .replace(/\s*\)\s*/g, ")")
+    .trim();
+}
+
+function normalizeDefaultValue(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return String(value).replace(/\s+/g, " ").trim();
+}
+
+function assertTableColumnContract(
+  db: Database.Database,
+  args: {
+    table: string;
+    expected: readonly ExpectedColumn[];
+  },
+): void {
+  if (!hasTable(db, args.table)) {
+    return;
+  }
+
+  assertTableColumns(db, {
+    table: args.table,
+    expected: args.expected.map((column) => column.name),
+  });
+
+  const actual = db.pragma(`table_info(${args.table})`) as Array<{
+    name: string;
+    type: string;
+    notnull: number;
+    dflt_value: unknown;
+    pk: number;
+  }>;
+
+  for (const expectedColumn of args.expected) {
+    const actualColumn = actual.find((column) => column.name === expectedColumn.name);
+    if (!actualColumn) {
+      throw new Error(
+        `schema contract mismatch for ${args.table}: missing column ${expectedColumn.name}`,
+      );
+    }
+    const actualType = actualColumn.type.trim().toUpperCase();
+    const expectedType = expectedColumn.type.trim().toUpperCase();
+    if (actualType !== expectedType) {
+      throw new Error(
+        `schema contract mismatch for ${args.table}.${expectedColumn.name}: expected type ${expectedType}, got ${actualType}`,
+      );
+    }
+    if ((actualColumn.notnull === 1) !== expectedColumn.notNull) {
+      throw new Error(
+        `schema contract mismatch for ${args.table}.${expectedColumn.name}: expected notNull=${String(expectedColumn.notNull)}, got notNull=${String(actualColumn.notnull === 1)}`,
+      );
+    }
+    if (actualColumn.pk !== expectedColumn.pk) {
+      throw new Error(
+        `schema contract mismatch for ${args.table}.${expectedColumn.name}: expected pk=${expectedColumn.pk.toString()}, got pk=${actualColumn.pk.toString()}`,
+      );
+    }
+    const actualDefault = normalizeDefaultValue(actualColumn.dflt_value);
+    if (actualDefault !== expectedColumn.defaultValue) {
+      throw new Error(
+        `schema contract mismatch for ${args.table}.${expectedColumn.name}: expected default ${String(expectedColumn.defaultValue)}, got ${String(actualDefault)}`,
+      );
+    }
+  }
+}
+
+function assertTableSqlContains(
+  db: Database.Database,
+  args: { table: string; requiredSnippets: readonly string[] },
+): void {
+  const row = db
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+    )
+    .get(args.table) as { sql: string | null } | undefined;
+  if (!row || !row.sql) {
+    return;
+  }
+
+  const normalizedSql = normalizeSql(row.sql);
+  for (const snippet of args.requiredSnippets) {
+    const normalizedSnippet = normalizeSql(snippet);
+    if (!normalizedSql.includes(normalizedSnippet)) {
+      throw new Error(
+        `schema contract mismatch for ${args.table}: expected SQL snippet "${snippet}"`,
+      );
+    }
+  }
+}
+
+function assertForeignKeys(
+  db: Database.Database,
+  args: {
+    table: string;
+    expected: ReadonlyArray<{
+      table: string;
+      from: string;
+      to: string;
+      onDelete: string;
+    }>;
+  },
+): void {
+  if (!hasTable(db, args.table)) {
+    return;
+  }
+
+  const actual = db.pragma(`foreign_key_list(${args.table})`) as Array<{
+    table: string;
+    from: string;
+    to: string;
+    on_delete: string;
+  }>;
+  const actualSet = new Set(
+    actual.map((item) =>
+      [
+        item.table,
+        item.from,
+        item.to,
+        item.on_delete.toUpperCase(),
+      ].join("|"),
+    ),
+  );
+
+  for (const expectedFk of args.expected) {
+    const key = [
+      expectedFk.table,
+      expectedFk.from,
+      expectedFk.to,
+      expectedFk.onDelete.toUpperCase(),
+    ].join("|");
+    if (!actualSet.has(key)) {
+      throw new Error(
+        `schema contract mismatch for ${args.table}: missing FK ${expectedFk.from} -> ${expectedFk.table}.${expectedFk.to} ON DELETE ${expectedFk.onDelete}`,
+      );
+    }
+  }
+}
+
+function assertUniqueIndexOnColumns(
+  db: Database.Database,
+  args: { table: string; columns: readonly string[]; label: string },
+): void {
+  if (!hasTable(db, args.table)) {
+    return;
+  }
+
+  const expected = [...args.columns];
+  const indexes = db.pragma(`index_list(${args.table})`) as Array<{
+    name: string;
+    unique: number;
+  }>;
+  const matchFound = indexes.some((indexInfo) => {
+    if (indexInfo.unique !== 1) {
+      return false;
+    }
+    const columns = (
+      db.pragma(`index_info(${indexInfo.name})`) as Array<{ name: string | null }>
+    )
+      .map((item) => item.name)
+      .filter((item): item is string => typeof item === "string");
+    return (
+      columns.length === expected.length &&
+      columns.every((column, index) => column === expected[index])
+    );
+  });
+
+  if (!matchFound) {
+    throw new Error(
+      `schema contract mismatch for ${args.table}: missing unique index/constraint ${args.label}`,
+    );
+  }
+}
+
 function up(db: Database.Database): void {
   const entitiesFtsExistsBeforeMigration = Boolean(
     db
@@ -205,41 +401,247 @@ function up(db: Database.Database): void {
   // Guard migration bookkeeping truthfulness:
   // if a table already exists with an incompatible shape, fail instead of
   // silently recording version 1 as applied.
-  assertTableColumns(db, {
+  assertTableColumnContract(db, {
     table: "settings",
-    expected: ["scope", "key", "value_json", "updated_at"],
-  });
-  assertTableColumns(db, {
-    table: "kg_entities",
     expected: [
-      "id",
-      "project_id",
-      "type",
-      "name",
-      "description",
-      "attributes_json",
-      "version",
-      "created_at",
-      "updated_at",
-      "ai_context_level",
-      "aliases",
-      "last_seen_state",
+      {
+        name: "scope",
+        type: "TEXT",
+        notNull: true,
+        pk: 1,
+        defaultValue: null,
+      },
+      {
+        name: "key",
+        type: "TEXT",
+        notNull: true,
+        pk: 2,
+        defaultValue: null,
+      },
+      {
+        name: "value_json",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "updated_at",
+        type: "INTEGER",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
     ],
   });
-  assertTableColumns(db, {
-    table: "kg_relation_types",
-    expected: ["id", "project_id", "key", "label", "builtin", "created_at"],
+  assertTableColumnContract(db, {
+    table: "kg_entities",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "project_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "type", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "name", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      {
+        name: "description",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: "''",
+      },
+      {
+        name: "attributes_json",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: "'{}'",
+      },
+      {
+        name: "version",
+        type: "INTEGER",
+        notNull: true,
+        pk: 0,
+        defaultValue: "1",
+      },
+      {
+        name: "created_at",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "updated_at",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "ai_context_level",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: "'when_detected'",
+      },
+      {
+        name: "aliases",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: "'[]'",
+      },
+      {
+        name: "last_seen_state",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
   });
-  assertTableColumns(db, {
+  assertTableColumnContract(db, {
+    table: "kg_relation_types",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "project_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "key", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      {
+        name: "label",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "builtin",
+        type: "INTEGER",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "created_at",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
+  });
+  assertTableColumnContract(db, {
     table: "kg_relations",
     expected: [
-      "id",
-      "project_id",
-      "source_entity_id",
-      "target_entity_id",
-      "relation_type",
-      "description",
-      "created_at",
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "project_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "source_entity_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "target_entity_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "relation_type",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "description",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: "''",
+      },
+      {
+        name: "created_at",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
+  });
+  assertTableSqlContains(db, {
+    table: "kg_entities",
+    requiredSnippets: [
+      "check (type in ('character', 'location', 'event', 'item', 'faction'))",
+    ],
+  });
+  assertForeignKeys(db, {
+    table: "kg_entities",
+    expected: [
+      {
+        table: "projects",
+        from: "project_id",
+        to: "project_id",
+        onDelete: "CASCADE",
+      },
+    ],
+  });
+  assertUniqueIndexOnColumns(db, {
+    table: "kg_relation_types",
+    columns: ["project_id", "key"],
+    label: "UNIQUE(project_id, key)",
+  });
+  assertForeignKeys(db, {
+    table: "kg_relation_types",
+    expected: [
+      {
+        table: "projects",
+        from: "project_id",
+        to: "project_id",
+        onDelete: "CASCADE",
+      },
+    ],
+  });
+  assertForeignKeys(db, {
+    table: "kg_relations",
+    expected: [
+      {
+        table: "projects",
+        from: "project_id",
+        to: "project_id",
+        onDelete: "CASCADE",
+      },
+      {
+        table: "kg_entities",
+        from: "source_entity_id",
+        to: "id",
+        onDelete: "CASCADE",
+      },
+      {
+        table: "kg_entities",
+        from: "target_entity_id",
+        to: "id",
+        onDelete: "CASCADE",
+      },
     ],
   });
 

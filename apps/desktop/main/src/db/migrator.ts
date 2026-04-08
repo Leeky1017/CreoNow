@@ -83,7 +83,7 @@ export function recordMigrationApplied(
   name: string,
 ): void {
   db.prepare(
-    "INSERT OR IGNORE INTO _migrations (version, name, applied_at) VALUES (?, ?, ?)",
+    "INSERT INTO _migrations (version, name, applied_at) VALUES (?, ?, ?)",
   ).run(version, name, new Date().toISOString());
 }
 
@@ -119,7 +119,6 @@ export function buildPendingMigrations(
   db: Database.Database,
   migrations: Migration[],
 ): Migration[] {
-  assertUniqueMigrationVersions(migrations);
   const applied = getAppliedVersions(db);
   return [...migrations]
     .filter((m) => !applied.has(m.version))

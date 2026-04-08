@@ -20,7 +20,7 @@ import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
 import judgeSql from "./migrations/0003_judge.sql?raw";
 import { closeDb, setDbInstance } from "./connection";
 import { runMigrations } from "./migrator";
-import { initialSchemaMigration } from "./migrations/001_initial_schema";
+import { DB_MIGRATIONS } from "./migrations/registry";
 import skillsSql from "./migrations/0004_skills.sql?raw";
 import knowledgeGraphSql from "./migrations/0005_knowledge_graph.sql?raw";
 import searchFtsSql from "./migrations/0006_search_fts.sql?raw";
@@ -288,7 +288,7 @@ export function initDb(args: {
     schemaVersion = finalSchemaVersion;
 
     // Run TS migration bridge first; only publish singleton after bridge success.
-    runMigrations(conn, [initialSchemaMigration]);
+    runMigrations(conn, [...DB_MIGRATIONS]);
     setDbInstance(conn);
 
     args.logger.info("db_ready", {
