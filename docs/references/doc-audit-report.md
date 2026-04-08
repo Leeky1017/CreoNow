@@ -11,13 +11,13 @@
 | 目录 | 文件数 | 说明 |
 |------|--------|------|
 | 根目录 | 5 | AGENTS.md, ARCHITECTURE.md, README.md, CLAUDE.md, COMPREHENSIVE-ANALYSIS.md |
-| `docs/references/` | 10 | 开发参考文档 |
+| `docs/references/` | 11 | 开发参考文档（含本审计报告） |
 | `docs/references/cc-analysis/` | 24 | Claude Code 分析报告（含 P1-P3 阶段文档） |
 | `openspec/specs/*/spec.md` | 13 | 模块行为规范 |
-| `.github/` | 8 | PR 模板、Copilot 指令、Agent/Prompt 定义 |
+| `.github/` | 9 | PR 模板、Copilot 指令、Agent/Prompt 定义 |
 | `scripts/` | 2 | 脚本文档 |
 | `creonow-app/` | 3 | 子项目文档 |
-| `figma_design/` | 2+ | Figma 设计导出 |
+| `figma_design/` | 8 | Figma 设计导出（含 guidelines、design tokens） |
 | `docs/` (其他) | 3 | 前端规划文档 |
 
 ---
