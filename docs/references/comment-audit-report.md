@@ -12,7 +12,7 @@
 |--------|-------|
 | Files scanned | 172 |
 | Total LOC | 66,563 |
-| Total comments | 744 (single-line: 341, JSDoc: 399, multi-line: 4) |
+| Total comments | 742 (single-line: 339, JSDoc: 399, multi-line: 4) |
 | Comment-to-LOC ratio | 1.1% |
 | Files with zero comments | 48 (27.9%) |
 | **Overall Quality Score** | **38 / 100** |
@@ -32,7 +32,7 @@ CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals C
 | Sub-metric | Count | Coverage |
 |------------|-------|----------|
 | `catch` blocks total | 398 (303 with param + 95 parameterless) | — |
-| `catch` blocks with nearby comment | 6 | 1.5% |
+| `catch` blocks with nearby comment | 60 | 15.1% |
 | Boolean defaults (`= true/false`) | 54 | — |
 | Boolean defaults with comment | 1 | 1.9% |
 | Safety-themed comments total | 68 | — |
@@ -42,7 +42,7 @@ CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals C
 - `services/memory/simpleMemoryService.ts:163` — `Sync failure should not block`
 - `services/editor/diffEngine.ts:409` — `Stale document check BEFORE applying (D21 — fail-fast)`
 
-**Gap**: 392 of 398 `catch` blocks have no comment explaining recovery strategy. 53 of 54 boolean defaults lack reasoning.
+**Gap**: 338 of 398 `catch` blocks have no comment explaining recovery strategy. 53 of 54 boolean defaults lack reasoning.
 
 **Score rationale**: Strong intent visible in key modules, but systematic coverage is extremely low. 12/20.
 
@@ -65,7 +65,7 @@ CN has developed a strong **"Why:" JSDoc pattern** (204 instances) that rivals C
 - `services/ai/streaming.ts:199` — `const backoffMs = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s`
 - `index.ts:149` — `// ── Window state persistence (debounced) ──`
 
-**Gap**: No startup-path timing annotations. Large service files (aiService.ts at 2,766 LOC) have performance-relevant code (retry logic, connection pooling, streaming) with minimal perf rationale. The `compressionEngine.ts` and `layerAssemblyService.ts` do token budget work but rarely explain "why this budget number".
+**Gap**: No startup-path timing annotations. Large service files (aiService.ts at 2,765 LOC) have performance-relevant code (retry logic, connection pooling, streaming) with minimal perf rationale. The `compressionEngine.ts` and `layerAssemblyService.ts` do token budget work but rarely explain "why this budget number".
 
 **Score rationale**: Some awareness exists but lacks the CC pattern of "not doing X costs Y ms". 10/20.
 
@@ -189,7 +189,7 @@ These are valuable but not equivalent to formal `@module` declarations with scop
 | CC Pattern | CC Practice | CN Gap |
 |------------|-------------|--------|
 | **Threshold provenance** | Every number has a data citation | 98.1% of CN numbers unexplained |
-| **Catch-block reasoning** | Every `catch` documents recovery strategy | 98.0% of CN `catch` blocks undocumented |
+| **Catch-block reasoning** | Every `catch` documents recovery strategy | 84.9% of CN `catch` blocks undocumented |
 | **`@module` declarations** | Entry files declare scope, boundaries, deps | 0/20 CN services have `@module` |
 | **Decision tags** | `@why`, `@risk`, `@invariant`, `@rollback` | 0 uses in CN |
 | **Startup timing** | Parallel init paths annotated with ms budgets | No timing annotations in CN startup |
@@ -221,14 +221,14 @@ Ordered by impact (refactoring risk × code size × comment gap):
 | Priority | File(s) | Action | Impact |
 |----------|---------|--------|--------|
 | **P0** | All 20 service `index.ts` / entry files | Add `@module` JSDoc with scope, boundaries, dep direction | Unlocks AI-assisted refactoring, prevents scope creep |
-| **P1** | `services/kg/kgCoreService.ts` (2,453 LOC, 3 comments) | Add threshold comments for `DEFAULT_NODE_LIMIT`, `DEFAULT_EDGE_LIMIT`; add pipeline overview | Largest uncommented service |
-| **P2** | `services/memory/episodicMemoryService.ts` (2,630 LOC, 6 comments) | Add `@module`, catch-block reasoning, threshold provenance | Second-largest comment desert |
+| **P1** | `services/kg/kgCoreService.ts` (2,452 LOC, 3 comments) | Add threshold comments for `DEFAULT_NODE_LIMIT`, `DEFAULT_EDGE_LIMIT`; add pipeline overview | Largest uncommented service |
+| **P2** | `services/memory/episodicMemoryService.ts` (2,629 LOC, 6 comments) | Add `@module`, catch-block reasoning, threshold provenance | Second-largest comment desert |
 | **P3** | `services/ai/runtimeConfig.ts` | Document all timeout/limit constants with provenance | Single file, 4 unexplained thresholds, referenced everywhere |
 | **P4** | `services/skills/skillScheduler.ts` | Document `DEFAULT_SLOT_RECOVERY_TIMEOUT_MS` and scheduling constants | Critical runtime behaviour |
-| **P5** | `services/export/exportRichText.ts` (1,071 LOC, 0 comments) | Add `@module`, function JSDoc for 6 exported functions | Largest zero-comment file |
+| **P5** | `services/export/exportRichText.ts` (1,070 LOC, 0 comments) | Add `@module`, function JSDoc for 6 exported functions | Largest zero-comment file |
 | **P6** | `services/context/layerAssemblyService.ts` | Add pipeline overview, document `maxInputTokens: 64000` | Token budget = LLM quality |
 | **P7** | `services/documents/documentCoreService.ts` | Add `@module`, document snapshot limits, lifecycle overview | Core data layer |
-| **P8** | `ipc/contract/ipc-contract.ts` (2,870 LOC, 1 comment) | Add type-level doc comments for channel groups | Largest file, near-zero comments |
+| **P8** | `ipc/contract/ipc-contract.ts` (2,869 LOC, 1 comment) | Add type-level doc comments for channel groups | Largest file, near-zero comments |
 | **P9** | All `catch` blocks (398 total) | Add recovery strategy comments (batch via codemod) | Systematic safety gap |
 
 ---
@@ -300,16 +300,16 @@ const PERMISSION_TIMEOUT_MS = 120_000;
 ```
 *Risk*: Why 2 minutes? UX research? Backend SLA? If reduced to 30s, will permission flows break? No provenance.
 
-**Gap 3 — Largest file, no module declaration** (`ipc/contract/ipc-contract.ts`, 2,870 LOC, 1 comment):
+**Gap 3 — Largest file, no module declaration** (`ipc/contract/ipc-contract.ts`, 2,869 LOC, 1 comment):
 ```ts
 // (file header: nothing)
 export interface IpcContract {
-  // ... 2,870 lines of type definitions ...
+  // ... 2,869 lines of type definitions ...
 }
 ```
 *Risk*: This is the single source of truth for all IPC channels. No `@module`, no scope declaration, no dependency rules. AI agents cannot determine what belongs here vs. elsewhere.
 
-**Gap 4 — Zero-comment service** (`services/export/exportRichText.ts`, 1,071 LOC):
+**Gap 4 — Zero-comment service** (`services/export/exportRichText.ts`, 1,070 LOC):
 ```ts
 export function parseStructuredExportDocument(...) { ... }
 export function renderStructuredMarkdown(...) { ... }
@@ -319,7 +319,7 @@ export function buildDocxBuffer(...) { ... }
 ```
 *Risk*: 6 exported functions, 0 JSDoc. Export is user-facing; incorrect output = data loss. No boundary between parse/render/build phases.
 
-**Gap 5 — Silent catch pattern** (398 instances across codebase):
+**Gap 5 — Silent catch pattern** (338 of 398 catch blocks across codebase):
 ```ts
 } catch (err) {
   // (no comment explaining recovery strategy)
@@ -343,7 +343,7 @@ Each dimension scores 0–20 based on:
 
 | Dimension | Score | Rationale |
 |-----------|-------|-----------|
-| D1: Safety Defaults | 12 | 68 safety comments exist, but 98% of catch/boolean-default sites uncovered |
+| D1: Safety Defaults | 12 | 68 safety comments exist; 85% of catch blocks and 98% of boolean-default sites uncovered |
 | D2: Performance | 10 | 50 perf comments exist, missing timing annotations and "otherwise" patterns |
 | D3: Thresholds | 2 | 9/475 (1.9%) — near-total absence |
 | D4: Intent Preservation | 10 | orchestrator.ts is exemplary; not replicated in other pipelines |
