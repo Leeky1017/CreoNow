@@ -5,12 +5,24 @@
 
 ## 治理摘要
 
+### 模型配置（1+4+1）
+
+| 角色 | 模型 | reasoning effort | 数量 |
+| --- | --- | --- | --- |
+| Engineering Subagent | GPT-5.3 Codex | extra high（xhigh） | 1 |
+| Audit Subagent 1 | GPT-5.4 | extra high（xhigh） | 1 |
+| Audit Subagent 2 | GPT-5.3 Codex | extra high（xhigh） | 1 |
+| Audit Subagent 3 | Claude Opus 4.6 | high | 1 |
+| Audit Subagent 4 | Claude Sonnet 4.6 | high | 1 |
+| Reviewer Subagent | Claude Opus 4.6 | high | 1 |
+| Main session Agent | 与用户当前对话模型 | 不固定 | 1 |
+
 - 主会话 Agent 只做编排，不直接写代码，也不直接输出最终审计结论。
 - 工程 Subagent 只有达到“可交审条件”后才可转审；实现、提 PR、修 CI、回应审计都必须全程在 `.worktrees/issue-<N>-<slug>` 中完成。
 - “可交审条件”至少包括：PR 已创建或更新，正文含 `Closes #N`、验证证据、回滚点、审计门禁；`scripts/agent_pr_preflight.sh` 已通过；required checks 全绿。
 - 前端 PR 还需在正文直接可见截图，并附可点击 Storybook artifact/link 与视觉验收说明。
-- 审计采用双审交叉制；只有 zero findings，且两名独立审计 Agent 分别给出 `FINAL-VERDICT` + `ACCEPT` 时，才可视为收口。
-- `auto-merge 默认关闭`；只有在双审都对 zero findings 给出 `FINAL-VERDICT` + `ACCEPT` 后，才可显式开启。
+- 审计采用 1+4+1 四审交叉制；只有 zero findings，且四名独立审计 Agent 全部给出 `FINAL-VERDICT` + `ACCEPT` 时，才可视为收口。
+- `auto-merge 默认关闭`；只有在四审都对 zero findings 给出 `FINAL-VERDICT` + `ACCEPT` 后，才可显式开启。
 - 禁止用 `Accept with risk` 或其他“带问题通过”的表述替代 `REJECT`。
 
 ## Design Context

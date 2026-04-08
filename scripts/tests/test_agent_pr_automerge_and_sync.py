@@ -237,7 +237,7 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
         finally:
             shutil.rmtree(temp_dir)
 
-    def test_should_block_auto_merge_until_two_independent_zero_findings_audits_exist(self) -> None:
+    def test_should_block_auto_merge_until_four_independent_zero_findings_audits_exist(self) -> None:
         temp_dir, worktree = self._make_sandbox(
             pr_merged=False,
             preflight_success=True,
@@ -248,8 +248,8 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
         try:
             result = self._run_script(worktree, temp_dir, extra_args=["--enable-auto-merge"])
             self.assertEqual(1, result.returncode, result.stdout)
-            self.assertIn("double-audit zero-findings gate", result.stdout)
-            self.assertIn("two independent audit agents", result.stdout.lower())
+            self.assertIn("1+4+1 four-audit zero-findings gate", result.stdout)
+            self.assertIn("four independent audit agents", result.stdout.lower())
             self.assertIn("matching_comments=1", result.stdout)
             self.assertIn("distinct_authors=1", result.stdout)
             self.assertFalse((temp_dir / "sync.log").exists(), result.stdout)

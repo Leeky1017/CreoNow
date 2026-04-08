@@ -392,9 +392,9 @@ def evaluate_audit_pass_comments(raw_comments: Sequence[object]) -> AuditPassEva
     author_check_enforced = any(comment.author for comment in comments)
     distinct_authors = len({comment.author.casefold() for comment in matching_comments if comment.author})
 
-    audit_pass = len(matching_comments) >= 2
+    audit_pass = len(matching_comments) >= 4
     if author_check_enforced:
-        audit_pass = audit_pass and distinct_authors >= 2
+        audit_pass = audit_pass and distinct_authors >= 4
 
     return AuditPassEvaluation(
         audit_pass=audit_pass,
@@ -444,7 +444,7 @@ def build_blocker_comment(
         )
     if normalized_kind == "audit-required":
         return (
-            "Auto-merge remains disabled until two independent audit agents each post a "
+            "Auto-merge remains disabled until four independent audit agents each post a "
             "zero-findings `FINAL-VERDICT` comment with `ACCEPT`. "
             f"PR: {pr_url}"
         )
@@ -551,7 +551,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit_parser = subparsers.add_parser(
         "audit-pass",
-        help="Check whether two independent zero-findings audit comments exist.",
+        help="Check whether four independent zero-findings audit comments exist.",
     )
     audit_parser.add_argument(
         "--comments-json",

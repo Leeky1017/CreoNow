@@ -88,10 +88,28 @@ N/A
 
 ## Audit Gate
 
-<!-- 只有达到可交审条件后才请求审计 -->
+<!-- 1+4+1 六模型固定块：四个审计都必须 FINAL-VERDICT = ACCEPT 才可合并 -->
+
+### 1+4+1 Model Block
+
+- Engineering Subagent: GPT-5.3 Codex (xhigh) ×1
+- Audit Subagent 1: GPT-5.4 (xhigh) ×1
+- Audit Subagent 2: GPT-5.3 Codex (xhigh) ×1
+- Audit Subagent 3: Claude Opus 4.6 (high) ×1
+- Audit Subagent 4: Claude Sonnet 4.6 (high) ×1
+- Reviewer Subagent: Claude Opus 4.6 (high) ×1
 
 - `scripts/agent_pr_preflight.sh`:
 - Required checks:
+
+### FINAL-VERDICT（四审）
+
+- [ ] Audit Subagent 1（GPT-5.4 xhigh）`FINAL-VERDICT: ACCEPT`
+- [ ] Audit Subagent 2（GPT-5.3 Codex xhigh）`FINAL-VERDICT: ACCEPT`
+- [ ] Audit Subagent 3（Claude Opus 4.6 high）`FINAL-VERDICT: ACCEPT`
+- [ ] Audit Subagent 4（Claude Sonnet 4.6 high）`FINAL-VERDICT: ACCEPT`
+
+> 说明：四个勾选必须全部满足，方可进入合并。
 
 ---
 

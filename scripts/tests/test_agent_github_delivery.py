@@ -117,16 +117,18 @@ class AuditGateTests(unittest.TestCase):
         self.assertEqual(0, evaluation.distinct_authors)
         self.assertFalse(evaluation.author_check_enforced)
 
-    def test_audit_pass_should_pass_with_two_matching_string_comments(self) -> None:
+    def test_audit_pass_should_pass_with_four_matching_string_comments(self) -> None:
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [
                 "## FINAL-VERDICT：Issue #1005\n\nzero findings\n\n### 最终判定：ACCEPT",
                 "## FINAL-VERDICT：Issue #1005\n\nzero findings\n\n### 最终判定：ACCEPT\n\nby second reviewer",
+                "## FINAL-VERDICT：Issue #1005\n\nzero findings\n\n### 最终判定：ACCEPT\n\nby third reviewer",
+                "## FINAL-VERDICT：Issue #1005\n\nzero findings\n\n### 最终判定：ACCEPT\n\nby fourth reviewer",
             ]
         )
 
         self.assertTrue(evaluation.audit_pass)
-        self.assertEqual(2, evaluation.matching_comments)
+        self.assertEqual(4, evaluation.matching_comments)
         self.assertEqual(0, evaluation.distinct_authors)
         self.assertFalse(evaluation.author_check_enforced)
 
@@ -149,7 +151,7 @@ class AuditGateTests(unittest.TestCase):
         self.assertEqual(1, evaluation.distinct_authors)
         self.assertTrue(evaluation.author_check_enforced)
 
-    def test_audit_pass_should_pass_with_two_matching_comments_from_distinct_authors(self) -> None:
+    def test_audit_pass_should_pass_with_four_matching_comments_from_distinct_authors(self) -> None:
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [
                 {
@@ -160,12 +162,20 @@ class AuditGateTests(unittest.TestCase):
                     "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
                     "author": "audit-agent-b",
                 },
+                {
+                    "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
+                    "author": "audit-agent-c",
+                },
+                {
+                    "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
+                    "author": "audit-agent-d",
+                },
             ]
         )
 
         self.assertTrue(evaluation.audit_pass)
-        self.assertEqual(2, evaluation.matching_comments)
-        self.assertEqual(2, evaluation.distinct_authors)
+        self.assertEqual(4, evaluation.matching_comments)
+        self.assertEqual(4, evaluation.distinct_authors)
         self.assertTrue(evaluation.author_check_enforced)
 
     def test_audit_pass_should_fail_when_comments_include_non_blocking_findings(self) -> None:
@@ -223,7 +233,7 @@ class AuditGateTests(unittest.TestCase):
             )
         )
 
-    def test_audit_pass_cli_should_emit_counts(self) -> None:
+    def test_audit_pass_cli_should_emit_four_counts(self) -> None:
         stdout = io.StringIO()
         with redirect_stdout(stdout):
             exit_code = agent_github_delivery.main(
@@ -240,6 +250,14 @@ class AuditGateTests(unittest.TestCase):
                                 "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
                                 "author": "audit-agent-b",
                             },
+                            {
+                                "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
+                                "author": "audit-agent-c",
+                            },
+                            {
+                                "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
+                                "author": "audit-agent-d",
+                            },
                         ]
                     ),
                 ]
@@ -248,8 +266,8 @@ class AuditGateTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(0, exit_code)
         self.assertTrue(payload["audit_pass"])
-        self.assertEqual(2, payload["matching_comments"])
-        self.assertEqual(2, payload["distinct_authors"])
+        self.assertEqual(4, payload["matching_comments"])
+        self.assertEqual(4, payload["distinct_authors"])
         self.assertTrue(payload["author_check_enforced"])
 
     def test_build_blocker_comment_should_explain_audit_requirement(self) -> None:
@@ -257,7 +275,7 @@ class AuditGateTests(unittest.TestCase):
             kind="audit-required",
             pr_url="https://github.com/Leeky1017/CreoNow/pull/1006",
         )
-        self.assertIn("two independent audit agents", body)
+        self.assertIn("four independent audit agents", body)
         self.assertIn("FINAL-VERDICT", body)
         self.assertIn("ACCEPT", body)
         self.assertIn("zero-findings", body)
