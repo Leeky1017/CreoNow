@@ -406,18 +406,47 @@ def _normalize_audit_comments(raw_comments: Sequence[object]) -> list[AuditComme
 
 
 def _extract_consolidated_audit_sections(body: str) -> dict[str, str]:
-    sections: dict[str, list[str]] = {}
-    current_header: str | None = None
+    lines = body.splitlines()
     known_headers = set(CONSOLIDATED_AUDIT_SECTION_HEADERS)
-    for line in body.splitlines():
+    header_indexes: dict[str, int] = {}
+    ordered_headers: list[tuple[int, str]] = []
+    for index, line in enumerate(lines):
         stripped = line.strip()
-        if stripped in known_headers:
-            current_header = stripped
-            sections[current_header] = []
+        if stripped not in known_headers:
             continue
-        if current_header is not None:
-            sections[current_header].append(line)
-    return {header: "\n".join(lines) for header, lines in sections.items()}
+        if stripped in header_indexes:
+            return {}
+        header_indexes[stripped] = index
+        ordered_headers.append((index, stripped))
+
+    if len(header_indexes) != len(CONSOLIDATED_AUDIT_SECTION_HEADERS):
+        return {}
+
+    ordered_headers.sort(key=lambda item: item[0])
+    if [header for _, header in ordered_headers] != list(CONSOLIDATED_AUDIT_SECTION_HEADERS):
+        return {}
+
+    trailer_start = len(lines)
+    seat4_start = ordered_headers[-1][0] + 1
+    for index in range(seat4_start, len(lines)):
+        stripped = lines[index].strip()
+        if (
+            stripped.startswith("**审计 HEAD**")
+            or re.match(r"(?i)^\*\*FINAL-VERDICT\*\*\s*[:：]", stripped) is not None
+            or stripped.startswith("## ")
+        ):
+            trailer_start = index
+            break
+
+    sections: dict[str, str] = {}
+    for seat_index, (start_index, header) in enumerate(ordered_headers):
+        section_start = start_index + 1
+        if seat_index + 1 < len(ordered_headers):
+            section_end = ordered_headers[seat_index + 1][0]
+        else:
+            section_end = trailer_start
+        sections[header] = "\n".join(lines[section_start:section_end])
+    return sections
 
 
 def _strip_fenced_code_blocks(text: str) -> str:
