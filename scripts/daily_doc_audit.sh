@@ -57,33 +57,17 @@ log_skip() {
 }
 
 # ─────────────────────────────────────────────
-# 1. 收集所有文档文件
+# 1. 收集所有文档文件（全仓库扫描，排除生成目录）
 # ─────────────────────────────────────────────
-DOC_DIRS=(
-  "."
-  "docs"
-  "docs/references"
-  "docs/references/cc-analysis"
-  "openspec/specs"
-  ".github"
-  ".github/agents"
-  ".github/prompts"
-  "scripts"
-  "creonow-app"
-  "figma_design"
-)
-
 MD_FILES=()
-for dir in "${DOC_DIRS[@]}"; do
-  if [[ -d "$dir" ]]; then
-    while IFS= read -r f; do
-      MD_FILES+=("$f")
-    done < <(find "$dir" -maxdepth 2 -name "*.md" -not -path "./node_modules/*" -not -path "./.worktrees/*" -not -path "./.git/*" 2>/dev/null)
-  fi
-done
-
-# Deduplicate
-readarray -t MD_FILES < <(printf '%s\n' "${MD_FILES[@]}" | sort -u)
+while IFS= read -r f; do
+  MD_FILES+=("$f")
+done < <(find . -name "*.md" \
+  -not -path "./node_modules/*" \
+  -not -path "./.worktrees/*" \
+  -not -path "./.git/*" \
+  -not -path "./.pytest_cache/*" \
+  2>/dev/null | sort)
 
 echo "=== 文档健康检查 ==="
 echo "扫描 ${#MD_FILES[@]} 个 Markdown 文件"
@@ -130,9 +114,11 @@ for md in "${MD_FILES[@]}"; do
       if [[ -e "$check_path" ]]; then
         log_ok "$md → $check_path"
       else
-        # Check if it's explicitly marked as planned
-        if grep -q "目标架构\|尚未实现\|待创建\|<!-- planned -->" "$md" 2>/dev/null; then
-          log_skip "$md → $path_ref (marked as planned)"
+        # Per-reference planned check: only skip if the reference appears
+        # within ±2 lines of a planned/future marker in the source file
+        ref_context=$(grep -n -B2 -A2 "$path_ref" "$md" 2>/dev/null || true)
+        if echo "$ref_context" | grep -qi "目标架构\|尚未实现\|待创建\|<!-- planned -->\|计划实现\|远景\|P[2-9] 阶段"; then
+          log_skip "$md → $path_ref (context marked as planned)"
         else
           log_issue "$md: 引用路径不存在 → $path_ref" && path_issues=$((path_issues + 1)) || true
         fi

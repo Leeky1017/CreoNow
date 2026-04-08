@@ -24,6 +24,12 @@ openspec/specs/workbench/spec.md: 引用路径不存在 → scripts/i18n-invento
 openspec/specs/workbench/spec.md: 引用脚本不存在 → scripts/i18n-inventory-scan.ts
 
 # ─── doc-audit-report.md 自引用 ───
-# 审计报告中描述"已修复/已移除"的命令，属于历史上下文，非活跃引用。
+# 审计报告中描述"已修复/已移除"的命令和"已知差异"的路径，属于历史上下文，非活跃引用。
 docs/references/doc-audit-report.md: 引用脚本不存在 → scripts/i18n-inventory-scan
 docs/references/doc-audit-report.md: 引用不存在的根级命令
+docs/references/doc-audit-report.md: 引用路径不存在 → packages/shared/types/ipc/
+
+# ─── ARCHITECTURE.md 路径模板 ───
+# `services/X` 和 `core/X` 是路径约定中的变量占位符（见 ARCHITECTURE.md 第 108 行说明），非真实路径。
+ARCHITECTURE.md: 引用路径不存在 → apps/desktop/main/src/services/X
+ARCHITECTURE.md: 引用路径不存在 → apps/desktop/main/src/core/X

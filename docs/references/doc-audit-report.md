@@ -1,7 +1,7 @@
 # 文档审计报告
 
 > **审计时间**：2025-07-17
-> **审计范围**：全仓库 Markdown 文档（87 个文件）
+> **审计范围**：全仓库 Markdown 文档（101 个文件）
 > **触发原因**：PR #78 合并治理文档后，对全仓库文档做一致性审计
 
 ---
@@ -13,12 +13,14 @@
 | 根目录 | 5 | AGENTS.md, ARCHITECTURE.md, README.md, CLAUDE.md, COMPREHENSIVE-ANALYSIS.md |
 | `docs/references/` | 11 | 开发参考文档（含本审计报告） |
 | `docs/references/cc-analysis/` | 24 | Claude Code 分析报告（含 P1-P3 阶段文档） |
-| `openspec/specs/*/spec.md` | 13 | 模块行为规范 |
+| `openspec/specs/` | 15 | 模块行为规范（含 rate-limiting-rfc、cross-module-integration） |
 | `.github/` | 9 | PR 模板、Copilot 指令、Agent/Prompt 定义 |
+| `.cn/` | 1 | 设计系统配置 |
+| `apps/desktop/main/skills/` | 21 | Skill 定义文档（SKILL.md） |
 | `scripts/` | 2 | 脚本文档 |
 | `creonow-app/` | 3 | 子项目文档 |
 | `figma_design/` | 8 | Figma 设计导出（含 guidelines、design tokens） |
-| `docs/` (其他) | 3 | 前端规划文档 |
+| `docs/` (其他) | 2 | 前端规划文档 |
 
 ---
 
