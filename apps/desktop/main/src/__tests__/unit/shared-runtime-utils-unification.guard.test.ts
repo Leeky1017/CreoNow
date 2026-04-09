@@ -117,16 +117,6 @@ function isCjkCodePoint(codePoint: number): boolean {
   );
 }
 
-function isCjkLikeSegment(segment: string): boolean {
-  for (const char of segment) {
-    const codePoint = char.codePointAt(0);
-    if (codePoint !== undefined && isCjkCodePoint(codePoint)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 function expectedSharedEstimate(text: string): number {
   if (text.length === 0) {
     return 0;
@@ -134,9 +124,13 @@ function expectedSharedEstimate(text: string): number {
 
   let raw = 0;
   for (const { segment } of graphemeSegmenter.segment(text)) {
-    raw += isCjkLikeSegment(segment)
-      ? 1.5
-      : Buffer.byteLength(segment, "utf8") * 0.25;
+    for (const char of segment) {
+      const codePoint = char.codePointAt(0);
+      raw +=
+        codePoint !== undefined && isCjkCodePoint(codePoint)
+          ? 1.5
+          : Buffer.byteLength(char, "utf8") * 0.25;
+    }
   }
 
   return Math.ceil(raw);
@@ -180,6 +174,11 @@ function main(): void {
     "emoji🙂text",
     "❤️",
     "👩‍💻",
+    "禰󠄀",
+    "你️",
+    "が",
+    "漢︀",
+    "你́⃣",
   ];
   for (const sample of estimateSamples) {
     assert.equal(

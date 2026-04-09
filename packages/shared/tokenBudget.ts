@@ -60,24 +60,30 @@ function segmentText(text: string): string[] {
   );
 }
 
-function isCjkLikeSegment(segment: string): boolean {
-  if (segment.length === 0) {
-    return false;
+function getCodePointTokenWeight(char: string): {
+  cjkRawTokens: number;
+  asciiRawTokens: number;
+} {
+  const codePoint = char.codePointAt(0);
+  if (codePoint !== undefined && isCjkCodePoint(codePoint)) {
+    return {
+      cjkRawTokens: CJK_TOKENS_PER_CHAR,
+      asciiRawTokens: 0,
+    };
   }
-  for (const char of segment) {
-    const codePoint = char.codePointAt(0);
-    if (codePoint !== undefined && isCjkCodePoint(codePoint)) {
-      return true;
-    }
-  }
-  return false;
+  return {
+    cjkRawTokens: 0,
+    asciiRawTokens: encoder.encode(char).length * ASCII_TOKENS_PER_BYTE,
+  };
 }
 
 function getSegmentTokenWeight(segment: string): number {
-  if (isCjkLikeSegment(segment)) {
-    return CJK_TOKENS_PER_CHAR;
+  let rawTokens = 0;
+  for (const char of segment) {
+    const { cjkRawTokens, asciiRawTokens } = getCodePointTokenWeight(char);
+    rawTokens += cjkRawTokens + asciiRawTokens;
   }
-  return encoder.encode(segment).length * ASCII_TOKENS_PER_BYTE;
+  return rawTokens;
 }
 
 function measureText(text: string): {
@@ -87,10 +93,10 @@ function measureText(text: string): {
   let cjkRawTokens = 0;
   let asciiRawTokens = 0;
   for (const segment of segmentText(text)) {
-    if (isCjkLikeSegment(segment)) {
-      cjkRawTokens += CJK_TOKENS_PER_CHAR;
-    } else {
-      asciiRawTokens += encoder.encode(segment).length * ASCII_TOKENS_PER_BYTE;
+    for (const char of segment) {
+      const weight = getCodePointTokenWeight(char);
+      cjkRawTokens += weight.cjkRawTokens;
+      asciiRawTokens += weight.asciiRawTokens;
     }
   }
   return { cjkRawTokens, asciiRawTokens };

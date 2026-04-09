@@ -136,6 +136,14 @@ describe("Token Estimation — Token 估算", () => {
       expect(estimateTokens("👩‍💻")).toBe(3);
     });
 
+    it("CJK + 变体/组合附加码点按当前 spec 分别计费", () => {
+      expect(estimateTokens("禰󠄀")).toBe(3);
+      expect(estimateTokens("你️")).toBe(3);
+      expect(estimateTokens("が")).toBe(3);
+      expect(estimateTokens("漢︀")).toBe(3);
+      expect(estimateTokens("你́⃣")).toBe(3);
+    });
+
     it("结果始终为非负整数", () => {
       const cases = ["", "a", "你", "hello world", "你好世界", "mixed 文本 test"];
       for (const text of cases) {

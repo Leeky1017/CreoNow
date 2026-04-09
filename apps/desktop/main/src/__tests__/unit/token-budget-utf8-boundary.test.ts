@@ -29,6 +29,14 @@ import {
 }
 
 {
+  const samples = ["禰󠄀", "你️", "が", "漢︀", "你́⃣"];
+  for (const sample of samples) {
+    assert.equal(estimateTokens(sample), 3);
+    assert.equal(trimUtf8ToTokenBudget(sample, 2), "");
+  }
+}
+
+{
   assert.equal(estimateTokensCjk("你".repeat(1000)), 1500);
   assert.equal(estimateTokensAscii("a".repeat(1000)), 250);
   assert.equal(estimateTokens("你".repeat(500) + "a".repeat(200)), 800);
