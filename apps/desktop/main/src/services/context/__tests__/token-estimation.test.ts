@@ -41,6 +41,14 @@ describe("Token Estimation — Token 估算", () => {
       // 2 CJK chars: 「你」+ 「。」= 2 × 1.5 = 3
       expect(estimateTokens("你。")).toBe(3);
     });
+
+    it("补充平面汉字「𠀀」也按 CJK 计数", () => {
+      expect(estimateTokens("𠀀")).toBe(2);
+    });
+
+    it("片假名扩展「ㇰ」也按 CJK 计数", () => {
+      expect(estimateTokens("ㇰ")).toBe(2);
+    });
   });
 
   // ── ASCII 估算 ────────────────────────────────────────────────
@@ -115,9 +123,17 @@ describe("Token Estimation — Token 估算", () => {
       expect(estimateTokens("\n")).toBe(1);
     });
 
-    it("emoji 视为 CJK（1 char × 1.5 → ceil → 2）", () => {
+    it("单码点 emoji 视为 CJK（1 char × 1.5 → ceil → 2）", () => {
       const tokens = estimateTokens("😀");
       expect(tokens).toBe(2);
+    });
+
+    it("多码点 emoji「❤️」按单个字形簇计数", () => {
+      expect(estimateTokens("❤️")).toBe(2);
+    });
+
+    it("ZWJ emoji「👩‍💻」按单个字形簇计数", () => {
+      expect(estimateTokens("👩‍💻")).toBe(2);
     });
 
     it("结果始终为非负整数", () => {

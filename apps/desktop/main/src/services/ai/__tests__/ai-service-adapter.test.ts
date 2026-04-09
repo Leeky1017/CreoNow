@@ -165,6 +165,14 @@ describe("AIServiceAdapter", () => {
       expect(tokens).toBe(3);
     });
 
+    it("补充平面汉字也视为 CJK", () => {
+      expect(adapter.estimateTokens("𠀀")).toBe(2);
+    });
+
+    it("片假名扩展也视为 CJK", () => {
+      expect(adapter.estimateTokens("ㇰ")).toBe(2);
+    });
+
     it("长文本的 token 估算与简单公式一致", () => {
       const longChinese = "这是一段很长的中文文本，用于测试token估算功能的准确性。";
       let expectedRawTokens = 0;
@@ -186,6 +194,11 @@ describe("AIServiceAdapter", () => {
 
     it("emoji 视为 CJK", () => {
       expect(adapter.estimateTokens("😀")).toBe(2);
+    });
+
+    it("多码点 emoji 按单个字形簇计数", () => {
+      expect(adapter.estimateTokens("❤️")).toBe(2);
+      expect(adapter.estimateTokens("👩‍💻")).toBe(2);
     });
   });
 

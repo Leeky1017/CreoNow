@@ -23,11 +23,23 @@ import {
 }
 
 {
+  assert.equal(estimateTokens("𠀀"), 2);
+  assert.equal(estimateTokens("ㇰ"), 2);
+  assert.equal(trimUtf8ToTokenBudget("𠀀𠀀", 2), "𠀀");
+}
+
+{
   assert.equal(estimateTokensCjk("你".repeat(1000)), 1500);
   assert.equal(estimateTokensAscii("a".repeat(1000)), 250);
   assert.equal(estimateTokens("你".repeat(500) + "a".repeat(200)), 800);
   assert.equal(estimateTokens(""), 0);
   assert.equal(estimateTokens("😀"), 2);
+  assert.equal(estimateTokens("❤️"), 2);
+  assert.equal(estimateTokens("👩‍💻"), 2);
+  assert.equal(trimUtf8ToTokenBudget("👩‍💻abc", 2), "👩‍💻ab");
+  assert.equal(trimUtf8ToTokenBudget("👩‍💻abc", 1), "");
+  assert.equal(trimUtf8ToTokenBudget("❤️❤️", 2), "❤️");
+  assert.equal(trimUtf8ToTokenBudget("👩‍💻".repeat(2), 2), "👩‍💻");
   assert.equal(isWithinBudget("你".repeat(500) + "a".repeat(200), 800), true);
   assert.equal(isWithinBudget("你".repeat(500) + "a".repeat(200), 799), false);
 }

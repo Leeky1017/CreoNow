@@ -5,14 +5,41 @@
  * ## Does not do: exact model tokenization or provider-specific accounting.
  * ## Dependency direction: shared-only, no business-layer imports.
  * ## Invariants: INV-3.
- * ## Performance: deterministic per-code-point accounting without tokenizer deps.
+ * ## Performance: deterministic grapheme-aware accounting without tokenizer deps.
  */
 
 const encoder = new TextEncoder();
+// Why: trimming by code point can split ZWJ / variation-selector emoji and leak
+// broken fragments like "👩‍". Grapheme segmentation keeps truncation fail-closed
+// for user-visible characters while preserving the shared no-tokenizer contract.
+const graphemeSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
 
 const CJK_TOKENS_PER_CHAR = 1.5; // cl100k_base 实测，样本 10K 中文字符，实际范围 1.2-1.8
 const ASCII_TOKENS_PER_BYTE = 0.25; // cl100k_base 实测，英文文本平均
 const UTF8_MAX_BYTES_PER_CODE_POINT = 4;
+const CJK_CODE_POINT_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0x3400, 0x4dbf], // CJK Unified Ideographs Extension A
+  [0x4e00, 0x9fff], // CJK Unified Ideographs
+  [0xf900, 0xfaff], // CJK Compatibility Ideographs
+  [0x20000, 0x2a6df], // CJK Unified Ideographs Extension B
+  [0x2a700, 0x2b73f], // CJK Unified Ideographs Extension C
+  [0x2b740, 0x2b81f], // CJK Unified Ideographs Extension D
+  [0x2b820, 0x2ceaf], // CJK Unified Ideographs Extension E
+  [0x2ceb0, 0x2ebef], // CJK Unified Ideographs Extension F
+  [0x2ebf0, 0x2ee5f], // CJK Unified Ideographs Extension I
+  [0x2f800, 0x2fa1f], // CJK Compatibility Ideographs Supplement
+  [0x30000, 0x3134a], // CJK Unified Ideographs Extension G
+  [0x31350, 0x323af], // CJK Unified Ideographs Extension H
+  [0x3040, 0x30ff], // Hiragana + Katakana
+  [0x31f0, 0x31ff], // Katakana Phonetic Extensions
+  [0x3000, 0x303f], // CJK Symbols and Punctuation
+  [0xac00, 0xd7af], // Hangul Syllables
+  [0xff00, 0xffef], // Halfwidth and Fullwidth Forms
+];
+const emojiLikePattern =
+  /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3)/u;
 
 function isCodePointInRange(
   codePoint: number,
@@ -23,42 +50,43 @@ function isCodePointInRange(
 }
 
 function isCjkCodePoint(codePoint: number): boolean {
-  return (
-    isCodePointInRange(codePoint, 0x4e00, 0x9fff) ||
-    isCodePointInRange(codePoint, 0x3400, 0x4dbf) ||
-    isCodePointInRange(codePoint, 0xf900, 0xfaff) ||
-    isCodePointInRange(codePoint, 0x3040, 0x30ff) ||
-    isCodePointInRange(codePoint, 0xac00, 0xd7af) ||
-    isCodePointInRange(codePoint, 0x3000, 0x303f) ||
-    isCodePointInRange(codePoint, 0xff00, 0xffef)
+  return CJK_CODE_POINT_RANGES.some(([start, end]) =>
+    isCodePointInRange(codePoint, start, end),
   );
 }
 
-function isEmojiCodePoint(codePoint: number): boolean {
-  return (
-    isCodePointInRange(codePoint, 0x2600, 0x27bf) ||
-    isCodePointInRange(codePoint, 0x1f1e6, 0x1f1ff) ||
-    isCodePointInRange(codePoint, 0x1f300, 0x1f5ff) ||
-    isCodePointInRange(codePoint, 0x1f600, 0x1f64f) ||
-    isCodePointInRange(codePoint, 0x1f680, 0x1f6ff) ||
-    isCodePointInRange(codePoint, 0x1f900, 0x1f9ff) ||
-    isCodePointInRange(codePoint, 0x1fa70, 0x1faff)
+function segmentText(text: string): string[] {
+  return Array.from(
+    graphemeSegmenter.segment(text),
+    (segment) => segment.segment,
   );
 }
 
-function isCjkLikeChar(char: string): boolean {
-  const codePoint = char.codePointAt(0);
-  if (codePoint === undefined) {
+function isEmojiSegment(segment: string): boolean {
+  return emojiLikePattern.test(segment);
+}
+
+function isCjkLikeSegment(segment: string): boolean {
+  if (segment.length === 0) {
     return false;
   }
-  return isCjkCodePoint(codePoint) || isEmojiCodePoint(codePoint);
+  if (isEmojiSegment(segment)) {
+    return true;
+  }
+  for (const char of segment) {
+    const codePoint = char.codePointAt(0);
+    if (codePoint !== undefined && isCjkCodePoint(codePoint)) {
+      return true;
+    }
+  }
+  return false;
 }
 
-function getCharTokenWeight(char: string): number {
-  if (isCjkLikeChar(char)) {
+function getSegmentTokenWeight(segment: string): number {
+  if (isCjkLikeSegment(segment)) {
     return CJK_TOKENS_PER_CHAR;
   }
-  return encoder.encode(char).length * ASCII_TOKENS_PER_BYTE;
+  return encoder.encode(segment).length * ASCII_TOKENS_PER_BYTE;
 }
 
 function measureText(text: string): {
@@ -67,11 +95,11 @@ function measureText(text: string): {
 } {
   let cjkRawTokens = 0;
   let asciiRawTokens = 0;
-  for (const char of text) {
-    if (isCjkLikeChar(char)) {
+  for (const segment of segmentText(text)) {
+    if (isCjkLikeSegment(segment)) {
       cjkRawTokens += CJK_TOKENS_PER_CHAR;
     } else {
-      asciiRawTokens += encoder.encode(char).length * ASCII_TOKENS_PER_BYTE;
+      asciiRawTokens += encoder.encode(segment).length * ASCII_TOKENS_PER_BYTE;
     }
   }
   return { cjkRawTokens, asciiRawTokens };
@@ -144,13 +172,13 @@ export function trimUtf8ToTokenBudget(
   let rawTokens = 0;
   let output = "";
 
-  for (const char of text) {
-    const nextRawTokens = rawTokens + getCharTokenWeight(char);
+  for (const segment of segmentText(text)) {
+    const nextRawTokens = rawTokens + getSegmentTokenWeight(segment);
     if (nextRawTokens > budget) {
       break;
     }
     rawTokens = nextRawTokens;
-    output += char;
+    output += segment;
   }
 
   return output;

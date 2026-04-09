@@ -24,6 +24,30 @@ const SKILL_VALIDATOR_FILE = path.resolve(
   PROJECT_ROOT,
   "apps/desktop/main/src/services/skills/skillValidator.ts",
 );
+const graphemeSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+const CJK_CODE_POINT_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0x3400, 0x4dbf],
+  [0x4e00, 0x9fff],
+  [0xf900, 0xfaff],
+  [0x20000, 0x2a6df],
+  [0x2a700, 0x2b73f],
+  [0x2b740, 0x2b81f],
+  [0x2b820, 0x2ceaf],
+  [0x2ceb0, 0x2ebef],
+  [0x2ebf0, 0x2ee5f],
+  [0x2f800, 0x2fa1f],
+  [0x30000, 0x3134a],
+  [0x31350, 0x323af],
+  [0x3040, 0x30ff],
+  [0x31f0, 0x31ff],
+  [0x3000, 0x303f],
+  [0xac00, 0xd7af],
+  [0xff00, 0xffef],
+];
+const emojiLikePattern =
+  /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3)/u;
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -89,30 +113,35 @@ function expectedSha256Hex(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
+function isCjkCodePoint(codePoint: number): boolean {
+  return CJK_CODE_POINT_RANGES.some(
+    ([start, end]) => codePoint >= start && codePoint <= end,
+  );
+}
+
+function isCjkLikeSegment(segment: string): boolean {
+  if (emojiLikePattern.test(segment)) {
+    return true;
+  }
+  for (const char of segment) {
+    const codePoint = char.codePointAt(0);
+    if (codePoint !== undefined && isCjkCodePoint(codePoint)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function expectedSharedEstimate(text: string): number {
   if (text.length === 0) {
     return 0;
   }
 
   let raw = 0;
-  for (const char of text) {
-    const codePoint = char.codePointAt(0) ?? 0;
-    const isCjkLike =
-      (codePoint >= 0x4e00 && codePoint <= 0x9fff) ||
-      (codePoint >= 0x3400 && codePoint <= 0x4dbf) ||
-      (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
-      (codePoint >= 0x3040 && codePoint <= 0x30ff) ||
-      (codePoint >= 0xac00 && codePoint <= 0xd7af) ||
-      (codePoint >= 0x3000 && codePoint <= 0x303f) ||
-      (codePoint >= 0xff00 && codePoint <= 0xffef) ||
-      (codePoint >= 0x2600 && codePoint <= 0x27bf) ||
-      (codePoint >= 0x1f1e6 && codePoint <= 0x1f1ff) ||
-      (codePoint >= 0x1f300 && codePoint <= 0x1f5ff) ||
-      (codePoint >= 0x1f600 && codePoint <= 0x1f64f) ||
-      (codePoint >= 0x1f680 && codePoint <= 0x1f6ff) ||
-      (codePoint >= 0x1f900 && codePoint <= 0x1f9ff) ||
-      (codePoint >= 0x1fa70 && codePoint <= 0x1faff);
-    raw += isCjkLike ? 1.5 : Buffer.byteLength(char, "utf8") * 0.25;
+  for (const { segment } of graphemeSegmenter.segment(text)) {
+    raw += isCjkLikeSegment(segment)
+      ? 1.5
+      : Buffer.byteLength(segment, "utf8") * 0.25;
   }
 
   return Math.ceil(raw);
@@ -148,7 +177,15 @@ function main(): void {
     `AUD-C5-S3: local estimateTokenCount/estimateMessageTokens definitions must be zero\n${formatHits(estimateDefinitionHits)}`,
   );
 
-  const estimateSamples = ["", "hello world", "你好，世界", "emoji🙂text"];
+  const estimateSamples = [
+    "",
+    "hello world",
+    "你好，世界",
+    "𠀀ㇰ",
+    "emoji🙂text",
+    "❤️",
+    "👩‍💻",
+  ];
   for (const sample of estimateSamples) {
     assert.equal(
       estimateTokens(sample),
