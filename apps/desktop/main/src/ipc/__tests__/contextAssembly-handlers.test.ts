@@ -258,6 +258,19 @@ describe("registerContextAssemblyHandlers", () => {
         expect(result.error.code).toBe("CONTEXT_INPUT_TOO_LARGE");
       }
     });
+
+    it("should fail-closed for CJK-heavy input before token segmentation", async () => {
+      const { invoke } = createHarness();
+      const cjkHeavyInput = "你".repeat(CONTEXT_CAPACITY_LIMITS.maxInputTokens * 4);
+      const result = await invoke("context:prompt:assemble", {
+        ...validAssemblePayload(),
+        additionalInput: cjkHeavyInput,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("CONTEXT_INPUT_TOO_LARGE");
+      }
+    });
   });
 
   describe("context:prompt:inspect", () => {

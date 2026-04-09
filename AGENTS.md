@@ -110,7 +110,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 | --- | --- | --- |
 | INV-1 | 原稿保护 | AI 写操作必须经 Permission Gate + 版本快照。无快照 = 禁写 |
 | INV-2 | 并发安全 | `isConcurrencySafe` 默认 false。未标记 = 串行 |
-| INV-3 | CJK Token | 中文 ~1.5 tokens/字。禁止 `UTF8_BYTES / 4` |
+| INV-3 | CJK Token | CJK/emoji 字形簇 ~1.5 tokens/cluster。禁止 `UTF8_BYTES / 4` |
 | INV-4 | Memory-First | 三层记忆（L0 始终注入 / L1 选择注入 / L2 KG+FTS5）。KG+FTS5 为主检索路径，RAG 仅限降级补充。当前已含 sqlite-vec 语义召回，禁止再新增额外向量存储 |
 | INV-5 | 叙事压缩 | AutoCompact 保留 KG 实体、角色设定、未解伏笔。标记 `compactable: false` |
 | INV-6 | 一切皆 Skill | 统一管线：Schema → 权限 → 执行 → 返回。禁止裸调 LLM |

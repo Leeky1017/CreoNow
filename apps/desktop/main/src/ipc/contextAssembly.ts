@@ -51,10 +51,12 @@ function buildInputAudit(args: {
   sampledInputEvidenceCount?: number;
 } {
   const text = args.additionalInput?.trim() ?? "";
-  // Fail closed on pathological payload size before grapheme segmentation, so
-  // oversized inputs are rejected in O(1) and do not burn IPC test/runtime SLA.
+  // Fail closed on pathological payload size before grapheme segmentation.
+  // Use UTF-8 bytes (not UTF-16 text.length) to avoid under-rejecting CJK-heavy
+  // payloads where one visible char can occupy multiple bytes.
+  const utf8Bytes = new TextEncoder().encode(text).length;
   const inputTokens =
-    text.length > tokenBudgetToUtf8ByteLimit(CONTEXT_CAPACITY_LIMITS.maxInputTokens)
+    utf8Bytes > tokenBudgetToUtf8ByteLimit(CONTEXT_CAPACITY_LIMITS.maxInputTokens)
       ? CONTEXT_CAPACITY_LIMITS.maxInputTokens + 1
       : estimateInputTokens(text);
   if (text.length === 0) {
