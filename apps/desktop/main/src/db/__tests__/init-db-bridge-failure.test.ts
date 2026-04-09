@@ -97,3 +97,43 @@ it("DB-INIT-F2: keeps prior healthy singleton when a retry initDb attempt fails"
     fs.rmSync(userDataDir, { recursive: true, force: true });
   }
 });
+
+it("DB-INIT-F3: preserves prior singleton when db_ready logging throws before publication", () => {
+  const userDataDir = path.join(
+    import.meta.dirname,
+    ".artifacts",
+    "init-db-logger-failure-with-existing-singleton-test",
+  );
+  fs.rmSync(userDataDir, { recursive: true, force: true });
+  fs.mkdirSync(userDataDir, { recursive: true });
+
+  const healthyDb = new Database(":memory:");
+  healthyDb.exec("CREATE TABLE IF NOT EXISTS keepalive (id TEXT PRIMARY KEY)");
+  healthyDb.prepare("INSERT INTO keepalive (id) VALUES (?)").run("ok");
+  setDbInstance(healthyDb);
+
+  const logger = {
+    logPath: path.join(userDataDir, "logs", "main.log"),
+    info: vi.fn((event: string) => {
+      if (event === "db_ready") {
+        throw new Error("forced logger failure for DB-INIT-F3");
+      }
+    }),
+    error: vi.fn(),
+  };
+
+  try {
+    const result = initDb({ userDataDir, logger });
+    expect(result.ok).toBe(false);
+    expect(getDb()).toBe(healthyDb);
+    const row = healthyDb
+      .prepare("SELECT id FROM keepalive WHERE id = ? LIMIT 1")
+      .get("ok") as { id: string } | undefined;
+    expect(row?.id).toBe("ok");
+    expect(
+      logger.error.mock.calls.some(([event]) => event === "migration_failed"),
+    ).toBe(true);
+  } finally {
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});

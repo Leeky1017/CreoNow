@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import Database from "better-sqlite3";
 import { afterEach, expect, it } from "vitest";
 
-import { closeDb, getDb, initConnection } from "../connection";
+import { closeDb, getDb, initConnection, setDbInstance } from "../connection";
 
 afterEach(() => {
   closeDb();
@@ -49,5 +50,27 @@ it("DB-CONN-2: initConnection rejects reinitialisation with a different db path"
     expect(fs.existsSync(secondPath)).toBe(false);
   } finally {
     fs.rmSync(testDir, { recursive: true, force: true });
+  }
+});
+
+it("DB-CONN-3: setDbInstance rejects replacing an existing singleton", () => {
+  const first = new Database(":memory:");
+  const second = new Database(":memory:");
+  first.exec("CREATE TABLE keepalive (id TEXT PRIMARY KEY)");
+  first.prepare("INSERT INTO keepalive (id) VALUES (?)").run("ok");
+
+  try {
+    setDbInstance(first);
+    expect(() => setDbInstance(second)).toThrow(
+      /singleton already registered.*Call closeDb\(\) first/i,
+    );
+    expect(getDb()).toBe(first);
+    const row = first
+      .prepare("SELECT id FROM keepalive WHERE id = ?")
+      .get("ok") as { id: string } | undefined;
+    expect(row?.id).toBe("ok");
+  } finally {
+    closeDb();
+    second.close();
   }
 });

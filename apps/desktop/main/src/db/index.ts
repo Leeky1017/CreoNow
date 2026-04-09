@@ -10,7 +10,7 @@
  *   runMigrations()  — apply all pending TypeScript migrations in order
  *   closeDb()        — cleanly close the database connection
  *   initConnection() — open/register singleton from a db path (rejects path mismatch)
- *   setDbInstance()  — register an externally-opened connection (tests/bridge)
+ *   setDbInstance()  — register an externally-opened connection (no replacement)
  *
  * Startup path:
  *   The production startup path is init.ts → initDb(). It runs the legacy SQL

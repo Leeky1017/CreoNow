@@ -108,10 +108,23 @@ export function initConnection(dbPath: string): Database.Database {
  * Register an already-opened Database instance as the singleton.
  *
  * Primarily used by test harnesses and future integration points that open
- * their own connection and need getDb() to resolve it. Idempotent when called
- * with the same instance.
+ * their own connection and need getDb() to resolve it.
+ *
+ * Safety contract:
+ *  - idempotent when called with the same instance
+ *  - rejects replacing an existing singleton with a different live handle
+ *
+ * Why: silent replacement can orphan the old handle, violating the singleton
+ * invariant and leaking a usable database connection in-process.
  */
 export function setDbInstance(db: Database.Database): void {
+  if (_instance && _instance !== db) {
+    const currentPath = _instancePath ?? inferDbPath(_instance) ?? "<unknown>";
+    const requestedPath = inferDbPath(db) ?? "<unknown>";
+    throw new Error(
+      `DB singleton already registered at '${currentPath}'. Refusing to replace with '${requestedPath}'. Call closeDb() first.`,
+    );
+  }
   _instance = db;
   _instancePath = inferDbPath(db);
 }
