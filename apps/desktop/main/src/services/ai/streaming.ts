@@ -6,6 +6,8 @@
  * partial-result 错误保留 partialContent
  */
 
+import { estimateTokens } from "@shared/tokenBudget";
+
 export interface StreamChunk {
   delta: string;
   finishReason: "stop" | "tool_use" | null;
@@ -152,7 +154,7 @@ export function createStreamingService(
 
           // Success — call onComplete
           const promptTokens = messages.reduce(
-            (sum, m) => sum + Math.ceil(m.content.length / 4),
+            (sum, m) => sum + estimateTokens(m.content),
             0,
           );
           options.onComplete({

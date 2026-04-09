@@ -11,6 +11,7 @@ import type {
   KnowledgeGraphService,
 } from "../kg/kgService";
 import type { ServiceResult } from "../shared/ipcResult";
+import { estimateTokens } from "@shared/tokenBudget";
 
 export type CharacterSummary = {
   id: string;
@@ -64,22 +65,6 @@ function entityToLocationSummary(entity: KnowledgeEntity): LocationSummary {
     description: entity.description,
     attributes: { ...entity.attributes },
   };
-}
-
-function estimateTokens(text: string): number {
-  let tokens = 0;
-  for (const char of text) {
-    const code = char.codePointAt(0) ?? 0;
-    if (
-      (code >= 0x4e00 && code <= 0x9fff) ||
-      (code >= 0x3400 && code <= 0x4dbf)
-    ) {
-      tokens += 1.5;
-    } else {
-      tokens += 0.25;
-    }
-  }
-  return Math.ceil(tokens);
 }
 
 const CHARACTER_SECTION_HEADER = "[角色设定清单]";

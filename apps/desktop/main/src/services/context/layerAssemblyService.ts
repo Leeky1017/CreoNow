@@ -14,7 +14,7 @@ import type { SynopsisStore } from "./synopsisStore";
 import type { Logger } from "../../logging/logger";
 import { DegradationCounter } from "../shared/degradationCounter";
 import {
-  estimateUtf8TokenCount as estimateTokenCount,
+  estimateTokens as estimateTokenCount,
   trimUtf8ToTokenBudget as trimTextToTokenBudget,
 } from "@shared/tokenBudget";
 import { createCompressionEngine } from "./compressionEngine";

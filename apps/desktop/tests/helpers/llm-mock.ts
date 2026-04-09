@@ -11,7 +11,7 @@
  *   const result = await llm.complete('prompt')
  *   expect(result.text).toBe(FIXED_RESPONSES.continuation)
  */
-import { estimateUtf8TokenCount } from "@shared/tokenBudget";
+import { estimateTokens } from "@shared/tokenBudget";
 
 /** Pre-defined deterministic responses keyed by skill type. */
 export const FIXED_RESPONSES = {
@@ -61,7 +61,7 @@ export function createMockLlmClient(
       await delay(latencyMs);
       return {
         text: responseText,
-        tokens: estimateUtf8TokenCount(responseText),
+        tokens: estimateTokens(responseText),
       };
     },
 
@@ -73,7 +73,7 @@ export function createMockLlmClient(
       for (const word of words) {
         onChunk(word + " ");
       }
-      return { totalTokens: estimateUtf8TokenCount(responseText) };
+      return { totalTokens: estimateTokens(responseText) };
     },
 
     callCount: () => _callCount,

@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 
 import {
-  estimateUtf8TokenCount as estimateTokens,
+  estimateTokens,
   trimUtf8ToTokenBudget,
 } from "@shared/tokenBudget";
 import type { Logger } from "../../logging/logger";

@@ -12,7 +12,7 @@
  *
  * Design reference: audit/02 §3.2 — token budget management.
  */
-import { estimateUtf8TokenCount } from "@shared/tokenBudget";
+import { estimateTokens } from "@shared/tokenBudget";
 
 export type LLMMessage = {
   role: "system" | "user" | "assistant";
@@ -24,7 +24,7 @@ type HistoryMessage = {
   content: string;
 };
 
-export const estimateMessageTokens = estimateUtf8TokenCount;
+export const estimateMessageTokens = estimateTokens;
 
 export function buildLLMMessages(args: {
   systemPrompt: string;

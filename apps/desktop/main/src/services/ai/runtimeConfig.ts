@@ -1,6 +1,6 @@
 import { assembleSystemPrompt } from "./assembleSystemPrompt";
 import { GLOBAL_IDENTITY_PROMPT } from "./identityPrompt";
-export { estimateUtf8TokenCount as estimateTokenCount } from "@shared/tokenBudget";
+export { estimateTokens as estimateTokenCount } from "@shared/tokenBudget";
 
 export const DEFAULT_SKILL_TIMEOUT_MS = 30_000;
 export const MAX_SKILL_TIMEOUT_MS = 120_000;

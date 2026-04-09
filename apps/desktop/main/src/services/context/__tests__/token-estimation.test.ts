@@ -41,6 +41,26 @@ describe("Token Estimation — Token 估算", () => {
       // 2 CJK chars: 「你」+ 「。」= 2 × 1.5 = 3
       expect(estimateTokens("你。")).toBe(3);
     });
+
+    it("补充平面汉字「𠀀」也按 CJK 计数", () => {
+      expect(estimateTokens("𠀀")).toBe(2);
+    });
+
+    it("片假名扩展「ㇰ」也按 CJK 计数", () => {
+      expect(estimateTokens("ㇰ")).toBe(2);
+    });
+
+    it("康熙部首「⼈」也按 CJK 计数", () => {
+      expect(estimateTokens("⼈")).toBe(2);
+    });
+
+    it("CJK 部首补充「⺅」也按 CJK 计数", () => {
+      expect(estimateTokens("⺅")).toBe(2);
+    });
+
+    it("CJK 笔画「㇐」也按 CJK 计数", () => {
+      expect(estimateTokens("㇐")).toBe(2);
+    });
   });
 
   // ── ASCII 估算 ────────────────────────────────────────────────
@@ -86,6 +106,14 @@ describe("Token Estimation — Token 估算", () => {
       // total = 0.5 + 3.0 = 3.5 → ceil → 4
       expect(estimateTokens("# 你好")).toBe(4);
     });
+
+    it("1000 个中文字符 → 约 1500 tokens", () => {
+      expect(estimateTokens("你".repeat(1000))).toBe(1500);
+    });
+
+    it("1000 ASCII bytes → 约 250 tokens", () => {
+      expect(estimateTokens("a".repeat(1000))).toBe(250);
+    });
   });
 
   // ── 边界条件 ──────────────────────────────────────────────────
@@ -107,11 +135,25 @@ describe("Token Estimation — Token 估算", () => {
       expect(estimateTokens("\n")).toBe(1);
     });
 
-    it("emoji 不算 CJK（走 ASCII/UTF-8 通道）", () => {
-      // 「😀」= 4 bytes in UTF-8, not CJK
-      // 4 / 4 = 1 → ceil → 1
+    it("单码点 emoji 走非 CJK bytes/4 回退", () => {
       const tokens = estimateTokens("😀");
       expect(tokens).toBe(1);
+    });
+
+    it("多码点 emoji「❤️」按 bytes/4 回退", () => {
+      expect(estimateTokens("❤️")).toBe(2);
+    });
+
+    it("ZWJ emoji「👩‍💻」按 bytes/4 回退", () => {
+      expect(estimateTokens("👩‍💻")).toBe(3);
+    });
+
+    it("CJK + 变体/组合附加码点按当前 spec 分别计费", () => {
+      expect(estimateTokens("禰󠄀")).toBe(3);
+      expect(estimateTokens("你️")).toBe(3);
+      expect(estimateTokens("が")).toBe(3);
+      expect(estimateTokens("漢︀")).toBe(3);
+      expect(estimateTokens("你́⃣")).toBe(3);
     });
 
     it("结果始终为非负整数", () => {

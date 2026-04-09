@@ -4,6 +4,10 @@ import type Database from "better-sqlite3";
 import { sha256Hex } from "@shared/hashUtils";
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import { redactText } from "@shared/redaction/redact";
+import {
+  estimateTokens as estimateInputTokens,
+  tokenBudgetToUtf8ByteLimit,
+} from "@shared/tokenBudget";
 import type { Logger } from "../logging/logger";
 import {
   CONTEXT_CAPACITY_LIMITS,
@@ -29,11 +33,6 @@ type ContextAssemblyRegistrarDeps = {
   inFlightByDocument: Map<string, number>;
 };
 
-function estimateInputTokens(text: string): number {
-  const bytes = new TextEncoder().encode(text).length;
-  return bytes === 0 ? 0 : Math.ceil(bytes / 4);
-}
-
 function normalizeCallerRole(role: unknown): string {
   if (typeof role !== "string") {
     return "unknown";
@@ -51,16 +50,32 @@ function buildInputAudit(args: {
   sampledInputRedacted?: string;
   sampledInputEvidenceCount?: number;
 } {
-  const text = args.additionalInput?.trim() ?? "";
-  const inputTokens = estimateInputTokens(text);
-  if (text.length === 0) {
+  const rawText = args.additionalInput ?? "";
+  const text = rawText.trim();
+  // Fail closed on pathological payload size before grapheme segmentation.
+  // Use UTF-8 bytes (not UTF-16 text.length) to avoid under-rejecting CJK-heavy
+  // payloads where one visible char can occupy multiple bytes.
+  // IMPORTANT: gate on raw input (before trim) so whitespace-only oversized
+  // payloads cannot bypass CONTEXT_INPUT_TOO_LARGE checks.
+  const utf8Bytes = new TextEncoder().encode(rawText).length;
+  const inputTokens =
+    utf8Bytes > tokenBudgetToUtf8ByteLimit(CONTEXT_CAPACITY_LIMITS.maxInputTokens)
+      ? CONTEXT_CAPACITY_LIMITS.maxInputTokens + 1
+      : estimateInputTokens(rawText);
+  if (rawText.length === 0) {
     return { inputTokens };
   }
 
   if (!args.debugMode) {
     return {
       inputTokens,
-      inputHash: sha256Hex(text),
+      inputHash: sha256Hex(rawText),
+    };
+  }
+  if (text.length === 0) {
+    return {
+      inputTokens,
+      inputHash: sha256Hex(rawText),
     };
   }
 
@@ -70,7 +85,7 @@ function buildInputAudit(args: {
   });
   return {
     inputTokens,
-    inputHash: sha256Hex(text),
+    inputHash: sha256Hex(rawText),
     sampledInputRedacted: redacted.redactedText.slice(0, 160),
     sampledInputEvidenceCount: redacted.evidence.length,
   };

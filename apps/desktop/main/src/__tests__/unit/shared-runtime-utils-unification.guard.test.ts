@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { hashJson, hashText, sha256Hex } from "@shared/hashUtils";
-import { estimateUtf8TokenCount } from "@shared/tokenBudget";
+import { estimateTokens } from "@shared/tokenBudget";
 import { nowTs } from "@shared/timeUtils";
 
 type Hit = {
@@ -24,6 +24,30 @@ const SKILL_VALIDATOR_FILE = path.resolve(
   PROJECT_ROOT,
   "apps/desktop/main/src/services/skills/skillValidator.ts",
 );
+const graphemeSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+const CJK_CODE_POINT_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0x2e80, 0x2fdf],
+  [0x31c0, 0x31ef],
+  [0x3400, 0x4dbf],
+  [0x4e00, 0x9fff],
+  [0xf900, 0xfaff],
+  [0x20000, 0x2a6df],
+  [0x2a700, 0x2b73f],
+  [0x2b740, 0x2b81f],
+  [0x2b820, 0x2ceaf],
+  [0x2ceb0, 0x2ebef],
+  [0x2ebf0, 0x2ee5f],
+  [0x2f800, 0x2fa1f],
+  [0x30000, 0x3134a],
+  [0x31350, 0x323af],
+  [0x3040, 0x30ff],
+  [0x31f0, 0x31ff],
+  [0x3000, 0x303f],
+  [0xac00, 0xd7af],
+  [0xff00, 0xffef],
+];
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -89,11 +113,29 @@ function expectedSha256Hex(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
-function expectedLegacyEstimate(text: string): number {
+function isCjkCodePoint(codePoint: number): boolean {
+  return CJK_CODE_POINT_RANGES.some(
+    ([start, end]) => codePoint >= start && codePoint <= end,
+  );
+}
+
+function expectedSharedEstimate(text: string): number {
   if (text.length === 0) {
     return 0;
   }
-  return Math.max(1, Math.ceil(Buffer.byteLength(text, "utf8") / 4));
+
+  let raw = 0;
+  for (const { segment } of graphemeSegmenter.segment(text)) {
+    for (const char of segment) {
+      const codePoint = char.codePointAt(0);
+      raw +=
+        codePoint !== undefined && isCjkCodePoint(codePoint)
+          ? 1.5
+          : Buffer.byteLength(char, "utf8") * 0.25;
+    }
+  }
+
+  return Math.ceil(raw);
 }
 
 function main(): void {
@@ -126,12 +168,27 @@ function main(): void {
     `AUD-C5-S3: local estimateTokenCount/estimateMessageTokens definitions must be zero\n${formatHits(estimateDefinitionHits)}`,
   );
 
-  const estimateSamples = ["", "hello world", "你好，世界", "emoji🙂text"];
+  const estimateSamples = [
+    "",
+    "hello world",
+    "你好，世界",
+    "⺅⼈",
+    "⺀⼀㇐",
+    "𠀀ㇰ",
+    "emoji🙂text",
+    "❤️",
+    "👩‍💻",
+    "禰󠄀",
+    "你️",
+    "が",
+    "漢︀",
+    "你́⃣",
+  ];
   for (const sample of estimateSamples) {
     assert.equal(
-      estimateUtf8TokenCount(sample),
-      expectedLegacyEstimate(sample),
-      `AUD-C5-S4: estimateUtf8TokenCount should stay consistent for sample '${sample}'`,
+      estimateTokens(sample),
+      expectedSharedEstimate(sample),
+      `AUD-C5-S4: shared estimateTokens should stay consistent for sample '${sample}'`,
     );
   }
 

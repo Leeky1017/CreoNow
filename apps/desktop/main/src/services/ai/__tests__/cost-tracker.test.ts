@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { estimateTokens as sharedEstimateTokens } from "@shared/tokenBudget";
 
 import type {
   CostTracker,
@@ -79,11 +80,7 @@ function makeBudgetPolicy(
 
 /** Mock estimateTokens function (CJK-aware) */
 function mockEstimateTokens(text: string): number {
-  const cjkChars = [...text].filter((c) =>
-    /[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u30ff\uac00-\ud7af]/.test(c),
-  ).length;
-  const nonCjkBytes = new TextEncoder().encode(text).length - cjkChars * 3;
-  return Math.ceil(cjkChars * 1.5 + nonCjkBytes / 4);
+  return sharedEstimateTokens(text);
 }
 
 // ─── tests ──────────────────────────────────────────────────────────
