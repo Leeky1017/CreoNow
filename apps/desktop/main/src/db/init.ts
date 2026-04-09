@@ -18,7 +18,7 @@ import { setDbInitError } from "../ipc/dbError";
 import initSql from "./migrations/0001_init.sql?raw";
 import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
 import judgeSql from "./migrations/0003_judge.sql?raw";
-import { closeDb, setDbInstance } from "./connection";
+import { clearDbInstanceIfMatch, setDbInstance } from "./connection";
 import { runMigrations } from "./migrator";
 import { DB_MIGRATIONS } from "./migrations/registry";
 import skillsSql from "./migrations/0004_skills.sql?raw";
@@ -307,10 +307,8 @@ export function initDb(args: {
           closeError instanceof Error ? closeError.message : String(closeError),
       });
     }
-    try {
-      closeDb();
-    } catch {
-      // Ignore singleton cleanup failures; initialization error is reported below.
+    if (db) {
+      clearDbInstanceIfMatch(db);
     }
 
     const diagnosed = diagnoseDbInitFailure(error);

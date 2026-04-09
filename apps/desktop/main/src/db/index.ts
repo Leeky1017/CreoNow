@@ -9,7 +9,7 @@
  *   getDb()          — return the open Database instance (throws if not init'd)
  *   runMigrations()  — apply all pending TypeScript migrations in order
  *   closeDb()        — cleanly close the database connection
- *   initConnection() — open/register singleton from a db path
+ *   initConnection() — open/register singleton from a db path (rejects path mismatch)
  *   setDbInstance()  — register an externally-opened connection (tests/bridge)
  *
  * Startup path:

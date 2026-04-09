@@ -17,6 +17,7 @@
  * INV-9: cost_records.session_id FK depends on foreign_keys being ON.
  */
 
+import path from "node:path";
 import Database from "better-sqlite3";
 
 import { applyRecommendedPragmas } from "./recommendedPragmas";
@@ -26,6 +27,26 @@ import { applyRecommendedPragmas } from "./recommendedPragmas";
 // ---------------------------------------------------------------------------
 
 let _instance: Database.Database | null = null;
+let _instancePath: string | null = null;
+
+function normaliseDbPath(dbPath: string): string {
+  // better-sqlite3 reports in-memory DBs as an empty string in PRAGMA output.
+  if (dbPath === "" || dbPath === ":memory:") {
+    return ":memory:";
+  }
+  return path.resolve(dbPath);
+}
+
+function inferDbPath(db: Database.Database): string | null {
+  const rows = db
+    .prepare("PRAGMA database_list")
+    .all() as Array<{ name: string; file: string }>;
+  const main = rows.find((row) => row.name === "main");
+  if (!main) {
+    return null;
+  }
+  return normaliseDbPath(main.file);
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -49,13 +70,22 @@ export function getDb(): Database.Database {
 /**
  * Open (or return cached) SQLite connection at `dbPath`.
  *
- * Safe to call multiple times — subsequent calls are no-ops and return the
- * existing instance.
+ * Safe to call multiple times with the same path.
+ *
+ * A different path is rejected explicitly: silently reusing an existing
+ * singleton for a different dbPath can route writes to the wrong SQLite file.
  *
  * Why `:memory:` is allowed: integration tests use in-memory databases.
  */
 export function initConnection(dbPath: string): Database.Database {
+  const requestedPath = normaliseDbPath(dbPath);
   if (_instance) {
+    const currentPath = _instancePath ?? inferDbPath(_instance);
+    if (currentPath && currentPath !== requestedPath) {
+      throw new Error(
+        `DB connection already initialised at '${currentPath}'. Refusing to reinitialise with different path '${requestedPath}'. Call closeDb() first.`,
+      );
+    }
     return _instance;
   }
 
@@ -70,6 +100,7 @@ export function initConnection(dbPath: string): Database.Database {
   applyRecommendedPragmas(db);
 
   _instance = db;
+  _instancePath = requestedPath;
   return db;
 }
 
@@ -82,6 +113,20 @@ export function initConnection(dbPath: string): Database.Database {
  */
 export function setDbInstance(db: Database.Database): void {
   _instance = db;
+  _instancePath = inferDbPath(db);
+}
+
+/**
+ * Clear singleton pointer only when it still references `db`.
+ *
+ * Why: initDb() failure cleanup must never clear or close a previously healthy
+ * singleton that belongs to another successful initialization attempt.
+ */
+export function clearDbInstanceIfMatch(db: Database.Database): void {
+  if (_instance === db) {
+    _instance = null;
+    _instancePath = null;
+  }
 }
 
 /**
@@ -93,5 +138,6 @@ export function closeDb(): void {
   if (_instance) {
     _instance.close();
     _instance = null;
+    _instancePath = null;
   }
 }
