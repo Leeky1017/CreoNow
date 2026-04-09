@@ -296,7 +296,7 @@ describe("WorkbenchApp", () => {
     fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
 
     expect(window.api?.ai.runSkill).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent("请输入改写指令。");
+    expect(await screen.findByRole("alert")).toHaveTextContent("请输入改写指令。");
 
     fireEvent.click(screen.getByRole("button", { name: "润色" }));
     fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
