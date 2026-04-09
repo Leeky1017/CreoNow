@@ -166,8 +166,9 @@ export function setDbInstance(db: Database.Database): void {
       "Cannot register a closed database connection. Open a fresh connection first.",
     );
   }
-  if (_instance && _instance !== db) {
-    const currentPath = _instancePath ?? inferDbPath(_instance) ?? "<unknown>";
+  const current = getLiveSingleton();
+  if (current && current !== db) {
+    const currentPath = _instancePath ?? inferDbPath(current) ?? "<unknown>";
     const requestedPath = inferDbPath(db) ?? "<unknown>";
     throw new Error(
       `DB singleton already registered at '${currentPath}'. Refusing to replace with '${requestedPath}'. Call closeDb() first.`,

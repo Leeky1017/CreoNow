@@ -165,3 +165,39 @@ it("DB-INIT-F4: singleton conflict must fail before db_ready is emitted", () => 
     fs.rmSync(userDataDir, { recursive: true, force: true });
   }
 });
+
+it("DB-INIT-F5: initDb succeeds when previous singleton handle was closed out-of-band", () => {
+  const userDataDir = path.join(
+    import.meta.dirname,
+    ".artifacts",
+    "init-db-recovers-from-stale-closed-singleton",
+  );
+  fs.rmSync(userDataDir, { recursive: true, force: true });
+  fs.mkdirSync(userDataDir, { recursive: true });
+
+  const stale = new Database(":memory:");
+  setDbInstance(stale);
+  stale.close();
+
+  const infoSpy = vi.fn();
+  const errorSpy = vi.fn();
+  const logger = {
+    logPath: path.join(userDataDir, "logs", "main.log"),
+    info: infoSpy,
+    error: errorSpy,
+  };
+
+  try {
+    const result = initDb({ userDataDir, logger });
+    expect(result.ok).toBe(true);
+    expect(() => getDb()).not.toThrow();
+    expect(
+      infoSpy.mock.calls.some(([event]) => event === "db_ready"),
+    ).toBe(true);
+    expect(
+      errorSpy.mock.calls.some(([event]) => event === "migration_failed"),
+    ).toBe(false);
+  } finally {
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});

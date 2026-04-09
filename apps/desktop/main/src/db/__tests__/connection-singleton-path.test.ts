@@ -71,7 +71,11 @@ it("DB-CONN-3: setDbInstance rejects replacing an existing singleton", () => {
     expect(row?.id).toBe("ok");
   } finally {
     closeDb();
-    second.close();
+    try {
+      second.close();
+    } catch {
+      // no-op: second may have been closed by closeDb() when registration succeeded
+    }
   }
 });
 
@@ -99,5 +103,23 @@ it("DB-CONN-4: direct handle close cannot leave singleton pointing to dead conne
     expect(getDb()).toBe(reopened);
   } finally {
     fs.rmSync(testDir, { recursive: true, force: true });
+  }
+});
+
+it("DB-CONN-5: setDbInstance clears dead singleton before replacement guard", () => {
+  const first = new Database(":memory:");
+  const second = new Database(":memory:");
+
+  try {
+    setDbInstance(first);
+    first.close();
+
+    expect(() => setDbInstance(second)).not.toThrow();
+    expect(getDb()).toBe(second);
+    const row = second.prepare("SELECT 1 AS ok").get() as { ok: number };
+    expect(row.ok).toBe(1);
+  } finally {
+    closeDb();
+    second.close();
   }
 });
