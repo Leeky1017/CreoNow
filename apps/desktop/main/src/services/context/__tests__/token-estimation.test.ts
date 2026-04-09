@@ -86,6 +86,14 @@ describe("Token Estimation — Token 估算", () => {
       // total = 0.5 + 3.0 = 3.5 → ceil → 4
       expect(estimateTokens("# 你好")).toBe(4);
     });
+
+    it("1000 个中文字符 → 约 1500 tokens", () => {
+      expect(estimateTokens("你".repeat(1000))).toBe(1500);
+    });
+
+    it("1000 ASCII bytes → 约 250 tokens", () => {
+      expect(estimateTokens("a".repeat(1000))).toBe(250);
+    });
   });
 
   // ── 边界条件 ──────────────────────────────────────────────────
@@ -107,11 +115,9 @@ describe("Token Estimation — Token 估算", () => {
       expect(estimateTokens("\n")).toBe(1);
     });
 
-    it("emoji 不算 CJK（走 ASCII/UTF-8 通道）", () => {
-      // 「😀」= 4 bytes in UTF-8, not CJK
-      // 4 / 4 = 1 → ceil → 1
+    it("emoji 视为 CJK（1 char × 1.5 → ceil → 2）", () => {
       const tokens = estimateTokens("😀");
-      expect(tokens).toBe(1);
+      expect(tokens).toBe(2);
     });
 
     it("结果始终为非负整数", () => {

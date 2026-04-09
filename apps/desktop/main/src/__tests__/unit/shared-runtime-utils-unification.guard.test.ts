@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { hashJson, hashText, sha256Hex } from "@shared/hashUtils";
-import { estimateUtf8TokenCount } from "@shared/tokenBudget";
+import { estimateTokens } from "@shared/tokenBudget";
 import { nowTs } from "@shared/timeUtils";
 
 type Hit = {
@@ -89,11 +89,33 @@ function expectedSha256Hex(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
-function expectedLegacyEstimate(text: string): number {
+function expectedSharedEstimate(text: string): number {
   if (text.length === 0) {
     return 0;
   }
-  return Math.max(1, Math.ceil(Buffer.byteLength(text, "utf8") / 4));
+
+  let raw = 0;
+  for (const char of text) {
+    const codePoint = char.codePointAt(0) ?? 0;
+    const isCjkLike =
+      (codePoint >= 0x4e00 && codePoint <= 0x9fff) ||
+      (codePoint >= 0x3400 && codePoint <= 0x4dbf) ||
+      (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+      (codePoint >= 0x3040 && codePoint <= 0x30ff) ||
+      (codePoint >= 0xac00 && codePoint <= 0xd7af) ||
+      (codePoint >= 0x3000 && codePoint <= 0x303f) ||
+      (codePoint >= 0xff00 && codePoint <= 0xffef) ||
+      (codePoint >= 0x2600 && codePoint <= 0x27bf) ||
+      (codePoint >= 0x1f1e6 && codePoint <= 0x1f1ff) ||
+      (codePoint >= 0x1f300 && codePoint <= 0x1f5ff) ||
+      (codePoint >= 0x1f600 && codePoint <= 0x1f64f) ||
+      (codePoint >= 0x1f680 && codePoint <= 0x1f6ff) ||
+      (codePoint >= 0x1f900 && codePoint <= 0x1f9ff) ||
+      (codePoint >= 0x1fa70 && codePoint <= 0x1faff);
+    raw += isCjkLike ? 1.5 : Buffer.byteLength(char, "utf8") * 0.25;
+  }
+
+  return Math.ceil(raw);
 }
 
 function main(): void {
@@ -129,9 +151,9 @@ function main(): void {
   const estimateSamples = ["", "hello world", "你好，世界", "emoji🙂text"];
   for (const sample of estimateSamples) {
     assert.equal(
-      estimateUtf8TokenCount(sample),
-      expectedLegacyEstimate(sample),
-      `AUD-C5-S4: estimateUtf8TokenCount should stay consistent for sample '${sample}'`,
+      estimateTokens(sample),
+      expectedSharedEstimate(sample),
+      `AUD-C5-S4: shared estimateTokens should stay consistent for sample '${sample}'`,
     );
   }
 

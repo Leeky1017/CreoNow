@@ -1,35 +1,16 @@
 /**
  * Token Estimation — CJK-Aware Token 估算
  *
- * CJK ≈ 1.5 tokens/char，非 CJK ≈ bytes/4
+ * Shared estimator keeps INV-3 aligned across context assembly, cost tracking,
+ * and prompt budgeting instead of letting local formulas drift.
  * 容量警戒：≤87% normal, >87%~≤95% warning, >95% critical
  */
 
 import { createHash } from "crypto";
-
-// CJK Unicode 范围
-const CJK_RANGES =
-  /[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u30ff\uac00-\ud7af\u3000-\u303f\uff00-\uffef]/;
-
-function isCJK(char: string): boolean {
-  return CJK_RANGES.test(char);
-}
+import { estimateTokens as estimateSharedTokens } from "@shared/tokenBudget";
 
 export function estimateTokens(text: string): number {
-  if (text.length === 0) return 0;
-
-  let cjkCount = 0;
-  const chars = [...text];
-  for (const char of chars) {
-    if (isCJK(char)) cjkCount++;
-  }
-
-  const bytes = new TextEncoder().encode(text).length;
-  // CJK characters in UTF-8 are 3 bytes each
-  const nonCjkBytes = bytes - cjkCount * 3;
-  const raw = cjkCount * 1.5 + nonCjkBytes / 4;
-
-  return Math.ceil(raw);
+  return estimateSharedTokens(text);
 }
 
 export type CapacityStatus = "normal" | "warning" | "critical";

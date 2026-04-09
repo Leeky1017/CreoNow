@@ -3,6 +3,8 @@
  * Spec: openspec/specs/memory-system/spec.md — P3
  */
 
+import { estimateTokens } from "@shared/tokenBudget";
+
 // ─── Types ──────────────────────────────────────────────────────────
 
 export interface MemoryRecord {
@@ -88,23 +90,6 @@ const LOC_INJECTION_LIMIT = 5;
 const SETTINGS_TOKEN_BUDGET_RATIO = 0.4;
 
 // ─── Implementation ─────────────────────────────────────────────────
-
-// M3: CJK-aware token estimation
-function estimateTokens(text: string): number {
-  let tokens = 0;
-  for (const char of text) {
-    const code = char.codePointAt(0) ?? 0;
-    // CJK Unified Ideographs range and common CJK blocks
-    if ((code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF) ||
-        (code >= 0x2E80 && code <= 0x2FDF) || (code >= 0x3000 && code <= 0x303F) ||
-        (code >= 0xFF00 && code <= 0xFFEF)) {
-      tokens += 1.5;
-    } else {
-      tokens += 0.25; // ASCII chars are ~0.25 tokens each (4 chars per token)
-    }
-  }
-  return Math.ceil(tokens);
-}
 
 export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
   const { db, eventBus } = deps;

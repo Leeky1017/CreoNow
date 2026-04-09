@@ -4,6 +4,7 @@ import type Database from "better-sqlite3";
 import { sha256Hex } from "@shared/hashUtils";
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import { redactText } from "@shared/redaction/redact";
+import { estimateTokens as estimateInputTokens } from "@shared/tokenBudget";
 import type { Logger } from "../logging/logger";
 import {
   CONTEXT_CAPACITY_LIMITS,
@@ -28,11 +29,6 @@ type ContextAssemblyRegistrarDeps = {
   contextAssemblyService: ContextLayerAssemblyService;
   inFlightByDocument: Map<string, number>;
 };
-
-function estimateInputTokens(text: string): number {
-  const bytes = new TextEncoder().encode(text).length;
-  return bytes === 0 ? 0 : Math.ceil(bytes / 4);
-}
 
 function normalizeCallerRole(role: unknown): string {
   if (typeof role !== "string") {

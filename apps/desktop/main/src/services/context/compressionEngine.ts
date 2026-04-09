@@ -7,6 +7,8 @@
  * summary ≤30% of original.
  */
 
+import { estimateTokens } from "@shared/tokenBudget";
+
 // ─── Types ──────────────────────────────────────────────────────────
 
 export type CompressionLayer =
@@ -91,16 +93,8 @@ export interface CompressionEngine {
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-function estimateTokensSimple(text: string): number {
-  const cjkChars = [...text].filter((c) =>
-    /[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u30ff\uac00-\ud7af]/.test(c),
-  ).length;
-  const nonCjkBytes = new TextEncoder().encode(text).length - cjkChars * 3;
-  return Math.ceil(cjkChars * 1.5 + nonCjkBytes / 4);
-}
-
 function messagesTotalTokens(messages: CompressedMessage[]): number {
-  return messages.reduce((sum, m) => sum + estimateTokensSimple(m.content), 0);
+  return messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
 }
 
 // ─── Micro-compression: remove redundant repeated phrases ───────────
@@ -324,7 +318,7 @@ export function createCompressionEngine(
 
         // Unreachable check for single very short messages
         if (request.messages.length === 1) {
-          const singleTokens = estimateTokensSimple(request.messages[0].content);
+          const singleTokens = estimateTokens(request.messages[0].content);
           if (singleTokens > request.targetTokens && singleTokens <= 10) {
             throw makeError(
               "COMPRESSION_TARGET_UNREACHABLE",

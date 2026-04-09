@@ -167,14 +167,25 @@ describe("AIServiceAdapter", () => {
 
     it("长文本的 token 估算与简单公式一致", () => {
       const longChinese = "这是一段很长的中文文本，用于测试token估算功能的准确性。";
-      const cjkCount = [...longChinese].filter((c) =>
-        /[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u30ff\uac00-\ud7af\u3000-\u303f\uff00-\uffef]/.test(c),
-      ).length;
-      const bytes = new TextEncoder().encode(longChinese).length;
-      const nonCjkBytes = bytes - cjkCount * 3;
-      const expected = Math.ceil(cjkCount * 1.5 + nonCjkBytes / 4);
+      let expectedRawTokens = 0;
+      for (const char of longChinese) {
+        if (/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff\uac00-\ud7af\u3000-\u303f\uff00-\uffef]/.test(char)) {
+          expectedRawTokens += 1.5;
+        } else {
+          expectedRawTokens += new TextEncoder().encode(char).length * 0.25;
+        }
+      }
+      const expected = Math.ceil(expectedRawTokens);
 
       expect(adapter.estimateTokens(longChinese)).toBe(expected);
+    });
+
+    it("1000 个中文字符 → 1500 tokens", () => {
+      expect(adapter.estimateTokens("你".repeat(1000))).toBe(1500);
+    });
+
+    it("emoji 视为 CJK", () => {
+      expect(adapter.estimateTokens("😀")).toBe(2);
     });
   });
 

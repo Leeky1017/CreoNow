@@ -7,6 +7,7 @@ import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
+import { estimateTokens } from "@shared/tokenBudget";
 import type { Logger } from "../logging/logger";
 import { resolveRuntimeGovernanceFromEnv } from "../config/runtimeGovernance";
 import type { EmbeddingService } from "../services/embedding/embeddingService";
@@ -70,11 +71,6 @@ function listProjectDocuments(args: {
       DocumentIndexRow
     >("SELECT document_id as documentId, content_text as contentText, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC")
     .all(args.projectId);
-}
-
-function estimateTokens(text: string): number {
-  const bytes = Buffer.from(text, "utf8").byteLength;
-  return Math.ceil(bytes / 4);
 }
 
 function normalizeTopK(value: number): number {
