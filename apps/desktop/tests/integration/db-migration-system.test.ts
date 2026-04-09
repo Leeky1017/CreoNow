@@ -18,6 +18,10 @@
  *   DB-INT-9D: bridge path rejects same-column semantic drift (missing UNIQUE)
  *   DB-INT-9E: bridge path rejects same-column semantic drift (wrong type)
  *   DB-INT-9F: bridge path rejects kg_entities missing normalized-name UNIQUE index
+ *   DB-INT-9G: bridge path rejects drifted versions table shape
+ *   DB-INT-9H: bridge path rejects drifted cost_records table shape
+ *   DB-INT-9I: bridge path rejects drifted sessions table shape
+ *   DB-INT-9J: bridge path rejects drifted branches table shape
  *   DB-INT-10: kg_relations table FKs to kg_entities and project scope
  *   DB-INT-11: FTS5 external-content trigger correctness on entities (no phantom tokens; DELETE removes tokens)
  */
@@ -288,6 +292,16 @@ const LEGACY_SETTINGS_SQL = `
   );
 `;
 
+const LEGACY_SESSIONS_SQL = `
+  CREATE TABLE IF NOT EXISTS sessions (
+    id         TEXT PRIMARY KEY,
+    project_id TEXT,
+    started_at TEXT,
+    ended_at   TEXT,
+    state      TEXT
+  );
+`;
+
 const LEGACY_PROJECTS_SQL = `
   CREATE TABLE IF NOT EXISTS projects (
     project_id TEXT PRIMARY KEY
@@ -374,6 +388,56 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
     value_json TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     PRIMARY KEY (scope, key)
+  );
+`;
+
+const LEGACY_BAD_SESSIONS_SQL = `
+  CREATE TABLE IF NOT EXISTS sessions (
+    id         TEXT PRIMARY KEY,
+    project_id TEXT,
+    started_at TEXT,
+    ended_at   TEXT,
+    state      TEXT,
+    extra_col  TEXT
+  );
+`;
+
+const LEGACY_BAD_BRANCHES_SQL = `
+  CREATE TABLE IF NOT EXISTS branches (
+    id               TEXT PRIMARY KEY,
+    project_id       TEXT NOT NULL,
+    name             TEXT NOT NULL,
+    parent_branch_id TEXT,
+    fork_version_id  TEXT,
+    created_at       TEXT NOT NULL,
+    created_by       INTEGER NOT NULL
+  );
+`;
+
+const LEGACY_BAD_VERSIONS_SQL = `
+  CREATE TABLE IF NOT EXISTS versions (
+    id                TEXT PRIMARY KEY,
+    branch_id         TEXT NOT NULL,
+    parent_version_id TEXT,
+    content_snapshot  TEXT,
+    operation         TEXT,
+    created_at        TEXT NOT NULL,
+    extra_col         TEXT
+  );
+`;
+
+const LEGACY_BAD_COST_RECORDS_SQL = `
+  CREATE TABLE IF NOT EXISTS cost_records (
+    id                 TEXT PRIMARY KEY,
+    session_id         TEXT,
+    model              TEXT NOT NULL,
+    input_tokens       INTEGER,
+    output_tokens      INTEGER,
+    cache_hit_tokens   INTEGER,
+    duration_ms        INTEGER,
+    estimated_cost_usd REAL,
+    created_at         TEXT NOT NULL,
+    extra_col          TEXT
   );
 `;
 
@@ -607,6 +671,123 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
     migrationRow,
     undefined,
     "DB-INT-9F: failed migration must not record version 1",
+  );
+
+  mismatchDb.close();
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-9G: bridge path rejects drifted versions table shape
+// ---------------------------------------------------------------------------
+{
+  const mismatchDb = new Database(":memory:");
+  mismatchDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(mismatchDb);
+
+  mismatchDb.exec(LEGACY_SETTINGS_SQL);
+  mismatchDb.exec(LEGACY_BAD_VERSIONS_SQL);
+
+  assert.throws(
+    () => runMigrations(mismatchDb, [initialSchemaMigration]),
+    /schema contract mismatch for versions/i,
+    "DB-INT-9G: drifted versions schema must fail bridge migration",
+  );
+
+  const migrationRow = mismatchDb
+    .prepare("SELECT version FROM _migrations WHERE version = 1")
+    .get() as { version: number } | undefined;
+  assert.equal(
+    migrationRow,
+    undefined,
+    "DB-INT-9G: failed migration must not record version 1",
+  );
+
+  mismatchDb.close();
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-9H: bridge path rejects drifted cost_records table shape
+// ---------------------------------------------------------------------------
+{
+  const mismatchDb = new Database(":memory:");
+  mismatchDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(mismatchDb);
+
+  mismatchDb.exec(LEGACY_SETTINGS_SQL);
+  mismatchDb.exec(LEGACY_SESSIONS_SQL);
+  mismatchDb.exec(LEGACY_BAD_COST_RECORDS_SQL);
+
+  assert.throws(
+    () => runMigrations(mismatchDb, [initialSchemaMigration]),
+    /schema contract mismatch for cost_records/i,
+    "DB-INT-9H: drifted cost_records schema must fail bridge migration",
+  );
+
+  const migrationRow = mismatchDb
+    .prepare("SELECT version FROM _migrations WHERE version = 1")
+    .get() as { version: number } | undefined;
+  assert.equal(
+    migrationRow,
+    undefined,
+    "DB-INT-9H: failed migration must not record version 1",
+  );
+
+  mismatchDb.close();
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-9I: bridge path rejects drifted sessions table shape
+// ---------------------------------------------------------------------------
+{
+  const mismatchDb = new Database(":memory:");
+  mismatchDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(mismatchDb);
+
+  mismatchDb.exec(LEGACY_SETTINGS_SQL);
+  mismatchDb.exec(LEGACY_BAD_SESSIONS_SQL);
+
+  assert.throws(
+    () => runMigrations(mismatchDb, [initialSchemaMigration]),
+    /schema contract mismatch for sessions/i,
+    "DB-INT-9I: drifted sessions schema must fail bridge migration",
+  );
+
+  const migrationRow = mismatchDb
+    .prepare("SELECT version FROM _migrations WHERE version = 1")
+    .get() as { version: number } | undefined;
+  assert.equal(
+    migrationRow,
+    undefined,
+    "DB-INT-9I: failed migration must not record version 1",
+  );
+
+  mismatchDb.close();
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-9J: bridge path rejects drifted branches table shape
+// ---------------------------------------------------------------------------
+{
+  const mismatchDb = new Database(":memory:");
+  mismatchDb.pragma("foreign_keys = ON");
+  applyRecommendedPragmas(mismatchDb);
+
+  mismatchDb.exec(LEGACY_SETTINGS_SQL);
+  mismatchDb.exec(LEGACY_BAD_BRANCHES_SQL);
+
+  assert.throws(
+    () => runMigrations(mismatchDb, [initialSchemaMigration]),
+    /schema contract mismatch for branches\.created_by: expected type text, got integer/i,
+    "DB-INT-9J: drifted branches schema must fail bridge migration",
+  );
+
+  const migrationRow = mismatchDb
+    .prepare("SELECT version FROM _migrations WHERE version = 1")
+    .get() as { version: number } | undefined;
+  assert.equal(
+    migrationRow,
+    undefined,
+    "DB-INT-9J: failed migration must not record version 1",
   );
 
   mismatchDb.close();

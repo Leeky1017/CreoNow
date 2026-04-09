@@ -4,11 +4,13 @@
  * Public API for the TypeScript-based SQLite migration system.
  *
  * This module is the single import point for consumers that need the
- * application database. It exposes three lifecycle functions:
+ * application database. It exposes lifecycle + bootstrap helpers:
  *
  *   getDb()          — return the open Database instance (throws if not init'd)
  *   runMigrations()  — apply all pending TypeScript migrations in order
  *   closeDb()        — cleanly close the database connection
+ *   initConnection() — open/register singleton from a db path
+ *   setDbInstance()  — register an externally-opened connection (tests/bridge)
  *
  * Startup path:
  *   The production startup path is init.ts → initDb(). It runs the legacy SQL
@@ -24,9 +26,9 @@
  *   across init and direct migration entrypoints.
  *
  * Test harnesses:
- *   Call setDbInstance(db) from connection.ts, then call runMigrations()
- *   from this module; seed legacy dependency tables (e.g. `projects`) when a
- *   test scenario needs FK-backed inserts.
+ *   Import setDbInstance(db) and runMigrations() from this module; seed legacy
+ *   dependency tables (e.g. `projects`) when a test scenario needs FK-backed
+ *   inserts.
  *
  * Invariant obligations (must be satisfied by callers):
  *
@@ -38,7 +40,7 @@
  *           AI cost logs. Every AI invocation MUST write a cost_records row.
  */
 
-import { closeDb, getDb, initConnection } from "./connection";
+import { closeDb, getDb, initConnection, setDbInstance } from "./connection";
 import { DB_MIGRATIONS } from "./migrations/registry";
 import { runMigrations as _runMigrations } from "./migrator";
 
@@ -59,4 +61,4 @@ export function runMigrations(): void {
   _runMigrations(db, [...DB_MIGRATIONS]);
 }
 
-export { initConnection };
+export { initConnection, setDbInstance };

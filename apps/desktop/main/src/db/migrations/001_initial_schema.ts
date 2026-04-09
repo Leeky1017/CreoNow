@@ -595,6 +595,201 @@ function up(db: Database.Database): void {
     ],
   });
   assertTableColumnContract(db, {
+    table: "sessions",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "project_id",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "started_at",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "ended_at",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "state", type: "TEXT", notNull: false, pk: 0, defaultValue: null },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "branches",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "project_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "name", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      {
+        name: "parent_branch_id",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "fork_version_id",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "created_at",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "created_by",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "versions",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "branch_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "parent_version_id",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "content_snapshot",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "operation",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "created_at",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
+  });
+  assertForeignKeys(db, {
+    table: "versions",
+    expected: [
+      {
+        table: "branches",
+        from: "branch_id",
+        to: "id",
+        onDelete: "NO ACTION",
+      },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "cost_records",
+    expected: [
+      { name: "id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "session_id",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "model",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "input_tokens",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "output_tokens",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "cache_hit_tokens",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "duration_ms",
+        type: "INTEGER",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "estimated_cost_usd",
+        type: "REAL",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "created_at",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
+  });
+  assertForeignKeys(db, {
+    table: "cost_records",
+    expected: [
+      {
+        table: "sessions",
+        from: "session_id",
+        to: "id",
+        onDelete: "NO ACTION",
+      },
+    ],
+  });
+  assertTableColumnContract(db, {
     table: "document_versions",
     expected: [
       { name: "version_id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
@@ -1245,7 +1440,7 @@ function up(db: Database.Database): void {
   db.exec(UP_SQL);
 
   // Bridge path fix: when entities_fts is first created on existing databases
-  // with pre-existing kg_entities rows, rebuild the FTS index immediately so
+  // with pre-existing entities rows, rebuild the FTS index immediately so
   // search coverage is truthful right after migration.
   if (!entitiesFtsExistsBeforeMigration) {
     db.prepare("INSERT INTO entities_fts(entities_fts) VALUES('rebuild')").run();

@@ -70,6 +70,7 @@ CREATE TABLE relations (
   known_by TEXT,           -- JSON: ["角色ID1", "reader"]
   valid_from TEXT,
   valid_until TEXT,
+  relation_detail TEXT,
   confidence REAL DEFAULT 1.0,
   source_chapter TEXT,
   created_by TEXT,         -- "user" / "ai"
@@ -86,7 +87,9 @@ CREATE TABLE relations (
 (陈明) --[identity, layer="ultimate", known_by=["reader"]]--> 三面间谍
 ```
 
-## 4.5 时间线与状态变迁（目标设计，当前 KG schema 不含 valid_from/valid_until 字段）
+## 4.5 时间线与状态变迁（目标设计，当前仅有字段，时序查询能力待实现）
+
+当前基线 schema 已包含 `valid_from` / `valid_until` 字段（见 `entity_properties` 与 `relations`），但“按章节时间点回放状态”的查询语义、索引与服务层 API 仍是目标设计，尚未完整落地。
 
 目标能力：KG 支持"某个时间点的状态"查询（计划实现）：
 
