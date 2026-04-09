@@ -2,9 +2,11 @@
  * 001_initial_schema.ts — baseline schema for TypeScript migrations.
  *
  * IMPORTANT:
- * This baseline mirrors the repository's live SQLite runtime contract so the
- * init.ts bridge can record migration state truthfully on existing databases.
- * We intentionally reuse legacy table shapes for `settings` and `kg_*`.
+ * This baseline mirrors the repository's live SQLite runtime contract used by
+ * init.ts (legacy SQL chain + bridge), so migration bookkeeping stays truthful
+ * on existing databases. We intentionally preserve legacy shapes for
+ * `settings`, `document_*`, and `kg_*` while also creating Task #87 baseline
+ * tables (`versions` / `branches`) required by acceptance criteria.
  *
  * INV-1: versions + branches provide persistent snapshot lineage.
  * INV-9: cost_records provides persistent AI cost attribution.
@@ -54,6 +56,48 @@ const UP_SQL = /* sql */ `
 
   CREATE INDEX IF NOT EXISTS idx_versions_branch_created
     ON versions (branch_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS document_versions (
+    version_id          TEXT PRIMARY KEY,
+    project_id          TEXT NOT NULL,
+    document_id         TEXT NOT NULL,
+    actor               TEXT NOT NULL,
+    content_json        TEXT NOT NULL,
+    content_text        TEXT NOT NULL,
+    content_md          TEXT NOT NULL,
+    created_at          INTEGER NOT NULL,
+    reason              TEXT NOT NULL DEFAULT '',
+    content_hash        TEXT NOT NULL DEFAULT '',
+    diff_format         TEXT NOT NULL DEFAULT '',
+    diff_text           TEXT NOT NULL DEFAULT '',
+    word_count          INTEGER NOT NULL DEFAULT 0,
+    parent_snapshot_id  TEXT,
+    FOREIGN KEY (project_id) REFERENCES projects (project_id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents (document_id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_document_versions_document_created
+    ON document_versions (document_id, created_at DESC, version_id ASC);
+
+  CREATE INDEX IF NOT EXISTS idx_document_versions_document_parent
+    ON document_versions (document_id, parent_snapshot_id);
+
+  CREATE TABLE IF NOT EXISTS document_branches (
+    branch_id         TEXT PRIMARY KEY,
+    document_id       TEXT NOT NULL,
+    name              TEXT NOT NULL,
+    base_snapshot_id  TEXT NOT NULL,
+    head_snapshot_id  TEXT NOT NULL,
+    created_by        TEXT NOT NULL,
+    created_at        INTEGER NOT NULL,
+    UNIQUE (document_id, name),
+    FOREIGN KEY (document_id) REFERENCES documents (document_id) ON DELETE CASCADE,
+    FOREIGN KEY (base_snapshot_id) REFERENCES document_versions (version_id),
+    FOREIGN KEY (head_snapshot_id) REFERENCES document_versions (version_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_document_branches_document_created
+    ON document_branches (document_id, created_at DESC, branch_id ASC);
 
   CREATE TABLE IF NOT EXISTS cost_records (
     id                 TEXT PRIMARY KEY,
@@ -547,6 +591,112 @@ function up(db: Database.Database): void {
         notNull: true,
         pk: 0,
         defaultValue: null,
+      },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "document_versions",
+    expected: [
+      { name: "version_id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      { name: "project_id", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "document_id", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "actor", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "content_json", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "content_text", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "content_md", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      { name: "created_at", type: "INTEGER", notNull: true, pk: 0, defaultValue: null },
+      { name: "reason", type: "TEXT", notNull: true, pk: 0, defaultValue: "''" },
+      { name: "content_hash", type: "TEXT", notNull: true, pk: 0, defaultValue: "''" },
+      { name: "diff_format", type: "TEXT", notNull: true, pk: 0, defaultValue: "''" },
+      { name: "diff_text", type: "TEXT", notNull: true, pk: 0, defaultValue: "''" },
+      { name: "word_count", type: "INTEGER", notNull: true, pk: 0, defaultValue: "0" },
+      {
+        name: "parent_snapshot_id",
+        type: "TEXT",
+        notNull: false,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
+  });
+  assertForeignKeys(db, {
+    table: "document_versions",
+    expected: [
+      {
+        table: "projects",
+        from: "project_id",
+        to: "project_id",
+        onDelete: "CASCADE",
+      },
+      {
+        table: "documents",
+        from: "document_id",
+        to: "document_id",
+        onDelete: "CASCADE",
+      },
+    ],
+  });
+  assertTableColumnContract(db, {
+    table: "document_branches",
+    expected: [
+      { name: "branch_id", type: "TEXT", notNull: false, pk: 1, defaultValue: null },
+      {
+        name: "document_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "name", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      {
+        name: "base_snapshot_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      {
+        name: "head_snapshot_id",
+        type: "TEXT",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+      { name: "created_by", type: "TEXT", notNull: true, pk: 0, defaultValue: null },
+      {
+        name: "created_at",
+        type: "INTEGER",
+        notNull: true,
+        pk: 0,
+        defaultValue: null,
+      },
+    ],
+  });
+  assertUniqueIndexOnColumns(db, {
+    table: "document_branches",
+    columns: ["document_id", "name"],
+    label: "UNIQUE(document_id, name)",
+  });
+  assertForeignKeys(db, {
+    table: "document_branches",
+    expected: [
+      {
+        table: "documents",
+        from: "document_id",
+        to: "document_id",
+        onDelete: "CASCADE",
+      },
+      {
+        table: "document_versions",
+        from: "base_snapshot_id",
+        to: "version_id",
+        onDelete: "NO ACTION",
+      },
+      {
+        table: "document_versions",
+        from: "head_snapshot_id",
+        to: "version_id",
+        onDelete: "NO ACTION",
       },
     ],
   });

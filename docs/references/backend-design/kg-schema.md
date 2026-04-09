@@ -57,10 +57,10 @@ AI 提取时：提取词 -> 别名匹配 -> 映射到内部 ID -> 写入 KG。
 
 ## 4.4 多值属性与分层身份（目标设计，尚未实现）
 
-关系带元数据（Relation Metadata）——目标 schema，当前 `kg_relations` 表仅有 `source_entity_id/target_entity_id/relation_type/description/created_at` 等基础字段：
+关系带元数据（Relation Metadata）——当前基线由 `relations` 表承载（`001_initial_schema.ts`），同时保留 legacy `kg_relations`（简化字段）用于兼容历史读写路径：
 
 ```sql
-CREATE TABLE kg_relations (
+CREATE TABLE relations (
   id TEXT PRIMARY KEY,
   source_entity_id TEXT NOT NULL,
   relation_type_id TEXT NOT NULL,
@@ -111,10 +111,9 @@ CREATE TABLE kg_relations (
 
 ## 4.7 SQLite 存储实现
 
-> **目标 schema（计划实现，以下表均尚未创建）**。当前 P0 实现见 `0013_knowledge_graph_p0.sql`，仅包含 `kg_entities` / `kg_relation_types` / `kg_relations` 三张表（列结构较简化）。下方 `entity_types`、`relation_types`、`property_types`、`entities`、`entity_properties`、`entities_fts` 均为目标设计，不存在于当前数据库中。
+> **当前状态（已实现）**：`apps/desktop/main/src/db/migrations/001_initial_schema.ts` 已创建 `entity_types`、`relation_types`、`property_types`、`entities`、`entity_properties`、`relations`、`entities_fts(content='entities')`，并同时保留 `kg_entities` / `kg_relation_types` / `kg_relations` 作为 legacy 兼容层。
 
 ```sql
--- ⚠️ 以下均为目标 schema，尚未实现。当前仅有 kg_entities / kg_relation_types / kg_relations。
 CREATE TABLE entity_types (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -177,7 +176,7 @@ CREATE TABLE entity_properties (
   FOREIGN KEY (property_type_id) REFERENCES property_types(id)
 );
 
-CREATE TABLE kg_relations (
+CREATE TABLE relations (
   id TEXT PRIMARY KEY,
   source_entity_id TEXT NOT NULL,
   relation_type_id TEXT NOT NULL,

@@ -6,6 +6,7 @@
  *   DB-INT-1:  baseline tables created by 001_initial_schema exist (incl. 6 KG tables)
  *   DB-INT-2:  entities_fts FTS5 virtual table is queryable (content='entities')
  *   DB-INT-3:  versions.branch_id → branches FK constraint is enforced (NOT NULL + FK)
+ *   DB-INT-3B: baseline includes live document_versions/document_branches tables
  *   DB-INT-4:  foreign_keys pragma is ON
  *   DB-INT-5:  WAL journal_mode is active on a file-based DB
  *   DB-INT-6:  _migrations table records exactly the applied migrations
@@ -100,6 +101,8 @@ const requiredTables = [
   "sessions",
   "branches",
   "versions",
+  "document_versions",
+  "document_branches",
   "cost_records",
   "entity_types",
   "relation_types",
@@ -173,6 +176,52 @@ assert.ok(!ftsColumns.includes("entity_id"), "DB-INT-2: entities_fts must NOT ha
     ).run("ver-002", "br-nonexistent", null, "{}", "edit", ts);
   } catch { fkViolated = true; }
   assert.ok(fkViolated, "DB-INT-3: FK violation for bad branch_id");
+}
+
+// ---------------------------------------------------------------------------
+// DB-INT-3B: live document version-control tables exist in baseline
+// ---------------------------------------------------------------------------
+{
+  const documentVersionColumns = (
+    db.pragma("table_info(document_versions)") as Array<{ name: string }>
+  ).map((column) => column.name);
+  assert.deepEqual(
+    documentVersionColumns,
+    [
+      "version_id",
+      "project_id",
+      "document_id",
+      "actor",
+      "content_json",
+      "content_text",
+      "content_md",
+      "created_at",
+      "reason",
+      "content_hash",
+      "diff_format",
+      "diff_text",
+      "word_count",
+      "parent_snapshot_id",
+    ],
+    "DB-INT-3B: document_versions schema must match live runtime contract",
+  );
+
+  const documentBranchesColumns = (
+    db.pragma("table_info(document_branches)") as Array<{ name: string }>
+  ).map((column) => column.name);
+  assert.deepEqual(
+    documentBranchesColumns,
+    [
+      "branch_id",
+      "document_id",
+      "name",
+      "base_snapshot_id",
+      "head_snapshot_id",
+      "created_by",
+      "created_at",
+    ],
+    "DB-INT-3B: document_branches schema must match live runtime contract",
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -410,6 +459,14 @@ const LEGACY_BAD_SETTINGS_UPDATED_AT_TEXT_SQL = `
 
   assert.ok(tableExists(bridgeDb, "kg_entities"), "DB-INT-9: kg_entities must exist after bridge migration");
   assert.ok(tableExists(bridgeDb, "kg_relations"), "DB-INT-9: kg_relations must exist after bridge migration");
+  assert.ok(
+    tableExists(bridgeDb, "document_versions"),
+    "DB-INT-9: document_versions must exist after bridge migration",
+  );
+  assert.ok(
+    tableExists(bridgeDb, "document_branches"),
+    "DB-INT-9: document_branches must exist after bridge migration",
+  );
   assert.ok(tableExists(bridgeDb, "entity_types"), "DB-INT-9: entity_types must exist after bridge migration");
   assert.ok(tableExists(bridgeDb, "relation_types"), "DB-INT-9: relation_types must exist after bridge migration");
   assert.ok(tableExists(bridgeDb, "property_types"), "DB-INT-9: property_types must exist after bridge migration");

@@ -30,8 +30,9 @@
  *
  * Invariant obligations (must be satisfied by callers):
  *
- *   INV-1  (原稿保护): versions table provides the pre-write snapshot target.
- *           Any AI write MUST snapshot before mutating document content.
+ *   INV-1  (原稿保护): `document_versions` is the live snapshot store used by
+ *           document services; `versions`/`branches` remain as Task #87 baseline
+ *           tables. Any AI write MUST snapshot before mutating document content.
  *
  *   INV-9  (成本追踪): cost_records table is the persistence layer for per-call
  *           AI cost logs. Every AI invocation MUST write a cost_records row.
