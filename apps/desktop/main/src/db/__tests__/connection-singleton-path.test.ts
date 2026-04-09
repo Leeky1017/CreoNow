@@ -74,3 +74,30 @@ it("DB-CONN-3: setDbInstance rejects replacing an existing singleton", () => {
     second.close();
   }
 });
+
+it("DB-CONN-4: direct handle close cannot leave singleton pointing to dead connection", () => {
+  const testDir = path.join(
+    import.meta.dirname,
+    ".artifacts",
+    "db-conn-direct-close-recovery",
+  );
+  fs.rmSync(testDir, { recursive: true, force: true });
+  fs.mkdirSync(testDir, { recursive: true });
+
+  const dbPath = path.join(testDir, "main.sqlite");
+
+  try {
+    const first = initConnection(dbPath);
+    first.close();
+
+    expect(() => getDb()).toThrow(/not initialised/i);
+
+    const reopened = initConnection(dbPath);
+    expect(reopened).not.toBe(first);
+    const row = reopened.prepare("SELECT 1 AS ok").get() as { ok: number };
+    expect(row.ok).toBe(1);
+    expect(getDb()).toBe(reopened);
+  } finally {
+    fs.rmSync(testDir, { recursive: true, force: true });
+  }
+});

@@ -315,15 +315,15 @@ export function initDb(args: {
     // Run TS migration bridge first; only publish singleton after bridge success.
     runMigrations(conn, [...DB_MIGRATIONS]);
 
-    // Keep publication as the last fallible step in this try-block.
-    // Why: if anything throws before publication, failure cleanup cannot
-    // accidentally drop/replace an already healthy singleton.
+    // Publish singleton before any success signal.
+    // Why: setDbInstance() can still fail (for example existing singleton
+    // conflict), and we must not emit a false-positive ready event first.
+    setDbInstance(conn);
     args.logger.info("db_ready", {
       db_path: dbPathRedacted,
       schema_version: finalSchemaVersion,
       migration_applied: appliedVersions,
     });
-    setDbInstance(conn);
 
     return { ok: true, db: conn, schemaVersion: finalSchemaVersion };
   } catch (error) {

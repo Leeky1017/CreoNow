@@ -29,6 +29,47 @@ import { applyRecommendedPragmas } from "./recommendedPragmas";
 let _instance: Database.Database | null = null;
 let _instancePath: string | null = null;
 
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isClosedConnectionError(error: unknown): boolean {
+  const message = toErrorMessage(error).toLowerCase();
+  return (
+    message.includes("database connection is not open") ||
+    message.includes("database handle is closed") ||
+    message.includes("already closed")
+  );
+}
+
+function canUseConnection(db: Database.Database): boolean {
+  try {
+    db.prepare("SELECT 1").get();
+    return true;
+  } catch (error) {
+    if (isClosedConnectionError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function clearSingletonState(): void {
+  _instance = null;
+  _instancePath = null;
+}
+
+function getLiveSingleton(): Database.Database | null {
+  if (!_instance) {
+    return null;
+  }
+  if (canUseConnection(_instance)) {
+    return _instance;
+  }
+  clearSingletonState();
+  return null;
+}
+
 function normaliseDbPath(dbPath: string): string {
   // better-sqlite3 reports in-memory DBs as an empty string in PRAGMA output.
   if (dbPath === "" || dbPath === ":memory:") {
@@ -59,12 +100,13 @@ function inferDbPath(db: Database.Database): string | null {
  * Why explicit error: silent null returns hide initialisation ordering bugs.
  */
 export function getDb(): Database.Database {
-  if (!_instance) {
+  const instance = getLiveSingleton();
+  if (!instance) {
     throw new Error(
       "DB connection not initialised. Call initConnection() or setDbInstance() first.",
     );
   }
-  return _instance;
+  return instance;
 }
 
 /**
@@ -79,14 +121,15 @@ export function getDb(): Database.Database {
  */
 export function initConnection(dbPath: string): Database.Database {
   const requestedPath = normaliseDbPath(dbPath);
-  if (_instance) {
-    const currentPath = _instancePath ?? inferDbPath(_instance);
+  const instance = getLiveSingleton();
+  if (instance) {
+    const currentPath = _instancePath ?? inferDbPath(instance);
     if (currentPath && currentPath !== requestedPath) {
       throw new Error(
         `DB connection already initialised at '${currentPath}'. Refusing to reinitialise with different path '${requestedPath}'. Call closeDb() first.`,
       );
     }
-    return _instance;
+    return instance;
   }
 
   const db = new Database(dbPath);
@@ -118,6 +161,11 @@ export function initConnection(dbPath: string): Database.Database {
  * invariant and leaking a usable database connection in-process.
  */
 export function setDbInstance(db: Database.Database): void {
+  if (!canUseConnection(db)) {
+    throw new Error(
+      "Cannot register a closed database connection. Open a fresh connection first.",
+    );
+  }
   if (_instance && _instance !== db) {
     const currentPath = _instancePath ?? inferDbPath(_instance) ?? "<unknown>";
     const requestedPath = inferDbPath(db) ?? "<unknown>";
@@ -137,8 +185,7 @@ export function setDbInstance(db: Database.Database): void {
  */
 export function clearDbInstanceIfMatch(db: Database.Database): void {
   if (_instance === db) {
-    _instance = null;
-    _instancePath = null;
+    clearSingletonState();
   }
 }
 
@@ -149,8 +196,14 @@ export function clearDbInstanceIfMatch(db: Database.Database): void {
  */
 export function closeDb(): void {
   if (_instance) {
-    _instance.close();
-    _instance = null;
-    _instancePath = null;
+    const instance = _instance;
+    clearSingletonState();
+    try {
+      instance.close();
+    } catch (error) {
+      if (!isClosedConnectionError(error)) {
+        throw error;
+      }
+    }
   }
 }

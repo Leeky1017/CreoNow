@@ -6,6 +6,7 @@ import { BrowserWindow, app, dialog, ipcMain, safeStorage } from "electron";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import { applyBrowserWindowSecurityPolicy } from "./browserWindowSecurity";
+import { closeDb } from "./db/connection";
 import { initDb, type DbInitOk } from "./db/init";
 import { registerGlobalExceptionHandlers } from "./globalExceptionHandlers";
 import { registerAiIpcHandlers } from "./ipc/ai";
@@ -718,7 +719,7 @@ app
         return;
       }
       try {
-        db.close();
+        closeDb();
       } catch (error) {
         logger.error("db_close_failed", {
           message: error instanceof Error ? error.message : String(error),
