@@ -38,8 +38,6 @@ const CJK_CODE_POINT_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0xac00, 0xd7af], // Hangul Syllables
   [0xff00, 0xffef], // Halfwidth and Fullwidth Forms
 ];
-const emojiLikePattern =
-  /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3)/u;
 
 function isCodePointInRange(
   codePoint: number,
@@ -62,16 +60,9 @@ function segmentText(text: string): string[] {
   );
 }
 
-function isEmojiSegment(segment: string): boolean {
-  return emojiLikePattern.test(segment);
-}
-
 function isCjkLikeSegment(segment: string): boolean {
   if (segment.length === 0) {
     return false;
-  }
-  if (isEmojiSegment(segment)) {
-    return true;
   }
   for (const char of segment) {
     const codePoint = char.codePointAt(0);

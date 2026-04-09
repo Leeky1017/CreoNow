@@ -46,8 +46,6 @@ const CJK_CODE_POINT_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0xac00, 0xd7af],
   [0xff00, 0xffef],
 ];
-const emojiLikePattern =
-  /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3)/u;
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -120,9 +118,6 @@ function isCjkCodePoint(codePoint: number): boolean {
 }
 
 function isCjkLikeSegment(segment: string): boolean {
-  if (emojiLikePattern.test(segment)) {
-    return true;
-  }
   for (const char of segment) {
     const codePoint = char.codePointAt(0);
     if (codePoint !== undefined && isCjkCodePoint(codePoint)) {

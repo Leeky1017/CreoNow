@@ -192,13 +192,13 @@ describe("AIServiceAdapter", () => {
       expect(adapter.estimateTokens("你".repeat(1000))).toBe(1500);
     });
 
-    it("emoji 视为 CJK", () => {
-      expect(adapter.estimateTokens("😀")).toBe(2);
+    it("emoji 走非 CJK bytes/4 回退", () => {
+      expect(adapter.estimateTokens("😀")).toBe(1);
     });
 
-    it("多码点 emoji 按单个字形簇计数", () => {
+    it("多码点 emoji 按 bytes/4 回退", () => {
       expect(adapter.estimateTokens("❤️")).toBe(2);
-      expect(adapter.estimateTokens("👩‍💻")).toBe(2);
+      expect(adapter.estimateTokens("👩‍💻")).toBe(3);
     });
   });
 

@@ -123,17 +123,17 @@ describe("Token Estimation — Token 估算", () => {
       expect(estimateTokens("\n")).toBe(1);
     });
 
-    it("单码点 emoji 视为 CJK（1 char × 1.5 → ceil → 2）", () => {
+    it("单码点 emoji 走非 CJK bytes/4 回退", () => {
       const tokens = estimateTokens("😀");
-      expect(tokens).toBe(2);
+      expect(tokens).toBe(1);
     });
 
-    it("多码点 emoji「❤️」按单个字形簇计数", () => {
+    it("多码点 emoji「❤️」按 bytes/4 回退", () => {
       expect(estimateTokens("❤️")).toBe(2);
     });
 
-    it("ZWJ emoji「👩‍💻」按单个字形簇计数", () => {
-      expect(estimateTokens("👩‍💻")).toBe(2);
+    it("ZWJ emoji「👩‍💻」按 bytes/4 回退", () => {
+      expect(estimateTokens("👩‍💻")).toBe(3);
     });
 
     it("结果始终为非负整数", () => {

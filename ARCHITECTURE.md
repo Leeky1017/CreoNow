@@ -24,10 +24,10 @@ AI 对用户原稿的任何写操作（续写、改写、删除）必须经过 P
 
 ### INV-3 -- 上下文预算必须对 CJK 准确
 
-Token 估算必须区分 CJK/emoji 字形簇（~1.5 tokens/cluster）和非 CJK（~0.25 tokens/byte）。禁止统一用 `UTF8_BYTES / 4`。所有依赖 token 估算的决策（预算、压缩触发、成本）都建立在这个精度之上。
+Token 估算必须区分 CJK（~1.5 tokens/字）和 ASCII（~0.25 tokens/byte）。禁止统一用 `UTF8_BYTES / 4`。所有依赖 token 估算的决策（预算、压缩触发、成本）都建立在这个精度之上。
 
 - CN 审计来源：`tokenBudget.ts` 的 4:1 公式对中文偏低 30-50%（Report 06）
-- 落地方式：CJK-aware 实现在 `services/context/tokenEstimation.ts`（`estimateTokens(text)` 函数，内部区分 CJK/emoji 与非 CJK），并与 `packages/shared/tokenBudget.ts` 统一共享估算逻辑，避免运行时路径分叉
+- 落地方式：CJK-aware 实现在 `services/context/tokenEstimation.ts`（`estimateTokens(text)` 函数，内部区分 CJK/ASCII）。`packages/shared/tokenBudget.ts` 当前仍使用 `UTF8_BYTES / 4` 简化公式，待迁移到 CJK-aware 版本
 
 ### INV-4 -- 记忆优先于检索（Memory-First）
 

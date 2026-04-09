@@ -33,13 +33,13 @@ import {
   assert.equal(estimateTokensAscii("a".repeat(1000)), 250);
   assert.equal(estimateTokens("你".repeat(500) + "a".repeat(200)), 800);
   assert.equal(estimateTokens(""), 0);
-  assert.equal(estimateTokens("😀"), 2);
+  assert.equal(estimateTokens("😀"), 1);
   assert.equal(estimateTokens("❤️"), 2);
-  assert.equal(estimateTokens("👩‍💻"), 2);
-  assert.equal(trimUtf8ToTokenBudget("👩‍💻abc", 2), "👩‍💻ab");
+  assert.equal(estimateTokens("👩‍💻"), 3);
+  assert.equal(trimUtf8ToTokenBudget("👩‍💻abc", 2), "");
   assert.equal(trimUtf8ToTokenBudget("👩‍💻abc", 1), "");
   assert.equal(trimUtf8ToTokenBudget("❤️❤️", 2), "❤️");
-  assert.equal(trimUtf8ToTokenBudget("👩‍💻".repeat(2), 2), "👩‍💻");
+  assert.equal(trimUtf8ToTokenBudget("👩‍💻".repeat(2), 2), "");
   assert.equal(isWithinBudget("你".repeat(500) + "a".repeat(200), 800), true);
   assert.equal(isWithinBudget("你".repeat(500) + "a".repeat(200), 799), false);
 }
