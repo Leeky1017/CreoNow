@@ -28,6 +28,8 @@ const graphemeSegmenter = new Intl.Segmenter(undefined, {
   granularity: "grapheme",
 });
 const CJK_CODE_POINT_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0x2e80, 0x2fdf],
+  [0x31c0, 0x31ef],
   [0x3400, 0x4dbf],
   [0x4e00, 0x9fff],
   [0xf900, 0xfaff],
@@ -170,6 +172,8 @@ function main(): void {
     "",
     "hello world",
     "你好，世界",
+    "⺅⼈",
+    "⺀⼀㇐",
     "𠀀ㇰ",
     "emoji🙂text",
     "❤️",

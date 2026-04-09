@@ -50,23 +50,32 @@ function buildInputAudit(args: {
   sampledInputRedacted?: string;
   sampledInputEvidenceCount?: number;
 } {
-  const text = args.additionalInput?.trim() ?? "";
+  const rawText = args.additionalInput ?? "";
+  const text = rawText.trim();
   // Fail closed on pathological payload size before grapheme segmentation.
   // Use UTF-8 bytes (not UTF-16 text.length) to avoid under-rejecting CJK-heavy
   // payloads where one visible char can occupy multiple bytes.
-  const utf8Bytes = new TextEncoder().encode(text).length;
+  // IMPORTANT: gate on raw input (before trim) so whitespace-only oversized
+  // payloads cannot bypass CONTEXT_INPUT_TOO_LARGE checks.
+  const utf8Bytes = new TextEncoder().encode(rawText).length;
   const inputTokens =
     utf8Bytes > tokenBudgetToUtf8ByteLimit(CONTEXT_CAPACITY_LIMITS.maxInputTokens)
       ? CONTEXT_CAPACITY_LIMITS.maxInputTokens + 1
-      : estimateInputTokens(text);
-  if (text.length === 0) {
+      : estimateInputTokens(rawText);
+  if (rawText.length === 0) {
     return { inputTokens };
   }
 
   if (!args.debugMode) {
     return {
       inputTokens,
-      inputHash: sha256Hex(text),
+      inputHash: sha256Hex(rawText),
+    };
+  }
+  if (text.length === 0) {
+    return {
+      inputTokens,
+      inputHash: sha256Hex(rawText),
     };
   }
 
@@ -76,7 +85,7 @@ function buildInputAudit(args: {
   });
   return {
     inputTokens,
-    inputHash: sha256Hex(text),
+    inputHash: sha256Hex(rawText),
     sampledInputRedacted: redacted.redactedText.slice(0, 160),
     sampledInputEvidenceCount: redacted.evidence.length,
   };

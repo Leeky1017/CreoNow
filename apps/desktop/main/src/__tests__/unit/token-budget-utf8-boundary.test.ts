@@ -25,6 +25,13 @@ import {
 {
   assert.equal(estimateTokens("𠀀"), 2);
   assert.equal(estimateTokens("ㇰ"), 2);
+  assert.equal(estimateTokens("⺀"), 2);
+  assert.equal(estimateTokens("⺅"), 2);
+  assert.equal(estimateTokens("⼀"), 2);
+  assert.equal(estimateTokens("⼈"), 2);
+  assert.equal(estimateTokens("㇐"), 2);
+  assert.equal(estimateTokens("⼀".repeat(10)), 15);
+  assert.equal(isWithinBudget("⼀".repeat(10), 10), false);
   assert.equal(trimUtf8ToTokenBudget("𠀀𠀀", 2), "𠀀");
 }
 

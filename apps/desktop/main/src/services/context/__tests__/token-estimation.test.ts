@@ -49,6 +49,18 @@ describe("Token Estimation — Token 估算", () => {
     it("片假名扩展「ㇰ」也按 CJK 计数", () => {
       expect(estimateTokens("ㇰ")).toBe(2);
     });
+
+    it("康熙部首「⼈」也按 CJK 计数", () => {
+      expect(estimateTokens("⼈")).toBe(2);
+    });
+
+    it("CJK 部首补充「⺅」也按 CJK 计数", () => {
+      expect(estimateTokens("⺅")).toBe(2);
+    });
+
+    it("CJK 笔画「㇐」也按 CJK 计数", () => {
+      expect(estimateTokens("㇐")).toBe(2);
+    });
   });
 
   // ── ASCII 估算 ────────────────────────────────────────────────

@@ -20,6 +20,8 @@ const CJK_TOKENS_PER_CHAR = 1.5; // cl100k_base 实测，样本 10K 中文字符
 const ASCII_TOKENS_PER_BYTE = 0.25; // cl100k_base 实测，英文文本平均
 const UTF8_MAX_BYTES_PER_CODE_POINT = 4;
 const CJK_CODE_POINT_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0x2e80, 0x2fdf], // CJK Radicals Supplement + Kangxi Radicals
+  [0x31c0, 0x31ef], // CJK Strokes
   [0x3400, 0x4dbf], // CJK Unified Ideographs Extension A
   [0x4e00, 0x9fff], // CJK Unified Ideographs
   [0xf900, 0xfaff], // CJK Compatibility Ideographs

@@ -271,6 +271,19 @@ describe("registerContextAssemblyHandlers", () => {
         expect(result.error.code).toBe("CONTEXT_INPUT_TOO_LARGE");
       }
     });
+
+    it("should fail-closed for oversized whitespace-only additionalInput", async () => {
+      const { invoke } = createHarness();
+      const whitespaceOnlyInput = " ".repeat(320000);
+      const result = await invoke("context:prompt:assemble", {
+        ...validAssemblePayload(),
+        additionalInput: whitespaceOnlyInput,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("CONTEXT_INPUT_TOO_LARGE");
+      }
+    });
   });
 
   describe("context:prompt:inspect", () => {
@@ -358,6 +371,19 @@ describe("registerContextAssemblyHandlers", () => {
       const result = await invoke("context:prompt:inspect", validInspectPayload());
       expect(result.ok).toBe(false);
       expect(inFlightByDocument.size).toBe(0);
+    });
+
+    it("should reject oversized whitespace-only additionalInput", async () => {
+      const { invoke } = createHarness();
+      const whitespaceOnlyInput = " ".repeat(320000);
+      const result = await invoke("context:prompt:inspect", {
+        ...validInspectPayload(),
+        additionalInput: whitespaceOnlyInput,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("CONTEXT_INPUT_TOO_LARGE");
+      }
     });
   });
 });
