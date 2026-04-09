@@ -4,7 +4,10 @@ import type Database from "better-sqlite3";
 import { sha256Hex } from "@shared/hashUtils";
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import { redactText } from "@shared/redaction/redact";
-import { estimateTokens as estimateInputTokens } from "@shared/tokenBudget";
+import {
+  estimateTokens as estimateInputTokens,
+  tokenBudgetToUtf8ByteLimit,
+} from "@shared/tokenBudget";
 import type { Logger } from "../logging/logger";
 import {
   CONTEXT_CAPACITY_LIMITS,
@@ -48,7 +51,12 @@ function buildInputAudit(args: {
   sampledInputEvidenceCount?: number;
 } {
   const text = args.additionalInput?.trim() ?? "";
-  const inputTokens = estimateInputTokens(text);
+  // Fail closed on pathological payload size before grapheme segmentation, so
+  // oversized inputs are rejected in O(1) and do not burn IPC test/runtime SLA.
+  const inputTokens =
+    text.length > tokenBudgetToUtf8ByteLimit(CONTEXT_CAPACITY_LIMITS.maxInputTokens)
+      ? CONTEXT_CAPACITY_LIMITS.maxInputTokens + 1
+      : estimateInputTokens(text);
   if (text.length === 0) {
     return { inputTokens };
   }
