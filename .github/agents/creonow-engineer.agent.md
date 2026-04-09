@@ -11,6 +11,14 @@ target: "vscode"
 
 ---
 
+# 轮次上下文规则（必须）
+
+1. 每次 Reviewer 汇总评论发布后，主会话与工程席都必须先读取该最新评论，再继续。
+2. 工程席必须按轮次重建：每轮都启动一个**新的** Engineering Subagent，并提供完整 issue/PR/审计上下文。
+3. 禁止复用单个长生命周期 Engineering Subagent 跨轮次累计上下文。
+
+---
+
 # 开始前必做
 
 1. 阅读 `AGENTS.md`

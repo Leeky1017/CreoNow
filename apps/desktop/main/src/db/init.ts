@@ -18,6 +18,9 @@ import { setDbInitError } from "../ipc/dbError";
 import initSql from "./migrations/0001_init.sql?raw";
 import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
 import judgeSql from "./migrations/0003_judge.sql?raw";
+import { clearDbInstanceIfMatch, setDbInstance } from "./connection";
+import { runMigrations } from "./migrator";
+import { DB_MIGRATIONS } from "./migrations/registry";
 import skillsSql from "./migrations/0004_skills.sql?raw";
 import knowledgeGraphSql from "./migrations/0005_knowledge_graph.sql?raw";
 import searchFtsSql from "./migrations/0006_search_fts.sql?raw";
@@ -178,6 +181,7 @@ const SQLITE_VEC_MIGRATION: Migration = {
   name: "0008_user_memory_vec",
   sql: userMemoryVecSql,
 };
+const SQLITE_VEC_TABLE = "user_memory_vec";
 
 /**
  * Best-effort load sqlite-vec for optional vec0 tables.
@@ -236,6 +240,15 @@ function setSchemaVersion(db: Database.Database, version: number): void {
   db.prepare("UPDATE schema_version SET version = ?").run(version);
 }
 
+function tableExists(db: Database.Database, tableName: string): boolean {
+  const row = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+    )
+    .get(tableName) as { name: string } | undefined;
+  return row !== undefined;
+}
+
 /**
  * Open and migrate the application SQLite database.
  *
@@ -263,20 +276,35 @@ export function initDb(args: {
     const current = ensureSchemaVersion(conn);
     schemaVersion = current;
 
-    const migrations = tryLoadSqliteVec({ db: conn, logger: args.logger })
+    const sqliteVecAvailable = tryLoadSqliteVec({ db: conn, logger: args.logger });
+    const migrations = sqliteVecAvailable
       ? [...MIGRATIONS_BASE, SQLITE_VEC_MIGRATION]
       : MIGRATIONS_BASE;
 
-    const pending = [...migrations]
+    const pendingBase = [...migrations]
       .filter((m) => m.version > current)
       .sort((a, b) => a.version - b.version);
+    const pending = [...pendingBase];
+
+    // Backfill optional vec migration when startup was previously degraded.
+    // Why: schema_version may already be at a higher value, so plain `> current`
+    // would permanently skip v8 once sqlite-vec becomes available later.
+    if (
+      sqliteVecAvailable &&
+      current >= SQLITE_VEC_MIGRATION.version &&
+      !tableExists(conn, SQLITE_VEC_TABLE)
+    ) {
+      pending.unshift(SQLITE_VEC_MIGRATION);
+    }
 
     const appliedVersions: number[] = [];
 
     conn.transaction(() => {
+      let schemaVersionCursor = current;
       for (const m of pending) {
         conn.exec(m.sql);
-        setSchemaVersion(conn, m.version);
+        schemaVersionCursor = Math.max(schemaVersionCursor, m.version);
+        setSchemaVersion(conn, schemaVersionCursor);
         appliedVersions.push(m.version);
       }
     })();
@@ -284,6 +312,13 @@ export function initDb(args: {
     const finalSchemaVersion = ensureSchemaVersion(conn);
     schemaVersion = finalSchemaVersion;
 
+    // Run TS migration bridge first; only publish singleton after bridge success.
+    runMigrations(conn, [...DB_MIGRATIONS]);
+
+    // Publish singleton before any success signal.
+    // Why: setDbInstance() can still fail (for example existing singleton
+    // conflict), and we must not emit a false-positive ready event first.
+    setDbInstance(conn);
     args.logger.info("db_ready", {
       db_path: dbPathRedacted,
       schema_version: finalSchemaVersion,
@@ -299,6 +334,9 @@ export function initDb(args: {
         message:
           closeError instanceof Error ? closeError.message : String(closeError),
       });
+    }
+    if (db) {
+      clearDbInstanceIfMatch(db);
     }
 
     const diagnosed = diagnoseDbInitFailure(error);
