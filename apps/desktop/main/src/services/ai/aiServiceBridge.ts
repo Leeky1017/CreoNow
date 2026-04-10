@@ -195,7 +195,7 @@ export function createAiServiceBridge(args: {
     ...(args.now ? { now: args.now } : {}),
   });
 
-  let activeAbortController: AbortController | null = null;
+  const activeAbortControllers = new Set<AbortController>();
 
   async function* streamChat(
     messages: BridgeMessage[],
@@ -234,7 +234,7 @@ export function createAiServiceBridge(args: {
     }
 
     const abortController = new AbortController();
-    activeAbortController = abortController;
+    activeAbortControllers.add(abortController);
 
     const onExternalAbort = () => abortController.abort();
     options.signal.addEventListener("abort", onExternalAbort, { once: true });
@@ -344,6 +344,9 @@ export function createAiServiceBridge(args: {
         usage: {
           promptTokens: streamResult.data.usage.promptTokens,
           completionTokens: streamResult.data.usage.completionTokens,
+          totalTokens:
+            streamResult.data.usage.promptTokens +
+            streamResult.data.usage.completionTokens,
         },
         ...(streamResult.data.persistenceError
           ? { persistenceError: streamResult.data.persistenceError }
@@ -359,9 +362,7 @@ export function createAiServiceBridge(args: {
       }
     } finally {
       options.signal.removeEventListener("abort", onExternalAbort);
-      if (activeAbortController === abortController) {
-        activeAbortController = null;
-      }
+      activeAbortControllers.delete(abortController);
     }
   }
 
@@ -369,10 +370,10 @@ export function createAiServiceBridge(args: {
     streamChat,
     estimateTokens: (text: string) => estimateTokenCount(text),
     abort: () => {
-      if (activeAbortController) {
-        activeAbortController.abort();
-        activeAbortController = null;
+      for (const controller of activeAbortControllers) {
+        controller.abort();
       }
+      activeAbortControllers.clear();
     },
   };
 }

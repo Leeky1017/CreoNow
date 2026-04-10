@@ -382,6 +382,89 @@ describe("aiService streamChat fallback wiring", () => {
     expect(onError).not.toHaveBeenCalled();
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
+
+  it("bridge fallback 到 legacy 后，abort 应命中 legacy 路径", async () => {
+    let resolveRunSkill: ((value: unknown) => void) | undefined;
+    mocks.runSkillMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRunSkill = resolve;
+        }),
+    );
+
+    createHarness(false, true);
+    const orchestratorConfig = (
+      mocks.createWritingOrchestratorMock as unknown as {
+        mock: { calls: Array<[unknown]> };
+      }
+    ).mock.calls[0]?.[0] as
+      | {
+          aiService: {
+            streamChat: (
+              messages: Array<{ role: string; content: string }>,
+              options: {
+                signal: AbortSignal;
+                onComplete: (r: unknown) => void;
+                onError: (e: unknown) => void;
+                onApiCallStarted?: () => void;
+                skillId?: string;
+              },
+            ) => AsyncGenerator<{
+              delta: string;
+              finishReason: "stop" | "tool_use" | null;
+              accumulatedTokens: number;
+            }>;
+            abort: () => void;
+          };
+        }
+      | undefined;
+    expect(orchestratorConfig).toBeDefined();
+
+    const bridgeService = (
+      mocks.createAiServiceBridgeMock as unknown as {
+        mock: { results: Array<{ value: { abort: ReturnType<typeof vi.fn> } }> };
+      }
+    ).mock.results[0]?.value;
+    expect(bridgeService).toBeDefined();
+
+    const onComplete = vi.fn();
+    const onError = vi.fn();
+    const onApiCallStarted = vi.fn();
+    const gen = orchestratorConfig!.aiService.streamChat(
+      [{ role: "user", content: "fallback-abort" }],
+      {
+        signal: new AbortController().signal,
+        onComplete,
+        onError,
+        onApiCallStarted,
+        skillId: "builtin:continue",
+      },
+    );
+
+    const pendingNext = gen.next();
+    await Promise.resolve();
+    orchestratorConfig!.aiService.abort();
+    resolveRunSkill?.({
+      ok: true,
+      data: {
+        executionId: "exec-l",
+        runId: "run-l",
+        traceId: "trace-l",
+        outputText: "late result",
+      },
+    });
+
+    await expect(pendingNext).rejects.toMatchObject({
+      name: "AbortError",
+      kind: "aborted",
+    });
+    expect(mocks.bridgeStreamChatMock).toHaveBeenCalledTimes(1);
+    expect(mocks.runSkillMock).toHaveBeenCalledTimes(1);
+    expect(onApiCallStarted).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(bridgeService?.abort).not.toHaveBeenCalled();
+  });
 });
 
 // ── ai:skill:feedback ──

@@ -1425,6 +1425,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   };
   const writingOrchestrator = createWritingOrchestrator({
     aiService: (() => {
+      let legacyActiveAbortController: AbortController | null = null;
       const legacyOrchestratorAiService = {
         async *streamChat(
           messages: Array<{ role: string; content: string }>,
@@ -1436,58 +1437,80 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             skillId?: string;
           },
         ) {
-          if (options.signal.aborted) {
-            const aborted = makeAbortError("Streaming request aborted");
-            throw aborted;
-          }
-
-          // NOTE: For orchestrator-level cost/abort accounting, runSkill is the API boundary.
-          // Internal provider resolution/preflight remains encapsulated in aiService.
-          options.onApiCallStarted?.();
-          const res = await aiService.runSkill({
-            skillId: options.skillId ?? "builtin:continue",
-            input: messages[messages.length - 1]?.content ?? "",
-            mode: "ask",
-            model: "default",
-            stream: false,
-            ts: nowTs(),
-            overrideMessages: messages,
-            emitEvent: () => {},
-          });
-          if (!res.ok) {
-            const kind =
-              res.error.code === "CANCELED"
-                ? "aborted"
-                : res.error.retryable
-                  ? "retryable"
-                  : "non-retryable";
-            const streamError = {
-              kind,
-              message: res.error.message,
-              retryCount: 0,
-            };
-            if (kind !== "aborted") {
-              options.onError(streamError);
+          const legacyAbortController = new AbortController();
+          legacyActiveAbortController = legacyAbortController;
+          const onExternalAbort = () => legacyAbortController.abort();
+          options.signal.addEventListener("abort", onExternalAbort, { once: true });
+          const throwIfAborted = () => {
+            if (options.signal.aborted || legacyAbortController.signal.aborted) {
+              throw makeAbortError("Streaming request aborted");
             }
-            throw streamError;
-          }
-
-          const content = res.data.outputText ?? "";
-          const completionTokens = estimateTokens(content);
-          yield {
-            delta: content,
-            finishReason: res.data.finishReason ?? "stop",
-            accumulatedTokens: completionTokens,
           };
-          options.onComplete({
-            content,
-            usage: { promptTokens: 0, completionTokens },
-            wasRetried: false,
-          });
+
+          try {
+            throwIfAborted();
+
+            // NOTE: For orchestrator-level cost/abort accounting, runSkill is the API boundary.
+            // Internal provider resolution/preflight remains encapsulated in aiService.
+            options.onApiCallStarted?.();
+            const res = await aiService.runSkill({
+              skillId: options.skillId ?? "builtin:continue",
+              input: messages[messages.length - 1]?.content ?? "",
+              mode: "ask",
+              model: "default",
+              stream: false,
+              ts: nowTs(),
+              overrideMessages: messages,
+              emitEvent: () => {},
+            });
+            throwIfAborted();
+            if (!res.ok) {
+              const kind =
+                res.error.code === "CANCELED"
+                  ? "aborted"
+                  : res.error.retryable
+                    ? "retryable"
+                    : "non-retryable";
+              const streamError = {
+                kind,
+                message: res.error.message,
+                retryCount: 0,
+              };
+              if (kind !== "aborted") {
+                options.onError(streamError);
+              }
+              throw streamError;
+            }
+
+            const content = res.data.outputText ?? "";
+            const completionTokens = estimateTokens(content);
+            yield {
+              delta: content,
+              finishReason: res.data.finishReason ?? "stop",
+              accumulatedTokens: completionTokens,
+            };
+            options.onComplete({
+              content,
+              usage: {
+                promptTokens: 0,
+                completionTokens,
+                totalTokens: completionTokens,
+              },
+              wasRetried: false,
+            });
+          } finally {
+            options.signal.removeEventListener("abort", onExternalAbort);
+            if (legacyActiveAbortController === legacyAbortController) {
+              legacyActiveAbortController = null;
+            }
+          }
         },
         estimateTokens,
         abort() {
-          return;
+          if (legacyActiveAbortController) {
+            legacyActiveAbortController.abort();
+            legacyActiveAbortController = null;
+          }
         },
       };
 
@@ -1511,6 +1534,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
         getProxySettings: readProxySettings,
       });
+      let activeAbort = bridgeAiService.abort;
 
       return {
         async *streamChat(
@@ -1525,17 +1549,21 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             sessionId?: string;
           },
         ) {
+          activeAbort = bridgeAiService.abort;
           try {
             yield* bridgeAiService.streamChat(messages, options);
           } catch (error) {
             if (!isBridgeUnsupportedProviderError(error)) {
               throw error;
             }
+            activeAbort = legacyOrchestratorAiService.abort;
             yield* legacyOrchestratorAiService.streamChat(messages, options);
+          } finally {
+            activeAbort = bridgeAiService.abort;
           }
         },
         estimateTokens: bridgeAiService.estimateTokens,
-        abort: bridgeAiService.abort,
+        abort: () => activeAbort(),
       };
     })(),
     toolRegistry:

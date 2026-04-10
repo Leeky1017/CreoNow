@@ -890,9 +890,11 @@ export function createApiClient(args: {
       }
 
       let sawSseDataEvent = false;
+      let receivedDone = false;
       for await (const event of readSse({ body: response.body })) {
         sawSseDataEvent = true;
         if (event.data === "[DONE]") {
+          receivedDone = true;
           break;
         }
         let parsed: unknown;
@@ -982,6 +984,42 @@ export function createApiClient(args: {
           "Streaming response ended before any SSE data event was received",
           { requestId, retryCount },
           { retryable: false },
+        );
+      }
+
+      if (!receivedDone) {
+        callArgs.onChunk?.({ delta: "", done: true });
+        const costRes = await recordCost({
+          requestId,
+          sessionId: callArgs.sessionId,
+          skillId: callArgs.skillId,
+          model: callArgs.provider.model,
+          usage,
+          startedAtMs,
+        });
+        if (!costRes.ok) {
+          const streamInterrupted = ipcError(
+            "LLM_API_ERROR",
+            "Streaming connection interrupted",
+            { requestId, partialContent: content },
+            { retryable: true },
+          );
+          return {
+            ok: false,
+            error: {
+              ...streamInterrupted.error,
+              details: mergePersistenceErrorDetails(
+                enrichDetailsWithRetryCount(streamInterrupted.error.details, retryCount),
+                costRes.error,
+              ),
+            },
+          };
+        }
+        return ipcError(
+          "LLM_API_ERROR",
+          "Streaming connection interrupted",
+          { requestId, partialContent: content, retryCount },
+          { retryable: true },
         );
       }
 

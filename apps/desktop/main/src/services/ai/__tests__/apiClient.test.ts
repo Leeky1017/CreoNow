@@ -257,6 +257,8 @@ describe("apiClient", () => {
               'data: {"choices":[{"delta":{"content":"tail"}}]}',
               "",
               'data: {"usage":{"prompt_tokens":4,"completion_tokens":2}}',
+              "",
+              "data: [DONE]",
             ].join("\n"),
           ),
         );
@@ -771,6 +773,75 @@ describe("apiClient", () => {
     expect(result.error.retryable).toBe(false);
     expect(onChunk).not.toHaveBeenCalled();
     expect(getCostRecord(db, "req-6c")).not.toBeNull();
+  });
+
+  it("returns retryable error with partial content when stream ends without [DONE]", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const partialSseBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'data: {"choices":[{"delta":{"content":"partial text"}}]}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+
+    const fetchMock = vi.fn(
+      async (_url: URL | RequestInfo, _init?: RequestInit) =>
+        new Response(partialSseBody, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+    );
+
+    const onChunk = vi.fn();
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 6_900,
+    });
+
+    const result = await client.streamChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 100,
+        temperature: 0.5,
+      },
+      messages: [{ role: "user", content: "hello" }],
+      requestId: "req-6d",
+      skillId: "builtin:continue",
+      onChunk,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected partial stream failure");
+    }
+    expect(result.error.code).toBe("LLM_API_ERROR");
+    expect(result.error.retryable).toBe(true);
+    expect(result.error.message).toBe("Streaming connection interrupted");
+    expect(
+      (result.error.details as { partialContent?: string } | undefined)
+        ?.partialContent,
+    ).toBe("partial text");
+    expect(onChunk).toHaveBeenNthCalledWith(1, { delta: "partial text", done: false });
+    expect(onChunk).toHaveBeenNthCalledWith(2, { delta: "", done: true });
+    expect(getCostRecord(db, "req-6d")).not.toBeNull();
   });
 
   it("classifies 5xx stream response as retryable", async () => {

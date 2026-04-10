@@ -6,6 +6,7 @@ import { createAiServiceBridge } from "../aiServiceBridge";
 import { createCostTracker, type ModelPricingTable } from "../costTracker";
 import * as modelRouterModule from "../modelRouter";
 import type { ModelRouter } from "../modelRouter";
+import * as apiClientModule from "../apiClient";
 
 function createLogger(): Logger {
   return {
@@ -155,6 +156,15 @@ describe("aiServiceBridge", () => {
     expect(collected.join("")).toBe("bridge ok");
     expect(onError).not.toHaveBeenCalled();
     expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usage: {
+          promptTokens: 11,
+          completionTokens: 4,
+          totalTokens: 15,
+        },
+      }),
+    );
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(calledUrl).toBe("https://api.openai.com/v1/chat/completions");
     expect(onApiCallStarted).toHaveBeenCalledTimes(1);
@@ -549,5 +559,89 @@ describe("aiServiceBridge", () => {
     });
     expect(onError).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("aborts all active concurrent bridge streams", async () => {
+    const db = createDb();
+    putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
+    putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
+    const capturedSignals: AbortSignal[] = [];
+    const createApiClientSpy = vi
+      .spyOn(apiClientModule, "createApiClient")
+      .mockReturnValue({
+        createChatCompletion: vi.fn(async () => ({
+          ok: false,
+          error: { code: "INTERNAL", message: "unused" },
+        })),
+        streamChatCompletion: vi.fn(async (args) => {
+          capturedSignals.push(args.signal as AbortSignal);
+          return await new Promise((resolve) => {
+            const onAbort = () => {
+              resolve({
+                ok: false,
+                error: {
+                  code: "CANCELED",
+                  message: "aborted",
+                  retryable: false,
+                },
+              });
+            };
+            if (args.signal?.aborted) {
+              onAbort();
+              return;
+            }
+            args.signal?.addEventListener("abort", onAbort, { once: true });
+          });
+        }),
+      } as unknown as ReturnType<typeof apiClientModule.createApiClient>);
+
+    const bridge = createAiServiceBridge({
+      db,
+      logger: createLogger(),
+      costTracker: createCostTracker({
+        pricingTable: createPricingTable(),
+        budgetPolicy: {
+          warningThreshold: 10,
+          hardStopLimit: 100,
+          enabled: false,
+        },
+        estimateTokens: () => 0,
+      }),
+      env: {
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_BASE_URL: "https://api.openai.com",
+        CREONOW_AI_API_KEY: "sk-test",
+      },
+      runtimeAiTimeoutMs: 30_000,
+    });
+
+    const outerAbort1 = new AbortController();
+    const outerAbort2 = new AbortController();
+    const gen1 = bridge.streamChat([{ role: "user", content: "x1" }], {
+      signal: outerAbort1.signal,
+      onComplete: vi.fn(),
+      onError: vi.fn(),
+      skillId: "builtin:continue",
+      requestId: "bridge-concurrent-1",
+    });
+    const gen2 = bridge.streamChat([{ role: "user", content: "x2" }], {
+      signal: outerAbort2.signal,
+      onComplete: vi.fn(),
+      onError: vi.fn(),
+      skillId: "builtin:continue",
+      requestId: "bridge-concurrent-2",
+    });
+
+    const next1 = gen1.next();
+    const next2 = gen2.next();
+    await vi.waitFor(() => expect(capturedSignals).toHaveLength(2));
+    bridge.abort();
+    outerAbort1.abort();
+    outerAbort2.abort();
+
+    expect(capturedSignals.every((signal) => signal.aborted)).toBe(true);
+    await expect(next1).rejects.toMatchObject({ kind: "aborted" });
+    await expect(next2).rejects.toMatchObject({ kind: "aborted" });
+    createApiClientSpy.mockRestore();
   });
 });
