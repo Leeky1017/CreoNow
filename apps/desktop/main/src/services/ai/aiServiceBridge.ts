@@ -39,7 +39,12 @@ type BridgeMessage = {
 };
 
 type StreamError = {
-  kind: "retryable" | "non-retryable" | "aborted" | "unsupported-provider";
+  kind:
+    | "retryable"
+    | "non-retryable"
+    | "partial-result"
+    | "aborted"
+    | "unsupported-provider";
   message: string;
   retryCount: number;
   partialContent?: string;
@@ -98,8 +103,7 @@ function makeStreamError(args: {
   message: string;
   partialContent?: string;
 }): StreamError {
-  const kind =
-    args.kind ?? (args.retryable ? "retryable" : "non-retryable");
+  const kind = args.kind ?? (args.retryable ? "retryable" : "non-retryable");
   return {
     kind,
     message: args.message,
@@ -133,9 +137,9 @@ export function createAiServiceBridge(args: {
   abort: () => void;
 } {
   const providerResolver = createProviderResolver({ logger: args.logger });
-  let fakeServerPromise:
-    | Promise<Awaited<ReturnType<typeof startFakeAiServer>>>
-    | null = null;
+  let fakeServerPromise: Promise<
+    Awaited<ReturnType<typeof startFakeAiServer>>
+  > | null = null;
   const modelConfigService = createModelConfigService({
     db: args.db,
     logger: args.logger,
@@ -174,12 +178,6 @@ export function createAiServiceBridge(args: {
   ): AsyncGenerator<StreamChunk> {
     if (options.signal.aborted) {
       const abortedError = makeAbortError("Streaming request aborted");
-      options.onError(
-        makeStreamError({
-          kind: "aborted",
-          message: abortedError.message,
-        }),
-      );
       throw abortedError;
     }
 
@@ -226,25 +224,31 @@ export function createAiServiceBridge(args: {
       }
     };
 
-    const requestPromise: Promise<ServiceResult<{
-      requestId: string;
-      content: string;
-      usage: {
-        promptTokens: number;
-        completionTokens: number;
-        cachedTokens: number;
-      };
-      model: string;
-      persistenceError?: unknown;
-    }>> = apiClient.streamChatCompletion({
+    const requestPromise: Promise<
+      ServiceResult<{
+        requestId: string;
+        content: string;
+        usage: {
+          promptTokens: number;
+          completionTokens: number;
+          cachedTokens: number;
+        };
+        model: string;
+        persistenceError?: unknown;
+      }>
+    > = apiClient.streamChatCompletion({
       provider: toOpenAiProvider(routeResult.data),
       messages: messages.map((message) => ({
         role: normalizeRole(message.role),
         content: message.content,
       })),
       skillId: streamContext.skillId,
-      ...(streamContext.sessionId ? { sessionId: streamContext.sessionId } : {}),
-      ...(streamContext.requestId ? { requestId: streamContext.requestId } : {}),
+      ...(streamContext.sessionId
+        ? { sessionId: streamContext.sessionId }
+        : {}),
+      ...(streamContext.requestId
+        ? { requestId: streamContext.requestId }
+        : {}),
       signal: abortController.signal,
       onChunk: (chunk) => {
         pendingChunks.push(chunk);
@@ -293,9 +297,12 @@ export function createAiServiceBridge(args: {
         const streamError = makeStreamError({
           kind: errorKind,
           message: streamResult.error.message,
-          partialContent: accumulatedText.length > 0 ? accumulatedText : undefined,
+          partialContent:
+            accumulatedText.length > 0 ? accumulatedText : undefined,
         });
-        options.onError(streamError);
+        if (streamError.kind !== "aborted") {
+          options.onError(streamError);
+        }
         throw streamError;
       }
 

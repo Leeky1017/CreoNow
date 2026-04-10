@@ -67,33 +67,38 @@ describe("aiServiceBridge", () => {
     putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
     putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
 
-    const fetchMock = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
-      const payload = JSON.parse(String(init?.body)) as { model: string; stream: boolean };
-      expect(payload.model).toBe("gpt-4.1-mini");
-      expect(payload.stream).toBe(true);
-      return new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(
-              new TextEncoder().encode(
-                [
-                  'data: {"choices":[{"delta":{"content":"bridge "}}]}',
-                  "",
-                  'data: {"choices":[{"delta":{"content":"ok"}}]}',
-                  "",
-                  'data: {"usage":{"prompt_tokens":11,"completion_tokens":4}}',
-                  "",
-                  "data: [DONE]",
-                  "",
-                ].join("\n"),
-              ),
-            );
-            controller.close();
-          },
-        }),
-        { status: 200, headers: { "content-type": "text/event-stream" } },
-      );
-    });
+    const fetchMock = vi.fn(
+      async (_url: URL | RequestInfo, init?: RequestInit) => {
+        const payload = JSON.parse(String(init?.body)) as {
+          model: string;
+          stream: boolean;
+        };
+        expect(payload.model).toBe("gpt-4.1-mini");
+        expect(payload.stream).toBe(true);
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(
+                  [
+                    'data: {"choices":[{"delta":{"content":"bridge "}}]}',
+                    "",
+                    'data: {"choices":[{"delta":{"content":"ok"}}]}',
+                    "",
+                    'data: {"usage":{"prompt_tokens":11,"completion_tokens":4}}',
+                    "",
+                    "data: [DONE]",
+                    "",
+                  ].join("\n"),
+                ),
+              );
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        );
+      },
+    );
 
     const logger = createLogger();
     const bridge = createAiServiceBridge({
@@ -148,9 +153,7 @@ describe("aiServiceBridge", () => {
       .prepare<
         [string],
         { model: string; inputTokens: number; outputTokens: number }
-      >(
-        "SELECT model, input_tokens AS inputTokens, output_tokens AS outputTokens FROM cost_records WHERE id = ?",
-      )
+      >("SELECT model, input_tokens AS inputTokens, output_tokens AS outputTokens FROM cost_records WHERE id = ?")
       .get("bridge-req-1");
     expect(row).toEqual({
       model: "gpt-4.1-mini",
@@ -268,19 +271,18 @@ describe("aiServiceBridge", () => {
 
     const abortController = new AbortController();
     abortController.abort();
-    const gen = bridge.streamChat(
-      [{ role: "user", content: "x" }],
-      {
-        signal: abortController.signal,
-        onComplete: vi.fn(),
-        onError: vi.fn(),
-      },
-    );
+    const onError = vi.fn();
+    const gen = bridge.streamChat([{ role: "user", content: "x" }], {
+      signal: abortController.signal,
+      onComplete: vi.fn(),
+      onError,
+    });
 
     await expect(gen.next()).rejects.toMatchObject({
       name: "AbortError",
       kind: "aborted",
     });
+    expect(onError).not.toHaveBeenCalled();
   });
 
   it("rejects anthropic provider for bridge path", async () => {
@@ -310,15 +312,12 @@ describe("aiServiceBridge", () => {
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
 
-    const gen = bridge.streamChat(
-      [{ role: "user", content: "x" }],
-      {
-        signal: new AbortController().signal,
-        onComplete: vi.fn(),
-        onError: vi.fn(),
-        skillId: "builtin:continue",
-      },
-    );
+    const gen = bridge.streamChat([{ role: "user", content: "x" }], {
+      signal: new AbortController().signal,
+      onComplete: vi.fn(),
+      onError: vi.fn(),
+      skillId: "builtin:continue",
+    });
 
     await expect(gen.next()).rejects.toMatchObject({
       kind: "unsupported-provider",
