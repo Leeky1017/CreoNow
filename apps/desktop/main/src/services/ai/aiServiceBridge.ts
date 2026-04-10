@@ -201,7 +201,6 @@ export function createAiServiceBridge(args: {
         kind: "unsupported-provider",
         message: `Bridge only supports OpenAI-compatible providers, got: ${routeResult.data.provider}`,
       });
-      options.onError(streamError);
       throw streamError;
     }
 

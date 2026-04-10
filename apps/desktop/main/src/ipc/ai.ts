@@ -1208,13 +1208,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     const res = svc.getRaw();
     return res.ok ? res.data : null;
   };
-  const proxySettings = readProxySettings();
-  const shouldUseLegacyGenerateText =
-    deps.env.NODE_ENV === "test" ||
-    deps.env.CREONOW_E2E === "1" ||
-    deps.env.CREONOW_AI_PROVIDER === "anthropic" ||
-    proxySettings?.providerMode === "anthropic-byok";
-
   const aiService = createAiService({
     logger: deps.logger,
     env: deps.env,
@@ -1444,11 +1437,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         ) {
           if (options.signal.aborted) {
             const aborted = makeAbortError("Streaming request aborted");
-            options.onError({
-              kind: "aborted",
-              message: aborted.message,
-              retryCount: 0,
-            });
             throw aborted;
           }
 
@@ -1634,9 +1622,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
       return prepared.data;
     },
-    ...(shouldUseLegacyGenerateText
-      ? {
-          generateText: async ({ request, signal, emitChunk, messages }) => {
+    generateText: async ({ request, signal, emitChunk, messages }) => {
             let outputText = "";
             let usage = {
               promptTokens: 0,
@@ -1826,9 +1812,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               finishReason: capturedFinishReason,
               toolCalls: capturedToolCalls,
             };
-          },
-        }
-      : {}),
+    },
   });
 
   const ctx: AiIpcContext = {

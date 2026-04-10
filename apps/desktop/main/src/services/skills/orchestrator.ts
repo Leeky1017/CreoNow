@@ -376,7 +376,15 @@ export function createWritingOrchestrator(
             lastFinishReason = null;
             lastToolCalls = [];
 
-            if (config.generateText) {
+            const generateText = config.generateText;
+            const hasStreamChat = typeof config.aiService.streamChat === "function";
+            const shouldUseGenerateText =
+              Boolean(generateText) &&
+              (request.agenticLoop === true ||
+                !hasStreamChat ||
+                process.env.NODE_ENV === "test");
+
+            if (shouldUseGenerateText && generateText) {
               const chunkQueue: Array<{
                 delta: string;
                 accumulatedTokens: number;
@@ -390,8 +398,7 @@ export function createWritingOrchestrator(
                 notifyChange = null;
                 resolver?.();
               };
-              const generationPromise = config
-                .generateText({
+              const generationPromise = generateText({
                   request,
                   signal: abortController.signal,
                   emitChunk: (delta, accumulatedTokens) => {
@@ -454,7 +461,7 @@ export function createWritingOrchestrator(
               lastTokens = generatedResult.usage.completionTokens;
               lastFinishReason = generatedResult.finishReason ?? null;
               lastToolCalls = generatedResult.toolCalls ?? [];
-            } else {
+            } else if (hasStreamChat) {
               let streamFinishReason: "stop" | "tool_use" | null = null;
               const gen = config.aiService.streamChat(
                 prepared.messages,
@@ -488,6 +495,8 @@ export function createWritingOrchestrator(
               }
               lastFinishReason = streamFinishReason;
               lastPromptTokens = tokenCount;
+            } else {
+              throw new Error("No AI execution path available");
             }
 
             aiSuccess = true;

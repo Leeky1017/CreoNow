@@ -312,16 +312,18 @@ describe("aiServiceBridge", () => {
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
 
+    const onError = vi.fn();
     const gen = bridge.streamChat([{ role: "user", content: "x" }], {
       signal: new AbortController().signal,
       onComplete: vi.fn(),
-      onError: vi.fn(),
+      onError,
       skillId: "builtin:continue",
     });
 
     await expect(gen.next()).rejects.toMatchObject({
       kind: "unsupported-provider",
     });
+    expect(onError).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
