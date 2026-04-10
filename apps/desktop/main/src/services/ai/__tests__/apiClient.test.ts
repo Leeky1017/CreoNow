@@ -416,14 +416,8 @@ describe("apiClient", () => {
     expect(row?.estimatedCostUsd).toBe(0);
   });
 
-  it("combines timeoutMs with external signal for fetch abort control", async () => {
-    if (
-      typeof AbortSignal.timeout !== "function" ||
-      typeof AbortSignal.any !== "function"
-    ) {
-      return;
-    }
-
+  it("retries timed-out request and succeeds on second attempt", async () => {
+    vi.useFakeTimers();
     const db = createDb();
     const tracker = createCostTracker({
       pricingTable: createPricingTable(),
@@ -434,19 +428,30 @@ describe("apiClient", () => {
       },
       estimateTokens: () => 0,
     });
-    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
-    const anySpy = vi.spyOn(AbortSignal, "any");
-
-    const fetchMock = vi.fn(
-      async (_url: URL | RequestInfo, _init?: RequestInit) =>
-        new Response(
-          JSON.stringify({
-            choices: [{ message: { content: "ok" } }],
-            usage: { prompt_tokens: 1, completion_tokens: 1 },
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        ),
-    );
+    const fetchMock = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
+      if (fetchMock.mock.calls.length === 1) {
+        const signal = init?.signal as AbortSignal | undefined;
+        await new Promise<never>((_resolve, reject) => {
+          const onAbort = () => {
+            const err = new Error("attempt timeout");
+            err.name = "AbortError";
+            reject(err);
+          };
+          if (signal?.aborted) {
+            onAbort();
+            return;
+          }
+          signal?.addEventListener("abort", onAbort, { once: true });
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok after timeout retry" } }],
+          usage: { prompt_tokens: 1, completion_tokens: 1 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
 
     const client = createApiClient({
       db,
@@ -456,114 +461,93 @@ describe("apiClient", () => {
       now: () => 9_000,
     });
 
-    const signal = new AbortController().signal;
-    const result = await client.createChatCompletion({
+    const resultPromise = client.createChatCompletion({
       provider: {
         baseUrl: "https://api.openai.com",
         model: "gpt-4o",
         maxTokens: 64,
         temperature: 0.2,
-        timeoutMs: 1_500,
+        timeoutMs: 5,
       },
       messages: [{ role: "user", content: "hi" }],
       requestId: "req-timeout-1",
       skillId: "builtin:continue",
-      signal,
     });
+    await vi.advanceTimersByTimeAsync(2_000);
+    const result = await resultPromise;
 
     expect(result.ok).toBe(true);
-    expect(timeoutSpy).toHaveBeenCalledWith(1_500);
-    expect(anySpy).toHaveBeenCalled();
+    if (!result.ok) {
+      throw new Error("expected retry success");
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.data.content).toBe("ok after timeout retry");
+    expect(result.data.retryCount).toBe(1);
   });
 
-  it("keeps timeout abort when AbortSignal.any is unavailable", async () => {
-    if (typeof AbortSignal.timeout !== "function") {
-      return;
-    }
-
-    const originalAny = (
-      AbortSignal as typeof AbortSignal & {
-        any?: (signals: AbortSignal[]) => AbortSignal;
-      }
-    ).any;
-    Object.defineProperty(AbortSignal, "any", {
-      value: undefined,
-      configurable: true,
+  it("returns retryable timeout error after exhausting retries", async () => {
+    vi.useFakeTimers();
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
     });
 
-    try {
-      const db = createDb();
-      const tracker = createCostTracker({
-        pricingTable: createPricingTable(),
-        budgetPolicy: {
-          warningThreshold: 10,
-          hardStopLimit: 100,
-          enabled: false,
-        },
-        estimateTokens: () => 0,
-      });
-
-      const external = new AbortController().signal;
-      let mergedSignal: AbortSignal | null = null;
-      const fetchMock = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
-        mergedSignal = (init?.signal as AbortSignal | null) ?? null;
-        if (!mergedSignal) {
-          throw new Error("missing merged signal");
+    const fetchMock = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
+      const signal = init?.signal as AbortSignal | undefined;
+      await new Promise<never>((_resolve, reject) => {
+        const onAbort = () => {
+          const err = new Error("attempt timeout");
+          err.name = "AbortError";
+          reject(err);
+        };
+        if (signal?.aborted) {
+          onAbort();
+          return;
         }
-        await new Promise<void>((resolve, reject) => {
-          mergedSignal?.addEventListener(
-            "abort",
-            () => {
-              const err = new Error("aborted by timeout");
-              err.name = "AbortError";
-              reject(err);
-            },
-            { once: true },
-          );
-          setTimeout(resolve, 50);
-        });
-        return new Response("{}", {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
+        signal?.addEventListener("abort", onAbort, { once: true });
       });
+      throw new Error("unreachable");
+    });
 
-      const client = createApiClient({
-        db,
-        costTracker: tracker,
-        logger: createLogger(),
-        fetchImpl: fetchMock as unknown as typeof fetch,
-        now: () => 9_500,
-      });
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 9_500,
+    });
 
-      const result = await client.streamChatCompletion({
-        provider: {
-          baseUrl: "https://api.openai.com",
-          model: "gpt-4o",
-          maxTokens: 64,
-          temperature: 0.2,
-          timeoutMs: 5,
-        },
-        messages: [{ role: "user", content: "hi" }],
-        requestId: "req-timeout-fallback-1",
-        skillId: "builtin:continue",
-        signal: external,
-      });
+    const resultPromise = client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 64,
+        temperature: 0.2,
+        timeoutMs: 5,
+      },
+      messages: [{ role: "user", content: "hi" }],
+      requestId: "req-timeout-all-retries",
+      skillId: "builtin:continue",
+    });
+    await vi.advanceTimersByTimeAsync(8_000);
+    const result = await resultPromise;
 
-      expect(mergedSignal).not.toBeNull();
-      expect(mergedSignal).not.toBe(external);
-      expect(result.ok).toBe(false);
-      if (result.ok) {
-        throw new Error("expected timeout abort");
-      }
-      expect(result.error.code).toBe("CANCELED");
-      expect(result.error.retryable).toBe(false);
-    } finally {
-      Object.defineProperty(AbortSignal, "any", {
-        value: originalAny,
-        configurable: true,
-      });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected timeout failure");
     }
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(result.error.code).toBe("LLM_API_ERROR");
+    expect(result.error.retryable).toBe(true);
+    expect(
+      (result.error.details as { retryCount?: number } | undefined)?.retryCount,
+    ).toBe(3);
   });
 
   it("marks network exception as retryable and still writes cost record", async () => {
@@ -1147,7 +1131,7 @@ describe("apiClient", () => {
     ).toBe(1);
   });
 
-  it("classifies stream AbortError as non-retryable CANCELED", async () => {
+  it("classifies stream user abort as non-retryable CANCELED", async () => {
     const db = createDb();
     const tracker = createCostTracker({
       pricingTable: createPricingTable(),
@@ -1159,10 +1143,21 @@ describe("apiClient", () => {
       estimateTokens: () => 0,
     });
 
-    const fetchMock = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => {
-      const err = new Error("request canceled");
-      err.name = "AbortError";
-      throw err;
+    const fetchMock = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
+      const signal = init?.signal as AbortSignal | undefined;
+      await new Promise<never>((_resolve, reject) => {
+        const onAbort = () => {
+          const err = new Error("request canceled");
+          err.name = "AbortError";
+          reject(err);
+        };
+        if (signal?.aborted) {
+          onAbort();
+          return;
+        }
+        signal?.addEventListener("abort", onAbort, { once: true });
+      });
+      throw new Error("unreachable");
     });
 
     const client = createApiClient({
@@ -1173,7 +1168,8 @@ describe("apiClient", () => {
       now: () => 8_500,
     });
 
-    const result = await client.streamChatCompletion({
+    const abortController = new AbortController();
+    const resultPromise = client.streamChatCompletion({
       provider: {
         baseUrl: "https://api.openai.com",
         model: "gpt-4o",
@@ -1183,12 +1179,17 @@ describe("apiClient", () => {
       messages: [{ role: "user", content: "hello" }],
       requestId: "req-9",
       skillId: "builtin:continue",
+      signal: abortController.signal,
     });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    abortController.abort();
+    const result = await resultPromise;
 
     expect(result.ok).toBe(false);
     if (result.ok) {
       throw new Error("expected abort failure");
     }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.error.code).toBe("CANCELED");
     expect(result.error.retryable).toBe(false);
     expect(getCostRecord(db, "req-9")).not.toBeNull();

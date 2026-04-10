@@ -122,6 +122,18 @@ function isAbortError(error: unknown): error is Error {
   return error instanceof Error && error.name === "AbortError";
 }
 
+function createAbortError(message: string): Error {
+  const abortError = new Error(message);
+  abortError.name = "AbortError";
+  return abortError;
+}
+
+function parseTimeoutMs(timeoutMs: number | undefined): number | undefined {
+  return typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? Math.floor(timeoutMs)
+    : undefined;
+}
+
 function getRetryDelayMs(attemptNumber: number): number {
   return BASE_RETRY_DELAY_MS * 2 ** Math.max(0, attemptNumber - 1);
 }
@@ -166,6 +178,7 @@ type RetryFetchNetworkError = {
   kind: "network-error";
   cause: unknown;
   retryCount: number;
+  abortedByUser: boolean;
 };
 
 function isRetryFetchNetworkError(error: unknown): error is RetryFetchNetworkError {
@@ -180,17 +193,13 @@ function isRetryFetchNetworkError(error: unknown): error is RetryFetchNetworkErr
 function sleepWithSignal(args: { delayMs: number; signal?: AbortSignal }): Promise<void> {
   if (args.delayMs <= 0) {
     if (args.signal?.aborted) {
-      const abortError = new Error("Request aborted");
-      abortError.name = "AbortError";
-      return Promise.reject(abortError);
+      return Promise.reject(createAbortError("Request aborted"));
     }
     return Promise.resolve();
   }
   return new Promise<void>((resolve, reject) => {
     if (args.signal?.aborted) {
-      const abortError = new Error("Request aborted");
-      abortError.name = "AbortError";
-      reject(abortError);
+      reject(createAbortError("Request aborted"));
       return;
     }
     const timeout = setTimeout(() => {
@@ -200,9 +209,7 @@ function sleepWithSignal(args: { delayMs: number; signal?: AbortSignal }): Promi
     const onAbort = () => {
       clearTimeout(timeout);
       args.signal?.removeEventListener("abort", onAbort);
-      const abortError = new Error("Request aborted");
-      abortError.name = "AbortError";
-      reject(abortError);
+      reject(createAbortError("Request aborted"));
     };
     args.signal?.addEventListener("abort", onAbort, { once: true });
   });
@@ -357,61 +364,6 @@ function estimateCostUsd(args: {
   return inputCost + outputCost;
 }
 
-function mergeAbortSignals(args: {
-  signal?: AbortSignal;
-  timeoutMs?: number;
-}): AbortSignal | undefined {
-  const abortSignal = AbortSignal as typeof AbortSignal & {
-    timeout?: (milliseconds: number) => AbortSignal;
-    any?: (signals: AbortSignal[]) => AbortSignal;
-  };
-
-  const signals: AbortSignal[] = [];
-  if (args.signal) {
-    signals.push(args.signal);
-  }
-
-  if (
-    typeof args.timeoutMs === "number" &&
-    Number.isFinite(args.timeoutMs) &&
-    args.timeoutMs > 0 &&
-    typeof abortSignal.timeout === "function"
-  ) {
-    signals.push(abortSignal.timeout(args.timeoutMs));
-  }
-
-  if (signals.length === 0) {
-    return undefined;
-  }
-  if (signals.length === 1) {
-    return signals[0];
-  }
-
-  if (typeof abortSignal.any === "function") {
-    return abortSignal.any(signals);
-  }
-
-  const controller = new AbortController();
-  for (const signal of signals) {
-    if (signal.aborted) {
-      controller.abort(signal.reason);
-      return controller.signal;
-    }
-  }
-  for (const signal of signals) {
-    signal.addEventListener(
-      "abort",
-      () => {
-        if (!controller.signal.aborted) {
-          controller.abort(signal.reason);
-        }
-      },
-      { once: true },
-    );
-  }
-  return controller.signal;
-}
-
 function mergePersistenceErrorDetails(
   details: unknown,
   persistenceError: unknown,
@@ -440,21 +392,46 @@ export function createApiClient(args: {
   async function retryFetch(argsForFetch: {
     input: string;
     init: RequestInit;
-    signal?: AbortSignal;
+    userSignal?: AbortSignal;
+    timeoutMs?: number;
   }): Promise<{ response: Response; retryCount: number }> {
+    const timeoutMs = parseTimeoutMs(argsForFetch.timeoutMs);
     let retryCount = 0;
+    const { signal: _ignoredSignal, ...initWithoutSignal } = argsForFetch.init;
     while (true) {
-      if (argsForFetch.signal?.aborted) {
-        const abortError = new Error("Request aborted");
-        abortError.name = "AbortError";
+      if (argsForFetch.userSignal?.aborted) {
         throw {
           kind: "network-error",
-          cause: abortError,
+          cause: createAbortError("Request aborted"),
           retryCount,
+          abortedByUser: true,
         } satisfies RetryFetchNetworkError;
       }
+
+      const attemptController = new AbortController();
+      let abortedByUser = false;
+      const onUserAbort = () => {
+        abortedByUser = true;
+        attemptController.abort(argsForFetch.userSignal?.reason);
+      };
+      if (argsForFetch.userSignal) {
+        argsForFetch.userSignal.addEventListener("abort", onUserAbort, {
+          once: true,
+        });
+      }
+
+      const timeoutId =
+        timeoutMs === undefined
+          ? undefined
+          : setTimeout(() => {
+              attemptController.abort(createAbortError("Request timeout"));
+            }, timeoutMs);
+
       try {
-        const response = await fetchImpl(argsForFetch.input, argsForFetch.init);
+        const response = await fetchImpl(argsForFetch.input, {
+          ...initWithoutSignal,
+          signal: attemptController.signal,
+        });
         if (
           response.ok ||
           !classifyHttpRetryable(response.status) ||
@@ -467,16 +444,30 @@ export function createApiClient(args: {
           response.headers.get("Retry-After"),
           now(),
         );
-        await sleepWithSignal({
-          delayMs: retryAfterMs ?? getRetryDelayMs(retryCount),
-          signal: argsForFetch.signal,
-        });
+        try {
+          await sleepWithSignal({
+            delayMs: retryAfterMs ?? getRetryDelayMs(retryCount),
+            signal: argsForFetch.userSignal,
+          });
+        } catch (sleepError) {
+          throw {
+            kind: "network-error",
+            cause: sleepError,
+            retryCount,
+            abortedByUser:
+              isAbortError(sleepError) && argsForFetch.userSignal?.aborted === true,
+          } satisfies RetryFetchNetworkError;
+        }
       } catch (error) {
-        if (isAbortError(error)) {
+        if (isRetryFetchNetworkError(error)) {
+          throw error;
+        }
+        if (isAbortError(error) && (abortedByUser || argsForFetch.userSignal?.aborted)) {
           throw {
             kind: "network-error",
             cause: error,
             retryCount,
+            abortedByUser: true,
           } satisfies RetryFetchNetworkError;
         }
         if (retryCount >= MAX_FETCH_RETRIES) {
@@ -484,13 +475,29 @@ export function createApiClient(args: {
             kind: "network-error",
             cause: error,
             retryCount,
+            abortedByUser: false,
           } satisfies RetryFetchNetworkError;
         }
         retryCount += 1;
-        await sleepWithSignal({
-          delayMs: getRetryDelayMs(retryCount),
-          signal: argsForFetch.signal,
-        });
+        try {
+          await sleepWithSignal({
+            delayMs: getRetryDelayMs(retryCount),
+            signal: argsForFetch.userSignal,
+          });
+        } catch (sleepError) {
+          throw {
+            kind: "network-error",
+            cause: sleepError,
+            retryCount,
+            abortedByUser:
+              isAbortError(sleepError) && argsForFetch.userSignal?.aborted === true,
+          } satisfies RetryFetchNetworkError;
+        }
+      } finally {
+        if (timeoutId !== undefined) {
+          clearTimeout(timeoutId);
+        }
+        argsForFetch.userSignal?.removeEventListener("abort", onUserAbort);
       }
     }
   }
@@ -545,10 +552,6 @@ export function createApiClient(args: {
       cachedTokens: 0,
     };
     try {
-      const requestSignal = mergeAbortSignals({
-        signal: callArgs.signal,
-        timeoutMs: callArgs.provider.timeoutMs,
-      });
       const retryResult = await retryFetch({
         input: buildApiUrl({
           baseUrl: callArgs.provider.baseUrl,
@@ -556,7 +559,6 @@ export function createApiClient(args: {
         }),
         init: {
           method: "POST",
-          signal: requestSignal,
           headers: {
             "Content-Type": "application/json",
             ...(callArgs.provider.apiKey
@@ -571,7 +573,8 @@ export function createApiClient(args: {
             stream: false,
           }),
         },
-        signal: requestSignal,
+        userSignal: callArgs.signal,
+        timeoutMs: callArgs.provider.timeoutMs,
       });
       const response = retryResult.response;
       retryCount = retryResult.retryCount;
@@ -694,9 +697,11 @@ export function createApiClient(args: {
               kind: "network-error" as const,
               cause: error,
               retryCount,
+              abortedByUser:
+                isAbortError(error) && callArgs.signal?.aborted === true,
             };
       retryCount = retryFailure.retryCount;
-      const aborted = isAbortError(retryFailure.cause);
+      const aborted = retryFailure.abortedByUser;
       const costRes = await recordCost({
         requestId,
         sessionId: callArgs.sessionId,
@@ -750,10 +755,6 @@ export function createApiClient(args: {
     let content = "";
 
     try {
-      const requestSignal = mergeAbortSignals({
-        signal: callArgs.signal,
-        timeoutMs: callArgs.provider.timeoutMs,
-      });
       const retryResult = await retryFetch({
         input: buildApiUrl({
           baseUrl: callArgs.provider.baseUrl,
@@ -761,7 +762,6 @@ export function createApiClient(args: {
         }),
         init: {
           method: "POST",
-          signal: requestSignal,
           headers: {
             "Content-Type": "application/json",
             ...(callArgs.provider.apiKey
@@ -776,7 +776,8 @@ export function createApiClient(args: {
             stream: true,
           }),
         },
-        signal: requestSignal,
+        userSignal: callArgs.signal,
+        timeoutMs: callArgs.provider.timeoutMs,
       });
       const response = retryResult.response;
       retryCount = retryResult.retryCount;
@@ -1025,9 +1026,11 @@ export function createApiClient(args: {
               kind: "network-error" as const,
               cause: error,
               retryCount,
+              abortedByUser:
+                isAbortError(error) && callArgs.signal?.aborted === true,
             };
       retryCount = retryFailure.retryCount;
-      const aborted = isAbortError(retryFailure.cause);
+      const aborted = retryFailure.abortedByUser;
       const costRes = await recordCost({
         requestId,
         sessionId: callArgs.sessionId,
