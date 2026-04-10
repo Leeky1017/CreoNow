@@ -828,6 +828,23 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
+    it("aborted 错误 → 立即终止且不重试", async () => {
+      const aiService = createMockAIService();
+      aiService.streamChat.mockImplementation(() => {
+        throw { kind: "aborted", message: "request canceled", retryCount: 0 };
+      });
+
+      const cfg = buildConfig({ aiService });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+
+      expect(aiService.streamChat).toHaveBeenCalledTimes(1);
+      expect(eventTypes(events)).toContain("aborted");
+      expect(eventTypes(events)).not.toContain("error");
+      orch.dispose();
+    });
+
     it("无效的 skillId → 产出 error 事件，code=SKILL_INPUT_INVALID", async () => {
       const events = await collectEvents(
         orchestrator.execute(makeRequest({ skillId: "nonexistent-skill" })),

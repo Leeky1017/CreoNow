@@ -494,6 +494,16 @@ export function createWritingOrchestrator(
           } catch (err: unknown) {
             aiError = err;
             const errObj = err as Record<string, unknown>;
+            const isAbortError =
+              errObj?.kind === "aborted" ||
+              (err instanceof Error && err.name === "AbortError");
+
+            if (isAbortError) {
+              taskStates.set(requestId, "killed");
+              yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
+              config.aiService.abort();
+              return;
+            }
 
             if (errObj?.kind === "non-retryable") {
               break;

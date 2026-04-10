@@ -239,4 +239,90 @@ describe("aiServiceBridge", () => {
       }),
     );
   });
+
+  it("throws AbortError when signal is already aborted", async () => {
+    const db = createDb();
+    putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
+    putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
+
+    const bridge = createAiServiceBridge({
+      db,
+      logger: createLogger(),
+      costTracker: createCostTracker({
+        pricingTable: createPricingTable(),
+        budgetPolicy: {
+          warningThreshold: 10,
+          hardStopLimit: 100,
+          enabled: false,
+        },
+        estimateTokens: () => 0,
+      }),
+      env: {
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_BASE_URL: "https://api.openai.com",
+        CREONOW_AI_API_KEY: "sk-test",
+      },
+      runtimeAiTimeoutMs: 30_000,
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    });
+
+    const abortController = new AbortController();
+    abortController.abort();
+    const gen = bridge.streamChat(
+      [{ role: "user", content: "x" }],
+      {
+        signal: abortController.signal,
+        onComplete: vi.fn(),
+        onError: vi.fn(),
+      },
+    );
+
+    await expect(gen.next()).rejects.toMatchObject({
+      name: "AbortError",
+      kind: "aborted",
+    });
+  });
+
+  it("rejects anthropic provider for bridge path", async () => {
+    const db = createDb();
+    putSetting(db, "creonow.ai.model.primary", "claude-sonnet-4-5");
+    putSetting(db, "creonow.ai.model.auxiliary", "claude-sonnet-4-5");
+
+    const fetchMock = vi.fn();
+    const bridge = createAiServiceBridge({
+      db,
+      logger: createLogger(),
+      costTracker: createCostTracker({
+        pricingTable: createPricingTable(),
+        budgetPolicy: {
+          warningThreshold: 10,
+          hardStopLimit: 100,
+          enabled: false,
+        },
+        estimateTokens: () => 0,
+      }),
+      env: {
+        CREONOW_AI_PROVIDER: "anthropic",
+        CREONOW_AI_BASE_URL: "https://api.anthropic.com",
+        CREONOW_AI_API_KEY: "ant-test",
+      },
+      runtimeAiTimeoutMs: 30_000,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    const gen = bridge.streamChat(
+      [{ role: "user", content: "x" }],
+      {
+        signal: new AbortController().signal,
+        onComplete: vi.fn(),
+        onError: vi.fn(),
+        skillId: "builtin:continue",
+      },
+    );
+
+    await expect(gen.next()).rejects.toMatchObject({
+      kind: "unsupported-provider",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

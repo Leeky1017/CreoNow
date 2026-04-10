@@ -114,6 +114,10 @@ function classifyHttpRetryable(status: number): boolean {
   return false;
 }
 
+function isAbortError(error: unknown): error is Error {
+  return error instanceof Error && error.name === "AbortError";
+}
+
 function buildApiUrl(args: { baseUrl: string; endpointPath: string }): string {
   const base = new URL(args.baseUrl.trim());
   const endpoint = args.endpointPath.startsWith("/")
@@ -296,7 +300,26 @@ function mergeAbortSignals(args: {
   if (typeof abortSignal.any === "function") {
     return abortSignal.any(signals);
   }
-  return signals[0];
+
+  const controller = new AbortController();
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      return controller.signal;
+    }
+  }
+  for (const signal of signals) {
+    signal.addEventListener(
+      "abort",
+      () => {
+        if (!controller.signal.aborted) {
+          controller.abort(signal.reason);
+        }
+      },
+      { once: true },
+    );
+  }
+  return controller.signal;
 }
 
 function mergePersistenceErrorDetails(
@@ -739,6 +762,7 @@ export function createApiClient(args: {
         },
       };
     } catch (error) {
+      const aborted = isAbortError(error);
       const costRes = await recordCost({
         requestId,
         sessionId: callArgs.sessionId,
@@ -749,10 +773,10 @@ export function createApiClient(args: {
       });
       if (!costRes.ok) {
         const streamError = ipcError(
-          "LLM_API_ERROR",
+          aborted ? "CANCELED" : "LLM_API_ERROR",
           error instanceof Error ? error.message : "Streaming request failed",
           undefined,
-          { retryable: true },
+          { retryable: aborted ? false : true },
         );
         return {
           ok: false,
@@ -766,10 +790,10 @@ export function createApiClient(args: {
         };
       }
       return ipcError(
-        "LLM_API_ERROR",
+        aborted ? "CANCELED" : "LLM_API_ERROR",
         error instanceof Error ? error.message : "Streaming request failed",
         undefined,
-        { retryable: true },
+        { retryable: aborted ? false : true },
       );
     }
   }

@@ -100,6 +100,20 @@ function resolveCursorPosition(payload: SkillRunPayload): number | undefined {
   return undefined;
 }
 
+function makeAbortError(message: string): Error & { kind: "aborted" } {
+  const err = new Error(message) as Error & { kind: "aborted" };
+  err.name = "AbortError";
+  err.kind = "aborted";
+  return err;
+}
+
+function isBridgeUnsupportedProviderError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  return (error as { kind?: unknown }).kind === "unsupported-provider";
+}
+
 type SkillRunUsage = {
   promptTokens: number;
   completionTokens: number;
@@ -1374,25 +1388,114 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     });
   };
   const writingOrchestrator = createWritingOrchestrator({
-    aiService:
-      deps.db !== null && deps.costTracker
-        ? createAiServiceBridge({
-            db: deps.db,
-            logger: deps.logger,
-            costTracker: deps.costTracker,
-            env: deps.env,
-            runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
-            getProxySettings: readProxySettings,
-          })
-        : {
-            async *streamChat() {
-              return;
-            },
-            estimateTokens,
-            abort() {
-              return;
-            },
+    aiService: (() => {
+      const legacyOrchestratorAiService = {
+        async *streamChat(
+          messages: Array<{ role: string; content: string }>,
+          options: {
+            signal: AbortSignal;
+            onComplete: (r: unknown) => void;
+            onError: (e: unknown) => void;
+            skillId?: string;
           },
+        ) {
+          if (options.signal.aborted) {
+            const aborted = makeAbortError("Streaming request aborted");
+            options.onError({ kind: "aborted", message: aborted.message, retryCount: 0 });
+            throw aborted;
+          }
+
+          const res = await aiService.runSkill({
+            skillId: options.skillId ?? "builtin:continue",
+            input: messages[messages.length - 1]?.content ?? "",
+            mode: "ask",
+            model: "default",
+            stream: false,
+            ts: nowTs(),
+            overrideMessages: messages,
+            emitEvent: () => {},
+          });
+          if (!res.ok) {
+            const kind =
+              res.error.code === "CANCELED"
+                ? "aborted"
+                : res.error.retryable
+                  ? "retryable"
+                  : "non-retryable";
+            const streamError = {
+              kind,
+              message: res.error.message,
+              retryCount: 0,
+            };
+            options.onError(streamError);
+            throw streamError;
+          }
+
+          const content = res.data.outputText ?? "";
+          const completionTokens = estimateTokens(content);
+          yield {
+            delta: content,
+            finishReason: res.data.finishReason ?? "stop",
+            accumulatedTokens: completionTokens,
+          };
+          options.onComplete({
+            content,
+            usage: { promptTokens: 0, completionTokens },
+            wasRetried: false,
+          });
+        },
+        estimateTokens,
+        abort() {
+          return;
+        },
+      };
+
+      if (deps.db === null || !deps.costTracker) {
+        return {
+          async *streamChat() {
+            return;
+          },
+          estimateTokens,
+          abort() {
+            return;
+          },
+        };
+      }
+
+      const bridgeAiService = createAiServiceBridge({
+        db: deps.db,
+        logger: deps.logger,
+        costTracker: deps.costTracker,
+        env: deps.env,
+        runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
+        getProxySettings: readProxySettings,
+      });
+
+      return {
+        async *streamChat(
+          messages: Array<{ role: string; content: string }>,
+          options: {
+            signal: AbortSignal;
+            onComplete: (r: unknown) => void;
+            onError: (e: unknown) => void;
+            skillId?: string;
+            requestId?: string;
+            sessionId?: string;
+          },
+        ) {
+          try {
+            yield* bridgeAiService.streamChat(messages, options);
+          } catch (error) {
+            if (!isBridgeUnsupportedProviderError(error)) {
+              throw error;
+            }
+            yield* legacyOrchestratorAiService.streamChat(messages, options);
+          }
+        },
+        estimateTokens: bridgeAiService.estimateTokens,
+        abort: bridgeAiService.abort,
+      };
+    })(),
     toolRegistry:
       deps.db === null
         ? createToolRegistry()

@@ -39,7 +39,7 @@ type BridgeMessage = {
 };
 
 type StreamError = {
-  kind: "retryable" | "non-retryable";
+  kind: "retryable" | "non-retryable" | "aborted" | "unsupported-provider";
   message: string;
   retryCount: number;
   partialContent?: string;
@@ -93,16 +93,26 @@ function extractStreamContext(options: StreamChatOptions): StreamContext {
 }
 
 function makeStreamError(args: {
-  retryable: boolean;
+  retryable?: boolean;
+  kind?: StreamError["kind"];
   message: string;
   partialContent?: string;
 }): StreamError {
+  const kind =
+    args.kind ?? (args.retryable ? "retryable" : "non-retryable");
   return {
-    kind: args.retryable ? "retryable" : "non-retryable",
+    kind,
     message: args.message,
     retryCount: 0,
     ...(args.partialContent ? { partialContent: args.partialContent } : {}),
   };
+}
+
+function makeAbortError(message: string): Error & { kind: "aborted" } {
+  const err = new Error(message) as Error & { kind: "aborted" };
+  err.name = "AbortError";
+  err.kind = "aborted";
+  return err;
 }
 
 export function createAiServiceBridge(args: {
@@ -163,7 +173,14 @@ export function createAiServiceBridge(args: {
     options: StreamChatOptions,
   ): AsyncGenerator<StreamChunk> {
     if (options.signal.aborted) {
-      return;
+      const abortedError = makeAbortError("Streaming request aborted");
+      options.onError(
+        makeStreamError({
+          kind: "aborted",
+          message: abortedError.message,
+        }),
+      );
+      throw abortedError;
     }
 
     const streamContext = extractStreamContext(options);
@@ -174,6 +191,17 @@ export function createAiServiceBridge(args: {
       const streamError = makeStreamError({
         retryable: routeResult.error.retryable ?? false,
         message: routeResult.error.message,
+      });
+      options.onError(streamError);
+      throw streamError;
+    }
+    if (
+      routeResult.data.provider !== "openai" &&
+      routeResult.data.provider !== "proxy"
+    ) {
+      const streamError = makeStreamError({
+        kind: "unsupported-provider",
+        message: `Bridge only supports OpenAI-compatible providers, got: ${routeResult.data.provider}`,
       });
       options.onError(streamError);
       throw streamError;
@@ -256,8 +284,14 @@ export function createAiServiceBridge(args: {
       const streamResult = await requestPromise;
 
       if (!streamResult.ok) {
+        const errorKind: StreamError["kind"] =
+          streamResult.error.code === "CANCELED"
+            ? "aborted"
+            : streamResult.error.retryable
+              ? "retryable"
+              : "non-retryable";
         const streamError = makeStreamError({
-          retryable: streamResult.error.retryable ?? false,
+          kind: errorKind,
           message: streamResult.error.message,
           partialContent: accumulatedText.length > 0 ? accumulatedText : undefined,
         });

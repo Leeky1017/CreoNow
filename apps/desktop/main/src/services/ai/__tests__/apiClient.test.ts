@@ -465,6 +465,96 @@ describe("apiClient", () => {
     expect(anySpy).toHaveBeenCalled();
   });
 
+  it("keeps timeout abort when AbortSignal.any is unavailable", async () => {
+    if (typeof AbortSignal.timeout !== "function") {
+      return;
+    }
+
+    const originalAny = (
+      AbortSignal as typeof AbortSignal & {
+        any?: (signals: AbortSignal[]) => AbortSignal;
+      }
+    ).any;
+    Object.defineProperty(AbortSignal, "any", {
+      value: undefined,
+      configurable: true,
+    });
+
+    try {
+      const db = createDb();
+      const tracker = createCostTracker({
+        pricingTable: createPricingTable(),
+        budgetPolicy: {
+          warningThreshold: 10,
+          hardStopLimit: 100,
+          enabled: false,
+        },
+        estimateTokens: () => 0,
+      });
+
+      const external = new AbortController().signal;
+      let mergedSignal: AbortSignal | null = null;
+      const fetchMock = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
+        mergedSignal = (init?.signal as AbortSignal | null) ?? null;
+        if (!mergedSignal) {
+          throw new Error("missing merged signal");
+        }
+        await new Promise<void>((resolve, reject) => {
+          mergedSignal?.addEventListener(
+            "abort",
+            () => {
+              const err = new Error("aborted by timeout");
+              err.name = "AbortError";
+              reject(err);
+            },
+            { once: true },
+          );
+          setTimeout(resolve, 50);
+        });
+        return new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      });
+
+      const client = createApiClient({
+        db,
+        costTracker: tracker,
+        logger: createLogger(),
+        fetchImpl: fetchMock as unknown as typeof fetch,
+        now: () => 9_500,
+      });
+
+      const result = await client.streamChatCompletion({
+        provider: {
+          baseUrl: "https://api.openai.com",
+          model: "gpt-4o",
+          maxTokens: 64,
+          temperature: 0.2,
+          timeoutMs: 5,
+        },
+        messages: [{ role: "user", content: "hi" }],
+        requestId: "req-timeout-fallback-1",
+        skillId: "builtin:continue",
+        signal: external,
+      });
+
+      expect(mergedSignal).not.toBeNull();
+      expect(mergedSignal).not.toBe(external);
+      expect(result.ok).toBe(false);
+      if (result.ok) {
+        throw new Error("expected timeout abort");
+      }
+      expect(result.error.code).toBe("CANCELED");
+      expect(result.error.retryable).toBe(false);
+    } finally {
+      Object.defineProperty(AbortSignal, "any", {
+        value: originalAny,
+        configurable: true,
+      });
+    }
+  });
+
   it("marks network exception as retryable and still writes cost record", async () => {
     const db = createDb();
     const tracker = createCostTracker({
@@ -666,5 +756,52 @@ describe("apiClient", () => {
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(calledUrl).toBe("https://api.openai.com/v1/chat/completions");
     expect(getCostRecord(db, "req-8")).not.toBeNull();
+  });
+
+  it("classifies stream AbortError as non-retryable CANCELED", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const fetchMock = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => {
+      const err = new Error("request canceled");
+      err.name = "AbortError";
+      throw err;
+    });
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 8_500,
+    });
+
+    const result = await client.streamChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 100,
+        temperature: 0.5,
+      },
+      messages: [{ role: "user", content: "hello" }],
+      requestId: "req-9",
+      skillId: "builtin:continue",
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected abort failure");
+    }
+    expect(result.error.code).toBe("CANCELED");
+    expect(result.error.retryable).toBe(false);
+    expect(getCostRecord(db, "req-9")).not.toBeNull();
   });
 });
