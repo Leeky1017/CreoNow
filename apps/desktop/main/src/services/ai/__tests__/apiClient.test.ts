@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createApiClient } from "../apiClient";
 import { createCostTracker, type ModelPricingTable } from "../costTracker";
@@ -74,6 +74,10 @@ function getCostRecord(db: Database.Database, id: string): {
 }
 
 describe("apiClient", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("sends OpenAI-compatible request format and records cost", async () => {
     const db = createDb();
     const tracker = createCostTracker({
@@ -314,7 +318,10 @@ describe("apiClient", () => {
       async (_url: URL | RequestInfo, _init?: RequestInit) =>
         new Response(JSON.stringify({ error: { message: "too many requests" } }), {
           status: 429,
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "Retry-After": "0",
+          },
         }),
     );
 
@@ -345,6 +352,10 @@ describe("apiClient", () => {
     }
     expect(result.error.code).toBe("AI_RATE_LIMITED");
     expect(result.error.retryable).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(
+      (result.error.details as { retryCount?: number } | undefined)?.retryCount,
+    ).toBe(3);
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(calledUrl).toBe("https://api.openai.com/v1/chat/completions");
 
@@ -556,6 +567,7 @@ describe("apiClient", () => {
   });
 
   it("marks network exception as retryable and still writes cost record", async () => {
+    vi.useFakeTimers();
     const db = createDb();
     const tracker = createCostTracker({
       pricingTable: createPricingTable(),
@@ -579,7 +591,7 @@ describe("apiClient", () => {
       now: () => 5_000,
     });
 
-    const result = await client.createChatCompletion({
+    const resultPromise = client.createChatCompletion({
       provider: {
         baseUrl: "https://api.openai.com",
         model: "gpt-4o",
@@ -590,6 +602,8 @@ describe("apiClient", () => {
       requestId: "req-5",
       skillId: "builtin:continue",
     });
+    await vi.advanceTimersByTimeAsync(7_000);
+    const result = await resultPromise;
 
     expect(result.ok).toBe(false);
     if (result.ok) {
@@ -597,6 +611,10 @@ describe("apiClient", () => {
     }
     expect(result.error.code).toBe("LLM_API_ERROR");
     expect(result.error.retryable).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(
+      (result.error.details as { retryCount?: number } | undefined)?.retryCount,
+    ).toBe(3);
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(calledUrl).toBe("https://api.openai.com/v1/chat/completions");
     expect(getCostRecord(db, "req-5")).not.toBeNull();
@@ -772,6 +790,7 @@ describe("apiClient", () => {
   });
 
   it("classifies 5xx stream response as retryable", async () => {
+    vi.useFakeTimers();
     const db = createDb();
     const tracker = createCostTracker({
       pricingTable: createPricingTable(),
@@ -799,7 +818,7 @@ describe("apiClient", () => {
       now: () => 7_000,
     });
 
-    const result = await client.streamChatCompletion({
+    const resultPromise = client.streamChatCompletion({
       provider: {
         baseUrl: "https://api.openai.com",
         model: "gpt-4o",
@@ -810,6 +829,8 @@ describe("apiClient", () => {
       requestId: "req-7",
       skillId: "builtin:continue",
     });
+    await vi.advanceTimersByTimeAsync(7_000);
+    const result = await resultPromise;
 
     expect(result.ok).toBe(false);
     if (result.ok) {
@@ -817,12 +838,17 @@ describe("apiClient", () => {
     }
     expect(result.error.code).toBe("LLM_API_ERROR");
     expect(result.error.retryable).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(
+      (result.error.details as { retryCount?: number } | undefined)?.retryCount,
+    ).toBe(3);
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(calledUrl).toBe("https://api.openai.com/v1/chat/completions");
     expect(getCostRecord(db, "req-7")).not.toBeNull();
   });
 
   it("marks stream network exception as retryable and still writes cost record", async () => {
+    vi.useFakeTimers();
     const db = createDb();
     const tracker = createCostTracker({
       pricingTable: createPricingTable(),
@@ -846,7 +872,7 @@ describe("apiClient", () => {
       now: () => 8_000,
     });
 
-    const result = await client.streamChatCompletion({
+    const resultPromise = client.streamChatCompletion({
       provider: {
         baseUrl: "https://api.openai.com",
         model: "gpt-4o",
@@ -857,6 +883,8 @@ describe("apiClient", () => {
       requestId: "req-8",
       skillId: "builtin:continue",
     });
+    await vi.advanceTimersByTimeAsync(7_000);
+    const result = await resultPromise;
 
     expect(result.ok).toBe(false);
     if (result.ok) {
@@ -864,9 +892,259 @@ describe("apiClient", () => {
     }
     expect(result.error.code).toBe("LLM_API_ERROR");
     expect(result.error.retryable).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(
+      (result.error.details as { retryCount?: number } | undefined)?.retryCount,
+    ).toBe(3);
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(calledUrl).toBe("https://api.openai.com/v1/chat/completions");
     expect(getCostRecord(db, "req-8")).not.toBeNull();
+  });
+
+  it("retries 429 using Retry-After and succeeds with retryCount", async () => {
+    vi.useFakeTimers();
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    let attempt = 0;
+    const fetchMock = vi.fn(async () => {
+      attempt += 1;
+      if (attempt === 1) {
+        return new Response(JSON.stringify({ error: { message: "rate limited" } }), {
+          status: 429,
+          headers: {
+            "content-type": "application/json",
+            "Retry-After": "2",
+          },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok after retry" } }],
+          usage: { prompt_tokens: 5, completion_tokens: 2 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 10_000,
+    });
+
+    const resultPromise = client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 100,
+        temperature: 0.2,
+      },
+      messages: [{ role: "user", content: "hello" }],
+      requestId: "req-retry-429",
+      skillId: "builtin:continue",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(2_000);
+    const result = await resultPromise;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected retry success");
+    }
+    expect(result.data.content).toBe("ok after retry");
+    expect(result.data.retryCount).toBe(1);
+  });
+
+  it("retries 500 with exponential backoff and succeeds on final retry", async () => {
+    vi.useFakeTimers();
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    let attempt = 0;
+    const fetchMock = vi.fn(async () => {
+      attempt += 1;
+      if (attempt <= 3) {
+        return new Response(JSON.stringify({ error: { message: "server error" } }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "recovered" } }],
+          usage: { prompt_tokens: 5, completion_tokens: 2 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 11_000,
+    });
+
+    const resultPromise = client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 100,
+        temperature: 0.2,
+      },
+      messages: [{ role: "user", content: "hello" }],
+      requestId: "req-retry-500-backoff",
+      skillId: "builtin:continue",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(4_000);
+    const result = await resultPromise;
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected retry success");
+    }
+    expect(result.data.content).toBe("recovered");
+    expect(result.data.retryCount).toBe(3);
+  });
+
+  it("does not retry on non-retryable 401", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: { message: "unauthorized" } }), {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 12_000,
+    });
+
+    const result = await client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 100,
+        temperature: 0.2,
+      },
+      messages: [{ role: "user", content: "hello" }],
+      requestId: "req-noretry-401",
+      skillId: "builtin:continue",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected 401 failure");
+    }
+    expect(result.error.retryable).toBe(false);
+    expect(
+      (result.error.details as { retryCount?: number } | undefined)?.retryCount,
+    ).toBe(0);
+  });
+
+  it("aborts immediately while waiting between retries", async () => {
+    vi.useFakeTimers();
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: { message: "upstream down" } }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 13_000,
+    });
+
+    const abortController = new AbortController();
+    const resultPromise = client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 100,
+        temperature: 0.2,
+      },
+      messages: [{ role: "user", content: "hello" }],
+      requestId: "req-retry-abort",
+      skillId: "builtin:continue",
+      signal: abortController.signal,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    abortController.abort();
+    await vi.runOnlyPendingTimersAsync();
+    const result = await resultPromise;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected abort failure");
+    }
+    expect(result.error.code).toBe("CANCELED");
+    expect(result.error.retryable).toBe(false);
+    expect(
+      (result.error.details as { retryCount?: number } | undefined)?.retryCount,
+    ).toBe(1);
   });
 
   it("classifies stream AbortError as non-retryable CANCELED", async () => {

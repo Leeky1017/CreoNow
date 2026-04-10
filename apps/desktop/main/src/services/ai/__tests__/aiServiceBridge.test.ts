@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Logger } from "../../../logging/logger";
 import { createAiServiceBridge } from "../aiServiceBridge";
@@ -64,6 +64,10 @@ function createPricingTable(): ModelPricingTable {
 }
 
 describe("aiServiceBridge", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("wires settings -> router -> api call -> cost_records", async () => {
     const db = createDb();
     putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
@@ -318,6 +322,68 @@ describe("aiServiceBridge", () => {
       }),
     );
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("propagates retryCount from apiClient failures", async () => {
+    vi.useFakeTimers();
+    const db = createDb();
+    putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
+    putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
+
+    const bridge = createAiServiceBridge({
+      db,
+      logger: createLogger(),
+      costTracker: createCostTracker({
+        pricingTable: createPricingTable(),
+        budgetPolicy: {
+          warningThreshold: 10,
+          hardStopLimit: 100,
+          enabled: false,
+        },
+        estimateTokens: () => 0,
+      }),
+      env: {
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_BASE_URL: "https://api.openai.com",
+        CREONOW_AI_API_KEY: "sk-test",
+      },
+      runtimeAiTimeoutMs: 30_000,
+      fetchImpl: (async () =>
+        new Response(JSON.stringify({ error: { message: "upstream down" } }), {
+          status: 503,
+          headers: {
+            "content-type": "application/json",
+            "Retry-After": "0",
+          },
+        })) as unknown as typeof fetch,
+    });
+
+    const onError = vi.fn();
+    const consume = async (): Promise<unknown> => {
+      for await (const _chunk of bridge.streamChat([{ role: "user", content: "x" }], {
+        signal: new AbortController().signal,
+        onComplete: vi.fn(),
+        onError,
+        skillId: "builtin:continue",
+        requestId: "bridge-retry-count",
+      })) {
+        // drain
+      }
+      return null;
+    };
+    const consumePromise = consume().catch((error) => error);
+    await vi.advanceTimersByTimeAsync(1);
+    const thrown = await consumePromise;
+    expect(thrown).toMatchObject({
+      kind: "retryable",
+      retryCount: 3,
+    });
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "retryable",
+        retryCount: 3,
+      }),
+    );
   });
 
   it("throws AbortError when signal is already aborted", async () => {

@@ -102,15 +102,39 @@ function makeStreamError(args: {
   retryable?: boolean;
   kind?: StreamError["kind"];
   message: string;
+  retryCount?: number;
   partialContent?: string;
 }): StreamError {
   const kind = args.kind ?? (args.retryable ? "retryable" : "non-retryable");
   return {
     kind,
     message: args.message,
-    retryCount: 0,
+    retryCount: args.retryCount ?? 0,
     ...(args.partialContent ? { partialContent: args.partialContent } : {}),
   };
+}
+
+function extractRetryCount(error: unknown): number {
+  if (!error || typeof error !== "object") {
+    return 0;
+  }
+  const topLevel = (error as { retryCount?: unknown }).retryCount;
+  if (typeof topLevel === "number" && Number.isFinite(topLevel) && topLevel >= 0) {
+    return Math.floor(topLevel);
+  }
+  const details = (error as { details?: unknown }).details;
+  if (!details || typeof details !== "object") {
+    return 0;
+  }
+  const fromDetails = (details as { retryCount?: unknown }).retryCount;
+  if (
+    typeof fromDetails === "number" &&
+    Number.isFinite(fromDetails) &&
+    fromDetails >= 0
+  ) {
+    return Math.floor(fromDetails);
+  }
+  return 0;
 }
 
 function makeAbortError(message: string): Error & { kind: "aborted" } {
@@ -239,6 +263,7 @@ export function createAiServiceBridge(args: {
           cachedTokens: number;
         };
         model: string;
+        retryCount?: number;
         persistenceError?: unknown;
       }>
     > = apiClient.streamChatCompletion({
@@ -304,6 +329,7 @@ export function createAiServiceBridge(args: {
         const streamError = makeStreamError({
           kind: errorKind,
           message: streamResult.error.message,
+          retryCount: extractRetryCount(streamResult.error),
           partialContent:
             accumulatedText.length > 0 ? accumulatedText : undefined,
         });
@@ -322,7 +348,7 @@ export function createAiServiceBridge(args: {
         ...(streamResult.data.persistenceError
           ? { persistenceError: streamResult.data.persistenceError }
           : {}),
-        wasRetried: false,
+        wasRetried: (streamResult.data.retryCount ?? 0) > 0,
       });
       if (streamResult.data.persistenceError) {
         logWarn(args.logger, "ai_cost_persistence_degraded", {

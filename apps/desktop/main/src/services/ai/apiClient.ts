@@ -34,6 +34,7 @@ type CompletionResult = {
   content: string;
   usage: CompletionUsage;
   model: string;
+  retryCount?: number;
   persistenceError?: unknown;
 };
 
@@ -79,6 +80,9 @@ type OpenAiUsagePayload = {
   cached_tokens?: unknown;
 };
 
+const MAX_FETCH_RETRIES = 3;
+const BASE_RETRY_DELAY_MS = 1_000;
+
 function asObject(value: unknown): JsonObject | null {
   if (typeof value !== "object" || value === null) {
     return null;
@@ -116,6 +120,92 @@ function classifyHttpRetryable(status: number): boolean {
 
 function isAbortError(error: unknown): error is Error {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function getRetryDelayMs(attemptNumber: number): number {
+  return BASE_RETRY_DELAY_MS * 2 ** Math.max(0, attemptNumber - 1);
+}
+
+function parseRetryAfterMs(retryAfterValue: string | null, nowMs: number): number | null {
+  if (!retryAfterValue) {
+    return null;
+  }
+  const trimmed = retryAfterValue.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const retrySeconds = Number(trimmed);
+  if (Number.isFinite(retrySeconds) && retrySeconds >= 0) {
+    return Math.floor(retrySeconds * 1000);
+  }
+
+  const retryAt = Date.parse(trimmed);
+  if (Number.isFinite(retryAt)) {
+    return Math.max(0, retryAt - nowMs);
+  }
+  return null;
+}
+
+function enrichDetailsWithRetryCount(
+  details: unknown,
+  retryCount: number,
+): Record<string, unknown> {
+  if (typeof details === "object" && details !== null && !Array.isArray(details)) {
+    return {
+      ...(details as Record<string, unknown>),
+      retryCount,
+    };
+  }
+  return details === undefined
+    ? { retryCount }
+    : { retryCount, primaryDetails: details };
+}
+
+type RetryFetchNetworkError = {
+  kind: "network-error";
+  cause: unknown;
+  retryCount: number;
+};
+
+function isRetryFetchNetworkError(error: unknown): error is RetryFetchNetworkError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "kind" in error &&
+    (error as { kind?: unknown }).kind === "network-error"
+  );
+}
+
+function sleepWithSignal(args: { delayMs: number; signal?: AbortSignal }): Promise<void> {
+  if (args.delayMs <= 0) {
+    if (args.signal?.aborted) {
+      const abortError = new Error("Request aborted");
+      abortError.name = "AbortError";
+      return Promise.reject(abortError);
+    }
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve, reject) => {
+    if (args.signal?.aborted) {
+      const abortError = new Error("Request aborted");
+      abortError.name = "AbortError";
+      reject(abortError);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      args.signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, args.delayMs);
+    const onAbort = () => {
+      clearTimeout(timeout);
+      args.signal?.removeEventListener("abort", onAbort);
+      const abortError = new Error("Request aborted");
+      abortError.name = "AbortError";
+      reject(abortError);
+    };
+    args.signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 function buildApiUrl(args: { baseUrl: string; endpointPath: string }): string {
@@ -347,6 +437,64 @@ export function createApiClient(args: {
   const fetchImpl = args.fetchImpl ?? globalThis.fetch;
   const now = args.now ?? (() => Date.now());
 
+  async function retryFetch(argsForFetch: {
+    input: string;
+    init: RequestInit;
+    signal?: AbortSignal;
+  }): Promise<{ response: Response; retryCount: number }> {
+    let retryCount = 0;
+    while (true) {
+      if (argsForFetch.signal?.aborted) {
+        const abortError = new Error("Request aborted");
+        abortError.name = "AbortError";
+        throw {
+          kind: "network-error",
+          cause: abortError,
+          retryCount,
+        } satisfies RetryFetchNetworkError;
+      }
+      try {
+        const response = await fetchImpl(argsForFetch.input, argsForFetch.init);
+        if (
+          response.ok ||
+          !classifyHttpRetryable(response.status) ||
+          retryCount >= MAX_FETCH_RETRIES
+        ) {
+          return { response, retryCount };
+        }
+        retryCount += 1;
+        const retryAfterMs = parseRetryAfterMs(
+          response.headers.get("Retry-After"),
+          now(),
+        );
+        await sleepWithSignal({
+          delayMs: retryAfterMs ?? getRetryDelayMs(retryCount),
+          signal: argsForFetch.signal,
+        });
+      } catch (error) {
+        if (isAbortError(error)) {
+          throw {
+            kind: "network-error",
+            cause: error,
+            retryCount,
+          } satisfies RetryFetchNetworkError;
+        }
+        if (retryCount >= MAX_FETCH_RETRIES) {
+          throw {
+            kind: "network-error",
+            cause: error,
+            retryCount,
+          } satisfies RetryFetchNetworkError;
+        }
+        retryCount += 1;
+        await sleepWithSignal({
+          delayMs: getRetryDelayMs(retryCount),
+          signal: argsForFetch.signal,
+        });
+      }
+    }
+  }
+
   async function recordCost(argsForRecord: {
     requestId: string;
     sessionId?: string;
@@ -390,23 +538,25 @@ export function createApiClient(args: {
   ): Promise<ServiceResult<CompletionResult>> {
     const requestId = callArgs.requestId ?? randomUUID();
     const startedAtMs = now();
+    let retryCount = 0;
     let usage: CompletionUsage = {
       promptTokens: 0,
       completionTokens: 0,
       cachedTokens: 0,
     };
     try {
-      const response = await fetchImpl(
-        buildApiUrl({
+      const requestSignal = mergeAbortSignals({
+        signal: callArgs.signal,
+        timeoutMs: callArgs.provider.timeoutMs,
+      });
+      const retryResult = await retryFetch({
+        input: buildApiUrl({
           baseUrl: callArgs.provider.baseUrl,
           endpointPath: "/v1/chat/completions",
         }),
-        {
+        init: {
           method: "POST",
-          signal: mergeAbortSignals({
-            signal: callArgs.signal,
-            timeoutMs: callArgs.provider.timeoutMs,
-          }),
+          signal: requestSignal,
           headers: {
             "Content-Type": "application/json",
             ...(callArgs.provider.apiKey
@@ -421,7 +571,10 @@ export function createApiClient(args: {
             stream: false,
           }),
         },
-      );
+        signal: requestSignal,
+      });
+      const response = retryResult.response;
+      retryCount = retryResult.retryCount;
 
       if (!response.ok) {
         const mapped = await buildUpstreamHttpError({
@@ -443,7 +596,7 @@ export function createApiClient(args: {
               ...mapped,
               retryable: classifyHttpRetryable(response.status),
               details: mergePersistenceErrorDetails(
-                mapped.details,
+                enrichDetailsWithRetryCount(mapped.details, retryCount),
                 costRes.error,
               ),
             },
@@ -454,6 +607,7 @@ export function createApiClient(args: {
           error: {
             ...mapped,
             retryable: classifyHttpRetryable(response.status),
+            details: enrichDetailsWithRetryCount(mapped.details, retryCount),
           },
         };
       }
@@ -484,15 +638,20 @@ export function createApiClient(args: {
             error: {
               ...invalidShape.error,
               details: mergePersistenceErrorDetails(
-                invalidShape.error.details,
+                enrichDetailsWithRetryCount(invalidShape.error.details, retryCount),
                 costRes.error,
               ),
             },
           };
         }
-        return ipcError("LLM_API_ERROR", "Invalid OpenAI response shape", undefined, {
-          retryable: false,
-        });
+        return ipcError(
+          "LLM_API_ERROR",
+          "Invalid OpenAI response shape",
+          { retryCount },
+          {
+            retryable: false,
+          },
+        );
       }
 
       const costRes = await recordCost({
@@ -511,6 +670,7 @@ export function createApiClient(args: {
             content,
             usage,
             model: callArgs.provider.model,
+            retryCount,
             persistenceError: costRes.error,
           },
         };
@@ -523,9 +683,20 @@ export function createApiClient(args: {
           content,
           usage,
           model: callArgs.provider.model,
+          retryCount,
         },
       };
     } catch (error) {
+      const retryFailure =
+        isRetryFetchNetworkError(error) && error.kind === "network-error"
+          ? error
+          : {
+              kind: "network-error" as const,
+              cause: error,
+              retryCount,
+            };
+      retryCount = retryFailure.retryCount;
+      const aborted = isAbortError(retryFailure.cause);
       const costRes = await recordCost({
         requestId,
         sessionId: callArgs.sessionId,
@@ -535,28 +706,32 @@ export function createApiClient(args: {
         startedAtMs,
       });
       if (!costRes.ok) {
-        const networkError = ipcError(
-          "LLM_API_ERROR",
-          error instanceof Error ? error.message : "AI request failed",
-          undefined,
-          { retryable: true },
+        const resultError = ipcError(
+          aborted ? "CANCELED" : "LLM_API_ERROR",
+          retryFailure.cause instanceof Error
+            ? retryFailure.cause.message
+            : "AI request failed",
+          { retryCount },
+          { retryable: aborted ? false : true },
         );
         return {
           ok: false,
           error: {
-            ...networkError.error,
+            ...resultError.error,
             details: mergePersistenceErrorDetails(
-              networkError.error.details,
+              resultError.error.details,
               costRes.error,
             ),
           },
         };
       }
       return ipcError(
-        "LLM_API_ERROR",
-        error instanceof Error ? error.message : "AI request failed",
-        undefined,
-        { retryable: true },
+        aborted ? "CANCELED" : "LLM_API_ERROR",
+        retryFailure.cause instanceof Error
+          ? retryFailure.cause.message
+          : "AI request failed",
+        { retryCount },
+        { retryable: aborted ? false : true },
       );
     }
   }
@@ -566,6 +741,7 @@ export function createApiClient(args: {
   ): Promise<ServiceResult<CompletionResult>> {
     const requestId = callArgs.requestId ?? randomUUID();
     const startedAtMs = now();
+    let retryCount = 0;
     let usage: CompletionUsage = {
       promptTokens: 0,
       completionTokens: 0,
@@ -574,17 +750,18 @@ export function createApiClient(args: {
     let content = "";
 
     try {
-      const response = await fetchImpl(
-        buildApiUrl({
+      const requestSignal = mergeAbortSignals({
+        signal: callArgs.signal,
+        timeoutMs: callArgs.provider.timeoutMs,
+      });
+      const retryResult = await retryFetch({
+        input: buildApiUrl({
           baseUrl: callArgs.provider.baseUrl,
           endpointPath: "/v1/chat/completions",
         }),
-        {
+        init: {
           method: "POST",
-          signal: mergeAbortSignals({
-            signal: callArgs.signal,
-            timeoutMs: callArgs.provider.timeoutMs,
-          }),
+          signal: requestSignal,
           headers: {
             "Content-Type": "application/json",
             ...(callArgs.provider.apiKey
@@ -599,7 +776,10 @@ export function createApiClient(args: {
             stream: true,
           }),
         },
-      );
+        signal: requestSignal,
+      });
+      const response = retryResult.response;
+      retryCount = retryResult.retryCount;
 
       if (!response.ok) {
         const mapped = await buildUpstreamHttpError({
@@ -621,7 +801,7 @@ export function createApiClient(args: {
               ...mapped,
               retryable: classifyHttpRetryable(response.status),
               details: mergePersistenceErrorDetails(
-                mapped.details,
+                enrichDetailsWithRetryCount(mapped.details, retryCount),
                 costRes.error,
               ),
             },
@@ -632,6 +812,7 @@ export function createApiClient(args: {
           error: {
             ...mapped,
             retryable: classifyHttpRetryable(response.status),
+            details: enrichDetailsWithRetryCount(mapped.details, retryCount),
           },
         };
       }
@@ -657,7 +838,7 @@ export function createApiClient(args: {
             error: {
               ...missingBody.error,
               details: mergePersistenceErrorDetails(
-                missingBody.error.details,
+                enrichDetailsWithRetryCount(missingBody.error.details, retryCount),
                 costRes.error,
               ),
             },
@@ -666,7 +847,7 @@ export function createApiClient(args: {
         return ipcError(
           "INTERNAL",
           "Missing streaming response body",
-          undefined,
+          { retryCount },
           { retryable: false },
         );
       }
@@ -693,7 +874,7 @@ export function createApiClient(args: {
             error: {
               ...protocolError.error,
               details: mergePersistenceErrorDetails(
-                protocolError.error.details,
+                enrichDetailsWithRetryCount(protocolError.error.details, retryCount),
                 costRes.error,
               ),
             },
@@ -702,7 +883,7 @@ export function createApiClient(args: {
         return ipcError(
           "LLM_API_ERROR",
           "Expected text/event-stream response for streaming request",
-          { requestId, contentType },
+          { requestId, contentType, retryCount },
           { retryable: false },
         );
       }
@@ -737,7 +918,7 @@ export function createApiClient(args: {
               error: {
                 ...invalidSse.error,
                 details: mergePersistenceErrorDetails(
-                  invalidSse.error.details,
+                  enrichDetailsWithRetryCount(invalidSse.error.details, retryCount),
                   costRes.error,
                 ),
               },
@@ -746,7 +927,7 @@ export function createApiClient(args: {
           return ipcError(
             "LLM_API_ERROR",
             "Invalid SSE JSON payload",
-            { requestId, data: event.data.slice(0, 200) },
+            { requestId, data: event.data.slice(0, 200), retryCount },
             { retryable: false },
           );
         }
@@ -789,7 +970,7 @@ export function createApiClient(args: {
             error: {
               ...protocolError.error,
               details: mergePersistenceErrorDetails(
-                protocolError.error.details,
+                enrichDetailsWithRetryCount(protocolError.error.details, retryCount),
                 costRes.error,
               ),
             },
@@ -798,7 +979,7 @@ export function createApiClient(args: {
         return ipcError(
           "LLM_API_ERROR",
           "Streaming response ended before any SSE data event was received",
-          { requestId },
+          { requestId, retryCount },
           { retryable: false },
         );
       }
@@ -820,6 +1001,7 @@ export function createApiClient(args: {
             content,
             usage,
             model: callArgs.provider.model,
+            retryCount,
             persistenceError: costRes.error,
           },
         };
@@ -832,10 +1014,20 @@ export function createApiClient(args: {
           content,
           usage,
           model: callArgs.provider.model,
+          retryCount,
         },
       };
     } catch (error) {
-      const aborted = isAbortError(error);
+      const retryFailure =
+        isRetryFetchNetworkError(error) && error.kind === "network-error"
+          ? error
+          : {
+              kind: "network-error" as const,
+              cause: error,
+              retryCount,
+            };
+      retryCount = retryFailure.retryCount;
+      const aborted = isAbortError(retryFailure.cause);
       const costRes = await recordCost({
         requestId,
         sessionId: callArgs.sessionId,
@@ -847,8 +1039,10 @@ export function createApiClient(args: {
       if (!costRes.ok) {
         const streamError = ipcError(
           aborted ? "CANCELED" : "LLM_API_ERROR",
-          error instanceof Error ? error.message : "Streaming request failed",
-          undefined,
+          retryFailure.cause instanceof Error
+            ? retryFailure.cause.message
+            : "Streaming request failed",
+          { retryCount },
           { retryable: aborted ? false : true },
         );
         return {
@@ -864,8 +1058,10 @@ export function createApiClient(args: {
       }
       return ipcError(
         aborted ? "CANCELED" : "LLM_API_ERROR",
-        error instanceof Error ? error.message : "Streaming request failed",
-        undefined,
+        retryFailure.cause instanceof Error
+          ? retryFailure.cause.message
+          : "Streaming request failed",
+        { retryCount },
         { retryable: aborted ? false : true },
       );
     }
