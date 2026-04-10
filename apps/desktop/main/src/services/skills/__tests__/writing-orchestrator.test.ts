@@ -882,29 +882,77 @@ describe("WritingOrchestrator", () => {
     });
 
     it("API 请求前 aborted(如 provider 选择阶段) → 不记录 usage", async () => {
-      const aiService = createMockAIService();
-      aiService.streamChat.mockImplementation(
-        () =>
-          (async function* () {
-            const abortError = new Error("Streaming request aborted");
-            abortError.name = "AbortError";
-            (
-              abortError as Error & {
-                kind: "aborted";
-              }
-            ).kind = "aborted";
-            throw abortError;
-          })(),
-      );
       const tracker = createMockCostTracker();
-
-      const cfg = buildConfig({ aiService, costTracker: tracker });
+      const aiService = createMockAIService();
+      aiService.streamChat.mockImplementation(() => {
+        const abortError = new Error("Provider selection aborted");
+        abortError.name = "AbortError";
+        (
+          abortError as Error & {
+            kind: "aborted";
+          }
+        ).kind = "aborted";
+        throw abortError;
+      });
+      const cfg = buildConfig({
+        aiService,
+        costTracker: tracker,
+      });
       const orch = createWritingOrchestrator(cfg);
 
       const events = await collectEvents(orch.execute(makeRequest()));
 
       expect(eventTypes(events)).toContain("aborted");
       expect(tracker.recordUsage).not.toHaveBeenCalled();
+      orch.dispose();
+    });
+
+    it("streamChat 已创建但首 chunk 前 aborted → 记录 usage", async () => {
+      const aiService = createMockAIService();
+      const tracker = createMockCostTracker();
+      let streamCreated!: () => void;
+      const streamCreatedPromise = new Promise<void>((resolve) => {
+        streamCreated = resolve;
+      });
+
+      aiService.streamChat.mockImplementation(
+        (_messages, options: { signal?: AbortSignal }) =>
+          (async function* () {
+            streamCreated();
+            await new Promise<never>((_resolve, reject) => {
+              const abortError = new Error("Streaming request aborted");
+              abortError.name = "AbortError";
+              (
+                abortError as Error & {
+                  kind: "aborted";
+                }
+              ).kind = "aborted";
+
+              if (options.signal?.aborted) {
+                reject(abortError);
+                return;
+              }
+
+              options.signal?.addEventListener(
+                "abort",
+                () => reject(abortError),
+                { once: true },
+              );
+            });
+            yield { delta: "never", finishReason: "stop", accumulatedTokens: 1 };
+          })(),
+      );
+
+      const cfg = buildConfig({ aiService, costTracker: tracker });
+      const orch = createWritingOrchestrator(cfg);
+      const eventsPromise = collectEvents(orch.execute(makeRequest()));
+      await streamCreatedPromise;
+      orch.abort("req-001");
+
+      const events = await eventsPromise;
+
+      expect(eventTypes(events)).toContain("aborted");
+      expect(tracker.recordUsage).toHaveBeenCalled();
       orch.dispose();
     });
 

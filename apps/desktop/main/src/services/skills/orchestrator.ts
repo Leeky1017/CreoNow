@@ -386,7 +386,6 @@ export function createWritingOrchestrator(
                 process.env.NODE_ENV === "test");
 
             if (shouldUseGenerateText && generateText) {
-              apiCallStarted = true;
               const chunkQueue: Array<{
                 delta: string;
                 accumulatedTokens: number;
@@ -420,6 +419,7 @@ export function createWritingOrchestrator(
                     wake();
                   },
                 );
+              apiCallStarted = true;
 
               while (!generationSettled || chunkQueue.length > 0) {
                 if (abortController.signal.aborted) {
@@ -483,9 +483,9 @@ export function createWritingOrchestrator(
                   ...(request.sessionId ? { sessionId: request.sessionId } : {}),
                 },
               );
+              apiCallStarted = true;
 
               for await (const chunk of gen) {
-                apiCallStarted = true;
                 if (abortController.signal.aborted) {
                   if (apiCallStarted) {
                     recordUsage({
