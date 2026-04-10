@@ -26,7 +26,7 @@ export interface PermissionRequest {
 
 export interface PermissionGate {
   requestPermission(request: PermissionRequest): Promise<boolean>;
-  readonly confirmTimeoutMs?: number;
+  readonly confirmTimeoutMs: number;
   releasePendingPermission(requestId: string, granted?: boolean): void;
   evaluate(request: unknown): Promise<{ level: PermissionLevel; granted: boolean }>;
 }
@@ -43,7 +43,27 @@ const VALID_LEVELS = new Set<PermissionLevel>([
   "budget-confirm",
 ]);
 
-function normalizeLevel(raw: unknown): PermissionLevel {
+export type PermissionGateErrorCode =
+  | "PERMISSION_TIMEOUT"
+  | "PERMISSION_IPC_ERROR";
+
+export class PermissionGateError extends Error {
+  readonly code: PermissionGateErrorCode;
+  readonly details?: unknown;
+
+  constructor(
+    code: PermissionGateErrorCode,
+    message: string,
+    details?: unknown,
+  ) {
+    super(message);
+    this.name = "PermissionGateError";
+    this.code = code;
+    this.details = details;
+  }
+}
+
+export function normalizeLevel(raw: unknown): PermissionLevel {
   if (typeof raw === "string" && VALID_LEVELS.has(raw as PermissionLevel)) {
     return raw as PermissionLevel;
   }
@@ -57,6 +77,27 @@ export function createPermissionGate(args?: {
   const confirmTimeoutMs = args?.confirmTimeoutMs ?? 120_000;
   const pending = new Map<string, (granted: boolean) => void>();
   const settled = new Map<string, boolean>();
+  const settledCleanup = new Map<string, ReturnType<typeof setTimeout>>();
+  const scheduleSettledCleanup = (requestId: string): void => {
+    const existing = settledCleanup.get(requestId);
+    if (existing !== undefined) {
+      clearTimeout(existing);
+    }
+    settledCleanup.set(
+      requestId,
+      setTimeout(() => {
+        settled.delete(requestId);
+        settledCleanup.delete(requestId);
+      }, 30_000),
+    );
+  };
+  const clearSettledCleanup = (requestId: string): void => {
+    const timer = settledCleanup.get(requestId);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      settledCleanup.delete(requestId);
+    }
+  };
 
   return {
     confirmTimeoutMs,
@@ -82,6 +123,7 @@ export function createPermissionGate(args?: {
 
       const preResolved = settled.get(request.requestId);
       if (typeof preResolved === "boolean") {
+        clearSettledCleanup(request.requestId);
         settled.delete(request.requestId);
         return preResolved;
       }
@@ -91,22 +133,29 @@ export function createPermissionGate(args?: {
           ...request,
           level,
         });
-      } catch {
-        return false;
+      } catch (error) {
+        throw new PermissionGateError(
+          "PERMISSION_IPC_ERROR",
+          "Permission IPC channel failed",
+          error,
+        );
       }
 
       const postHookResolved = settled.get(request.requestId);
       if (typeof postHookResolved === "boolean") {
+        clearSettledCleanup(request.requestId);
         settled.delete(request.requestId);
         return postHookResolved;
       }
 
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      let timedOut = false;
       try {
-        return await Promise.race<boolean>([
+        const granted = await Promise.race<boolean>([
           new Promise<boolean>((resolve) => {
             const immediate = settled.get(request.requestId);
             if (typeof immediate === "boolean") {
+              clearSettledCleanup(request.requestId);
               settled.delete(request.requestId);
               resolve(immediate);
               return;
@@ -114,14 +163,25 @@ export function createPermissionGate(args?: {
             pending.set(request.requestId, resolve);
           }),
           new Promise<boolean>((resolve) => {
-            timeoutId = setTimeout(() => resolve(false), confirmTimeoutMs);
+            timeoutId = setTimeout(() => {
+              timedOut = true;
+              resolve(false);
+            }, confirmTimeoutMs);
           }),
         ]);
+        if (timedOut) {
+          throw new PermissionGateError(
+            "PERMISSION_TIMEOUT",
+            "Permission request timed out",
+          );
+        }
+        return granted;
       } finally {
         if (timeoutId !== undefined) {
           clearTimeout(timeoutId);
         }
         pending.delete(request.requestId);
+        clearSettledCleanup(request.requestId);
         settled.delete(request.requestId);
       }
     },
@@ -140,16 +200,22 @@ export function createPermissionGate(args?: {
       if (resolver) {
         pending.delete(requestId);
         resolver(granted);
+        clearSettledCleanup(requestId);
         settled.delete(requestId);
         return;
       }
       settled.set(requestId, granted);
+      scheduleSettledCleanup(requestId);
     },
     rejectAll(): void {
       for (const [requestId, resolver] of pending.entries()) {
         pending.delete(requestId);
         resolver(false);
       }
+      for (const timer of settledCleanup.values()) {
+        clearTimeout(timer);
+      }
+      settledCleanup.clear();
       settled.clear();
     },
   };

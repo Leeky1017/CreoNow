@@ -42,10 +42,12 @@ export interface VersionWorkflowService {
     projectId: string;
     documentId: string;
     executionId: string;
-    contentJson: unknown;
   }): ServiceResult<ThreeStageCommit>;
   markAiWriting(executionId: string): ServiceResult<ThreeStageCommit>;
-  confirmCommit(executionId: string): ServiceResult<ThreeStageCommit>;
+  confirmCommit(args: {
+    executionId: string;
+    projectId: string;
+  }): ServiceResult<ThreeStageCommit>;
   rejectCommit(args: {
     executionId: string;
     projectId: string;
@@ -68,12 +70,43 @@ export function createVersionWorkflowService(
   const readCommit = (executionId: string): ThreeStageCommit | null =>
     commits.get(executionId) ?? null;
 
+  const invalidTransition = (
+    from: ThreeStageCommitStage,
+    to: ThreeStageCommitStage,
+  ): ServiceResult<ThreeStageCommit> => ({
+    ok: false,
+    error: {
+      code: "INVALID_ARGUMENT",
+      message: `Invalid three-stage transition: ${from} -> ${to}`,
+    },
+  });
+
   return {
     createPreWriteSnapshot(params) {
+      const currentDoc = service.read({
+        projectId: params.projectId,
+        documentId: params.documentId,
+      });
+      if (!currentDoc.ok) {
+        return currentDoc;
+      }
+      let contentJson: unknown;
+      try {
+        contentJson = JSON.parse(currentDoc.data.contentJson);
+      } catch {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "Current document contentJson is invalid JSON",
+          },
+        };
+      }
+
       const saved = service.save({
         projectId: params.projectId,
         documentId: params.documentId,
-        contentJson: params.contentJson,
+        contentJson,
         actor: "auto",
         reason: "pre-write",
       });
@@ -113,14 +146,59 @@ export function createVersionWorkflowService(
       if (!current) {
         return { ok: false, error: { code: "NOT_FOUND", message: "Commit not found" } };
       }
+      if (current.stage !== "snapshot-created") {
+        return invalidTransition(current.stage, "ai-writing");
+      }
       const updated: ThreeStageCommit = { ...current, stage: "ai-writing" };
       commits.set(executionId, updated);
       return { ok: true, data: updated };
     },
-    confirmCommit(executionId) {
+    confirmCommit({ executionId, projectId }) {
       const current = readCommit(executionId);
       if (!current) {
         return { ok: false, error: { code: "NOT_FOUND", message: "Commit not found" } };
+      }
+      if (current.stage !== "ai-writing") {
+        return invalidTransition(current.stage, "user-confirmed");
+      }
+      const listed = service.listVersions({
+        projectId,
+        documentId: current.documentId,
+      });
+      if (!listed.ok) {
+        return listed;
+      }
+      const latest = listed.data.items[0];
+      if (!latest || latest.reason !== "ai-accept") {
+        const currentDoc = service.read({
+          projectId,
+          documentId: current.documentId,
+        });
+        if (!currentDoc.ok) {
+          return currentDoc;
+        }
+        let contentJson: unknown;
+        try {
+          contentJson = JSON.parse(currentDoc.data.contentJson);
+        } catch {
+          return {
+            ok: false,
+            error: {
+              code: "INVALID_ARGUMENT",
+              message: "Current document contentJson is invalid JSON",
+            },
+          };
+        }
+        const saved = service.save({
+          projectId,
+          documentId: current.documentId,
+          contentJson,
+          actor: "ai",
+          reason: "ai-accept",
+        });
+        if (!saved.ok) {
+          return saved;
+        }
       }
       const updated: ThreeStageCommit = { ...current, stage: "user-confirmed" };
       commits.set(executionId, updated);
@@ -130,6 +208,9 @@ export function createVersionWorkflowService(
       const current = readCommit(executionId);
       if (!current) {
         return { ok: false, error: { code: "NOT_FOUND", message: "Commit not found" } };
+      }
+      if (current.stage !== "ai-writing") {
+        return invalidTransition(current.stage, "user-rejected");
       }
       const rollback = service.rollbackVersion({
         projectId,

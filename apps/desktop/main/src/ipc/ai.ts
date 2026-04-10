@@ -55,6 +55,7 @@ import {
 } from "../services/skills/writingTooling";
 import {
   createPermissionGate,
+  normalizeLevel,
   type PermissionGate as SkillPermissionGate,
   type PermissionLevel,
   type PermissionRequest,
@@ -63,6 +64,9 @@ import { createToolRegistry } from "../services/skills/toolRegistry";
 import { createToolUseHandler } from "../services/skills/toolUseHandler";
 import { estimateTokens } from "../services/context/tokenEstimation";
 import { createDocumentService } from "../services/documents/documentService";
+import { createDocumentCoreService } from "../services/documents/documentCoreService";
+import { createVersionWorkflowService } from "../services/documents/versionService";
+import { createBranchWorkflowService } from "../services/documents/branchService";
 import { editorSchema } from "../services/editor/prosemirrorSchema";
 import type { CostTracker } from "../services/ai/costTracker";
 
@@ -329,6 +333,7 @@ function resolveP1BuiltinSkill(skillId: string): {
   id: string;
   prompt: { system: string; user: string };
   inputType: "selection" | "document";
+  permissionLevel: PermissionLevel;
   enabled: true;
   valid: true;
   output?: Record<string, unknown>;
@@ -345,6 +350,7 @@ function resolveP1BuiltinSkill(skillId: string): {
         user: "Polish the following text for clarity and style.\n\nUser instruction:\n{{userInstruction}}\n\n<text>\n{{input}}\n</text>",
       },
       inputType: "selection",
+      permissionLevel: "preview-confirm",
       enabled: true,
       valid: true,
     };
@@ -358,6 +364,7 @@ function resolveP1BuiltinSkill(skillId: string): {
         user: "Rewrite the following text according to the user's instruction.\n\nUser instruction:\n{{userInstruction}}\n\n<text>\n{{input}}\n</text>",
       },
       inputType: "selection",
+      permissionLevel: "preview-confirm",
       enabled: true,
       valid: true,
     };
@@ -371,11 +378,33 @@ function resolveP1BuiltinSkill(skillId: string): {
         user: "Continue the draft based on current context and constraints.\n\n<text>\n{{input}}\n</text>",
       },
       inputType: "document",
+      permissionLevel: "preview-confirm",
       enabled: true,
       valid: true,
     };
   }
   return null;
+}
+
+function resolveSkillPermissionLevel(args: {
+  ctx: AiIpcContext;
+  skillId: string;
+}): PermissionLevel {
+  try {
+    const skillSvc = args.ctx.skillServiceFactory();
+    const resolved = skillSvc.resolveForRun({ id: args.skillId });
+    if (resolved.ok && resolved.data.enabled && resolved.data.skill.valid) {
+      const candidate =
+        "permissionLevel" in resolved.data.skill
+          ? resolved.data.skill.permissionLevel
+          : undefined;
+      return normalizeLevel(candidate);
+    }
+  } catch {
+    // Fall through to builtin/default policy.
+  }
+  const fallback = resolveP1BuiltinSkill(args.skillId);
+  return normalizeLevel(fallback?.permissionLevel);
 }
 
 export async function prepareWritingRequest(args: {
@@ -968,6 +997,7 @@ type PendingPreviewSession = {
 };
 
 type PendingPermissionGate = {
+  readonly confirmTimeoutMs: number;
   evaluate: (request: unknown) => Promise<{ level: PermissionLevel; granted: boolean }>;
   requestPermission: (request: PermissionRequest) => Promise<boolean>;
   resolve: (requestId: string, granted: boolean) => boolean;
@@ -1375,6 +1405,29 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     },
   });
   const permissionGate = createPendingPermissionGate();
+  const documentCoreServiceForWorkflow =
+    deps.db === null
+      ? null
+      : createDocumentCoreService({
+          db: deps.db,
+          logger: deps.logger,
+        });
+  const versionWorkflow =
+    deps.db === null || documentCoreServiceForWorkflow === null
+      ? undefined
+      : createVersionWorkflowService({
+          db: deps.db,
+          logger: deps.logger,
+          baseService: documentCoreServiceForWorkflow,
+        });
+  const branchWorkflow =
+    deps.db === null || documentCoreServiceForWorkflow === null
+      ? undefined
+      : createBranchWorkflowService({
+          db: deps.db,
+          logger: deps.logger,
+          baseService: documentCoreServiceForWorkflow,
+        });
   const skillServiceFactory = () => {
     if (!deps.db) {
       throw new Error("Database not ready");
@@ -1568,6 +1621,8 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       },
     ),
     permissionGate,
+    versionWorkflow,
+    branchWorkflow,
     postWritingHooks: [
       {
         name: "cost-tracking",
@@ -2064,6 +2119,20 @@ async function drainPreviewUntilPause(args: {
     }
 
     if (event.type === "error") {
+      emitOrchestratorDone({
+        ctx: args.ctx,
+        sender: args.sender,
+        executionId: args.executionId,
+        runId: args.runId,
+        traceId: args.traceId,
+        terminal: "error",
+        outputText,
+        error: (event.error as IpcError) ?? {
+          code: "INTERNAL",
+          message: "AI skill run failed",
+        },
+        model: args.payload.model,
+      });
       return {
         ok: false,
         error: (event.error as IpcError) ?? {
@@ -2147,6 +2216,20 @@ async function continuePreviewSession(args: {
       };
     }
     if (event.type === "error") {
+      emitOrchestratorDone({
+        ctx: args.ctx,
+        sender: args.session.sender,
+        executionId: args.session.executionId,
+        runId: args.session.runId,
+        traceId: args.session.traceId,
+        terminal: "error",
+        outputText: args.session.outputText,
+        error: (event.error as IpcError) ?? {
+          code: "INTERNAL",
+          message: "AI skill confirmation failed",
+        },
+        model: args.session.payload.model,
+      });
       args.ctx.previewSessions.delete(args.session.executionId);
       return {
         ok: false,
@@ -2299,9 +2382,14 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         ctx,
         sender: e.sender,
       });
+      const permissionLevel = resolveSkillPermissionLevel({
+        ctx,
+        skillId: normalizedPayload.skillId,
+      });
       const generator = ctx.writingOrchestrator.execute({
         requestId: executionId,
         skillId: normalizedPayload.skillId,
+        level: permissionLevel,
         input: {
           selectedText:
             normalizedPayload.selection?.text ?? normalizedPayload.input,

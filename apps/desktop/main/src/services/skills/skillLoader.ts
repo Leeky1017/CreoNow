@@ -10,6 +10,7 @@ import {
   type SkillFrontmatter,
   type SkillInputType,
   type SkillOutputConstraints,
+  type SkillPermissionLevel,
   type SkillPrompt,
   type SkillScope,
 } from "./skillValidator";
@@ -41,6 +42,7 @@ export type LoadedSkill = {
   dependsOn?: string[];
   timeoutMs?: number;
   inputType?: SkillInputType;
+  permissionLevel?: SkillPermissionLevel;
 };
 
 export type DirectoryScanError = {
@@ -326,6 +328,7 @@ function toLoadedSkill(args: {
     dependsOn: args.frontmatter.dependsOn,
     timeoutMs: args.frontmatter.timeoutMs,
     inputType: args.frontmatter.inputType,
+    permissionLevel: args.frontmatter.permissionLevel,
   };
 }
 

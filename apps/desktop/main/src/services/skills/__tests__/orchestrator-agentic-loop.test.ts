@@ -51,6 +51,7 @@ function makeRequest(overrides: Partial<WritingRequest> = {}): WritingRequest {
 
 function createMockPermissionGate(autoGrant = true) {
   return {
+    confirmTimeoutMs: 120_000,
     evaluate: vi.fn().mockResolvedValue({ level: "auto-allow", granted: true }),
     requestPermission: vi.fn().mockResolvedValue(autoGrant),
     releasePendingPermission: vi.fn(),

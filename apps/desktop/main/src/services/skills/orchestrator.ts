@@ -16,8 +16,12 @@ import type {
   DiffPreview,
   PermissionGate,
   PermissionLevel,
+  PermissionGateErrorCode,
   PermissionRequest,
 } from "./permissionGate";
+import { normalizeLevel } from "./permissionGate";
+import type { VersionWorkflowService } from "../documents/versionService";
+import type { BranchWorkflowService } from "../documents/branchService";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -31,6 +35,7 @@ type AgenticMessage = {
 export interface WritingRequest {
   requestId: string;
   skillId: string;
+  level?: PermissionLevel;
   sessionId?: string;
   input: { selectedText?: string; precedingText?: string; followingText?: string; [key: string]: unknown };
   userInstruction?: string;
@@ -147,6 +152,14 @@ export interface OrchestratorConfig {
   costTracker?: Pick<CostTracker, "checkBudget" | "recordUsage" | "getSessionCost">;
   /** P2: handler for Agentic Loop tool execution (read-only registry) */
   toolUseHandler?: ToolUseHandler;
+  versionWorkflow?: Pick<
+    VersionWorkflowService,
+    | "createPreWriteSnapshot"
+    | "markAiWriting"
+    | "confirmCommit"
+    | "rejectCommit"
+  >;
+  branchWorkflow?: Pick<BranchWorkflowService, "ensureMainBranch">;
   prepareRequest?: (request: WritingRequest) => Promise<PreparedRequest>;
   generateText?: (args: {
     request: WritingRequest;
@@ -225,18 +238,6 @@ export function createWritingOrchestrator(
         ...(args.details === undefined ? {} : { details: args.details }),
       },
     });
-  }
-
-  function normalizePermissionLevel(level: unknown): PermissionLevel {
-    if (
-      level === "auto-allow" ||
-      level === "preview-confirm" ||
-      level === "must-confirm-snapshot" ||
-      level === "budget-confirm"
-    ) {
-      return level;
-    }
-    return "preview-confirm";
   }
 
   function buildDiffPreview(request: WritingRequest, fullText: string): DiffPreview {
@@ -847,8 +848,44 @@ export function createWritingOrchestrator(
         }
 
         let preWriteSnapshotId: string | null = null;
+        let aiWritingMarked = false;
         const createPreWriteSnapshot = async (): Promise<WritingEvent | null> => {
           if (preWriteSnapshotId) {
+            return null;
+          }
+
+          if (config.branchWorkflow) {
+            const ensuredMain = config.branchWorkflow.ensureMainBranch({
+              documentId: request.documentId,
+              createdBy: "ai-orchestrator",
+            });
+            if (!ensuredMain.ok) {
+              return makeFailureEvent({
+                requestId,
+                code: ensuredMain.error.code,
+                message: ensuredMain.error.message,
+                retryable: ensuredMain.error.retryable,
+                details: ensuredMain.error.details,
+              });
+            }
+          }
+
+          if (config.versionWorkflow && request.projectId) {
+            const workflowSnapshot = config.versionWorkflow.createPreWriteSnapshot({
+              projectId: request.projectId,
+              documentId: request.documentId,
+              executionId: requestId,
+            });
+            if (!workflowSnapshot.ok) {
+              return makeFailureEvent({
+                requestId,
+                code: workflowSnapshot.error.code,
+                message: workflowSnapshot.error.message,
+                retryable: workflowSnapshot.error.retryable,
+                details: workflowSnapshot.error.details,
+              });
+            }
+            preWriteSnapshotId = workflowSnapshot.data.preWriteSnapshotId;
             return null;
           }
 
@@ -890,22 +927,42 @@ export function createWritingOrchestrator(
           preWriteSnapshotId = versionId;
           return null;
         };
+        const markAiWritingStage = (): WritingEvent | null => {
+          if (!config.versionWorkflow || aiWritingMarked) {
+            return null;
+          }
+          const writing = config.versionWorkflow.markAiWriting(requestId);
+          if (!writing.ok) {
+            return makeFailureEvent({
+              requestId,
+              code: writing.error.code,
+              message: writing.error.message,
+              retryable: writing.error.retryable,
+              details: writing.error.details,
+            });
+          }
+          aiWritingMarked = true;
+          return null;
+        };
 
         // Stage 6: Permission gate
         const evalResult = config.permissionGate.evaluate
           ? await config.permissionGate.evaluate(request)
           : { level: "preview-confirm", granted: false };
-        const permissionLevel = normalizePermissionLevel(evalResult.level);
+        const permissionLevel = normalizeLevel(evalResult.level ?? request.level);
 
         if (permissionLevel === "auto-allow") {
           // Auto-allow: skip permission stage entirely, proceed to write-back
         } else {
-          if (permissionLevel === "must-confirm-snapshot") {
-            const snapshotError = await createPreWriteSnapshot();
-            if (snapshotError) {
-              yield snapshotError;
-              return;
-            }
+          const snapshotError = await createPreWriteSnapshot();
+          if (snapshotError) {
+            yield snapshotError;
+            return;
+          }
+          const markError = markAiWritingStage();
+          if (markError) {
+            yield markError;
+            return;
           }
 
           const permissionRequest: PermissionRequest = {
@@ -921,40 +978,55 @@ export function createWritingOrchestrator(
           // Need explicit permission
           taskStates.set(requestId, "paused");
 
-          let timeoutId: ReturnType<typeof setTimeout> | undefined;
-          let removeAbortListener: (() => void) | undefined;
-          const permissionDecision = Promise.race<boolean>([
-            config.permissionGate.requestPermission(permissionRequest).catch(() => false),
-            new Promise<boolean>((resolve) => {
-              timeoutId = setTimeout(() => resolve(false), PERMISSION_TIMEOUT_MS);
-            }),
-            new Promise<boolean>((resolve) => {
-              const handleAbort = () => resolve(false);
-              abortController.signal.addEventListener("abort", handleAbort, {
-                once: true,
-              });
-              removeAbortListener = () => {
-                abortController.signal.removeEventListener("abort", handleAbort);
-              };
-            }),
-          ]);
-
           yield makeEvent("permission-requested", requestId, {
             level: permissionLevel,
             description: permissionRequest.description,
           });
 
+          let timeoutId: ReturnType<typeof setTimeout> | undefined;
+          const permissionDecision = Promise.race<boolean>([
+            config.permissionGate.requestPermission(permissionRequest),
+            new Promise<boolean>((_resolve, reject) => {
+              timeoutId = setTimeout(
+                () => reject({ code: "PERMISSION_TIMEOUT" }),
+                PERMISSION_TIMEOUT_MS,
+              );
+            }),
+          ]);
+
           let granted: boolean;
+          let permissionError: { code: PermissionGateErrorCode; details?: unknown } | null =
+            null;
           try {
             granted = await permissionDecision;
-          } catch {
+          } catch (error) {
             granted = false;
+            if (
+              typeof error === "object" &&
+              error !== null &&
+              "code" in error &&
+              (error.code === "PERMISSION_TIMEOUT" ||
+                error.code === "PERMISSION_IPC_ERROR")
+            ) {
+              permissionError = {
+                code: error.code,
+                ...(error &&
+                typeof error === "object" &&
+                "details" in error &&
+                error.details !== undefined
+                  ? { details: error.details }
+                  : {}),
+              };
+            } else {
+              permissionError = {
+                code: "PERMISSION_IPC_ERROR",
+                details: error,
+              };
+            }
           } finally {
             if (timeoutId !== undefined) {
               clearTimeout(timeoutId);
             }
-            removeAbortListener?.();
-            config.permissionGate.releasePendingPermission(requestId);
           }
 
           taskStates.set(requestId, "running");
@@ -966,6 +1038,42 @@ export function createWritingOrchestrator(
           }
 
           if (!granted) {
+            if (
+              config.versionWorkflow &&
+              request.projectId &&
+              preWriteSnapshotId &&
+              !abortController.signal.aborted
+            ) {
+              const rejected = config.versionWorkflow.rejectCommit({
+                executionId: requestId,
+                projectId: request.projectId,
+              });
+              if (!rejected.ok) {
+                yield makeFailureEvent({
+                  requestId,
+                  code: rejected.error.code,
+                  message: rejected.error.message,
+                  retryable: rejected.error.retryable,
+                  details: rejected.error.details,
+                });
+                return;
+              }
+            }
+
+            if (permissionError) {
+              config.permissionGate.releasePendingPermission(requestId);
+              yield makeFailureEvent({
+                requestId,
+                code: permissionError.code,
+                message:
+                  permissionError.code === "PERMISSION_TIMEOUT"
+                    ? "Permission confirmation timed out"
+                    : "Permission confirmation IPC failed",
+                details: permissionError.details,
+              });
+              return;
+            }
+
             taskStates.set(requestId, "killed");
             pruneTaskStates();
             yield makeEvent("permission-denied", requestId);
@@ -987,6 +1095,11 @@ export function createWritingOrchestrator(
             yield snapshotError;
             return;
           }
+        }
+        const markError = markAiWritingStage();
+        if (markError) {
+          yield markError;
+          return;
         }
 
         const writeTool = config.toolRegistry.get("documentWrite");
@@ -1026,6 +1139,23 @@ export function createWritingOrchestrator(
             message: "Document write-back did not return versionId",
           });
           return;
+        }
+
+        if (config.versionWorkflow && request.projectId) {
+          const confirmed = config.versionWorkflow.confirmCommit({
+            executionId: requestId,
+            projectId: request.projectId,
+          });
+          if (!confirmed.ok) {
+            yield makeFailureEvent({
+              requestId,
+              code: confirmed.error.code,
+              message: confirmed.error.message,
+              retryable: confirmed.error.retryable,
+              details: confirmed.error.details,
+            });
+            return;
+          }
         }
 
         yield makeEvent("write-back-done", requestId, { versionId });

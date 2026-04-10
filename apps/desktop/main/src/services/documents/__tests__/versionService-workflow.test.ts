@@ -28,12 +28,18 @@ describe("versionService workflow", () => {
       ok: true,
       data: { versionId: "snap-pre-1", updatedAt: 1, contentHash: "hash-1" },
     });
+    const read = vi.fn().mockReturnValue({
+      ok: true,
+      data: { contentJson: "{\"type\":\"doc\",\"content\":[]}" },
+    });
     const rollbackVersion = vi.fn();
     const workflow = createVersionWorkflowService({
       db: {} as never,
       logger: { logPath: "<test>", info: () => {}, error: () => {} } as never,
       baseService: {
         save,
+        read,
+        listVersions: vi.fn().mockReturnValue({ ok: true, data: { items: [] } }),
         rollbackVersion,
       } as never,
     });
@@ -42,7 +48,6 @@ describe("versionService workflow", () => {
       projectId: "proj-1",
       documentId: "doc-1",
       executionId: "exec-1",
-      contentJson: { type: "doc", content: [] },
     });
     expect(created.ok).toBe(true);
     if (!created.ok) {
@@ -53,8 +58,18 @@ describe("versionService workflow", () => {
     const writing = workflow.markAiWriting("exec-1");
     expect(writing.ok && writing.data.stage).toBe("ai-writing");
 
-    const confirmed = workflow.confirmCommit("exec-1");
+    const confirmed = workflow.confirmCommit({
+      executionId: "exec-1",
+      projectId: "proj-1",
+    });
     expect(confirmed.ok && confirmed.data.stage).toBe("user-confirmed");
+    expect(save).toHaveBeenLastCalledWith({
+      projectId: "proj-1",
+      documentId: "doc-1",
+      contentJson: { type: "doc", content: [] },
+      actor: "ai",
+      reason: "ai-accept",
+    });
     expect(rollbackVersion).not.toHaveBeenCalled();
   });
 
@@ -76,6 +91,10 @@ describe("versionService workflow", () => {
       logger: { logPath: "<test>", info: () => {}, error: () => {} } as never,
       baseService: {
         save,
+        read: vi.fn().mockReturnValue({
+          ok: true,
+          data: { contentJson: "{\"type\":\"doc\",\"content\":[]}" },
+        }),
         rollbackVersion,
       } as never,
     });
@@ -83,8 +102,8 @@ describe("versionService workflow", () => {
       projectId: "proj-2",
       documentId: "doc-2",
       executionId: "exec-2",
-      contentJson: { type: "doc", content: [] },
     });
+    workflow.markAiWriting("exec-2");
 
     const rejected = workflow.rejectCommit({
       executionId: "exec-2",
@@ -103,6 +122,10 @@ describe("versionService workflow", () => {
       db: {} as never,
       logger: { logPath: "<test>", info: () => {}, error: () => {} } as never,
       baseService: {
+        read: vi.fn().mockReturnValue({
+          ok: true,
+          data: { contentJson: "{\"type\":\"doc\",\"content\":[]}" },
+        }),
         save: vi.fn().mockReturnValue({
           ok: true,
           data: { updatedAt: 1, contentHash: "hash-x" },
@@ -115,7 +138,6 @@ describe("versionService workflow", () => {
       projectId: "proj-fail",
       documentId: "doc-fail",
       executionId: "exec-fail",
-      contentJson: { type: "doc", content: [] },
     });
     expect(created.ok).toBe(false);
   });
@@ -129,6 +151,10 @@ describe("versionService workflow", () => {
           ok: true,
           data: { versionId: "snap-pre-3", updatedAt: 1, contentHash: "hash-1" },
         }),
+        read: vi.fn().mockReturnValue({
+          ok: true,
+          data: { contentJson: "{\"type\":\"doc\",\"content\":[]}" },
+        }),
         rollbackVersion: vi.fn().mockReturnValue({
           ok: false,
           error: { code: "DB_ERROR", message: "rollback failed" },
@@ -139,13 +165,56 @@ describe("versionService workflow", () => {
       projectId: "proj-3",
       documentId: "doc-3",
       executionId: "exec-3",
-      contentJson: { type: "doc", content: [] },
     });
+    workflow.markAiWriting("exec-3");
 
     const rejected = workflow.rejectCommit({
       executionId: "exec-3",
       projectId: "proj-3",
     });
     expect(rejected.ok).toBe(false);
+  });
+
+  it("非法状态迁移会 fail-closed", () => {
+    const workflow = createVersionWorkflowService({
+      db: {} as never,
+      logger: { logPath: "<test>", info: () => {}, error: () => {} } as never,
+      baseService: {
+        save: vi.fn().mockReturnValue({
+          ok: true,
+          data: { versionId: "snap-pre-4", updatedAt: 1, contentHash: "hash-1" },
+        }),
+        read: vi.fn().mockReturnValue({
+          ok: true,
+          data: { contentJson: "{\"type\":\"doc\",\"content\":[]}" },
+        }),
+        listVersions: vi.fn().mockReturnValue({ ok: true, data: { items: [] } }),
+        rollbackVersion: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            restored: true,
+            preRollbackVersionId: "snap-pre-rollback",
+            rollbackVersionId: "snap-rollback",
+          },
+        }),
+      } as never,
+    });
+    workflow.createPreWriteSnapshot({
+      projectId: "proj-4",
+      documentId: "doc-4",
+      executionId: "exec-4",
+    });
+
+    const directConfirm = workflow.confirmCommit({
+      executionId: "exec-4",
+      projectId: "proj-4",
+    });
+    expect(directConfirm.ok).toBe(false);
+
+    const directReject = workflow.rejectCommit({
+      executionId: "exec-4",
+      projectId: "proj-4",
+    });
+    expect(directReject.ok).toBe(false);
   });
 });

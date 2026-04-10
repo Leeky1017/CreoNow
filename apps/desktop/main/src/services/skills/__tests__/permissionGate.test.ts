@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createPermissionGate } from "../permissionGate";
+import { createPermissionGate, PermissionGateError } from "../permissionGate";
 
 describe("permissionGate", () => {
   it("auto-allow 请求直接放行（read-only passthrough）", async () => {
@@ -25,7 +25,7 @@ describe("permissionGate", () => {
     await expect(pending).resolves.toBe(true);
   });
 
-  it("budget-confirm 超时默认拒绝（fail-closed）", async () => {
+  it("budget-confirm 超时返回 PERMISSION_TIMEOUT（fail-closed）", async () => {
     vi.useFakeTimers();
     const gate = createPermissionGate({ confirmTimeoutMs: 200 });
     const pending = gate.requestPermission({
@@ -34,8 +34,12 @@ describe("permissionGate", () => {
       description: "expensive run",
       estimatedTokenCost: 1200,
     });
+    const handled = pending.catch((caught: unknown) => caught);
     await vi.advanceTimersByTimeAsync(200);
-    await expect(pending).resolves.toBe(false);
+    const error = await handled;
+    expect(error).toMatchObject({
+      code: "PERMISSION_TIMEOUT",
+    } satisfies Partial<PermissionGateError>);
     vi.useRealTimers();
   });
 
@@ -58,7 +62,7 @@ describe("permissionGate", () => {
     });
   });
 
-  it("onPermissionRequested 抛错时返回 false", async () => {
+  it("onPermissionRequested 抛错时返回 PERMISSION_IPC_ERROR", async () => {
     const gate = createPermissionGate({
       onPermissionRequested: () => {
         throw new Error("ipc broken");
@@ -70,7 +74,9 @@ describe("permissionGate", () => {
         level: "preview-confirm",
         description: "broken hook",
       }),
-    ).resolves.toBe(false);
+    ).rejects.toMatchObject({
+      code: "PERMISSION_IPC_ERROR",
+    } satisfies Partial<PermissionGateError>);
   });
 
   it("rejectAll 会批量拒绝所有 pending 请求", async () => {
