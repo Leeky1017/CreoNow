@@ -243,6 +243,77 @@ describe("aiServiceBridge", () => {
     );
   });
 
+  it("maps mid-stream failure with accumulated text to partial-result", async () => {
+    const db = createDb();
+    putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
+    putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
+
+    const bridge = createAiServiceBridge({
+      db,
+      logger: createLogger(),
+      costTracker: createCostTracker({
+        pricingTable: createPricingTable(),
+        budgetPolicy: {
+          warningThreshold: 10,
+          hardStopLimit: 100,
+          enabled: false,
+        },
+        estimateTokens: () => 0,
+      }),
+      env: {
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_BASE_URL: "https://api.openai.com",
+        CREONOW_AI_API_KEY: "sk-test",
+      },
+      runtimeAiTimeoutMs: 30_000,
+      fetchImpl: (async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(
+                  [
+                    'data: {"choices":[{"delta":{"content":"partial "}}]}',
+                    "",
+                    "data: {broken-json}",
+                    "",
+                  ].join("\n"),
+                ),
+              );
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        )) as unknown as typeof fetch,
+    });
+
+    const onComplete = vi.fn();
+    const onError = vi.fn();
+    const gen = bridge.streamChat([{ role: "user", content: "x" }], {
+      signal: new AbortController().signal,
+      onComplete,
+      onError,
+      skillId: "builtin:continue",
+      requestId: "bridge-req-partial",
+    });
+
+    const firstChunk = await gen.next();
+    expect(firstChunk.done).toBe(false);
+    expect(firstChunk.value?.delta).toBe("partial ");
+
+    await expect(gen.next()).rejects.toMatchObject({
+      kind: "partial-result",
+      partialContent: "partial ",
+    });
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "partial-result",
+        partialContent: "partial ",
+      }),
+    );
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
   it("throws AbortError when signal is already aborted", async () => {
     const db = createDb();
     putSetting(db, "creonow.ai.model.primary", "gpt-4.1");

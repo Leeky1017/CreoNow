@@ -290,6 +290,8 @@ export function createAiServiceBridge(args: {
         const errorKind: StreamError["kind"] =
           streamResult.error.code === "CANCELED"
             ? "aborted"
+            : accumulatedText.length > 0
+              ? "partial-result"
             : streamResult.error.retryable
               ? "retryable"
               : "non-retryable";

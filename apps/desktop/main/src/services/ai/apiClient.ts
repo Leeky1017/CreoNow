@@ -671,7 +671,45 @@ export function createApiClient(args: {
         );
       }
 
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.toLowerCase().includes("text/event-stream")) {
+        const costRes = await recordCost({
+          requestId,
+          sessionId: callArgs.sessionId,
+          skillId: callArgs.skillId,
+          model: callArgs.provider.model,
+          usage,
+          startedAtMs,
+        });
+        if (!costRes.ok) {
+          const protocolError = ipcError(
+            "LLM_API_ERROR",
+            "Expected text/event-stream response for streaming request",
+            { requestId, contentType },
+            { retryable: false },
+          );
+          return {
+            ok: false,
+            error: {
+              ...protocolError.error,
+              details: mergePersistenceErrorDetails(
+                protocolError.error.details,
+                costRes.error,
+              ),
+            },
+          };
+        }
+        return ipcError(
+          "LLM_API_ERROR",
+          "Expected text/event-stream response for streaming request",
+          { requestId, contentType },
+          { retryable: false },
+        );
+      }
+
+      let sawSseEvent = false;
       for await (const event of readSse({ body: response.body })) {
+        sawSseEvent = true;
         if (event.data === "[DONE]") {
           break;
         }
@@ -728,6 +766,41 @@ export function createApiClient(args: {
           ),
           cachedTokens: Math.max(usage.cachedTokens, nextUsage.cachedTokens),
         };
+      }
+
+      if (!sawSseEvent) {
+        const costRes = await recordCost({
+          requestId,
+          sessionId: callArgs.sessionId,
+          skillId: callArgs.skillId,
+          model: callArgs.provider.model,
+          usage,
+          startedAtMs,
+        });
+        if (!costRes.ok) {
+          const protocolError = ipcError(
+            "LLM_API_ERROR",
+            "Streaming response ended before any SSE event was received",
+            { requestId },
+            { retryable: false },
+          );
+          return {
+            ok: false,
+            error: {
+              ...protocolError.error,
+              details: mergePersistenceErrorDetails(
+                protocolError.error.details,
+                costRes.error,
+              ),
+            },
+          };
+        }
+        return ipcError(
+          "LLM_API_ERROR",
+          "Streaming response ended before any SSE event was received",
+          { requestId },
+          { retryable: false },
+        );
       }
 
       callArgs.onChunk?.({ delta: "", done: true });

@@ -1462,7 +1462,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               message: res.error.message,
               retryCount: 0,
             };
-            options.onError(streamError);
+            if (kind !== "aborted") {
+              options.onError(streamError);
+            }
             throw streamError;
           }
 
@@ -1623,195 +1625,195 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       return prepared.data;
     },
     generateText: async ({ request, signal, emitChunk, messages }) => {
-            let outputText = "";
-            let usage = {
-              promptTokens: 0,
-              completionTokens: 0,
-              totalTokens: 0,
-            };
-            let capturedFinishReason: "stop" | "tool_use" | undefined;
-            let capturedToolCalls:
-              | Array<{
-                  id: string;
-                  name: string;
-                  arguments: Record<string, unknown>;
-                }>
-              | undefined;
-            let sawStreamChunk = false;
-            let streamTerminalSeen = false;
-            let settleStreamCompletion: (() => void) | null = null;
-            let rejectStreamCompletion: ((error: Error) => void) | null = null;
-            const streamCompletion = new Promise<void>((resolve, reject) => {
-              settleStreamCompletion = resolve;
-              rejectStreamCompletion = reject;
-            });
+      let outputText = "";
+      let usage = {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+      };
+      let capturedFinishReason: "stop" | "tool_use" | undefined;
+      let capturedToolCalls:
+        | Array<{
+            id: string;
+            name: string;
+            arguments: Record<string, unknown>;
+          }>
+        | undefined;
+      let sawStreamChunk = false;
+      let streamTerminalSeen = false;
+      let settleStreamCompletion: (() => void) | null = null;
+      let rejectStreamCompletion: ((error: Error) => void) | null = null;
+      const streamCompletion = new Promise<void>((resolve, reject) => {
+        settleStreamCompletion = resolve;
+        rejectStreamCompletion = reject;
+      });
 
-            const onDoneEvent = (event: {
-              type: "done";
-              outputText: string;
-              terminal: string;
-              error?: { message?: string; code?: string };
-              result?: {
-                metadata: { promptTokens: number; completionTokens: number };
-              };
-              finishReason?: "stop" | "tool_use";
-              toolCalls?: Array<{
-                id: string;
-                name: string;
-                arguments: Record<string, unknown>;
-              }>;
-            }) => {
-              if (!sawStreamChunk && event.outputText.length > 0) {
-                outputText = event.outputText;
-                emitChunk(event.outputText, estimateTokens(event.outputText));
-                sawStreamChunk = true;
-              } else {
-                outputText = event.outputText;
-              }
-              usage = {
-                promptTokens:
-                  event.result?.metadata.promptTokens ??
-                  estimateTokens(resolveWritingRequestInput(request)),
-                completionTokens:
-                  event.result?.metadata.completionTokens ??
-                  estimateTokens(event.outputText),
-                totalTokens:
-                  (event.result?.metadata.promptTokens ??
-                    estimateTokens(resolveWritingRequestInput(request))) +
-                  (event.result?.metadata.completionTokens ??
-                    estimateTokens(event.outputText)),
-              };
-              // F1: capture finishReason and toolCalls from the done event
-              if (event.finishReason !== undefined) {
-                capturedFinishReason = event.finishReason;
-              }
-              if (event.toolCalls !== undefined) {
-                capturedToolCalls = event.toolCalls;
-              }
-              streamTerminalSeen = true;
-              if (event.terminal === "completed") {
-                settleStreamCompletion?.();
-              } else {
-                rejectStreamCompletion?.(
-                  Object.assign(
-                    new Error(
-                      event.error?.message ??
-                        (event.terminal === "cancelled"
-                          ? "AI request canceled"
-                          : "AI stream failed"),
-                    ),
-                    {
-                      code: event.error?.code ?? "AI_SERVICE_ERROR",
-                      terminal: event.terminal,
-                    },
-                  ),
-                );
-              }
-            };
-
-            // F2: when messages is provided (agentic loop rounds 2+), call aiService directly
-            // bypassing skillExecutor so that the accumulated tool-result messages are forwarded
-            if (messages && messages.length > 0) {
-              const res = await aiService.runSkill({
-                skillId: request.skillId,
-                input: messages[messages.length - 1]?.content ?? "",
-                mode: "ask",
-                model: request.modelId ?? "default",
-                context: {
-                  projectId: request.projectId,
-                  documentId: request.documentId,
-                },
-                stream: true,
-                ts: nowTs(),
-                overrideMessages: messages,
-                emitEvent: (event) => {
-                  if (signal.aborted) return;
-                  if (event.type === "chunk") {
-                    sawStreamChunk = true;
-                    outputText += event.chunk;
-                    const accumulatedTokens = estimateTokens(outputText);
-                    emitChunk(event.chunk, accumulatedTokens);
-                    return;
-                  }
-                  if (event.type === "done") {
-                    onDoneEvent(event as Parameters<typeof onDoneEvent>[0]);
-                  }
-                },
-              });
-              if (!res.ok) throw res.error;
-              if (!streamTerminalSeen) await streamCompletion;
-              if (!sawStreamChunk && (res.data.outputText?.length ?? 0) > 0) {
-                const finalOutput = res.data.outputText ?? "";
-                outputText = finalOutput;
-                emitChunk(finalOutput, estimateTokens(finalOutput));
-              }
-              return {
-                fullText: outputText || res.data.outputText || "",
-                usage,
-                finishReason: capturedFinishReason,
-                toolCalls: capturedToolCalls,
-              };
-            }
-
-            // First call: use skillExecutor for full context assembly
-            const res = await skillExecutor.execute({
-              skillId: request.skillId,
-              hasSelection: Boolean(request.selection),
-              input: resolveWritingRequestInput(request),
-              selectedText:
-                request.selection?.text ??
-                request.input.selectedText ??
-                resolveWritingRequestInput(request),
-              ...(request.cursorPosition === undefined
-                ? {}
-                : { cursorPosition: request.cursorPosition }),
-              mode: "ask",
-              model: request.modelId ?? "default",
-              ...(request.userInstruction === undefined
-                ? {}
-                : { userInstruction: request.userInstruction }),
-              context: {
-                projectId: request.projectId,
-                documentId: request.documentId,
+      const onDoneEvent = (event: {
+        type: "done";
+        outputText: string;
+        terminal: string;
+        error?: { message?: string; code?: string };
+        result?: {
+          metadata: { promptTokens: number; completionTokens: number };
+        };
+        finishReason?: "stop" | "tool_use";
+        toolCalls?: Array<{
+          id: string;
+          name: string;
+          arguments: Record<string, unknown>;
+        }>;
+      }) => {
+        if (!sawStreamChunk && event.outputText.length > 0) {
+          outputText = event.outputText;
+          emitChunk(event.outputText, estimateTokens(event.outputText));
+          sawStreamChunk = true;
+        } else {
+          outputText = event.outputText;
+        }
+        usage = {
+          promptTokens:
+            event.result?.metadata.promptTokens ??
+            estimateTokens(resolveWritingRequestInput(request)),
+          completionTokens:
+            event.result?.metadata.completionTokens ??
+            estimateTokens(event.outputText),
+          totalTokens:
+            (event.result?.metadata.promptTokens ??
+              estimateTokens(resolveWritingRequestInput(request))) +
+            (event.result?.metadata.completionTokens ??
+              estimateTokens(event.outputText)),
+        };
+        // F1: capture finishReason and toolCalls from the done event
+        if (event.finishReason !== undefined) {
+          capturedFinishReason = event.finishReason;
+        }
+        if (event.toolCalls !== undefined) {
+          capturedToolCalls = event.toolCalls;
+        }
+        streamTerminalSeen = true;
+        if (event.terminal === "completed") {
+          settleStreamCompletion?.();
+        } else {
+          rejectStreamCompletion?.(
+            Object.assign(
+              new Error(
+                event.error?.message ??
+                  (event.terminal === "cancelled"
+                    ? "AI request canceled"
+                    : "AI stream failed"),
+              ),
+              {
+                code: event.error?.code ?? "AI_SERVICE_ERROR",
+                terminal: event.terminal,
               },
-              ...(messages
-                ? { messages: messages as SkillExecutorRunArgs["messages"] }
-                : {}),
-              stream: true,
-              ts: nowTs(),
-              emitEvent: (event) => {
-                if (signal.aborted) {
-                  return;
-                }
-                if (event.type === "chunk") {
-                  sawStreamChunk = true;
-                  outputText += event.chunk;
-                  const accumulatedTokens = estimateTokens(outputText);
-                  emitChunk(event.chunk, accumulatedTokens);
-                  return;
-                }
-                if (event.type === "done") {
-                  onDoneEvent(event as Parameters<typeof onDoneEvent>[0]);
-                }
-              },
-            });
-            if (!res.ok) {
-              throw res.error;
+            ),
+          );
+        }
+      };
+
+      // F2: when messages is provided (agentic loop rounds 2+), call aiService directly
+      // bypassing skillExecutor so that the accumulated tool-result messages are forwarded
+      if (messages && messages.length > 0) {
+        const res = await aiService.runSkill({
+          skillId: request.skillId,
+          input: messages[messages.length - 1]?.content ?? "",
+          mode: "ask",
+          model: request.modelId ?? "default",
+          context: {
+            projectId: request.projectId,
+            documentId: request.documentId,
+          },
+          stream: true,
+          ts: nowTs(),
+          overrideMessages: messages,
+          emitEvent: (event) => {
+            if (signal.aborted) return;
+            if (event.type === "chunk") {
+              sawStreamChunk = true;
+              outputText += event.chunk;
+              const accumulatedTokens = estimateTokens(outputText);
+              emitChunk(event.chunk, accumulatedTokens);
+              return;
             }
-            if (!streamTerminalSeen) {
-              await streamCompletion;
+            if (event.type === "done") {
+              onDoneEvent(event as Parameters<typeof onDoneEvent>[0]);
             }
-            if (!sawStreamChunk && (res.data.outputText?.length ?? 0) > 0) {
-              const finalOutput = res.data.outputText ?? "";
-              outputText = finalOutput;
-              emitChunk(finalOutput, estimateTokens(finalOutput));
-            }
-            return {
-              fullText: outputText || res.data.outputText || "",
-              usage,
-              finishReason: capturedFinishReason,
-              toolCalls: capturedToolCalls,
-            };
+          },
+        });
+        if (!res.ok) throw res.error;
+        if (!streamTerminalSeen) await streamCompletion;
+        if (!sawStreamChunk && (res.data.outputText?.length ?? 0) > 0) {
+          const finalOutput = res.data.outputText ?? "";
+          outputText = finalOutput;
+          emitChunk(finalOutput, estimateTokens(finalOutput));
+        }
+        return {
+          fullText: outputText || res.data.outputText || "",
+          usage,
+          finishReason: capturedFinishReason,
+          toolCalls: capturedToolCalls,
+        };
+      }
+
+      // First call: use skillExecutor for full context assembly
+      const res = await skillExecutor.execute({
+        skillId: request.skillId,
+        hasSelection: Boolean(request.selection),
+        input: resolveWritingRequestInput(request),
+        selectedText:
+          request.selection?.text ??
+          request.input.selectedText ??
+          resolveWritingRequestInput(request),
+        ...(request.cursorPosition === undefined
+          ? {}
+          : { cursorPosition: request.cursorPosition }),
+        mode: "ask",
+        model: request.modelId ?? "default",
+        ...(request.userInstruction === undefined
+          ? {}
+          : { userInstruction: request.userInstruction }),
+        context: {
+          projectId: request.projectId,
+          documentId: request.documentId,
+        },
+        ...(messages
+          ? { messages: messages as SkillExecutorRunArgs["messages"] }
+          : {}),
+        stream: true,
+        ts: nowTs(),
+        emitEvent: (event) => {
+          if (signal.aborted) {
+            return;
+          }
+          if (event.type === "chunk") {
+            sawStreamChunk = true;
+            outputText += event.chunk;
+            const accumulatedTokens = estimateTokens(outputText);
+            emitChunk(event.chunk, accumulatedTokens);
+            return;
+          }
+          if (event.type === "done") {
+            onDoneEvent(event as Parameters<typeof onDoneEvent>[0]);
+          }
+        },
+      });
+      if (!res.ok) {
+        throw res.error;
+      }
+      if (!streamTerminalSeen) {
+        await streamCompletion;
+      }
+      if (!sawStreamChunk && (res.data.outputText?.length ?? 0) > 0) {
+        const finalOutput = res.data.outputText ?? "";
+        outputText = finalOutput;
+        emitChunk(finalOutput, estimateTokens(finalOutput));
+      }
+      return {
+        fullText: outputText || res.data.outputText || "",
+        usage,
+        finishReason: capturedFinishReason,
+        toolCalls: capturedToolCalls,
+      };
     },
   });
 

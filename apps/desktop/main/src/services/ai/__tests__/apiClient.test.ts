@@ -660,6 +660,114 @@ describe("apiClient", () => {
     expect(getCostRecord(db, "req-6")).not.toBeNull();
   });
 
+  it("returns non-retryable error when stream response content-type is not SSE", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const fetchMock = vi.fn(
+      async (_url: URL | RequestInfo, _init?: RequestInit) =>
+        new Response(JSON.stringify({ choices: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json; charset=utf-8" },
+        }),
+    );
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 6_500,
+    });
+
+    const result = await client.streamChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 100,
+        temperature: 0.5,
+      },
+      messages: [{ role: "user", content: "hello" }],
+      requestId: "req-6b",
+      skillId: "builtin:continue",
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected non-SSE stream protocol failure");
+    }
+    expect(result.error.code).toBe("LLM_API_ERROR");
+    expect(result.error.retryable).toBe(false);
+    expect(getCostRecord(db, "req-6b")).not.toBeNull();
+  });
+
+  it("returns non-retryable error when stream ends before any SSE data event", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const emptySseBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("event: ping\n\n"));
+        controller.close();
+      },
+    });
+
+    const fetchMock = vi.fn(
+      async (_url: URL | RequestInfo, _init?: RequestInit) =>
+        new Response(emptySseBody, {
+          status: 200,
+          headers: { "content-type": "text/event-stream; charset=utf-8" },
+        }),
+    );
+
+    const onChunk = vi.fn();
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 6_800,
+    });
+
+    const result = await client.streamChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 100,
+        temperature: 0.5,
+      },
+      messages: [{ role: "user", content: "hello" }],
+      requestId: "req-6c",
+      skillId: "builtin:continue",
+      onChunk,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected empty SSE stream protocol failure");
+    }
+    expect(result.error.code).toBe("LLM_API_ERROR");
+    expect(result.error.retryable).toBe(false);
+    expect(onChunk).not.toHaveBeenCalled();
+    expect(getCostRecord(db, "req-6c")).not.toBeNull();
+  });
+
   it("classifies 5xx stream response as retryable", async () => {
     const db = createDb();
     const tracker = createCostTracker({
