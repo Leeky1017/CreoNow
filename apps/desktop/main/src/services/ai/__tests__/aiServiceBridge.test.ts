@@ -68,9 +68,11 @@ describe("aiServiceBridge", () => {
     const db = createDb();
     putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
     putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
+    const onApiCallStarted = vi.fn();
 
     const fetchMock = vi.fn(
       async (_url: URL | RequestInfo, init?: RequestInit) => {
+        expect(onApiCallStarted).toHaveBeenCalledTimes(1);
         const payload = JSON.parse(String(init?.body)) as {
           model: string;
           stream: boolean;
@@ -136,6 +138,7 @@ describe("aiServiceBridge", () => {
         signal: abortController.signal,
         onComplete,
         onError,
+        onApiCallStarted,
         skillId: "builtin:summarize",
         requestId: "bridge-req-1",
       },
@@ -150,6 +153,7 @@ describe("aiServiceBridge", () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(calledUrl).toBe("https://api.openai.com/v1/chat/completions");
+    expect(onApiCallStarted).toHaveBeenCalledTimes(1);
 
     const row = db
       .prepare<
@@ -414,10 +418,12 @@ describe("aiServiceBridge", () => {
 
       const abortController = new AbortController();
       const onError = vi.fn();
+      const onApiCallStarted = vi.fn();
       const gen = bridge.streamChat([{ role: "user", content: "x" }], {
         signal: abortController.signal,
         onComplete: vi.fn(),
         onError,
+        onApiCallStarted,
         skillId: "builtin:continue",
       });
 
@@ -431,6 +437,7 @@ describe("aiServiceBridge", () => {
       });
       expect(fetchMock).not.toHaveBeenCalled();
       expect(onError).not.toHaveBeenCalled();
+      expect(onApiCallStarted).not.toHaveBeenCalled();
     } finally {
       routerSpy.mockRestore();
     }

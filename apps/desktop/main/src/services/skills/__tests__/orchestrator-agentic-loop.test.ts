@@ -149,7 +149,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const generateText = vi.fn().mockImplementation(async (args: {
         messages?: Array<{ role: string; content: string }>;
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         if (callCount === 1) {
           // First call: return partial text + tool_use
@@ -241,7 +243,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const generateText = vi.fn().mockImplementation(async (args: {
         messages?: Array<{ role: string; content: string }>;
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         if (callCount === 1) {
           args.emitChunk("第一轮", 3);
@@ -334,7 +338,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const generateText = vi.fn().mockImplementation(async (args: {
         messages?: Array<{ role: string; content: string }>;
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         if (callCount === 1) {
           args.emitChunk("第一轮", 3);
@@ -422,7 +428,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const generateText = vi.fn().mockImplementation(async (args: {
         messages?: Array<{ role: string; content: string }>;
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         if (callCount === 1) {
           args.emitChunk("部分续写", 4);
@@ -529,7 +537,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
 
       const generateText = vi.fn().mockImplementation(async (args: {
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         args.emitChunk(`轮次${callCount}`, callCount * 2);
         // Always return tool_use until max rounds

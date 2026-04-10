@@ -89,6 +89,7 @@ interface AIService {
       signal: AbortSignal;
       onComplete: (r: unknown) => void;
       onError: (e: unknown) => void;
+      onApiCallStarted?: () => void;
       skillId?: string;
       requestId?: string;
       sessionId?: string;
@@ -151,6 +152,7 @@ export interface OrchestratorConfig {
     request: WritingRequest;
     signal: AbortSignal;
     emitChunk: (delta: string, accumulatedTokens: number) => void;
+    onApiCallStarted?: () => void;
     /** P2: updated messages for subsequent agentic loop rounds */
     messages?: Array<{ role: string; content: string; toolCallId?: string }>;
   }) => Promise<{
@@ -406,6 +408,9 @@ export function createWritingOrchestrator(
                     chunkQueue.push({ delta, accumulatedTokens });
                     wake();
                   },
+                  onApiCallStarted: () => {
+                    apiCallStarted = true;
+                  },
                 })
                 .then(
                   (result) => {
@@ -419,7 +424,6 @@ export function createWritingOrchestrator(
                     wake();
                   },
                 );
-              apiCallStarted = true;
 
               while (!generationSettled || chunkQueue.length > 0) {
                 if (abortController.signal.aborted) {
@@ -478,12 +482,14 @@ export function createWritingOrchestrator(
                   signal: abortController.signal,
                   onComplete: () => {},
                   onError: () => {},
+                  onApiCallStarted: () => {
+                    apiCallStarted = true;
+                  },
                   skillId: request.skillId,
                   requestId,
                   ...(request.sessionId ? { sessionId: request.sessionId } : {}),
                 },
               );
-              apiCallStarted = true;
 
               for await (const chunk of gen) {
                 if (abortController.signal.aborted) {

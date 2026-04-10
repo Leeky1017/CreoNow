@@ -13,6 +13,7 @@ interface StreamOptions {
   signal?: AbortSignal;
   onComplete: (result: { content: string; usage: { promptTokens: number; completionTokens: number }; wasRetried: boolean }) => void;
   onError: (error: { kind: string; message: string; retryCount: number; partialContent?: string }) => void;
+  onApiCallStarted?: () => void;
 }
 
 interface ChatMessage {

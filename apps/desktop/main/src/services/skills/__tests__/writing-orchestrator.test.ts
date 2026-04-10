@@ -63,14 +63,17 @@ function createMockAIService() {
     { delta: "文字。", finishReason: "stop", accumulatedTokens: 6 } as const,
   ];
 
-  async function* mockStreamChat() {
+  async function* mockStreamChat(options?: { onApiCallStarted?: () => void }) {
+    options?.onApiCallStarted?.();
     for (const chunk of chunks) {
       yield chunk;
     }
   }
 
   return {
-    streamChat: vi.fn().mockImplementation(() => mockStreamChat()),
+    streamChat: vi
+      .fn()
+      .mockImplementation((_messages, options) => mockStreamChat(options)),
     estimateTokens: vi.fn().mockReturnValue(10),
     abort: vi.fn(),
   };
@@ -510,8 +513,9 @@ describe("WritingOrchestrator", () => {
         releaseSecondChunk = resolve;
       });
       aiService.streamChat.mockImplementation(
-        () =>
+        (_messages, options: { onApiCallStarted?: () => void }) =>
           (async function* () {
+            options.onApiCallStarted?.();
             yield { delta: "润色", finishReason: null, accumulatedTokens: 2 };
             await waitSecondChunk;
             yield { delta: "后的", finishReason: null, accumulatedTokens: 4 };
@@ -916,8 +920,9 @@ describe("WritingOrchestrator", () => {
       });
 
       aiService.streamChat.mockImplementation(
-        (_messages, options: { signal?: AbortSignal }) =>
+        (_messages, options: { signal?: AbortSignal; onApiCallStarted?: () => void }) =>
           (async function* () {
+            options.onApiCallStarted?.();
             streamCreated();
             await new Promise<never>((_resolve, reject) => {
               const abortError = new Error("Streaming request aborted");
@@ -958,11 +963,13 @@ describe("WritingOrchestrator", () => {
 
     it("partial-result 错误 → 返回 PARTIAL_RESULT 且保留已流式输出片段", async () => {
       const aiService = createMockAIService();
-      aiService.streamChat.mockImplementation(() =>
-        (async function* () {
+      aiService.streamChat.mockImplementation(
+        (_messages, options: { onApiCallStarted?: () => void }) =>
+          (async function* () {
+            options.onApiCallStarted?.();
           yield { delta: "半截", finishReason: null, accumulatedTokens: 2 };
           throw { kind: "partial-result", message: "stream interrupted", retryCount: 0 };
-        })(),
+          })(),
       );
       const tracker = createMockCostTracker();
 

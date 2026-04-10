@@ -28,6 +28,7 @@ type StreamChatOptions = {
   signal: AbortSignal;
   onComplete: (r: unknown) => void;
   onError: (e: unknown) => void;
+  onApiCallStarted?: () => void;
   skillId?: string;
   requestId?: string;
   sessionId?: string;
@@ -227,6 +228,7 @@ export function createAiServiceBridge(args: {
       }
     };
 
+    options.onApiCallStarted?.();
     const requestPromise: Promise<
       ServiceResult<{
         requestId: string;

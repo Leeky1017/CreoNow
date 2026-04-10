@@ -1624,7 +1624,13 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
       return prepared.data;
     },
-    generateText: async ({ request, signal, emitChunk, messages }) => {
+    generateText: async ({
+      request,
+      signal,
+      emitChunk,
+      onApiCallStarted,
+      messages,
+    }) => {
       let outputText = "";
       let usage = {
         promptTokens: 0,
@@ -1714,6 +1720,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       // F2: when messages is provided (agentic loop rounds 2+), call aiService directly
       // bypassing skillExecutor so that the accumulated tool-result messages are forwarded
       if (messages && messages.length > 0) {
+        onApiCallStarted?.();
         const res = await aiService.runSkill({
           skillId: request.skillId,
           input: messages[messages.length - 1]?.content ?? "",
@@ -1756,6 +1763,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
 
       // First call: use skillExecutor for full context assembly
+      let apiStartedFired = false;
       const res = await skillExecutor.execute({
         skillId: request.skillId,
         hasSelection: Boolean(request.selection),
@@ -1782,6 +1790,10 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         stream: true,
         ts: nowTs(),
         emitEvent: (event) => {
+          if (!apiStartedFired) {
+            apiStartedFired = true;
+            onApiCallStarted?.();
+          }
           if (signal.aborted) {
             return;
           }
