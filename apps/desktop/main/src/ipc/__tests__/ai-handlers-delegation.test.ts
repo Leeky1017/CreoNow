@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => {
     ok: true,
     data: { executionId: "exec-1", runId: "run-1", traceId: "trace-1", outputText: "ok" },
   });
+  const bridgeStreamChatMock = vi.fn(async function* () {
+    throw { kind: "unsupported-provider" };
+  });
 
   return {
     listModelsMock,
@@ -30,6 +33,12 @@ const mocks = vi.hoisted(() => {
       cancel: cancelMock,
       feedback: feedbackMock,
       runSkill: runSkillMock,
+    })),
+    bridgeStreamChatMock,
+    createAiServiceBridgeMock: vi.fn(() => ({
+      streamChat: bridgeStreamChatMock,
+      estimateTokens: vi.fn(() => 100),
+      abort: vi.fn(),
     })),
     createSqliteTraceStoreMock: vi.fn(() => ({})),
     createAiProxySettingsServiceMock: vi.fn(() => ({
@@ -70,6 +79,9 @@ vi.mock("../../services/ai/aiService", () => ({
 }));
 vi.mock("../../services/ai/traceStore", () => ({
   createSqliteTraceStore: mocks.createSqliteTraceStoreMock,
+}));
+vi.mock("../../services/ai/aiServiceBridge", () => ({
+  createAiServiceBridge: mocks.createAiServiceBridgeMock,
 }));
 vi.mock("../../services/ai/aiProxySettingsService", () => ({
   createAiProxySettingsService: mocks.createAiProxySettingsServiceMock,
@@ -162,7 +174,7 @@ interface IpcResponse<T> {
   error?: { code: string; message: string };
 }
 
-function createHarness(dbNull = false) {
+function createHarness(dbNull = false, withCostTracker = false) {
   const handlers = new Map<string, Handler>();
 
   const ipcMain = {
@@ -202,6 +214,19 @@ function createHarness(dbNull = false) {
       CREONOW_AI_BASE_URL: "https://api.openai.com",
       CREONOW_AI_API_KEY: "sk-test-key-12345678",
     },
+    ...(withCostTracker
+      ? {
+          costTracker: {
+            checkBudget: vi.fn(() => ({ ok: true })),
+            recordUsage: vi.fn(() => ({ requestCost: 0, sessionTotalCost: 0 })),
+            getSessionCost: vi.fn(() => ({
+              totalCost: 0,
+              totalRequests: 0,
+              budgetStatus: "ok" as const,
+            })),
+          } as unknown as never,
+        }
+      : {}),
   });
 
   return {
@@ -296,6 +321,66 @@ describe("ai:skill:cancel", () => {
     });
     expect(res.ok).toBe(true);
     expect(res.data).toEqual({ canceled: true });
+  });
+});
+
+describe("aiService streamChat fallback wiring", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("bridge unsupported-provider 回退 legacy 路径时仍触发 onApiCallStarted", async () => {
+    createHarness(false, true);
+    const orchestratorConfig = (
+      mocks.createWritingOrchestratorMock as unknown as {
+        mock: { calls: Array<[unknown]> };
+      }
+    ).mock.calls[0]?.[0] as
+      | {
+          aiService: {
+            streamChat: (
+              messages: Array<{ role: string; content: string }>,
+              options: {
+                signal: AbortSignal;
+                onComplete: (r: unknown) => void;
+                onError: (e: unknown) => void;
+                onApiCallStarted?: () => void;
+                skillId?: string;
+              },
+            ) => AsyncGenerator<{
+              delta: string;
+              finishReason: "stop" | "tool_use" | null;
+              accumulatedTokens: number;
+            }>;
+          };
+        }
+      | undefined;
+
+    expect(orchestratorConfig).toBeDefined();
+    const onApiCallStarted = vi.fn();
+    const onComplete = vi.fn();
+    const onError = vi.fn();
+    const chunks: Array<{ delta: string }> = [];
+
+    for await (const chunk of orchestratorConfig!.aiService.streamChat(
+      [{ role: "user", content: "fallback test" }],
+      {
+        signal: new AbortController().signal,
+        onComplete,
+        onError,
+        onApiCallStarted,
+        skillId: "builtin:continue",
+      },
+    )) {
+      chunks.push(chunk);
+    }
+
+    expect(mocks.bridgeStreamChatMock).toHaveBeenCalledTimes(1);
+    expect(mocks.runSkillMock).toHaveBeenCalledTimes(1);
+    expect(onApiCallStarted).toHaveBeenCalledTimes(1);
+    expect(chunks).toHaveLength(1);
+    expect(onError).not.toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalledTimes(1);
   });
 });
 

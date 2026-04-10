@@ -1432,6 +1432,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             signal: AbortSignal;
             onComplete: (r: unknown) => void;
             onError: (e: unknown) => void;
+            onApiCallStarted?: () => void;
             skillId?: string;
           },
         ) {
@@ -1440,6 +1441,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             throw aborted;
           }
 
+          // NOTE: For orchestrator-level cost/abort accounting, runSkill is the API boundary.
+          // Internal provider resolution/preflight remains encapsulated in aiService.
+          options.onApiCallStarted?.();
           const res = await aiService.runSkill({
             skillId: options.skillId ?? "builtin:continue",
             input: messages[messages.length - 1]?.content ?? "",
@@ -1515,6 +1519,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             signal: AbortSignal;
             onComplete: (r: unknown) => void;
             onError: (e: unknown) => void;
+            onApiCallStarted?: () => void;
             skillId?: string;
             requestId?: string;
             sessionId?: string;

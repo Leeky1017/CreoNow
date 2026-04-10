@@ -53,6 +53,7 @@ export function createAIServiceAdapter(
 
       try {
         if (typeof underlying.streamChat === "function") {
+          options.onApiCallStarted?.();
           const genResult = underlying.streamChat(messages);
 
           let gen: AsyncGenerator<StreamChunk>;
@@ -82,6 +83,7 @@ export function createAIServiceAdapter(
         } else if (typeof underlying.runSkill === "function") {
           if (abortController.signal.aborted || options.signal?.aborted) return;
 
+          options.onApiCallStarted?.();
           const result = await underlying.runSkill({ messages });
 
           if (abortController.signal.aborted || options.signal?.aborted) return;

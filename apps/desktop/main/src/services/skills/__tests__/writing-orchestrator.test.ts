@@ -961,6 +961,60 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
+    it("unsupported-provider 回退到 legacy 流后首 chunk 前 aborted → 记录 usage", async () => {
+      const aiService = createMockAIService();
+      const tracker = createMockCostTracker();
+      let streamCreated!: () => void;
+      const streamCreatedPromise = new Promise<void>((resolve) => {
+        streamCreated = resolve;
+      });
+
+      aiService.streamChat.mockImplementation(
+        (_messages, options: { signal?: AbortSignal; onApiCallStarted?: () => void }) =>
+          (async function* () {
+            try {
+              throw { kind: "unsupported-provider" as const };
+            } catch (error) {
+              if ((error as { kind?: unknown }).kind !== "unsupported-provider") {
+                throw error;
+              }
+              // 模拟 ipc/ai.ts 的 legacy 回退实现：在 runSkill 边界触发回调。
+              options.onApiCallStarted?.();
+              streamCreated();
+              await new Promise<never>((_resolve, reject) => {
+                const abortError = new Error("Streaming request aborted");
+                abortError.name = "AbortError";
+                (
+                  abortError as Error & {
+                    kind: "aborted";
+                  }
+                ).kind = "aborted";
+                if (options.signal?.aborted) {
+                  reject(abortError);
+                  return;
+                }
+                options.signal?.addEventListener("abort", () => reject(abortError), {
+                  once: true,
+                });
+              });
+            }
+            yield { delta: "never", finishReason: "stop", accumulatedTokens: 1 };
+          })(),
+      );
+
+      const cfg = buildConfig({ aiService, costTracker: tracker });
+      const orch = createWritingOrchestrator(cfg);
+      const eventsPromise = collectEvents(orch.execute(makeRequest()));
+      await streamCreatedPromise;
+      orch.abort("req-001");
+
+      const events = await eventsPromise;
+
+      expect(eventTypes(events)).toContain("aborted");
+      expect(tracker.recordUsage).toHaveBeenCalled();
+      orch.dispose();
+    });
+
     it("partial-result 错误 → 返回 PARTIAL_RESULT 且保留已流式输出片段", async () => {
       const aiService = createMockAIService();
       aiService.streamChat.mockImplementation(

@@ -84,6 +84,53 @@ describe("AIServiceAdapter", () => {
 
       await gen.return(undefined);
     });
+
+    it("底层 streamChat 分支会触发 onApiCallStarted", async () => {
+      const underlying = createMockUnderlyingService();
+      (underlying as Record<string, unknown>).streamChat = vi.fn(
+        async function* () {
+          yield { delta: "hello", finishReason: "stop", accumulatedTokens: 1 };
+        },
+      );
+      const streamAdapter = createAIServiceAdapter(underlying);
+      const onApiCallStarted = vi.fn();
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of streamAdapter.streamChat(
+        [{ role: "user", content: "test" }],
+        {
+          signal: new AbortController().signal,
+          onComplete: vi.fn(),
+          onError: vi.fn(),
+          onApiCallStarted,
+        },
+      )) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(1);
+      expect(onApiCallStarted).toHaveBeenCalledTimes(1);
+    });
+
+    it("底层 runSkill 分支会触发 onApiCallStarted", async () => {
+      const onApiCallStarted = vi.fn();
+      const chunks: StreamChunk[] = [];
+
+      for await (const chunk of adapter.streamChat(
+        [{ role: "user", content: "test" }],
+        {
+          signal: new AbortController().signal,
+          onComplete: vi.fn(),
+          onError: vi.fn(),
+          onApiCallStarted,
+        },
+      )) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(onApiCallStarted).toHaveBeenCalledTimes(1);
+    });
   });
 
   // ── streamChat 错误场景 ───────────────────────────────────────
