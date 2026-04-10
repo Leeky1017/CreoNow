@@ -201,7 +201,7 @@ export function createVersionWorkflowService(
         }
       }
       const updated: ThreeStageCommit = { ...current, stage: "user-confirmed" };
-      commits.set(executionId, updated);
+      commits.delete(executionId);
       return { ok: true, data: updated };
     },
     rejectCommit({ executionId, projectId }) {
@@ -221,7 +221,7 @@ export function createVersionWorkflowService(
         return rollback;
       }
       const updated: ThreeStageCommit = { ...current, stage: "user-rejected" };
-      commits.set(executionId, updated);
+      commits.delete(executionId);
       return { ok: true, data: updated };
     },
     readCommit,

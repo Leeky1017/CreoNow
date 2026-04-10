@@ -16,12 +16,10 @@ import type {
   DiffPreview,
   PermissionGate,
   PermissionLevel,
-  PermissionGateErrorCode,
   PermissionRequest,
 } from "./permissionGate";
 import { normalizeLevel } from "./permissionGate";
 import type { VersionWorkflowService } from "../documents/versionService";
-import type { BranchWorkflowService } from "../documents/branchService";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -159,7 +157,6 @@ export interface OrchestratorConfig {
     | "confirmCommit"
     | "rejectCommit"
   >;
-  branchWorkflow?: Pick<BranchWorkflowService, "ensureMainBranch">;
   prepareRequest?: (request: WritingRequest) => Promise<PreparedRequest>;
   generateText?: (args: {
     request: WritingRequest;
@@ -186,7 +183,6 @@ export interface WritingOrchestrator {
 }
 
 const VALID_SKILL_IDS = ["polish", "expand", "summarize", "translate", "rewrite", "continue"];
-const PERMISSION_TIMEOUT_MS = 120_000;
 const MAX_TASK_ENTRIES = 1000;
 /** P2: Maximum agentic tool-use rounds — exported so ToolUseConfig.maxToolRounds stays in sync */
 export const AGENTIC_MAX_ROUNDS = 5;
@@ -854,22 +850,6 @@ export function createWritingOrchestrator(
             return null;
           }
 
-          if (config.branchWorkflow) {
-            const ensuredMain = config.branchWorkflow.ensureMainBranch({
-              documentId: request.documentId,
-              createdBy: "ai-orchestrator",
-            });
-            if (!ensuredMain.ok) {
-              return makeFailureEvent({
-                requestId,
-                code: ensuredMain.error.code,
-                message: ensuredMain.error.message,
-                retryable: ensuredMain.error.retryable,
-                details: ensuredMain.error.details,
-              });
-            }
-          }
-
           if (config.versionWorkflow && request.projectId) {
             const workflowSnapshot = config.versionWorkflow.createPreWriteSnapshot({
               projectId: request.projectId,
@@ -949,139 +929,89 @@ export function createWritingOrchestrator(
         const evalResult = config.permissionGate.evaluate
           ? await config.permissionGate.evaluate(request)
           : { level: "preview-confirm", granted: false };
-        const permissionLevel = normalizeLevel(evalResult.level ?? request.level);
+        const rawPermissionLevel = normalizeLevel(evalResult.level ?? request.level);
+        const permissionLevel: PermissionLevel =
+          rawPermissionLevel === "auto-allow"
+            ? "preview-confirm"
+            : rawPermissionLevel;
 
-        if (permissionLevel === "auto-allow") {
-          // Auto-allow: skip permission stage entirely, proceed to write-back
-        } else {
-          const snapshotError = await createPreWriteSnapshot();
-          if (snapshotError) {
-            yield snapshotError;
-            return;
-          }
-          const markError = markAiWritingStage();
-          if (markError) {
-            yield markError;
-            return;
-          }
+        const snapshotError = await createPreWriteSnapshot();
+        if (snapshotError) {
+          yield snapshotError;
+          return;
+        }
 
-          const permissionRequest: PermissionRequest = {
+        const permissionRequest: PermissionRequest = {
+          requestId,
+          level: permissionLevel,
+          description: "Operation requires user confirmation",
+          preview: buildDiffPreview(request, fullText),
+          ...(permissionLevel === "budget-confirm"
+            ? { estimatedTokenCost: totalPromptTokens + totalCompletionTokens }
+            : {}),
+        };
+
+        // Need explicit permission
+        taskStates.set(requestId, "paused");
+
+        yield makeEvent("permission-requested", requestId, {
+          level: permissionLevel,
+          description: permissionRequest.description,
+        });
+
+        let granted = false;
+        try {
+          granted = await config.permissionGate.requestPermission(permissionRequest);
+        } catch (error) {
+          config.permissionGate.releasePendingPermission(requestId);
+          yield makeFailureEvent({
             requestId,
-            level: permissionLevel,
-            description: "Operation requires user confirmation",
-            preview: buildDiffPreview(request, fullText),
-            ...(permissionLevel === "budget-confirm"
-              ? { estimatedTokenCost: totalPromptTokens + totalCompletionTokens }
-              : {}),
-          };
-
-          // Need explicit permission
-          taskStates.set(requestId, "paused");
-
-          yield makeEvent("permission-requested", requestId, {
-            level: permissionLevel,
-            description: permissionRequest.description,
+            code: "PERMISSION_IPC_ERROR",
+            message: "Permission confirmation IPC failed",
+            details: error,
           });
+          return;
+        }
 
-          let timeoutId: ReturnType<typeof setTimeout> | undefined;
-          const permissionDecision = Promise.race<boolean>([
-            config.permissionGate.requestPermission(permissionRequest),
-            new Promise<boolean>((_resolve, reject) => {
-              timeoutId = setTimeout(
-                () => reject({ code: "PERMISSION_TIMEOUT" }),
-                PERMISSION_TIMEOUT_MS,
-              );
-            }),
-          ]);
+        taskStates.set(requestId, "running");
 
-          let granted: boolean;
-          let permissionError: { code: PermissionGateErrorCode; details?: unknown } | null =
-            null;
-          try {
-            granted = await permissionDecision;
-          } catch (error) {
-            granted = false;
-            if (
-              typeof error === "object" &&
-              error !== null &&
-              "code" in error &&
-              (error.code === "PERMISSION_TIMEOUT" ||
-                error.code === "PERMISSION_IPC_ERROR")
-            ) {
-              permissionError = {
-                code: error.code,
-                ...(error &&
-                typeof error === "object" &&
-                "details" in error &&
-                error.details !== undefined
-                  ? { details: error.details }
-                  : {}),
-              };
-            } else {
-              permissionError = {
-                code: "PERMISSION_IPC_ERROR",
-                details: error,
-              };
-            }
-          } finally {
-            if (timeoutId !== undefined) {
-              clearTimeout(timeoutId);
-            }
-          }
+        if (abortController.signal.aborted) {
+          taskStates.set(requestId, "killed");
+          yield makeEvent("aborted", requestId, { reason: "user-abort" });
+          return;
+        }
 
-          taskStates.set(requestId, "running");
-
-          if (abortController.signal.aborted) {
-            taskStates.set(requestId, "killed");
-            yield makeEvent("aborted", requestId, { reason: "user-abort" });
-            return;
-          }
-
-          if (!granted) {
-            if (
-              config.versionWorkflow &&
-              request.projectId &&
-              preWriteSnapshotId &&
-              !abortController.signal.aborted
-            ) {
-              const rejected = config.versionWorkflow.rejectCommit({
-                executionId: requestId,
-                projectId: request.projectId,
-              });
-              if (!rejected.ok) {
-                yield makeFailureEvent({
-                  requestId,
-                  code: rejected.error.code,
-                  message: rejected.error.message,
-                  retryable: rejected.error.retryable,
-                  details: rejected.error.details,
-                });
-                return;
-              }
-            }
-
-            if (permissionError) {
-              config.permissionGate.releasePendingPermission(requestId);
+        if (!granted) {
+          if (
+            config.versionWorkflow &&
+            request.projectId &&
+            preWriteSnapshotId &&
+            aiWritingMarked &&
+            !abortController.signal.aborted
+          ) {
+            const rejected = config.versionWorkflow.rejectCommit({
+              executionId: requestId,
+              projectId: request.projectId,
+            });
+            if (!rejected.ok) {
               yield makeFailureEvent({
                 requestId,
-                code: permissionError.code,
-                message:
-                  permissionError.code === "PERMISSION_TIMEOUT"
-                    ? "Permission confirmation timed out"
-                    : "Permission confirmation IPC failed",
-                details: permissionError.details,
+                code: rejected.error.code,
+                message: rejected.error.message,
+                retryable: rejected.error.retryable,
+                details: rejected.error.details,
               });
               return;
             }
-
-            taskStates.set(requestId, "killed");
-            pruneTaskStates();
-            yield makeEvent("permission-denied", requestId);
-            return;
           }
 
-          yield makeEvent("permission-granted", requestId);
+          taskStates.set(requestId, "killed");
+          pruneTaskStates();
+          yield makeEvent("permission-denied", requestId);
+          return;
         }
+
+        yield makeEvent("permission-granted", requestId);
 
         if (abortController.signal.aborted) {
           taskStates.set(requestId, "killed");

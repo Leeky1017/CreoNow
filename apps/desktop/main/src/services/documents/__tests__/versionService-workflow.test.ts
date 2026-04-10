@@ -63,6 +63,7 @@ describe("versionService workflow", () => {
       projectId: "proj-1",
     });
     expect(confirmed.ok && confirmed.data.stage).toBe("user-confirmed");
+    expect(workflow.readCommit("exec-1")).toBeNull();
     expect(save).toHaveBeenLastCalledWith({
       projectId: "proj-1",
       documentId: "doc-1",
@@ -115,6 +116,7 @@ describe("versionService workflow", () => {
       versionId: "snap-pre-2",
     });
     expect(rejected.ok && rejected.data.stage).toBe("user-rejected");
+    expect(workflow.readCommit("exec-2")).toBeNull();
   });
 
   it("createPreWriteSnapshot 若未返回 versionId 则失败", () => {

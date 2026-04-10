@@ -456,6 +456,8 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     const reasons =
       versions.ok ? versions.data.items.map((item) => item.reason) : [];
     expect(reasons).not.toContain("ai-accept");
+    expect(reasons).not.toContain("pre-rollback");
+    expect(reasons).not.toContain("rollback");
     expect(reasons).toContain("pre-write");
   });
 
@@ -1285,7 +1287,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
           run.data?.executionId,
     );
     expect(doneEvent).toBeTruthy();
-    expect((doneEvent?.payload as { terminal?: string }).terminal).toBe("error");
+    expect((doneEvent?.payload as { terminal?: string }).terminal).toBe("cancelled");
 
     const confirm = await harness.invoke<{
       ok: boolean;

@@ -1393,6 +1393,7 @@ function executeResolveForRun(
           valid: true,
           prompt,
           bodyMd: "",
+          permissionLevel: "preview-confirm",
         },
         enabled: custom.data.enabled,
         inputType: custom.data.inputType,

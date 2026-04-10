@@ -25,7 +25,7 @@ describe("permissionGate", () => {
     await expect(pending).resolves.toBe(true);
   });
 
-  it("budget-confirm 超时返回 PERMISSION_TIMEOUT（fail-closed）", async () => {
+  it("budget-confirm 超时返回 false（fail-closed）", async () => {
     vi.useFakeTimers();
     const gate = createPermissionGate({ confirmTimeoutMs: 200 });
     const pending = gate.requestPermission({
@@ -34,12 +34,8 @@ describe("permissionGate", () => {
       description: "expensive run",
       estimatedTokenCost: 1200,
     });
-    const handled = pending.catch((caught: unknown) => caught);
     await vi.advanceTimersByTimeAsync(200);
-    const error = await handled;
-    expect(error).toMatchObject({
-      code: "PERMISSION_TIMEOUT",
-    } satisfies Partial<PermissionGateError>);
+    await expect(pending).resolves.toBe(false);
     vi.useRealTimers();
   });
 

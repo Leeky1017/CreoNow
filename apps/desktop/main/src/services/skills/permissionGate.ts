@@ -149,9 +149,8 @@ export function createPermissionGate(args?: {
       }
 
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      let timedOut = false;
       try {
-        const granted = await Promise.race<boolean>([
+        return await Promise.race<boolean>([
           new Promise<boolean>((resolve) => {
             const immediate = settled.get(request.requestId);
             if (typeof immediate === "boolean") {
@@ -164,18 +163,10 @@ export function createPermissionGate(args?: {
           }),
           new Promise<boolean>((resolve) => {
             timeoutId = setTimeout(() => {
-              timedOut = true;
               resolve(false);
             }, confirmTimeoutMs);
           }),
         ]);
-        if (timedOut) {
-          throw new PermissionGateError(
-            "PERMISSION_TIMEOUT",
-            "Permission request timed out",
-          );
-        }
-        return granted;
       } finally {
         if (timeoutId !== undefined) {
           clearTimeout(timeoutId);

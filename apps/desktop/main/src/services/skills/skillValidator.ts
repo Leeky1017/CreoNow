@@ -1,15 +1,12 @@
 import { MAX_SKILL_TIMEOUT_MS } from "../ai/runtimeConfig";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
+import type { PermissionLevel } from "./permissionGate";
 export type { ServiceResult };
 
 export type SkillScope = "builtin" | "global" | "project";
 export type SkillKind = "single" | "chat";
 export type SkillInputType = "selection" | "document";
-export type SkillPermissionLevel =
-  | "auto-allow"
-  | "preview-confirm"
-  | "must-confirm-snapshot"
-  | "budget-confirm";
+export type SkillPermissionLevel = PermissionLevel;
 
 export type SkillContextRules = {
   surrounding?: number;

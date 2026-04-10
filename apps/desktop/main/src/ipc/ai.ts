@@ -66,7 +66,6 @@ import { estimateTokens } from "../services/context/tokenEstimation";
 import { createDocumentService } from "../services/documents/documentService";
 import { createDocumentCoreService } from "../services/documents/documentCoreService";
 import { createVersionWorkflowService } from "../services/documents/versionService";
-import { createBranchWorkflowService } from "../services/documents/branchService";
 import { editorSchema } from "../services/editor/prosemirrorSchema";
 import type { CostTracker } from "../services/ai/costTracker";
 
@@ -400,8 +399,15 @@ function resolveSkillPermissionLevel(args: {
           : undefined;
       return normalizeLevel(candidate);
     }
-  } catch {
-    // Fall through to builtin/default policy.
+  } catch (error) {
+    const loggerWithWarn = args.ctx.deps.logger as typeof args.ctx.deps.logger & {
+      warn?: (event: string, data?: unknown) => void;
+    };
+    if (typeof loggerWithWarn.warn === "function") {
+      loggerWithWarn.warn("Failed to resolve skill permission level", error);
+    } else {
+      args.ctx.deps.logger.info("Failed to resolve skill permission level", { error });
+    }
   }
   const fallback = resolveP1BuiltinSkill(args.skillId);
   return normalizeLevel(fallback?.permissionLevel);
@@ -1420,14 +1426,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           logger: deps.logger,
           baseService: documentCoreServiceForWorkflow,
         });
-  const branchWorkflow =
-    deps.db === null || documentCoreServiceForWorkflow === null
-      ? undefined
-      : createBranchWorkflowService({
-          db: deps.db,
-          logger: deps.logger,
-          baseService: documentCoreServiceForWorkflow,
-        });
   const skillServiceFactory = () => {
     if (!deps.db) {
       throw new Error("Database not ready");
@@ -1622,7 +1620,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     ),
     permissionGate,
     versionWorkflow,
-    branchWorkflow,
     postWritingHooks: [
       {
         name: "cost-tracking",
@@ -2389,7 +2386,10 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
       const generator = ctx.writingOrchestrator.execute({
         requestId: executionId,
         skillId: normalizedPayload.skillId,
-        level: permissionLevel,
+        level:
+          permissionLevel === "auto-allow"
+            ? "preview-confirm"
+            : permissionLevel,
         input: {
           selectedText:
             normalizedPayload.selection?.text ?? normalizedPayload.input,

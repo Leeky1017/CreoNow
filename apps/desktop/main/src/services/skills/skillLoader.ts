@@ -42,7 +42,7 @@ export type LoadedSkill = {
   dependsOn?: string[];
   timeoutMs?: number;
   inputType?: SkillInputType;
-  permissionLevel?: SkillPermissionLevel;
+  permissionLevel: SkillPermissionLevel;
 };
 
 export type DirectoryScanError = {
@@ -233,6 +233,7 @@ export function loadSkillFile(args: { ref: SkillFileRef }): LoadedSkill {
       error_code: "IO_ERROR",
       error_message:
         error instanceof Error ? error.message : "Failed to read skill file",
+      permissionLevel: "preview-confirm",
     };
   }
 
@@ -248,6 +249,7 @@ export function loadSkillFile(args: { ref: SkillFileRef }): LoadedSkill {
       valid: false,
       error_code: split.error.code,
       error_message: split.error.message,
+      permissionLevel: "preview-confirm",
     };
   }
 
@@ -263,6 +265,7 @@ export function loadSkillFile(args: { ref: SkillFileRef }): LoadedSkill {
       valid: false,
       error_code: parsedYaml.error.code,
       error_message: parsedYaml.error.message,
+      permissionLevel: "preview-confirm",
     };
   }
 
@@ -296,6 +299,7 @@ export function loadSkillFile(args: { ref: SkillFileRef }): LoadedSkill {
       valid: false,
       error_code: validated.error.code,
       error_message: validated.error.message,
+      permissionLevel: "preview-confirm",
     };
   }
 

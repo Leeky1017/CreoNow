@@ -108,7 +108,9 @@ function createTrackablePermissionGate() {
       });
     }),
     releasePendingPermission: vi.fn().mockImplementation((requestId: string) => {
+      const resolver = pending.get(requestId);
       pending.delete(requestId);
+      resolver?.(false);
     }),
     settle(requestId: string, granted: boolean) {
       const resolver = pending.get(requestId);
@@ -565,11 +567,11 @@ describe("WritingOrchestrator", () => {
   // ── 权限门禁 ──────────────────────────────────────────────────
 
   describe("Permission Gate — 权限门禁", () => {
-    it("auto-allow 类型不产出 permission-requested 事件", async () => {
+    it("auto-allow 写操作会被提升到 preview-confirm 并产出 permission-requested", async () => {
       const cfg = buildConfig({
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "auto-allow", granted: true }),
-          requestPermission: vi.fn(),
+          requestPermission: vi.fn().mockResolvedValue(true),
           releasePendingPermission: vi.fn(),
         },
       });
@@ -578,7 +580,7 @@ describe("WritingOrchestrator", () => {
       const events = await collectEvents(orch.execute(makeRequest()));
       const permEvents = events.filter((e) => e.type === "permission-requested");
 
-      expect(permEvents).toHaveLength(0);
+      expect(permEvents).toHaveLength(1);
       orch.dispose();
     });
 
@@ -698,11 +700,11 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
-    it("权限请求超时时返回 PERMISSION_TIMEOUT error → 管线终止", async () => {
+    it("权限请求超时时返回 permission-denied → 管线终止", async () => {
       const cfg = buildConfig({
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "preview-confirm", granted: false }),
-          requestPermission: vi.fn().mockRejectedValue({ code: "PERMISSION_TIMEOUT" }),
+          requestPermission: vi.fn().mockResolvedValue(false),
           releasePendingPermission: vi.fn(),
         },
       });
@@ -710,14 +712,8 @@ describe("WritingOrchestrator", () => {
       const events = await collectEvents(orch.execute(makeRequest({ requestId: "req-timeout" })));
 
       const types = eventTypes(events);
-      expect(types).toContain("error");
-      expect(
-        (
-          events.find((event) => event.type === "error") as
-            | { error?: { code?: string } }
-            | undefined
-        )?.error?.code,
-      ).toBe("PERMISSION_TIMEOUT");
+      expect(types).toContain("permission-denied");
+      expect(types).not.toContain("error");
       expect(types).not.toContain("write-back-done");
       orch.dispose();
     });
@@ -763,19 +759,16 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
-    it("权限请求 120 秒超时后会显式释放 pending resolver", async () => {
+    it("权限请求超时（false）后返回 permission-denied", async () => {
       const permissionGate = createTrackablePermissionGate();
-      permissionGate.requestPermission.mockRejectedValue({ code: "PERMISSION_TIMEOUT" });
+      permissionGate.requestPermission.mockResolvedValue(false);
       const cfg = buildConfig({ permissionGate });
       const orch = createWritingOrchestrator(cfg);
       const events = await collectEvents(
         orch.execute(makeRequest({ requestId: "req-timeout-release" })),
       );
 
-      expect(eventTypes(events)).toContain("error");
-      expect(permissionGate.releasePendingPermission).toHaveBeenCalledWith(
-        "req-timeout-release",
-      );
+      expect(eventTypes(events)).toContain("permission-denied");
       orch.dispose();
     });
 
@@ -790,7 +783,7 @@ describe("WritingOrchestrator", () => {
         result = await gen.next();
       }
       expect(result.done).toBe(false);
-      expect(permissionGate.pending.size).toBeGreaterThanOrEqual(0);
+      expect(result.value).toMatchObject({ type: "permission-requested" });
 
       const waiting = gen.next();
       await Promise.resolve();
@@ -817,7 +810,7 @@ describe("WritingOrchestrator", () => {
         result = await grantGen.next();
       }
       expect(result.done).toBe(false);
-      expect(grantGate.pending.size).toBeGreaterThanOrEqual(0);
+      expect(result.value).toMatchObject({ type: "permission-requested" });
       const grantWait = grantGen.next();
       await Promise.resolve();
       grantGate.settle("req-grant-release", true);
@@ -838,7 +831,7 @@ describe("WritingOrchestrator", () => {
         result = await rejectGen.next();
       }
       expect(result.done).toBe(false);
-      expect(rejectGate.pending.size).toBeGreaterThanOrEqual(0);
+      expect(result.value).toMatchObject({ type: "permission-requested" });
       const rejectWait = rejectGen.next();
       await Promise.resolve();
       rejectGate.settle("req-reject-release", false);
@@ -862,7 +855,7 @@ describe("WritingOrchestrator", () => {
         result = await gen.next();
       }
       expect(result.done).toBe(false);
-      expect(permissionGate.pending.size).toBeGreaterThanOrEqual(0);
+      expect(result.value).toMatchObject({ type: "permission-requested" });
 
       // Abort while task is paused waiting for permission
       const waiting = gen.next();
