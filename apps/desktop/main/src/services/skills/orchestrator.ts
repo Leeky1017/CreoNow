@@ -514,6 +514,28 @@ export function createWritingOrchestrator(
               return;
             }
 
+            if (errObj?.kind === "partial-result") {
+              const partialContent =
+                fullText.length > 0
+                  ? fullText
+                  : typeof errObj.partialContent === "string"
+                    ? errObj.partialContent
+                    : undefined;
+              yield makeFailureEvent({
+                requestId,
+                code: "PARTIAL_RESULT",
+                message:
+                  typeof errObj.message === "string"
+                    ? errObj.message
+                    : "Stream interrupted with partial result",
+                details: {
+                  kind: "partial-result",
+                  ...(partialContent ? { partialContent } : {}),
+                },
+              });
+              return;
+            }
+
             if (errObj?.kind === "non-retryable") {
               break;
             }
@@ -530,13 +552,16 @@ export function createWritingOrchestrator(
         }
 
         if (!aiSuccess) {
-          taskStates.set(requestId, "failed");
-          yield makeEvent("error", requestId, {
-            error: {
-              code: "AI_SERVICE_ERROR",
-              message: String(aiError),
-              retryable: false,
-            },
+          const message =
+            aiError instanceof Error
+              ? aiError.message
+              : typeof (aiError as { message?: unknown } | null)?.message === "string"
+                ? (aiError as { message: string }).message
+                : String(aiError);
+          yield makeFailureEvent({
+            requestId,
+            code: "AI_SERVICE_ERROR",
+            message,
           });
           return;
         }

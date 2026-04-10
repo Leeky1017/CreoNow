@@ -763,6 +763,9 @@ describe("apiClient", () => {
       throw new Error("expected empty SSE stream protocol failure");
     }
     expect(result.error.code).toBe("LLM_API_ERROR");
+    expect(result.error.message).toBe(
+      "Streaming response ended before any SSE data event was received",
+    );
     expect(result.error.retryable).toBe(false);
     expect(onChunk).not.toHaveBeenCalled();
     expect(getCostRecord(db, "req-6c")).not.toBeNull();

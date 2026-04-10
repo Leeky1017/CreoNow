@@ -845,6 +845,40 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
+    it("partial-result 错误 → 返回 PARTIAL_RESULT 且保留已流式输出片段", async () => {
+      const aiService = createMockAIService();
+      aiService.streamChat.mockImplementation(() =>
+        (async function* () {
+          yield { delta: "半截", finishReason: null, accumulatedTokens: 2 };
+          throw { kind: "partial-result", message: "stream interrupted", retryCount: 0 };
+        })(),
+      );
+
+      const cfg = buildConfig({ aiService });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((e) => e.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(aiService.streamChat).toHaveBeenCalledTimes(1);
+      expect(eventTypes(events)).toContain("ai-chunk");
+      expect(eventTypes(events)).not.toContain("ai-done");
+      expect(errorEvent).toBeDefined();
+      expect(
+        (errorEvent as unknown as { error: { code: string; message: string } }).error,
+      ).toMatchObject({
+        code: "PARTIAL_RESULT",
+        message: "stream interrupted",
+      });
+      expect(
+        (errorEvent as unknown as { error: { details?: { partialContent?: string } } }).error
+          .details?.partialContent,
+      ).toBe("半截");
+      orch.dispose();
+    });
+
     it("无效的 skillId → 产出 error 事件，code=SKILL_INPUT_INVALID", async () => {
       const events = await collectEvents(
         orchestrator.execute(makeRequest({ skillId: "nonexistent-skill" })),

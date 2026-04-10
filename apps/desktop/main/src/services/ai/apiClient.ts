@@ -707,9 +707,9 @@ export function createApiClient(args: {
         );
       }
 
-      let sawSseEvent = false;
+      let sawSseDataEvent = false;
       for await (const event of readSse({ body: response.body })) {
-        sawSseEvent = true;
+        sawSseDataEvent = true;
         if (event.data === "[DONE]") {
           break;
         }
@@ -768,7 +768,7 @@ export function createApiClient(args: {
         };
       }
 
-      if (!sawSseEvent) {
+      if (!sawSseDataEvent) {
         const costRes = await recordCost({
           requestId,
           sessionId: callArgs.sessionId,
@@ -780,7 +780,7 @@ export function createApiClient(args: {
         if (!costRes.ok) {
           const protocolError = ipcError(
             "LLM_API_ERROR",
-            "Streaming response ended before any SSE event was received",
+            "Streaming response ended before any SSE data event was received",
             { requestId },
             { retryable: false },
           );
@@ -797,7 +797,7 @@ export function createApiClient(args: {
         }
         return ipcError(
           "LLM_API_ERROR",
-          "Streaming response ended before any SSE event was received",
+          "Streaming response ended before any SSE data event was received",
           { requestId },
           { retryable: false },
         );
