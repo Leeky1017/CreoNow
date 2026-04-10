@@ -25,6 +25,7 @@ type AgenticMessage = {
 export interface WritingRequest {
   requestId: string;
   skillId: string;
+  sessionId?: string;
   input: { selectedText?: string; precedingText?: string; followingText?: string; [key: string]: unknown };
   userInstruction?: string;
   documentId: string;
@@ -84,7 +85,15 @@ type TaskState = "pending" | "running" | "paused" | "completed" | "failed" | "ki
 interface AIService {
   streamChat(
     messages: Array<{ role: string; content: string }>,
-    options: { signal: AbortSignal; onComplete: (r: unknown) => void; onError: (e: unknown) => void },
+    options: {
+      signal: AbortSignal;
+      onComplete: (r: unknown) => void;
+      onError: (e: unknown) => void;
+      onApiCallStarted?: () => void;
+      skillId?: string;
+      requestId?: string;
+      sessionId?: string;
+    },
   ): AsyncGenerator<StreamChunk>;
   estimateTokens(text: string): number;
   abort(): void;
@@ -143,6 +152,7 @@ export interface OrchestratorConfig {
     request: WritingRequest;
     signal: AbortSignal;
     emitChunk: (delta: string, accumulatedTokens: number) => void;
+    onApiCallStarted?: () => void;
     /** P2: updated messages for subsequent agentic loop rounds */
     messages?: Array<{ role: string; content: string; toolCallId?: string }>;
   }) => Promise<{
@@ -360,6 +370,7 @@ export function createWritingOrchestrator(
         let lastFinishReason: "stop" | "tool_use" | null = null;
         let lastToolCalls: ToolCallInfo[] = [];
         let lastPromptTokens = tokenCount;
+        let apiCallStarted = false;
 
         while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
           try {
@@ -368,7 +379,14 @@ export function createWritingOrchestrator(
             lastFinishReason = null;
             lastToolCalls = [];
 
-            if (config.generateText) {
+            const generateText = config.generateText;
+            const hasStreamChat = typeof config.aiService.streamChat === "function";
+            const shouldUseGenerateText =
+              Boolean(generateText) &&
+              (request.agenticLoop === true ||
+                !hasStreamChat);
+
+            if (shouldUseGenerateText && generateText) {
               const chunkQueue: Array<{
                 delta: string;
                 accumulatedTokens: number;
@@ -382,13 +400,15 @@ export function createWritingOrchestrator(
                 notifyChange = null;
                 resolver?.();
               };
-              const generationPromise = config
-                .generateText({
+              const generationPromise = generateText({
                   request,
                   signal: abortController.signal,
                   emitChunk: (delta, accumulatedTokens) => {
                     chunkQueue.push({ delta, accumulatedTokens });
                     wake();
+                  },
+                  onApiCallStarted: () => {
+                    apiCallStarted = true;
                   },
                 })
                 .then(
@@ -406,6 +426,13 @@ export function createWritingOrchestrator(
 
               while (!generationSettled || chunkQueue.length > 0) {
                 if (abortController.signal.aborted) {
+                  if (apiCallStarted) {
+                    recordUsage({
+                      promptTokens: lastPromptTokens,
+                      completionTokens: lastTokens,
+                      totalTokens: lastPromptTokens + lastTokens,
+                    });
+                  }
                   taskStates.set(requestId, "killed");
                   yield makeEvent("aborted", requestId, {
                     reason: "abort-during-ai",
@@ -446,7 +473,7 @@ export function createWritingOrchestrator(
               lastTokens = generatedResult.usage.completionTokens;
               lastFinishReason = generatedResult.finishReason ?? null;
               lastToolCalls = generatedResult.toolCalls ?? [];
-            } else {
+            } else if (hasStreamChat) {
               let streamFinishReason: "stop" | "tool_use" | null = null;
               const gen = config.aiService.streamChat(
                 prepared.messages,
@@ -454,14 +481,26 @@ export function createWritingOrchestrator(
                   signal: abortController.signal,
                   onComplete: () => {},
                   onError: () => {},
+                  onApiCallStarted: () => {
+                    apiCallStarted = true;
+                  },
+                  skillId: request.skillId,
+                  requestId,
+                  ...(request.sessionId ? { sessionId: request.sessionId } : {}),
                 },
               );
 
               for await (const chunk of gen) {
                 if (abortController.signal.aborted) {
+                  if (apiCallStarted) {
+                    recordUsage({
+                      promptTokens: lastPromptTokens,
+                      completionTokens: lastTokens,
+                      totalTokens: lastPromptTokens + lastTokens,
+                    });
+                  }
                   taskStates.set(requestId, "killed");
                   yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
-                  config.aiService.abort();
                   return;
                 }
 
@@ -477,12 +516,59 @@ export function createWritingOrchestrator(
               }
               lastFinishReason = streamFinishReason;
               lastPromptTokens = tokenCount;
+            } else {
+              throw new Error("No AI execution path available");
             }
 
             aiSuccess = true;
           } catch (err: unknown) {
             aiError = err;
             const errObj = err as Record<string, unknown>;
+            const isAbortError =
+              errObj?.kind === "aborted" ||
+              (err instanceof Error && err.name === "AbortError");
+
+            if (isAbortError) {
+              if (apiCallStarted) {
+                recordUsage({
+                  promptTokens: lastPromptTokens,
+                  completionTokens: lastTokens,
+                  totalTokens: lastPromptTokens + lastTokens,
+                });
+              }
+              taskStates.set(requestId, "killed");
+              yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
+              return;
+            }
+
+            if (errObj?.kind === "partial-result") {
+              if (apiCallStarted) {
+                recordUsage({
+                  promptTokens: lastPromptTokens,
+                  completionTokens: lastTokens,
+                  totalTokens: lastPromptTokens + lastTokens,
+                });
+              }
+              const partialContent =
+                fullText.length > 0
+                  ? fullText
+                  : typeof errObj.partialContent === "string"
+                    ? errObj.partialContent
+                    : undefined;
+              yield makeFailureEvent({
+                requestId,
+                code: "PARTIAL_RESULT",
+                message:
+                  typeof errObj.message === "string"
+                    ? errObj.message
+                    : "Stream interrupted with partial result",
+                details: {
+                  kind: "partial-result",
+                  ...(partialContent ? { partialContent } : {}),
+                },
+              });
+              return;
+            }
 
             if (errObj?.kind === "non-retryable") {
               break;
@@ -500,22 +586,27 @@ export function createWritingOrchestrator(
         }
 
         if (!aiSuccess) {
-          taskStates.set(requestId, "failed");
-          yield makeEvent("error", requestId, {
-            error: {
-              code: "AI_SERVICE_ERROR",
-              message: String(aiError),
-              retryable: false,
-            },
+          const message =
+            aiError instanceof Error
+              ? aiError.message
+              : typeof (aiError as { message?: unknown } | null)?.message === "string"
+                ? (aiError as { message: string }).message
+                : String(aiError);
+          yield makeFailureEvent({
+            requestId,
+            code: "AI_SERVICE_ERROR",
+            message,
           });
           return;
         }
 
-        recordUsage({
-          promptTokens: lastPromptTokens,
-          completionTokens: lastTokens,
-          totalTokens: lastPromptTokens + lastTokens,
-        });
+        if (apiCallStarted) {
+          recordUsage({
+            promptTokens: lastPromptTokens,
+            completionTokens: lastTokens,
+            totalTokens: lastPromptTokens + lastTokens,
+          });
+        }
 
         // Stage 4.5 (P2): Agentic tool-use loop
         // Only runs when request.agenticLoop is true AND toolUseHandler is configured
@@ -673,11 +764,13 @@ export function createWritingOrchestrator(
             lastFinishReason = nextResult.finishReason ?? null;
             lastToolCalls = nextResult.toolCalls ?? [];
 
-            recordUsage({
-              promptTokens: lastPromptTokens,
-              completionTokens: lastTokens,
-              totalTokens: lastPromptTokens + lastTokens,
-            });
+            if (apiCallStarted) {
+              recordUsage({
+                promptTokens: lastPromptTokens,
+                completionTokens: lastTokens,
+                totalTokens: lastPromptTokens + lastTokens,
+              });
+            }
 
             const hasNextRound =
               lastFinishReason === "tool_use" && agenticRound < AGENTIC_MAX_ROUNDS;
@@ -918,7 +1011,6 @@ export function createWritingOrchestrator(
       const controller = abortControllers.get(requestId);
       if (controller) {
         controller.abort();
-        config.aiService.abort();
         config.permissionGate.releasePendingPermission(requestId);
       }
     },

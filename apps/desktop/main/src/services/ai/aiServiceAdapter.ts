@@ -11,8 +11,9 @@ export type { StreamChunk };
 
 interface StreamOptions {
   signal?: AbortSignal;
-  onComplete: (result: { content: string; usage: { promptTokens: number; completionTokens: number }; wasRetried: boolean }) => void;
+  onComplete: (result: { content: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number }; wasRetried: boolean }) => void;
   onError: (error: { kind: string; message: string; retryCount: number; partialContent?: string }) => void;
+  onApiCallStarted?: () => void;
 }
 
 interface ChatMessage {
@@ -40,7 +41,7 @@ interface UnderlyingService {
 export function createAIServiceAdapter(
   underlying: UnderlyingService,
 ): AIServiceAdapter {
-  let currentAbortController: AbortController | null = null;
+  const activeAbortControllers = new Set<AbortController>();
 
   return {
     async *streamChat(
@@ -48,10 +49,11 @@ export function createAIServiceAdapter(
       options: StreamOptions,
     ): AsyncGenerator<StreamChunk> {
       const abortController = new AbortController();
-      currentAbortController = abortController;
+      activeAbortControllers.add(abortController);
 
       try {
         if (typeof underlying.streamChat === "function") {
+          options.onApiCallStarted?.();
           const genResult = underlying.streamChat(messages);
 
           let gen: AsyncGenerator<StreamChunk>;
@@ -66,21 +68,36 @@ export function createAIServiceAdapter(
           }
 
           let hasYielded = false;
+          let content = "";
+          let completionTokens = 0;
 
           for await (const chunk of gen) {
             if (abortController.signal.aborted || options.signal?.aborted) {
               return;
             }
             hasYielded = true;
+            content += chunk.delta;
+            completionTokens = Math.max(completionTokens, chunk.accumulatedTokens);
             yield chunk;
           }
 
           if (!hasYielded) {
             yield { delta: "", finishReason: "stop", accumulatedTokens: 0 };
           }
+
+          options.onComplete({
+            content,
+            usage: {
+              promptTokens: 0,
+              completionTokens,
+              totalTokens: completionTokens,
+            },
+            wasRetried: false,
+          });
         } else if (typeof underlying.runSkill === "function") {
           if (abortController.signal.aborted || options.signal?.aborted) return;
 
+          options.onApiCallStarted?.();
           const result = await underlying.runSkill({ messages });
 
           if (abortController.signal.aborted || options.signal?.aborted) return;
@@ -92,6 +109,15 @@ export function createAIServiceAdapter(
             yield { delta: text, finishReason: null, accumulatedTokens: tokens };
           }
           yield { delta: "", finishReason: "stop", accumulatedTokens: tokens };
+          options.onComplete({
+            content: text,
+            usage: {
+              promptTokens: 0,
+              completionTokens: tokens,
+              totalTokens: tokens,
+            },
+            wasRetried: false,
+          });
         }
       } catch (err: unknown) {
         if (abortController.signal.aborted) {
@@ -99,9 +125,7 @@ export function createAIServiceAdapter(
         }
         throw err;
       } finally {
-        if (currentAbortController === abortController) {
-          currentAbortController = null;
-        }
+        activeAbortControllers.delete(abortController);
       }
     },
 
@@ -110,10 +134,10 @@ export function createAIServiceAdapter(
     },
 
     abort(): void {
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
+      for (const controller of activeAbortControllers) {
+        controller.abort();
       }
+      activeAbortControllers.clear();
     },
   };
 }

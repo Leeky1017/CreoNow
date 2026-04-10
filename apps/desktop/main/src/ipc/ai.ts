@@ -15,6 +15,7 @@ import {
 import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
 import { createAiService } from "../services/ai/aiService";
+import { createAiServiceBridge } from "../services/ai/aiServiceBridge";
 import { createSqliteTraceStore } from "../services/ai/traceStore";
 import { resolveRuntimeGovernanceFromEnv } from "../config/runtimeGovernance";
 import {
@@ -22,14 +23,20 @@ import {
   createAiProxySettingsService,
 } from "../services/ai/aiProxySettingsService";
 import { createMemoryService } from "../services/memory/memoryService";
-import { createEpisodicMemoryService, createSqliteEpisodeRepository } from "../services/memory/episodicMemoryService";
+import {
+  createEpisodicMemoryService,
+  createSqliteEpisodeRepository,
+} from "../services/memory/episodicMemoryService";
 import {
   recordSkillFeedbackAndLearn,
   type SkillFeedbackAction,
 } from "../services/memory/preferenceLearning";
 import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
-import { createSkillExecutor, type SkillExecutorRunArgs } from "../services/skills/skillExecutor";
+import {
+  createSkillExecutor,
+  type SkillExecutorRunArgs,
+} from "../services/skills/skillExecutor";
 import { normalizeAssembledContextPrompt } from "../services/skills/contextPromptPolicy";
 import { renderPromptTemplate } from "../services/skills/promptTemplate";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
@@ -42,7 +49,10 @@ import {
   AGENTIC_MAX_ROUNDS,
   type WritingEvent,
 } from "../services/skills/orchestrator";
-import { createWritingToolRegistry, createAgenticToolRegistry } from "../services/skills/writingTooling";
+import {
+  createWritingToolRegistry,
+  createAgenticToolRegistry,
+} from "../services/skills/writingTooling";
 import { createToolRegistry } from "../services/skills/toolRegistry";
 import { createToolUseHandler } from "../services/skills/toolUseHandler";
 import { estimateTokens } from "../services/context/tokenEstimation";
@@ -73,8 +83,9 @@ type SkillRunPayload = {
   precedingText?: string;
   mode: "agent" | "plan" | "ask";
   model: string;
+  agenticLoop?: boolean;
   candidateCount?: number;
-  context?: { projectId?: string; documentId?: string };
+  context?: { projectId?: string; documentId?: string; sessionId?: string };
   selection?: {
     from: number;
     to: number;
@@ -97,6 +108,20 @@ function resolveCursorPosition(payload: SkillRunPayload): number | undefined {
     return payload.cursorPosition;
   }
   return undefined;
+}
+
+function makeAbortError(message: string): Error & { kind: "aborted" } {
+  const err = new Error(message) as Error & { kind: "aborted" };
+  err.name = "AbortError";
+  err.kind = "aborted";
+  return err;
+}
+
+function isBridgeUnsupportedProviderError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  return (error as { kind?: unknown }).kind === "unsupported-provider";
 }
 
 type SkillRunUsage = {
@@ -299,7 +324,9 @@ function createPendingPermissionGate(): PendingPermissionGate {
     async requestPermission(request: unknown) {
       const maybeRequest = request as { requestId?: unknown };
       const requestId =
-        typeof maybeRequest?.requestId === "string" ? maybeRequest.requestId : "";
+        typeof maybeRequest?.requestId === "string"
+          ? maybeRequest.requestId
+          : "";
       if (requestId.length === 0) {
         return false;
       }
@@ -336,18 +363,16 @@ function createPendingPermissionGate(): PendingPermissionGate {
   };
 }
 
-function resolveP1BuiltinSkill(skillId: string):
-  | {
-      id: string;
-      prompt: { system: string; user: string };
-      inputType: "selection" | "document";
-      enabled: true;
-      valid: true;
-      output?: Record<string, unknown>;
-      dependsOn?: string[];
-      timeoutMs?: number;
-    }
-  | null {
+function resolveP1BuiltinSkill(skillId: string): {
+  id: string;
+  prompt: { system: string; user: string };
+  inputType: "selection" | "document";
+  enabled: true;
+  valid: true;
+  output?: Record<string, unknown>;
+  dependsOn?: string[];
+  timeoutMs?: number;
+} | null {
   const normalized = leafSkillId(skillId);
   if (normalized === "polish") {
     return {
@@ -355,8 +380,7 @@ function resolveP1BuiltinSkill(skillId: string):
       prompt: {
         system:
           "You are CreoNow's writing assistant. Follow the user's intent exactly. Preserve meaning and factual claims. Do not add new information. Return exactly one polished replacement in plain prose, with no XML, HTML, markdown labels, or code fences. Keep the output close in length to the selected text unless the user instruction explicitly says otherwise.",
-        user:
-          "Polish the following text for clarity and style.\n\nUser instruction:\n{{userInstruction}}\n\n<text>\n{{input}}\n</text>",
+        user: "Polish the following text for clarity and style.\n\nUser instruction:\n{{userInstruction}}\n\n<text>\n{{input}}\n</text>",
       },
       inputType: "selection",
       enabled: true,
@@ -369,8 +393,7 @@ function resolveP1BuiltinSkill(skillId: string):
       prompt: {
         system:
           "You are CreoNow's writing assistant. Rewrite the selected text while preserving meaning and factual claims. Follow all explicit rewrite instructions from the user instruction block. Return exactly one rewritten replacement in plain prose, with no XML, HTML, markdown labels, or code fences. Keep the output close in length to the selected text unless the user instruction explicitly says otherwise.",
-        user:
-          "Rewrite the following text according to the user's instruction.\n\nUser instruction:\n{{userInstruction}}\n\n<text>\n{{input}}\n</text>",
+        user: "Rewrite the following text according to the user's instruction.\n\nUser instruction:\n{{userInstruction}}\n\n<text>\n{{input}}\n</text>",
       },
       inputType: "selection",
       enabled: true,
@@ -380,11 +403,11 @@ function resolveP1BuiltinSkill(skillId: string):
   if (normalized === "continue") {
     return {
       id: "builtin:continue",
-        prompt: {
-          system:
-            "You are CreoNow's writing assistant. Continue writing from provided context, matching style and narrative constraints.",
-          user: "Continue the draft based on current context and constraints.\n\n<text>\n{{input}}\n</text>",
-        },
+      prompt: {
+        system:
+          "You are CreoNow's writing assistant. Continue writing from provided context, matching style and narrative constraints.",
+        user: "Continue the draft based on current context and constraints.\n\n<text>\n{{input}}\n</text>",
+      },
       inputType: "document",
       enabled: true,
       valid: true,
@@ -582,7 +605,10 @@ function emitOrchestratorChunk(args: {
   seq: number;
   delta: string;
 }): void {
-  const pushBackpressure = getOrCreatePushBackpressureGate(args.ctx, args.sender);
+  const pushBackpressure = getOrCreatePushBackpressureGate(
+    args.ctx,
+    args.sender,
+  );
   const event: AiStreamEvent = {
     type: "chunk",
     executionId: args.executionId,
@@ -625,23 +651,37 @@ function emitOrchestratorToolUse(args: {
   };
   const payload =
     event.type === "tool-use-started"
-      ? { ...base, type: "tool-use-started" as const, round: Number(event.round), toolNames: (event.toolNames as string[]) ?? [] }
-      : event.type === "tool-use-completed"
       ? {
           ...base,
-          type: "tool-use-completed" as const,
+          type: "tool-use-started" as const,
           round: Number(event.round),
-          results:
-            (event.results as Array<{
-              callId: string;
-              toolName: string;
-              success: boolean;
-              durationMs: number;
-              error?: { code: string; message: string };
-            }>) ?? [],
-          hasNextRound: Boolean(event.hasNextRound),
+          toolNames: (event.toolNames as string[]) ?? [],
         }
-      : { ...base, type: "tool-use-failed" as const, round: Number(event.round), error: (event.error as { code: string; message: string; retryable: boolean }) };
+      : event.type === "tool-use-completed"
+        ? {
+            ...base,
+            type: "tool-use-completed" as const,
+            round: Number(event.round),
+            results:
+              (event.results as Array<{
+                callId: string;
+                toolName: string;
+                success: boolean;
+                durationMs: number;
+                error?: { code: string; message: string };
+              }>) ?? [],
+            hasNextRound: Boolean(event.hasNextRound),
+          }
+        : {
+            ...base,
+            type: "tool-use-failed" as const,
+            round: Number(event.round),
+            error: event.error as {
+              code: string;
+              message: string;
+              retryable: boolean;
+            },
+          };
   try {
     args.sender.send(SKILL_TOOL_USE_CHANNEL, payload);
   } catch (error) {
@@ -703,8 +743,12 @@ export function toSkillRunResponseData(
     executionId: data.executionId,
     runId: data.runId,
     status: data.status,
-    ...(typeof data.previewId === "string" ? { previewId: data.previewId } : {}),
-    ...(typeof data.versionId === "string" ? { versionId: data.versionId } : {}),
+    ...(typeof data.previewId === "string"
+      ? { previewId: data.previewId }
+      : {}),
+    ...(typeof data.versionId === "string"
+      ? { versionId: data.versionId }
+      : {}),
     ...(typeof data.outputText === "string"
       ? { outputText: data.outputText }
       : {}),
@@ -952,7 +996,11 @@ type PendingPreviewSession = {
   payload: SkillRunPayload;
   generator: AsyncGenerator<WritingEvent>;
   outputText: string;
-  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
   usageSummary?: SkillRunUsage;
   completion: Promise<IpcResponse<SkillRunConfirmResponse>>;
 };
@@ -995,8 +1043,10 @@ function ensurePreviewSessionRendererLifecycle(args: {
   sender: Electron.WebContents;
 }): void {
   if (
-    typeof (args.sender as Electron.WebContents & { on?: unknown }).on !== "function"
-    || typeof (args.sender as Electron.WebContents & { once?: unknown }).once !== "function"
+    typeof (args.sender as Electron.WebContents & { on?: unknown }).on !==
+      "function" ||
+    typeof (args.sender as Electron.WebContents & { once?: unknown }).once !==
+      "function"
   ) {
     return;
   }
@@ -1096,8 +1146,8 @@ function buildSkillRunUsage(args: {
       ? undefined
       : Number(
           (
-            (promptTokens / 1000) * pricing.promptPer1kTokens
-            + (completionTokens / 1000) * pricing.completionPer1kTokens
+            (promptTokens / 1000) * pricing.promptPer1kTokens +
+            (completionTokens / 1000) * pricing.completionPer1kTokens
           ).toFixed(6),
         );
 
@@ -1147,6 +1197,18 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   >();
   const previewLifecycleRegisteredRendererIds = new Set<number>();
 
+  const readProxySettings = () => {
+    if (!deps.db) {
+      return null;
+    }
+    const svc = createAiProxySettingsService({
+      db: deps.db,
+      logger: deps.logger,
+      secretStorage: deps.secretStorage,
+    });
+    const res = svc.getRaw();
+    return res.ok ? res.data : null;
+  };
   const aiService = createAiService({
     logger: deps.logger,
     env: deps.env,
@@ -1158,18 +1220,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           }),
         }
       : {}),
-    getProxySettings: () => {
-      if (!deps.db) {
-        return null;
-      }
-      const svc = createAiProxySettingsService({
-        db: deps.db,
-        logger: deps.logger,
-        secretStorage: deps.secretStorage,
-      });
-      const res = svc.getRaw();
-      return res.ok ? res.data : null;
-    },
+    getProxySettings: readProxySettings,
   });
   const runRegistry = new Map<
     string,
@@ -1333,7 +1384,10 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         deps.db !== null
       ) {
         try {
-          const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
+          const docSvc = createDocumentService({
+            db: deps.db,
+            logger: deps.logger,
+          });
           const docRead = docSvc.read({
             projectId: args.projectId,
             documentId: args.documentId,
@@ -1371,15 +1425,160 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     });
   };
   const writingOrchestrator = createWritingOrchestrator({
-    aiService: {
-      async *streamChat() {
-        return;
-      },
-      estimateTokens,
-      abort() {
-        return;
-      },
-    },
+    aiService: (() => {
+      const legacyActiveAbortControllers = new Set<AbortController>();
+      const legacyOrchestratorAiService = {
+        async *streamChat(
+          messages: Array<{ role: string; content: string }>,
+          options: {
+            signal: AbortSignal;
+            onComplete: (r: unknown) => void;
+            onError: (e: unknown) => void;
+            onApiCallStarted?: () => void;
+            skillId?: string;
+          },
+        ) {
+          const legacyAbortController = new AbortController();
+          legacyActiveAbortControllers.add(legacyAbortController);
+          const onExternalAbort = () => legacyAbortController.abort();
+          options.signal.addEventListener("abort", onExternalAbort, { once: true });
+          const throwIfAborted = () => {
+            if (options.signal.aborted || legacyAbortController.signal.aborted) {
+              throw makeAbortError("Streaming request aborted");
+            }
+          };
+
+          try {
+            throwIfAborted();
+
+            // NOTE: For orchestrator-level cost/abort accounting, runSkill is the API boundary.
+            // Internal provider resolution/preflight remains encapsulated in aiService.
+            options.onApiCallStarted?.();
+            const runSkillPromise = aiService.runSkill({
+              skillId: options.skillId ?? "builtin:continue",
+              input: messages[messages.length - 1]?.content ?? "",
+              mode: "ask",
+              model: "default",
+              stream: false,
+              ts: nowTs(),
+              overrideMessages: messages,
+              emitEvent: () => {},
+            });
+            let abortListener: (() => void) | undefined;
+            const abortPromise = new Promise<never>((_, reject) => {
+              abortListener = () => {
+                reject(makeAbortError("Streaming request aborted"));
+              };
+              if (legacyAbortController.signal.aborted) {
+                abortListener();
+                return;
+              }
+              legacyAbortController.signal.addEventListener("abort", abortListener, {
+                once: true,
+              });
+            });
+            const res = await Promise.race([runSkillPromise, abortPromise]);
+            if (abortListener) {
+              legacyAbortController.signal.removeEventListener("abort", abortListener);
+            }
+            throwIfAborted();
+            if (!res.ok) {
+              const kind =
+                res.error.code === "CANCELED"
+                  ? "aborted"
+                  : res.error.retryable
+                    ? "retryable"
+                    : "non-retryable";
+              const streamError = {
+                kind,
+                message: res.error.message,
+                retryCount: 0,
+              };
+              if (kind !== "aborted") {
+                options.onError(streamError);
+              }
+              throw streamError;
+            }
+
+            const content = res.data.outputText ?? "";
+            const completionTokens = estimateTokens(content);
+            yield {
+              delta: content,
+              finishReason: res.data.finishReason ?? "stop",
+              accumulatedTokens: completionTokens,
+            };
+            options.onComplete({
+              content,
+              usage: {
+                promptTokens: 0,
+                completionTokens,
+                totalTokens: completionTokens,
+              },
+              wasRetried: false,
+            });
+          } finally {
+            options.signal.removeEventListener("abort", onExternalAbort);
+            legacyActiveAbortControllers.delete(legacyAbortController);
+          }
+        },
+        estimateTokens,
+        abort() {
+          for (const controller of legacyActiveAbortControllers) {
+            controller.abort();
+          }
+          legacyActiveAbortControllers.clear();
+        },
+      };
+
+      if (deps.db === null || !deps.costTracker) {
+        return {
+          async *streamChat() {
+            return;
+          },
+          estimateTokens,
+          abort() {
+            return;
+          },
+        };
+      }
+
+      const bridgeAiService = createAiServiceBridge({
+        db: deps.db,
+        logger: deps.logger,
+        costTracker: deps.costTracker,
+        env: deps.env,
+        runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
+        getProxySettings: readProxySettings,
+      });
+
+      return {
+        async *streamChat(
+          messages: Array<{ role: string; content: string }>,
+          options: {
+            signal: AbortSignal;
+            onComplete: (r: unknown) => void;
+            onError: (e: unknown) => void;
+            onApiCallStarted?: () => void;
+            skillId?: string;
+            requestId?: string;
+            sessionId?: string;
+          },
+        ) {
+          try {
+            yield* bridgeAiService.streamChat(messages, options);
+          } catch (error) {
+            if (!isBridgeUnsupportedProviderError(error)) {
+              throw error;
+            }
+            yield* legacyOrchestratorAiService.streamChat(messages, options);
+          }
+        },
+        estimateTokens: bridgeAiService.estimateTokens,
+        abort: () => {
+          // Per-request cancellation is propagated by the request-level AbortSignal chain.
+        },
+      };
+    })(),
     toolRegistry:
       deps.db === null
         ? createToolRegistry()
@@ -1395,7 +1594,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             db: deps.db,
             logger: deps.logger,
             ...(kgServiceForContext ? { kgService: kgServiceForContext } : {}),
-            ...(memoryServiceForContext ? { memoryService: memoryServiceForContext } : {}),
+            ...(memoryServiceForContext
+              ? { memoryService: memoryServiceForContext }
+              : {}),
           }),
       {
         maxToolRounds: AGENTIC_MAX_ROUNDS,
@@ -1469,7 +1670,13 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
       return prepared.data;
     },
-    generateText: async ({ request, signal, emitChunk, messages }) => {
+    generateText: async ({
+      request,
+      signal,
+      emitChunk,
+      onApiCallStarted,
+      messages,
+    }) => {
       let outputText = "";
       let usage = {
         promptTokens: 0,
@@ -1477,7 +1684,13 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         totalTokens: 0,
       };
       let capturedFinishReason: "stop" | "tool_use" | undefined;
-      let capturedToolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> | undefined;
+      let capturedToolCalls:
+        | Array<{
+            id: string;
+            name: string;
+            arguments: Record<string, unknown>;
+          }>
+        | undefined;
       let sawStreamChunk = false;
       let streamTerminalSeen = false;
       let settleStreamCompletion: (() => void) | null = null;
@@ -1487,7 +1700,21 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         rejectStreamCompletion = reject;
       });
 
-      const onDoneEvent = (event: { type: "done"; outputText: string; terminal: string; error?: { message?: string; code?: string }; result?: { metadata: { promptTokens: number; completionTokens: number } }; finishReason?: "stop" | "tool_use"; toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }> }) => {
+      const onDoneEvent = (event: {
+        type: "done";
+        outputText: string;
+        terminal: string;
+        error?: { message?: string; code?: string };
+        result?: {
+          metadata: { promptTokens: number; completionTokens: number };
+        };
+        finishReason?: "stop" | "tool_use";
+        toolCalls?: Array<{
+          id: string;
+          name: string;
+          arguments: Record<string, unknown>;
+        }>;
+      }) => {
         if (!sawStreamChunk && event.outputText.length > 0) {
           outputText = event.outputText;
           emitChunk(event.outputText, estimateTokens(event.outputText));
@@ -1496,12 +1723,17 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           outputText = event.outputText;
         }
         usage = {
-          promptTokens: event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request)),
+          promptTokens:
+            event.result?.metadata.promptTokens ??
+            estimateTokens(resolveWritingRequestInput(request)),
           completionTokens:
-            event.result?.metadata.completionTokens ?? estimateTokens(event.outputText),
+            event.result?.metadata.completionTokens ??
+            estimateTokens(event.outputText),
           totalTokens:
-            (event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request))) +
-            (event.result?.metadata.completionTokens ?? estimateTokens(event.outputText)),
+            (event.result?.metadata.promptTokens ??
+              estimateTokens(resolveWritingRequestInput(request))) +
+            (event.result?.metadata.completionTokens ??
+              estimateTokens(event.outputText)),
         };
         // F1: capture finishReason and toolCalls from the done event
         if (event.finishReason !== undefined) {
@@ -1534,6 +1766,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       // F2: when messages is provided (agentic loop rounds 2+), call aiService directly
       // bypassing skillExecutor so that the accumulated tool-result messages are forwarded
       if (messages && messages.length > 0) {
+        onApiCallStarted?.();
         const res = await aiService.runSkill({
           skillId: request.skillId,
           input: messages[messages.length - 1]?.content ?? "",
@@ -1576,14 +1809,15 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
 
       // First call: use skillExecutor for full context assembly
+      let apiStartedFired = false;
       const res = await skillExecutor.execute({
         skillId: request.skillId,
         hasSelection: Boolean(request.selection),
         input: resolveWritingRequestInput(request),
         selectedText:
-          request.selection?.text
-          ?? request.input.selectedText
-          ?? resolveWritingRequestInput(request),
+          request.selection?.text ??
+          request.input.selectedText ??
+          resolveWritingRequestInput(request),
         ...(request.cursorPosition === undefined
           ? {}
           : { cursorPosition: request.cursorPosition }),
@@ -1596,10 +1830,16 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           projectId: request.projectId,
           documentId: request.documentId,
         },
-        ...(messages ? { messages: messages as SkillExecutorRunArgs["messages"] } : {}),
+        ...(messages
+          ? { messages: messages as SkillExecutorRunArgs["messages"] }
+          : {}),
         stream: true,
         ts: nowTs(),
         emitEvent: (event) => {
+          if (!apiStartedFired) {
+            apiStartedFired = true;
+            onApiCallStarted?.();
+          }
           if (signal.aborted) {
             return;
           }
@@ -1692,7 +1932,7 @@ async function drainPreviewUntilPause(args: {
         completionTokens: number;
         totalTokens: number;
       }
-      | undefined;
+    | undefined;
   let versionId: string | undefined;
 
   while (true) {
@@ -1791,7 +2031,9 @@ async function drainPreviewUntilPause(args: {
           error: {
             code: "INTERNAL",
             message:
-              error instanceof Error ? error.message : "AI skill confirmation failed",
+              error instanceof Error
+                ? error.message
+                : "AI skill confirmation failed",
           },
         }));
       args.ctx.previewSessions.set(args.executionId, session);
@@ -1813,7 +2055,8 @@ async function drainPreviewUntilPause(args: {
     }
 
     if (event.type === "write-back-done") {
-      versionId = typeof event.versionId === "string" ? event.versionId : undefined;
+      versionId =
+        typeof event.versionId === "string" ? event.versionId : undefined;
       continue;
     }
 
@@ -1861,11 +2104,10 @@ async function drainPreviewUntilPause(args: {
     if (event.type === "error") {
       return {
         ok: false,
-        error:
-          (event.error as IpcError) ?? {
-            code: "INTERNAL",
-            message: "AI skill run failed",
-          },
+        error: (event.error as IpcError) ?? {
+          code: "INTERNAL",
+          message: "AI skill run failed",
+        },
       };
     }
   }
@@ -1881,8 +2123,8 @@ async function continuePreviewSession(args: {
     const next = await args.session.generator.next();
     if (next.done) {
       const usageSummary =
-        args.session.usageSummary
-        ?? (args.session.usage
+        args.session.usageSummary ??
+        (args.session.usage
           ? recordSkillRunUsage(args.ctx, {
               model: args.session.payload.model,
               context: args.session.payload.context,
@@ -1916,7 +2158,8 @@ async function continuePreviewSession(args: {
 
     const event = next.value;
     if (event.type === "write-back-done") {
-      versionId = typeof event.versionId === "string" ? event.versionId : versionId;
+      versionId =
+        typeof event.versionId === "string" ? event.versionId : versionId;
       continue;
     }
     if (event.type === "permission-denied") {
@@ -1945,11 +2188,10 @@ async function continuePreviewSession(args: {
       args.ctx.previewSessions.delete(args.session.executionId);
       return {
         ok: false,
-        error:
-          (event.error as IpcError) ?? {
-            code: "INTERNAL",
-            message: "AI skill confirmation failed",
-          },
+        error: (event.error as IpcError) ?? {
+          code: "INTERNAL",
+          message: "AI skill confirmation failed",
+        },
       };
     }
   }
@@ -2037,13 +2279,26 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
       }
       if (
         payload.cursorPosition !== undefined &&
-        (!Number.isSafeInteger(payload.cursorPosition) || payload.cursorPosition < 0)
+        (!Number.isSafeInteger(payload.cursorPosition) ||
+          payload.cursorPosition < 0)
       ) {
         return {
           ok: false,
           error: {
             code: "INVALID_ARGUMENT",
             message: "cursorPosition must be a non-negative integer",
+          },
+        };
+      }
+      if (
+        payload.agenticLoop !== undefined &&
+        typeof payload.agenticLoop !== "boolean"
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "agenticLoop must be a boolean",
           },
         };
       }
@@ -2088,7 +2343,9 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         input: {
           selectedText:
             normalizedPayload.selection?.text ?? normalizedPayload.input,
-          ...(normalizedPayload.precedingText !== undefined ? { precedingText: normalizedPayload.precedingText } : {}),
+          ...(normalizedPayload.precedingText !== undefined
+            ? { precedingText: normalizedPayload.precedingText }
+            : {}),
         },
         ...(normalizedPayload.userInstruction === undefined
           ? {}
@@ -2096,10 +2353,17 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         documentId,
         projectId: projectId.data,
         modelId: normalizedPayload.model,
-        ...(normalizedPayload.selection ? { selection: normalizedPayload.selection } : {}),
+        ...(normalizedPayload.selection
+          ? { selection: normalizedPayload.selection }
+          : {}),
         ...(cursorPosition === undefined ? {} : { cursorPosition }),
-        // P2: enable agentic loop for the 'continue' skill
-        agenticLoop: leafSkillId(normalizedPayload.skillId) === "continue",
+        ...(normalizedPayload.context?.sessionId === undefined
+          ? {}
+          : { sessionId: normalizedPayload.context.sessionId }),
+        // P2: default-enable agentic loop for continue; allow explicit override from IPC payload.
+        agenticLoop:
+          normalizedPayload.agenticLoop ??
+          leafSkillId(normalizedPayload.skillId) === "continue",
       });
 
       rememberRunInRegistry(ctx, {
@@ -2166,8 +2430,8 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
       }
       const sessionProjectId = session.payload.context?.projectId?.trim() ?? "";
       if (
-        sessionProjectId.length === 0
-        || sessionProjectId !== requestedProjectId.data
+        sessionProjectId.length === 0 ||
+        sessionProjectId !== requestedProjectId.data
       ) {
         return {
           ok: false,

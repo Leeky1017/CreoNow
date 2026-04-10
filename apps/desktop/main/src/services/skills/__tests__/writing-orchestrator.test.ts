@@ -63,14 +63,17 @@ function createMockAIService() {
     { delta: "文字。", finishReason: "stop", accumulatedTokens: 6 } as const,
   ];
 
-  async function* mockStreamChat() {
+  async function* mockStreamChat(options?: { onApiCallStarted?: () => void }) {
+    options?.onApiCallStarted?.();
     for (const chunk of chunks) {
       yield chunk;
     }
   }
 
   return {
-    streamChat: vi.fn().mockImplementation(() => mockStreamChat()),
+    streamChat: vi
+      .fn()
+      .mockImplementation((_messages, options) => mockStreamChat(options)),
     estimateTokens: vi.fn().mockReturnValue(10),
     abort: vi.fn(),
   };
@@ -313,6 +316,32 @@ describe("WritingOrchestrator", () => {
       expect(writeEvent!.versionId).toBe("snap-accept-001");
     });
 
+    it("调用 aiService.streamChat 时透传 skillId/requestId/sessionId", async () => {
+      const aiService = createMockAIService();
+      orchestrator = createWritingOrchestrator(
+        buildConfig({
+          aiService,
+        }),
+      );
+
+      await collectEvents(
+        orchestrator.execute(
+          makeRequest({
+            requestId: "req-stream-context-001",
+            skillId: "builtin:summarize",
+            sessionId: "session-ctx-001",
+          }),
+        ),
+      );
+
+      const streamCall = aiService.streamChat.mock.calls[0];
+      expect(streamCall?.[1]).toMatchObject({
+        skillId: "builtin:summarize",
+        requestId: "req-stream-context-001",
+        sessionId: "session-ctx-001",
+      });
+    });
+
     it("写回前先创建 pre-write 快照，再执行 documentWrite", async () => {
       await collectEvents(orchestrator.execute(makeRequest()));
 
@@ -436,7 +465,9 @@ describe("WritingOrchestrator", () => {
       });
       const orch = createWritingOrchestrator(cfg);
 
-      const events = await collectEvents(orch.execute(makeRequest()));
+      const events = await collectEvents(
+        orch.execute(makeRequest({ agenticLoop: true })),
+      );
       const chunkEvents = events.filter((event) => event.type === "ai-chunk");
 
       expect(chunkEvents).toHaveLength(3);
@@ -476,15 +507,50 @@ describe("WritingOrchestrator", () => {
       expect(() => orchestrator.abort("non-existent-id")).not.toThrow();
     });
 
-    it("abort 后 AI 服务的 abort 被调用", async () => {
-      const gen = orchestrator.execute(makeRequest());
-      await gen.next();
+    it("abort 仅通过 request signal 中止，不触发 aiService.abort()", async () => {
+      const tracker = createMockCostTracker();
+      const aiService = createMockAIService();
+      let releaseSecondChunk: (() => void) | undefined;
+      const waitSecondChunk = new Promise<void>((resolve) => {
+        releaseSecondChunk = resolve;
+      });
+      aiService.streamChat.mockImplementation(
+        (_messages, options: { onApiCallStarted?: () => void }) =>
+          (async function* () {
+            options.onApiCallStarted?.();
+            yield { delta: "润色", finishReason: null, accumulatedTokens: 2 };
+            await waitSecondChunk;
+            yield { delta: "后的", finishReason: null, accumulatedTokens: 4 };
+          })(),
+      );
 
-      orchestrator.abort("req-001");
-      // Drain generator
-      while (!(await gen.next()).done) { /* drain */ }
+      const orch = createWritingOrchestrator(buildConfig({ aiService, costTracker: tracker }));
+      const gen = orch.execute(makeRequest());
+      const events: WritingEvent[] = [];
+      let sawFirstChunk = false;
 
-      expect(config.aiService.abort).toHaveBeenCalled();
+      while (true) {
+        const next = await gen.next();
+        if (next.done) {
+          break;
+        }
+        events.push(next.value);
+        if (!sawFirstChunk && next.value.type === "ai-chunk") {
+          sawFirstChunk = true;
+          orch.abort("req-001");
+          releaseSecondChunk?.();
+        }
+      }
+
+      expect(eventTypes(events)).toContain("aborted");
+      expect(tracker.recordUsage).toHaveBeenCalledWith(
+        { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+        "default",
+        "req-001",
+        "polish",
+      );
+      expect(aiService.abort).not.toHaveBeenCalled();
+      orch.dispose();
     });
   });
 
@@ -799,6 +865,198 @@ describe("WritingOrchestrator", () => {
 
       expect(aiService.streamChat).toHaveBeenCalledTimes(1);
       expect(eventTypes(events)).toContain("error");
+      orch.dispose();
+    });
+
+    it("aborted 错误（流式尚未开始）→ 立即终止且不重试，不记录 usage", async () => {
+      const aiService = createMockAIService();
+      aiService.streamChat.mockImplementation(() => {
+        throw { kind: "aborted", message: "request canceled", retryCount: 0 };
+      });
+      const tracker = createMockCostTracker();
+
+      const cfg = buildConfig({ aiService, costTracker: tracker });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+
+      expect(aiService.streamChat).toHaveBeenCalledTimes(1);
+      expect(eventTypes(events)).toContain("aborted");
+      expect(eventTypes(events)).not.toContain("error");
+      expect(tracker.recordUsage).not.toHaveBeenCalled();
+      orch.dispose();
+    });
+
+    it("API 请求前 aborted(如 provider 选择阶段) → 不记录 usage", async () => {
+      const tracker = createMockCostTracker();
+      const aiService = createMockAIService();
+      aiService.streamChat.mockImplementation(() => {
+        const abortError = new Error("Provider selection aborted");
+        abortError.name = "AbortError";
+        (
+          abortError as Error & {
+            kind: "aborted";
+          }
+        ).kind = "aborted";
+        throw abortError;
+      });
+      const cfg = buildConfig({
+        aiService,
+        costTracker: tracker,
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+
+      expect(eventTypes(events)).toContain("aborted");
+      expect(tracker.recordUsage).not.toHaveBeenCalled();
+      orch.dispose();
+    });
+
+    it("streamChat 已创建但首 chunk 前 aborted → 记录 usage", async () => {
+      const aiService = createMockAIService();
+      const tracker = createMockCostTracker();
+      let streamCreated!: () => void;
+      const streamCreatedPromise = new Promise<void>((resolve) => {
+        streamCreated = resolve;
+      });
+
+      aiService.streamChat.mockImplementation(
+        (_messages, options: { signal?: AbortSignal; onApiCallStarted?: () => void }) =>
+          (async function* () {
+            options.onApiCallStarted?.();
+            streamCreated();
+            await new Promise<never>((_resolve, reject) => {
+              const abortError = new Error("Streaming request aborted");
+              abortError.name = "AbortError";
+              (
+                abortError as Error & {
+                  kind: "aborted";
+                }
+              ).kind = "aborted";
+
+              if (options.signal?.aborted) {
+                reject(abortError);
+                return;
+              }
+
+              options.signal?.addEventListener(
+                "abort",
+                () => reject(abortError),
+                { once: true },
+              );
+            });
+            yield { delta: "never", finishReason: "stop", accumulatedTokens: 1 };
+          })(),
+      );
+
+      const cfg = buildConfig({ aiService, costTracker: tracker });
+      const orch = createWritingOrchestrator(cfg);
+      const eventsPromise = collectEvents(orch.execute(makeRequest()));
+      await streamCreatedPromise;
+      orch.abort("req-001");
+
+      const events = await eventsPromise;
+
+      expect(eventTypes(events)).toContain("aborted");
+      expect(tracker.recordUsage).toHaveBeenCalled();
+      orch.dispose();
+    });
+
+    it("unsupported-provider 回退到 legacy 流后首 chunk 前 aborted → 记录 usage", async () => {
+      const aiService = createMockAIService();
+      const tracker = createMockCostTracker();
+      let streamCreated!: () => void;
+      const streamCreatedPromise = new Promise<void>((resolve) => {
+        streamCreated = resolve;
+      });
+
+      aiService.streamChat.mockImplementation(
+        (_messages, options: { signal?: AbortSignal; onApiCallStarted?: () => void }) =>
+          (async function* () {
+            try {
+              throw { kind: "unsupported-provider" as const };
+            } catch (error) {
+              if ((error as { kind?: unknown }).kind !== "unsupported-provider") {
+                throw error;
+              }
+              // 模拟 ipc/ai.ts 的 legacy 回退实现：在 runSkill 边界触发回调。
+              options.onApiCallStarted?.();
+              streamCreated();
+              await new Promise<never>((_resolve, reject) => {
+                const abortError = new Error("Streaming request aborted");
+                abortError.name = "AbortError";
+                (
+                  abortError as Error & {
+                    kind: "aborted";
+                  }
+                ).kind = "aborted";
+                if (options.signal?.aborted) {
+                  reject(abortError);
+                  return;
+                }
+                options.signal?.addEventListener("abort", () => reject(abortError), {
+                  once: true,
+                });
+              });
+            }
+            yield { delta: "never", finishReason: "stop", accumulatedTokens: 1 };
+          })(),
+      );
+
+      const cfg = buildConfig({ aiService, costTracker: tracker });
+      const orch = createWritingOrchestrator(cfg);
+      const eventsPromise = collectEvents(orch.execute(makeRequest()));
+      await streamCreatedPromise;
+      orch.abort("req-001");
+
+      const events = await eventsPromise;
+
+      expect(eventTypes(events)).toContain("aborted");
+      expect(tracker.recordUsage).toHaveBeenCalled();
+      orch.dispose();
+    });
+
+    it("partial-result 错误 → 返回 PARTIAL_RESULT 且保留已流式输出片段", async () => {
+      const aiService = createMockAIService();
+      aiService.streamChat.mockImplementation(
+        (_messages, options: { onApiCallStarted?: () => void }) =>
+          (async function* () {
+            options.onApiCallStarted?.();
+          yield { delta: "半截", finishReason: null, accumulatedTokens: 2 };
+          throw { kind: "partial-result", message: "stream interrupted", retryCount: 0 };
+          })(),
+      );
+      const tracker = createMockCostTracker();
+
+      const cfg = buildConfig({ aiService, costTracker: tracker });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((e) => e.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(aiService.streamChat).toHaveBeenCalledTimes(1);
+      expect(eventTypes(events)).toContain("ai-chunk");
+      expect(eventTypes(events)).not.toContain("ai-done");
+      expect(errorEvent).toBeDefined();
+      expect(
+        (errorEvent as unknown as { error: { code: string; message: string } }).error,
+      ).toMatchObject({
+        code: "PARTIAL_RESULT",
+        message: "stream interrupted",
+      });
+      expect(
+        (errorEvent as unknown as { error: { details?: { partialContent?: string } } }).error
+          .details?.partialContent,
+      ).toBe("半截");
+      expect(tracker.recordUsage).toHaveBeenCalledWith(
+        { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+        "default",
+        "req-001",
+        "polish",
+      );
       orch.dispose();
     });
 

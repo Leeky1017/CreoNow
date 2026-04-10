@@ -111,6 +111,35 @@ function makeToolCallInfo(name: string, args: Record<string, unknown> = {}, id?:
   return { id: id ?? `call-${name}-${Date.now()}`, name, arguments: args };
 }
 
+function createUnreachableAiService(estimatedTokens: number) {
+  return {
+    async *streamChat() {
+      throw new Error("unreachable: streamChat should not be called in agentic path");
+    },
+    estimateTokens: () => estimatedTokens,
+    abort: vi.fn(),
+  };
+}
+
+function createGenerateTextOnlyAiService(estimatedTokens: number) {
+  return {
+    streamChat: undefined as unknown as (
+      messages: Array<{ role: string; content: string }>,
+      options: {
+        signal: AbortSignal;
+        onComplete: (r: unknown) => void;
+        onError: (e: unknown) => void;
+        onApiCallStarted?: () => void;
+        skillId?: string;
+        requestId?: string;
+        sessionId?: string;
+      },
+    ) => AsyncGenerator<{ delta: string; finishReason: "stop" | "tool_use" | null; accumulatedTokens: number }>,
+    estimateTokens: () => estimatedTokens,
+    abort: vi.fn(),
+  };
+}
+
 // ─── test suite ─────────────────────────────────────────────────────
 
 describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
@@ -149,7 +178,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const generateText = vi.fn().mockImplementation(async (args: {
         messages?: Array<{ role: string; content: string }>;
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         if (callCount === 1) {
           // First call: return partial text + tool_use
@@ -179,7 +210,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { async *streamChat() { return; }, estimateTokens: () => 10, abort: vi.fn() },
+        aiService: createUnreachableAiService(10),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -241,7 +272,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const generateText = vi.fn().mockImplementation(async (args: {
         messages?: Array<{ role: string; content: string }>;
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         if (callCount === 1) {
           args.emitChunk("第一轮", 3);
@@ -271,7 +304,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { async *streamChat() { return; }, estimateTokens: () => 10, abort: vi.fn() },
+        aiService: createUnreachableAiService(10),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -334,7 +367,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const generateText = vi.fn().mockImplementation(async (args: {
         messages?: Array<{ role: string; content: string }>;
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         if (callCount === 1) {
           args.emitChunk("第一轮", 3);
@@ -358,7 +393,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { async *streamChat() { return; }, estimateTokens: () => 10, abort: vi.fn() },
+        aiService: createUnreachableAiService(10),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -422,7 +457,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const generateText = vi.fn().mockImplementation(async (args: {
         messages?: Array<{ role: string; content: string }>;
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         if (callCount === 1) {
           args.emitChunk("部分续写", 4);
@@ -529,7 +566,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
 
       const generateText = vi.fn().mockImplementation(async (args: {
         emitChunk: (delta: string, tokens: number) => void;
+        onApiCallStarted?: () => void;
       }) => {
+        args.onApiCallStarted?.();
         callCount++;
         args.emitChunk(`轮次${callCount}`, callCount * 2);
         // Always return tool_use until max rounds
@@ -542,7 +581,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { async *streamChat() { return; }, estimateTokens: () => 5, abort: vi.fn() },
+        aiService: createUnreachableAiService(5),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -632,7 +671,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
         });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { async *streamChat() { return; }, estimateTokens: () => 5, abort: vi.fn() },
+        aiService: createUnreachableAiService(5),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -676,7 +715,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { async *streamChat() { return; }, estimateTokens: () => 10, abort: vi.fn() },
+        aiService: createGenerateTextOnlyAiService(10),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -698,12 +737,10 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       expect(types).not.toContain("tool-use-completed");
       expect(types).not.toContain("tool-use-failed");
 
-      // AI was only called once
-      expect(generateText).toHaveBeenCalledTimes(1);
-
-      // ai-done uses the text from the single AI call
+      // ai-done is emitted without entering tool-use loop
       const aiDoneEvent = events.find((e) => e.type === "ai-done");
       expect(aiDoneEvent).toBeDefined();
+      expect(generateText).toHaveBeenCalledTimes(1);
       expect(aiDoneEvent!.fullText).toBe("润色后的文字。");
 
       // Pipeline completes normally
@@ -723,7 +760,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { async *streamChat() { return; }, estimateTokens: () => 5, abort: vi.fn() },
+        aiService: createGenerateTextOnlyAiService(5),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
