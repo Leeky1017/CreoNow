@@ -58,8 +58,8 @@ export function createModelRouter(args: {
   maxTokens?: number;
   temperature?: number;
 }): ModelRouter {
-  const maxTokens = args.maxTokens ?? 4096;
-  const temperature = args.temperature ?? 0.7;
+  const maxTokens = args.maxTokens ?? 4096; // spec §3.2: single-request maxTokens ceiling is 4096.
+  const temperature = args.temperature ?? 0.7; // spec §2.5: default generation temperature is 0.7.
 
   async function selectProvider(
     request: ModelRoutingRequest,

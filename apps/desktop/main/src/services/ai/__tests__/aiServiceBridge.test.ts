@@ -95,9 +95,10 @@ describe("aiServiceBridge", () => {
       );
     });
 
+    const logger = createLogger();
     const bridge = createAiServiceBridge({
       db,
-      logger: createLogger(),
+      logger,
       costTracker: createCostTracker({
         pricingTable: createPricingTable(),
         budgetPolicy: {
@@ -130,10 +131,6 @@ describe("aiServiceBridge", () => {
         onError,
         skillId: "builtin:summarize",
         requestId: "bridge-req-1",
-      } as unknown as {
-        signal: AbortSignal;
-        onComplete: (r: unknown) => void;
-        onError: (e: unknown) => void;
       },
     )) {
       if (chunk.delta.length > 0) {
@@ -160,5 +157,86 @@ describe("aiServiceBridge", () => {
       inputTokens: 11,
       outputTokens: 4,
     });
+    expect(logger.info).not.toHaveBeenCalledWith(
+      "ai_cost_persistence_degraded",
+      expect.anything(),
+    );
+  });
+
+  it("logs persistenceError and propagates it in onComplete payload", async () => {
+    const db = createDb();
+    putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
+    putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
+    db.prepare("DROP TABLE cost_records").run();
+
+    const logger = createLogger();
+    const bridge = createAiServiceBridge({
+      db,
+      logger,
+      costTracker: createCostTracker({
+        pricingTable: createPricingTable(),
+        budgetPolicy: {
+          warningThreshold: 10,
+          hardStopLimit: 100,
+          enabled: false,
+        },
+        estimateTokens: () => 0,
+      }),
+      env: {
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_BASE_URL: "https://api.openai.com",
+        CREONOW_AI_API_KEY: "sk-test",
+      },
+      runtimeAiTimeoutMs: 30_000,
+      fetchImpl: (async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(
+                  [
+                    'data: {"choices":[{"delta":{"content":"bridge "}}]}',
+                    "",
+                    'data: {"choices":[{"delta":{"content":"ok"}}]}',
+                    "",
+                    'data: {"usage":{"prompt_tokens":11,"completion_tokens":4}}',
+                    "",
+                    "data: [DONE]",
+                    "",
+                  ].join("\n"),
+                ),
+              );
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        )) as unknown as typeof fetch,
+      now: () => 1_000,
+    });
+
+    const onComplete = vi.fn();
+    for await (const _chunk of bridge.streamChat(
+      [{ role: "user", content: "summarize this" }],
+      {
+        signal: new AbortController().signal,
+        onComplete,
+        onError: vi.fn(),
+        skillId: "builtin:summarize",
+        requestId: "bridge-req-persist-err",
+      },
+    )) {
+      // drain
+    }
+
+    const completeArg = onComplete.mock.calls[0]?.[0] as
+      | { persistenceError?: unknown }
+      | undefined;
+    expect(completeArg?.persistenceError).toBeDefined();
+    expect(logger.info).toHaveBeenCalledWith(
+      "ai_cost_persistence_degraded",
+      expect.objectContaining({
+        requestId: "bridge-req-persist-err",
+      }),
+    );
   });
 });

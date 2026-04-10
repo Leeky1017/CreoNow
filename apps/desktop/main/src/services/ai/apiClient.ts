@@ -48,6 +48,7 @@ type OpenAiApiProviderConfig = {
   model: string;
   maxTokens: number;
   temperature: number;
+  timeoutMs?: number;
 };
 
 type CreateChatCompletionArgs = {
@@ -213,6 +214,7 @@ function insertCostRecord(args: {
   usage: CompletionUsage;
   durationMs: number;
   estimatedCostUsd: number;
+  now: () => number;
 }): void {
   args.db
     .prepare(
@@ -227,8 +229,74 @@ function insertCostRecord(args: {
       args.usage.cachedTokens,
       Math.max(0, Math.floor(args.durationMs)),
       args.estimatedCostUsd,
-      new Date().toISOString(),
+      new Date(args.now()).toISOString(),
     );
+}
+
+function estimateCostUsd(args: {
+  costTracker: CostTracker;
+  logger: Logger;
+  requestId: string;
+  model: string;
+  usage: CompletionUsage;
+}): number {
+  const pricing = args.costTracker.getPricingTable().prices[args.model];
+  if (!pricing) {
+    args.logger.info("ai_cost_model_not_found", {
+      requestId: args.requestId,
+      model: args.model,
+    });
+    return 0;
+  }
+
+  const promptTokens = Math.max(0, args.usage.promptTokens);
+  const completionTokens = Math.max(0, args.usage.completionTokens);
+  const cachedTokens = Math.max(0, args.usage.cachedTokens);
+
+  const inputCost =
+    cachedTokens > 0 && pricing.cachedInputPricePer1K !== undefined
+      ? ((Math.max(0, promptTokens - cachedTokens) / 1000) * pricing.inputPricePer1K) +
+        ((cachedTokens / 1000) * pricing.cachedInputPricePer1K)
+      : (promptTokens / 1000) * pricing.inputPricePer1K;
+
+  const outputCost = (completionTokens / 1000) * pricing.outputPricePer1K;
+  return inputCost + outputCost;
+}
+
+function mergeAbortSignals(args: {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}): AbortSignal | undefined {
+  const abortSignal = AbortSignal as typeof AbortSignal & {
+    timeout?: (milliseconds: number) => AbortSignal;
+    any?: (signals: AbortSignal[]) => AbortSignal;
+  };
+
+  const signals: AbortSignal[] = [];
+  if (args.signal) {
+    signals.push(args.signal);
+  }
+
+  if (
+    typeof args.timeoutMs === "number" &&
+    Number.isFinite(args.timeoutMs) &&
+    args.timeoutMs > 0 &&
+    typeof abortSignal.timeout === "function"
+  ) {
+    signals.push(abortSignal.timeout(args.timeoutMs));
+  }
+
+  if (signals.length === 0) {
+    return undefined;
+  }
+  if (signals.length === 1) {
+    return signals[0];
+  }
+
+  if (typeof abortSignal.any === "function") {
+    return abortSignal.any(signals);
+  }
+  return signals[0];
 }
 
 function mergePersistenceErrorDetails(
@@ -265,24 +333,6 @@ export function createApiClient(args: {
     startedAtMs: number;
   }): Promise<ServiceResult<true>> {
     try {
-      const tracked = args.costTracker.recordUsage(
-        {
-          promptTokens: argsForRecord.usage.promptTokens,
-          completionTokens: argsForRecord.usage.completionTokens,
-        },
-        argsForRecord.model,
-        argsForRecord.requestId,
-        argsForRecord.skillId,
-        argsForRecord.usage.cachedTokens,
-      );
-
-      if (tracked.warning === "COST_MODEL_NOT_FOUND") {
-        args.logger.info("ai_cost_model_not_found", {
-          requestId: argsForRecord.requestId,
-          model: argsForRecord.model,
-        });
-      }
-
       insertCostRecord({
         db: args.db,
         id: argsForRecord.requestId,
@@ -290,7 +340,14 @@ export function createApiClient(args: {
         model: argsForRecord.model,
         usage: argsForRecord.usage,
         durationMs: now() - argsForRecord.startedAtMs,
-        estimatedCostUsd: tracked.cost,
+        estimatedCostUsd: estimateCostUsd({
+          costTracker: args.costTracker,
+          logger: args.logger,
+          requestId: argsForRecord.requestId,
+          model: argsForRecord.model,
+          usage: argsForRecord.usage,
+        }),
+        now,
       });
       return { ok: true, data: true };
     } catch (error) {
@@ -323,7 +380,10 @@ export function createApiClient(args: {
         }),
         {
           method: "POST",
-          signal: callArgs.signal,
+          signal: mergeAbortSignals({
+            signal: callArgs.signal,
+            timeoutMs: callArgs.provider.timeoutMs,
+          }),
           headers: {
             "Content-Type": "application/json",
             ...(callArgs.provider.apiKey
@@ -498,7 +558,10 @@ export function createApiClient(args: {
         }),
         {
           method: "POST",
-          signal: callArgs.signal,
+          signal: mergeAbortSignals({
+            signal: callArgs.signal,
+            timeoutMs: callArgs.provider.timeoutMs,
+          }),
           headers: {
             "Content-Type": "application/json",
             ...(callArgs.provider.apiKey

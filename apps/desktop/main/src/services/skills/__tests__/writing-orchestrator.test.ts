@@ -313,6 +313,32 @@ describe("WritingOrchestrator", () => {
       expect(writeEvent!.versionId).toBe("snap-accept-001");
     });
 
+    it("调用 aiService.streamChat 时透传 skillId/requestId/sessionId", async () => {
+      const aiService = createMockAIService();
+      orchestrator = createWritingOrchestrator(
+        buildConfig({
+          aiService,
+        }),
+      );
+
+      await collectEvents(
+        orchestrator.execute(
+          makeRequest({
+            requestId: "req-stream-context-001",
+            skillId: "builtin:summarize",
+            sessionId: "session-ctx-001",
+          }),
+        ),
+      );
+
+      const streamCall = aiService.streamChat.mock.calls[0];
+      expect(streamCall?.[1]).toMatchObject({
+        skillId: "builtin:summarize",
+        requestId: "req-stream-context-001",
+        sessionId: "session-ctx-001",
+      });
+    });
+
     it("写回前先创建 pre-write 快照，再执行 documentWrite", async () => {
       await collectEvents(orchestrator.execute(makeRequest()));
 

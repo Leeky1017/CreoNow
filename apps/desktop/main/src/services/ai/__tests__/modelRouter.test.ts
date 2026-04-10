@@ -35,7 +35,7 @@ function createLogger(): Logger {
 }
 
 describe("modelRouter", () => {
-  it("routes generation task to primary model", async () => {
+  it("P1 routes generation task to primary model", async () => {
     const db = createSettingsDb();
     putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
     putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");

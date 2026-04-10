@@ -18,8 +18,8 @@ const KEY_AUXILIARY_MODEL = "creonow.ai.model.auxiliary" as const;
 type SettingsRow = { valueJson: string };
 
 export type ModelConfig = {
-  primary_model: string | null;
-  auxiliary_model: string | null;
+  primaryModel: string | null;
+  auxiliaryModel: string | null;
 };
 
 export type ResolvedModelConfig = {
@@ -37,7 +37,7 @@ function readSetting(args: {
   db: Database.Database;
   logger: Logger;
   key: string;
-}): unknown | null {
+}): unknown {
   const { db, logger, key } = args;
   const row = db
     .prepare<[string, string], SettingsRow>(
@@ -73,14 +73,14 @@ export function createModelConfigService(args: {
 }): ModelConfigService {
   function readRaw(): ModelConfig {
     return {
-      primary_model: normalizeModel(
+      primaryModel: normalizeModel(
         readSetting({
           db: args.db,
           logger: args.logger,
           key: KEY_PRIMARY_MODEL,
         }),
       ),
-      auxiliary_model: normalizeModel(
+      auxiliaryModel: normalizeModel(
         readSetting({
           db: args.db,
           logger: args.logger,
@@ -92,8 +92,8 @@ export function createModelConfigService(args: {
 
   function resolve(): ServiceResult<ResolvedModelConfig> {
     const raw = readRaw();
-    const primary = raw.primary_model;
-    const auxiliary = raw.auxiliary_model;
+    const primary = raw.primaryModel;
+    const auxiliary = raw.auxiliaryModel;
 
     if (!primary && !auxiliary) {
       return ipcError(

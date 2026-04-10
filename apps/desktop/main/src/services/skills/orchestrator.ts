@@ -25,6 +25,7 @@ type AgenticMessage = {
 export interface WritingRequest {
   requestId: string;
   skillId: string;
+  sessionId?: string;
   input: { selectedText?: string; precedingText?: string; followingText?: string; [key: string]: unknown };
   userInstruction?: string;
   documentId: string;
@@ -84,7 +85,14 @@ type TaskState = "pending" | "running" | "paused" | "completed" | "failed" | "ki
 interface AIService {
   streamChat(
     messages: Array<{ role: string; content: string }>,
-    options: { signal: AbortSignal; onComplete: (r: unknown) => void; onError: (e: unknown) => void },
+    options: {
+      signal: AbortSignal;
+      onComplete: (r: unknown) => void;
+      onError: (e: unknown) => void;
+      skillId?: string;
+      requestId?: string;
+      sessionId?: string;
+    },
   ): AsyncGenerator<StreamChunk>;
   estimateTokens(text: string): number;
   abort(): void;
@@ -454,6 +462,9 @@ export function createWritingOrchestrator(
                   signal: abortController.signal,
                   onComplete: () => {},
                   onError: () => {},
+                  skillId: request.skillId,
+                  requestId,
+                  ...(request.sessionId ? { sessionId: request.sessionId } : {}),
                 },
               );
 

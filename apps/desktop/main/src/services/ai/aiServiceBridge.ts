@@ -16,6 +16,7 @@ import type { CostTracker } from "./costTracker";
 import { startFakeAiServer } from "./fakeAiServer";
 import { createModelConfigService } from "./modelConfig";
 import { createModelRouter } from "./modelRouter";
+import { logWarn } from "../shared/degradationCounter";
 import {
   createProviderResolver,
   type ProviderConfig,
@@ -27,6 +28,9 @@ type StreamChatOptions = {
   signal: AbortSignal;
   onComplete: (r: unknown) => void;
   onError: (e: unknown) => void;
+  skillId?: string;
+  requestId?: string;
+  sessionId?: string;
 };
 
 type BridgeMessage = {
@@ -68,6 +72,7 @@ function toOpenAiProvider(
   model: string;
   maxTokens: number;
   temperature: number;
+  timeoutMs: number;
 } {
   return {
     baseUrl: provider.baseUrl,
@@ -75,19 +80,15 @@ function toOpenAiProvider(
     model: provider.model,
     maxTokens: provider.maxTokens,
     temperature: provider.temperature,
+    timeoutMs: provider.timeoutMs,
   };
 }
 
 function extractStreamContext(options: StreamChatOptions): StreamContext {
-  const raw = options as StreamChatOptions & {
-    skillId?: string;
-    sessionId?: string;
-    requestId?: string;
-  };
   return {
-    skillId: raw.skillId ?? DEFAULT_SKILL_ID,
-    ...(raw.sessionId ? { sessionId: raw.sessionId } : {}),
-    ...(raw.requestId ? { requestId: raw.requestId } : {}),
+    skillId: options.skillId ?? DEFAULT_SKILL_ID,
+    ...(options.sessionId ? { sessionId: options.sessionId } : {}),
+    ...(options.requestId ? { requestId: options.requestId } : {}),
   };
 }
 
@@ -223,9 +224,9 @@ export function createAiServiceBridge(args: {
       },
     });
     const settlePromise = requestPromise.finally(() => {
-        streamSettled = true;
-        wake();
-      });
+      streamSettled = true;
+      wake();
+    });
 
     try {
       while (!streamSettled || pendingChunks.length > 0) {
@@ -270,8 +271,18 @@ export function createAiServiceBridge(args: {
           promptTokens: streamResult.data.usage.promptTokens,
           completionTokens: streamResult.data.usage.completionTokens,
         },
+        ...(streamResult.data.persistenceError
+          ? { persistenceError: streamResult.data.persistenceError }
+          : {}),
         wasRetried: false,
       });
+      if (streamResult.data.persistenceError) {
+        logWarn(args.logger, "ai_cost_persistence_degraded", {
+          requestId: streamResult.data.requestId,
+          skillId: streamContext.skillId,
+          error: streamResult.data.persistenceError,
+        });
+      }
     } finally {
       options.signal.removeEventListener("abort", onExternalAbort);
       if (activeAbortController === abortController) {

@@ -403,9 +403,66 @@ describe("apiClient", () => {
     const row = getCostRecord(db, "req-4");
     expect(row).not.toBeNull();
     expect(row?.estimatedCostUsd).toBe(0);
+  });
 
-    const tracked = tracker.getRequestCost("req-4");
-    expect(tracked?.warning).toBe("COST_MODEL_NOT_FOUND");
+  it("combines timeoutMs with external signal for fetch abort control", async () => {
+    if (
+      typeof AbortSignal.timeout !== "function" ||
+      typeof AbortSignal.any !== "function"
+    ) {
+      return;
+    }
+
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    const anySpy = vi.spyOn(AbortSignal, "any");
+
+    const fetchMock = vi.fn(
+      async (_url: URL | RequestInfo, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 9_000,
+    });
+
+    const signal = new AbortController().signal;
+    const result = await client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com",
+        model: "gpt-4o",
+        maxTokens: 64,
+        temperature: 0.2,
+        timeoutMs: 1_500,
+      },
+      messages: [{ role: "user", content: "hi" }],
+      requestId: "req-timeout-1",
+      skillId: "builtin:continue",
+      signal,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(timeoutSpy).toHaveBeenCalledWith(1_500);
+    expect(anySpy).toHaveBeenCalled();
   });
 
   it("marks network exception as retryable and still writes cost record", async () => {

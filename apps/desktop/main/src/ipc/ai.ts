@@ -75,7 +75,7 @@ type SkillRunPayload = {
   mode: "agent" | "plan" | "ask";
   model: string;
   candidateCount?: number;
-  context?: { projectId?: string; documentId?: string };
+  context?: { projectId?: string; documentId?: string; sessionId?: string };
   selection?: {
     from: number;
     to: number;
@@ -2111,6 +2111,9 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         modelId: normalizedPayload.model,
         ...(normalizedPayload.selection ? { selection: normalizedPayload.selection } : {}),
         ...(cursorPosition === undefined ? {} : { cursorPosition }),
+        ...(normalizedPayload.context?.sessionId === undefined
+          ? {}
+          : { sessionId: normalizedPayload.context.sessionId }),
         // P2: enable agentic loop for the 'continue' skill
         agenticLoop: leafSkillId(normalizedPayload.skillId) === "continue",
       });
