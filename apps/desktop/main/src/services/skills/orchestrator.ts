@@ -368,6 +368,7 @@ export function createWritingOrchestrator(
         let lastFinishReason: "stop" | "tool_use" | null = null;
         let lastToolCalls: ToolCallInfo[] = [];
         let lastPromptTokens = tokenCount;
+        let apiCallStarted = false;
 
         while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
           try {
@@ -385,6 +386,7 @@ export function createWritingOrchestrator(
                 process.env.NODE_ENV === "test");
 
             if (shouldUseGenerateText && generateText) {
+              apiCallStarted = true;
               const chunkQueue: Array<{
                 delta: string;
                 accumulatedTokens: number;
@@ -421,6 +423,13 @@ export function createWritingOrchestrator(
 
               while (!generationSettled || chunkQueue.length > 0) {
                 if (abortController.signal.aborted) {
+                  if (apiCallStarted) {
+                    recordUsage({
+                      promptTokens: lastPromptTokens,
+                      completionTokens: lastTokens,
+                      totalTokens: lastPromptTokens + lastTokens,
+                    });
+                  }
                   taskStates.set(requestId, "killed");
                   yield makeEvent("aborted", requestId, {
                     reason: "abort-during-ai",
@@ -476,7 +485,15 @@ export function createWritingOrchestrator(
               );
 
               for await (const chunk of gen) {
+                apiCallStarted = true;
                 if (abortController.signal.aborted) {
+                  if (apiCallStarted) {
+                    recordUsage({
+                      promptTokens: lastPromptTokens,
+                      completionTokens: lastTokens,
+                      totalTokens: lastPromptTokens + lastTokens,
+                    });
+                  }
                   taskStates.set(requestId, "killed");
                   yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
                   config.aiService.abort();
@@ -508,11 +525,13 @@ export function createWritingOrchestrator(
               (err instanceof Error && err.name === "AbortError");
 
             if (isAbortError) {
-              recordUsage({
-                promptTokens: lastPromptTokens,
-                completionTokens: lastTokens,
-                totalTokens: lastPromptTokens + lastTokens,
-              });
+              if (apiCallStarted) {
+                recordUsage({
+                  promptTokens: lastPromptTokens,
+                  completionTokens: lastTokens,
+                  totalTokens: lastPromptTokens + lastTokens,
+                });
+              }
               taskStates.set(requestId, "killed");
               yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
               config.aiService.abort();
@@ -520,11 +539,13 @@ export function createWritingOrchestrator(
             }
 
             if (errObj?.kind === "partial-result") {
-              recordUsage({
-                promptTokens: lastPromptTokens,
-                completionTokens: lastTokens,
-                totalTokens: lastPromptTokens + lastTokens,
-              });
+              if (apiCallStarted) {
+                recordUsage({
+                  promptTokens: lastPromptTokens,
+                  completionTokens: lastTokens,
+                  totalTokens: lastPromptTokens + lastTokens,
+                });
+              }
               const partialContent =
                 fullText.length > 0
                   ? fullText
@@ -576,11 +597,13 @@ export function createWritingOrchestrator(
           return;
         }
 
-        recordUsage({
-          promptTokens: lastPromptTokens,
-          completionTokens: lastTokens,
-          totalTokens: lastPromptTokens + lastTokens,
-        });
+        if (apiCallStarted) {
+          recordUsage({
+            promptTokens: lastPromptTokens,
+            completionTokens: lastTokens,
+            totalTokens: lastPromptTokens + lastTokens,
+          });
+        }
 
         // Stage 4.5 (P2): Agentic tool-use loop
         // Only runs when request.agenticLoop is true AND toolUseHandler is configured
@@ -738,11 +761,13 @@ export function createWritingOrchestrator(
             lastFinishReason = nextResult.finishReason ?? null;
             lastToolCalls = nextResult.toolCalls ?? [];
 
-            recordUsage({
-              promptTokens: lastPromptTokens,
-              completionTokens: lastTokens,
-              totalTokens: lastPromptTokens + lastTokens,
-            });
+            if (apiCallStarted) {
+              recordUsage({
+                promptTokens: lastPromptTokens,
+                completionTokens: lastTokens,
+                totalTokens: lastPromptTokens + lastTokens,
+              });
+            }
 
             const hasNextRound =
               lastFinishReason === "tool_use" && agenticRound < AGENTIC_MAX_ROUNDS;

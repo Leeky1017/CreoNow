@@ -503,14 +503,48 @@ describe("WritingOrchestrator", () => {
     });
 
     it("abort 后 AI 服务的 abort 被调用", async () => {
-      const gen = orchestrator.execute(makeRequest());
-      await gen.next();
+      const tracker = createMockCostTracker();
+      const aiService = createMockAIService();
+      let releaseSecondChunk: (() => void) | undefined;
+      const waitSecondChunk = new Promise<void>((resolve) => {
+        releaseSecondChunk = resolve;
+      });
+      aiService.streamChat.mockImplementation(
+        () =>
+          (async function* () {
+            yield { delta: "润色", finishReason: null, accumulatedTokens: 2 };
+            await waitSecondChunk;
+            yield { delta: "后的", finishReason: null, accumulatedTokens: 4 };
+          })(),
+      );
 
-      orchestrator.abort("req-001");
-      // Drain generator
-      while (!(await gen.next()).done) { /* drain */ }
+      const orch = createWritingOrchestrator(buildConfig({ aiService, costTracker: tracker }));
+      const gen = orch.execute(makeRequest());
+      const events: WritingEvent[] = [];
+      let sawFirstChunk = false;
 
-      expect(config.aiService.abort).toHaveBeenCalled();
+      while (true) {
+        const next = await gen.next();
+        if (next.done) {
+          break;
+        }
+        events.push(next.value);
+        if (!sawFirstChunk && next.value.type === "ai-chunk") {
+          sawFirstChunk = true;
+          orch.abort("req-001");
+          releaseSecondChunk?.();
+        }
+      }
+
+      expect(eventTypes(events)).toContain("aborted");
+      expect(aiService.abort).toHaveBeenCalled();
+      expect(tracker.recordUsage).toHaveBeenCalledWith(
+        { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+        "default",
+        "req-001",
+        "polish",
+      );
+      orch.dispose();
     });
   });
 
@@ -828,7 +862,7 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
-    it("aborted 错误 → 立即终止且不重试", async () => {
+    it("aborted 错误（流式尚未开始）→ 立即终止且不重试，不记录 usage", async () => {
       const aiService = createMockAIService();
       aiService.streamChat.mockImplementation(() => {
         throw { kind: "aborted", message: "request canceled", retryCount: 0 };
@@ -843,12 +877,34 @@ describe("WritingOrchestrator", () => {
       expect(aiService.streamChat).toHaveBeenCalledTimes(1);
       expect(eventTypes(events)).toContain("aborted");
       expect(eventTypes(events)).not.toContain("error");
-      expect(tracker.recordUsage).toHaveBeenCalledWith(
-        { promptTokens: 10, completionTokens: 0, totalTokens: 10 },
-        "default",
-        "req-001",
-        "polish",
+      expect(tracker.recordUsage).not.toHaveBeenCalled();
+      orch.dispose();
+    });
+
+    it("API 请求前 aborted(如 provider 选择阶段) → 不记录 usage", async () => {
+      const aiService = createMockAIService();
+      aiService.streamChat.mockImplementation(
+        () =>
+          (async function* () {
+            const abortError = new Error("Streaming request aborted");
+            abortError.name = "AbortError";
+            (
+              abortError as Error & {
+                kind: "aborted";
+              }
+            ).kind = "aborted";
+            throw abortError;
+          })(),
       );
+      const tracker = createMockCostTracker();
+
+      const cfg = buildConfig({ aiService, costTracker: tracker });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+
+      expect(eventTypes(events)).toContain("aborted");
+      expect(tracker.recordUsage).not.toHaveBeenCalled();
       orch.dispose();
     });
 
