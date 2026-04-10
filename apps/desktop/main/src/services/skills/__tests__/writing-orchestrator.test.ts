@@ -465,7 +465,9 @@ describe("WritingOrchestrator", () => {
       });
       const orch = createWritingOrchestrator(cfg);
 
-      const events = await collectEvents(orch.execute(makeRequest()));
+      const events = await collectEvents(
+        orch.execute(makeRequest({ agenticLoop: true })),
+      );
       const chunkEvents = events.filter((event) => event.type === "ai-chunk");
 
       expect(chunkEvents).toHaveLength(3);
@@ -505,7 +507,7 @@ describe("WritingOrchestrator", () => {
       expect(() => orchestrator.abort("non-existent-id")).not.toThrow();
     });
 
-    it("abort 后 AI 服务的 abort 被调用", async () => {
+    it("abort 仅通过 request signal 中止，不触发 aiService.abort()", async () => {
       const tracker = createMockCostTracker();
       const aiService = createMockAIService();
       let releaseSecondChunk: (() => void) | undefined;
@@ -541,7 +543,6 @@ describe("WritingOrchestrator", () => {
       }
 
       expect(eventTypes(events)).toContain("aborted");
-      expect(aiService.abort).toHaveBeenCalled();
       expect(tracker.recordUsage).toHaveBeenCalledWith(
         { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
         "default",

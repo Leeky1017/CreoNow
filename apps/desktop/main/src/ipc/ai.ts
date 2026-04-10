@@ -83,6 +83,7 @@ type SkillRunPayload = {
   precedingText?: string;
   mode: "agent" | "plan" | "ask";
   model: string;
+  agenticLoop?: boolean;
   candidateCount?: number;
   context?: { projectId?: string; documentId?: string; sessionId?: string };
   selection?: {
@@ -1425,7 +1426,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   };
   const writingOrchestrator = createWritingOrchestrator({
     aiService: (() => {
-      let legacyActiveAbortController: AbortController | null = null;
+      const legacyActiveAbortControllers = new Set<AbortController>();
       const legacyOrchestratorAiService = {
         async *streamChat(
           messages: Array<{ role: string; content: string }>,
@@ -1438,7 +1439,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           },
         ) {
           const legacyAbortController = new AbortController();
-          legacyActiveAbortController = legacyAbortController;
+          legacyActiveAbortControllers.add(legacyAbortController);
           const onExternalAbort = () => legacyAbortController.abort();
           options.signal.addEventListener("abort", onExternalAbort, { once: true });
           const throwIfAborted = () => {
@@ -1453,7 +1454,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             // NOTE: For orchestrator-level cost/abort accounting, runSkill is the API boundary.
             // Internal provider resolution/preflight remains encapsulated in aiService.
             options.onApiCallStarted?.();
-            const res = await aiService.runSkill({
+            const runSkillPromise = aiService.runSkill({
               skillId: options.skillId ?? "builtin:continue",
               input: messages[messages.length - 1]?.content ?? "",
               mode: "ask",
@@ -1463,6 +1464,23 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               overrideMessages: messages,
               emitEvent: () => {},
             });
+            let abortListener: (() => void) | undefined;
+            const abortPromise = new Promise<never>((_, reject) => {
+              abortListener = () => {
+                reject(makeAbortError("Streaming request aborted"));
+              };
+              if (legacyAbortController.signal.aborted) {
+                abortListener();
+                return;
+              }
+              legacyAbortController.signal.addEventListener("abort", abortListener, {
+                once: true,
+              });
+            });
+            const res = await Promise.race([runSkillPromise, abortPromise]);
+            if (abortListener) {
+              legacyAbortController.signal.removeEventListener("abort", abortListener);
+            }
             throwIfAborted();
             if (!res.ok) {
               const kind =
@@ -1500,17 +1518,15 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             });
           } finally {
             options.signal.removeEventListener("abort", onExternalAbort);
-            if (legacyActiveAbortController === legacyAbortController) {
-              legacyActiveAbortController = null;
-            }
+            legacyActiveAbortControllers.delete(legacyAbortController);
           }
         },
         estimateTokens,
         abort() {
-          if (legacyActiveAbortController) {
-            legacyActiveAbortController.abort();
-            legacyActiveAbortController = null;
+          for (const controller of legacyActiveAbortControllers) {
+            controller.abort();
           }
+          legacyActiveAbortControllers.clear();
         },
       };
 
@@ -2277,6 +2293,18 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
           },
         };
       }
+      if (
+        payload.agenticLoop !== undefined &&
+        typeof payload.agenticLoop !== "boolean"
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "agenticLoop must be a boolean",
+          },
+        };
+      }
 
       const stats = createStatsService({
         db: ctx.deps.db,
@@ -2335,8 +2363,10 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         ...(normalizedPayload.context?.sessionId === undefined
           ? {}
           : { sessionId: normalizedPayload.context.sessionId }),
-        // P2: enable agentic loop for the 'continue' skill
-        agenticLoop: leafSkillId(normalizedPayload.skillId) === "continue",
+        // P2: default-enable agentic loop for continue; allow explicit override from IPC payload.
+        agenticLoop:
+          normalizedPayload.agenticLoop ??
+          leafSkillId(normalizedPayload.skillId) === "continue",
       });
 
       rememberRunInRegistry(ctx, {

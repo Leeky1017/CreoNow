@@ -988,7 +988,6 @@ export function createApiClient(args: {
       }
 
       if (!receivedDone) {
-        callArgs.onChunk?.({ delta: "", done: true });
         const costRes = await recordCost({
           requestId,
           sessionId: callArgs.sessionId,

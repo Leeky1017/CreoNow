@@ -384,8 +384,7 @@ export function createWritingOrchestrator(
             const shouldUseGenerateText =
               Boolean(generateText) &&
               (request.agenticLoop === true ||
-                !hasStreamChat ||
-                process.env.NODE_ENV === "test");
+                !hasStreamChat);
 
             if (shouldUseGenerateText && generateText) {
               const chunkQueue: Array<{
@@ -1014,7 +1013,6 @@ export function createWritingOrchestrator(
       const controller = abortControllers.get(requestId);
       if (controller) {
         controller.abort();
-        config.aiService.abort();
         config.permissionGate.releasePendingPermission(requestId);
       }
     },

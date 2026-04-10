@@ -68,18 +68,32 @@ export function createAIServiceAdapter(
           }
 
           let hasYielded = false;
+          let content = "";
+          let completionTokens = 0;
 
           for await (const chunk of gen) {
             if (abortController.signal.aborted || options.signal?.aborted) {
               return;
             }
             hasYielded = true;
+            content += chunk.delta;
+            completionTokens = Math.max(completionTokens, chunk.accumulatedTokens);
             yield chunk;
           }
 
           if (!hasYielded) {
             yield { delta: "", finishReason: "stop", accumulatedTokens: 0 };
           }
+
+          options.onComplete({
+            content,
+            usage: {
+              promptTokens: 0,
+              completionTokens,
+              totalTokens: completionTokens,
+            },
+            wasRetried: false,
+          });
         } else if (typeof underlying.runSkill === "function") {
           if (abortController.signal.aborted || options.signal?.aborted) return;
 
@@ -95,6 +109,15 @@ export function createAIServiceAdapter(
             yield { delta: text, finishReason: null, accumulatedTokens: tokens };
           }
           yield { delta: "", finishReason: "stop", accumulatedTokens: tokens };
+          options.onComplete({
+            content: text,
+            usage: {
+              promptTokens: 0,
+              completionTokens: tokens,
+              totalTokens: tokens,
+            },
+            wasRetried: false,
+          });
         }
       } catch (err: unknown) {
         if (abortController.signal.aborted) {

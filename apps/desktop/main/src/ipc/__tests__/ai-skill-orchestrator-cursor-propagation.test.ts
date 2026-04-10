@@ -210,6 +210,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       input: "甲乙丙丁",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -265,6 +266,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       input: "甲乙丙丁",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -289,6 +291,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       input: " 甲乙 ",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -325,6 +328,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       input: "甲\n乙丙",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -355,6 +359,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       },
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -380,6 +385,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       input: "甲乙丙丁",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -408,6 +414,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       precedingText: "夜幕降临，街灯次第亮起。",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -444,6 +451,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       },
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -473,6 +481,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       precedingText: "她笑了笑，转身离去。",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });

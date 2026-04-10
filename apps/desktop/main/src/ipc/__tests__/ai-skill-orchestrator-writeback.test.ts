@@ -272,6 +272,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -419,6 +420,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -474,6 +476,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -522,6 +525,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -596,6 +600,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -655,6 +660,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -708,6 +714,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -742,6 +749,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "   ",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -777,6 +785,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       userInstruction: "改得更凝练",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -810,6 +819,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       userInstruction: "",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -847,6 +857,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "甲乙丙丁",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: true,
     });
@@ -900,6 +911,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: " 甲乙 ",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -961,6 +973,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "甲\n乙丙",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       stream: false,
     });
@@ -1023,6 +1036,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: fullSelectionText,
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -1086,6 +1100,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -1141,6 +1156,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -1185,6 +1201,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -1249,6 +1266,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -1306,6 +1324,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,
@@ -1371,6 +1390,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       input: "原文",
       mode: "ask",
       model: "gpt-5.2",
+      agenticLoop: true,
       context: { projectId, documentId },
       selection: {
         from: 1,

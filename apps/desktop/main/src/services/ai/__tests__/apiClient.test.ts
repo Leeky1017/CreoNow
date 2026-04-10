@@ -839,8 +839,8 @@ describe("apiClient", () => {
       (result.error.details as { partialContent?: string } | undefined)
         ?.partialContent,
     ).toBe("partial text");
-    expect(onChunk).toHaveBeenNthCalledWith(1, { delta: "partial text", done: false });
-    expect(onChunk).toHaveBeenNthCalledWith(2, { delta: "", done: true });
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    expect(onChunk).toHaveBeenCalledWith({ delta: "partial text", done: false });
     expect(getCostRecord(db, "req-6d")).not.toBeNull();
   });
 

@@ -442,8 +442,14 @@ describe("aiService streamChat fallback wiring", () => {
     );
 
     const pendingNext = gen.next();
+    const pendingNextWithProbe = pendingNext;
     await Promise.resolve();
     orchestratorConfig!.aiService.abort();
+    await expect(pendingNextWithProbe).rejects.toMatchObject({
+      name: "AbortError",
+      kind: "aborted",
+    });
+
     resolveRunSkill?.({
       ok: true,
       data: {
@@ -452,11 +458,6 @@ describe("aiService streamChat fallback wiring", () => {
         traceId: "trace-l",
         outputText: "late result",
       },
-    });
-
-    await expect(pendingNext).rejects.toMatchObject({
-      name: "AbortError",
-      kind: "aborted",
     });
     expect(mocks.bridgeStreamChatMock).toHaveBeenCalledTimes(1);
     expect(mocks.runSkillMock).toHaveBeenCalledTimes(1);

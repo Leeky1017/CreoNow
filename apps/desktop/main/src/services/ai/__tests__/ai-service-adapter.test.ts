@@ -94,13 +94,14 @@ describe("AIServiceAdapter", () => {
       );
       const streamAdapter = createAIServiceAdapter(underlying);
       const onApiCallStarted = vi.fn();
+      const onComplete = vi.fn();
 
       const chunks: StreamChunk[] = [];
       for await (const chunk of streamAdapter.streamChat(
         [{ role: "user", content: "test" }],
         {
           signal: new AbortController().signal,
-          onComplete: vi.fn(),
+          onComplete,
           onError: vi.fn(),
           onApiCallStarted,
         },
@@ -110,17 +111,27 @@ describe("AIServiceAdapter", () => {
 
       expect(chunks).toHaveLength(1);
       expect(onApiCallStarted).toHaveBeenCalledTimes(1);
+      expect(onComplete).toHaveBeenCalledWith({
+        content: "hello",
+        usage: {
+          promptTokens: 0,
+          completionTokens: 1,
+          totalTokens: 1,
+        },
+        wasRetried: false,
+      });
     });
 
     it("底层 runSkill 分支会触发 onApiCallStarted", async () => {
       const onApiCallStarted = vi.fn();
+      const onComplete = vi.fn();
       const chunks: StreamChunk[] = [];
 
       for await (const chunk of adapter.streamChat(
         [{ role: "user", content: "test" }],
         {
           signal: new AbortController().signal,
-          onComplete: vi.fn(),
+          onComplete,
           onError: vi.fn(),
           onApiCallStarted,
         },
@@ -130,6 +141,16 @@ describe("AIServiceAdapter", () => {
 
       expect(chunks.length).toBeGreaterThan(0);
       expect(onApiCallStarted).toHaveBeenCalledTimes(1);
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(onComplete).toHaveBeenCalledWith({
+        content: "response",
+        usage: {
+          promptTokens: 0,
+          completionTokens: 2,
+          totalTokens: 2,
+        },
+        wasRetried: false,
+      });
     });
   });
 
