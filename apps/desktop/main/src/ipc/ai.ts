@@ -53,6 +53,12 @@ import {
   createWritingToolRegistry,
   createAgenticToolRegistry,
 } from "../services/skills/writingTooling";
+import {
+  createPermissionGate,
+  type PermissionGate as SkillPermissionGate,
+  type PermissionLevel,
+  type PermissionRequest,
+} from "../services/skills/permissionGate";
 import { createToolRegistry } from "../services/skills/toolRegistry";
 import { createToolUseHandler } from "../services/skills/toolUseHandler";
 import { estimateTokens } from "../services/context/tokenEstimation";
@@ -314,53 +320,9 @@ function summarizeCandidateText(text: string): string {
 }
 
 function createPendingPermissionGate(): PendingPermissionGate {
-  const pending = new Map<string, (granted: boolean) => void>();
-  const settled = new Map<string, boolean>();
-
-  return {
-    async evaluate() {
-      return { level: "preview-confirm", granted: false };
-    },
-    async requestPermission(request: unknown) {
-      const maybeRequest = request as { requestId?: unknown };
-      const requestId =
-        typeof maybeRequest?.requestId === "string"
-          ? maybeRequest.requestId
-          : "";
-      if (requestId.length === 0) {
-        return false;
-      }
-      const preResolved = settled.get(requestId);
-      if (typeof preResolved === "boolean") {
-        settled.delete(requestId);
-        return preResolved;
-      }
-      return await new Promise<boolean>((resolve) => {
-        pending.set(requestId, resolve);
-      });
-    },
-    resolve(requestId: string, granted: boolean) {
-      const resolver = pending.get(requestId);
-      if (!resolver) {
-        settled.set(requestId, granted);
-        return true;
-      }
-      pending.delete(requestId);
-      resolver(granted);
-      return true;
-    },
-    releasePendingPermission(requestId: string) {
-      pending.delete(requestId);
-      settled.delete(requestId);
-    },
-    rejectAll() {
-      for (const [requestId, resolver] of pending) {
-        pending.delete(requestId);
-        resolver(false);
-      }
-      settled.clear();
-    },
-  };
+  return createPermissionGate({
+    confirmTimeoutMs: 120_000,
+  });
 }
 
 function resolveP1BuiltinSkill(skillId: string): {
@@ -1006,10 +968,10 @@ type PendingPreviewSession = {
 };
 
 type PendingPermissionGate = {
-  evaluate: (request: unknown) => Promise<{ level: string; granted: boolean }>;
-  requestPermission: (request: unknown) => Promise<boolean>;
+  evaluate: (request: unknown) => Promise<{ level: PermissionLevel; granted: boolean }>;
+  requestPermission: (request: PermissionRequest) => Promise<boolean>;
   resolve: (requestId: string, granted: boolean) => boolean;
-  releasePendingPermission: (requestId: string) => void;
+  releasePendingPermission: SkillPermissionGate["releasePendingPermission"];
   rejectAll: () => void;
 };
 

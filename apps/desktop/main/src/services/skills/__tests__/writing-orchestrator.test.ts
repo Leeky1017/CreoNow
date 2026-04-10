@@ -594,6 +594,60 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
+    it("must-confirm-snapshot 会先创建 pre-write 快照，再触发 permission 请求", async () => {
+      const permissionGate = {
+        evaluate: vi.fn().mockResolvedValue({
+          level: "must-confirm-snapshot",
+          granted: false,
+        }),
+        requestPermission: vi.fn().mockResolvedValue(true),
+        releasePendingPermission: vi.fn(),
+      };
+      const cfg = buildConfig({ permissionGate });
+      const orch = createWritingOrchestrator(cfg);
+      await collectEvents(orch.execute(makeRequest()));
+
+      const versionTool = cfg.toolRegistry.get("versionSnapshot") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      expect(versionTool?.execute).toHaveBeenCalledTimes(1);
+      expect(permissionGate.requestPermission).toHaveBeenCalledTimes(1);
+      expect(versionTool?.execute.mock.invocationCallOrder[0]).toBeLessThan(
+        permissionGate.requestPermission.mock.invocationCallOrder[0],
+      );
+      orch.dispose();
+    });
+
+    it("must-confirm-snapshot 若 pre-write 快照失败则 fail-closed，且不触发 permission/write-back", async () => {
+      const permissionGate = {
+        evaluate: vi.fn().mockResolvedValue({
+          level: "must-confirm-snapshot",
+          granted: false,
+        }),
+        requestPermission: vi.fn().mockResolvedValue(true),
+        releasePendingPermission: vi.fn(),
+      };
+      const cfg = buildConfig({ permissionGate });
+      const versionTool = cfg.toolRegistry.get("versionSnapshot") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      const writeTool = cfg.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      versionTool?.execute.mockResolvedValue({
+        success: false,
+        error: { code: "VERSION_SNAPSHOT_FAILED", message: "snapshot failed" },
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const failureEvent = events.find((event) => event.type === "error");
+      expect(failureEvent).toBeDefined();
+      expect(permissionGate.requestPermission).not.toHaveBeenCalled();
+      expect(writeTool?.execute).not.toHaveBeenCalled();
+      orch.dispose();
+    });
+
     it("权限被拒绝 → 产出 permission-denied，不执行 write-back", async () => {
       const cfg = buildConfig({
         permissionGate: {

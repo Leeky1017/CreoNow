@@ -12,6 +12,12 @@ import type { ToolRegistry } from "./toolRegistry";
 import type { StreamChunk, ToolCallInfo } from "../ai/streaming";
 import type { CostTracker } from "../ai/costTracker";
 import type { ToolUseHandler } from "./toolUseHandler";
+import type {
+  DiffPreview,
+  PermissionGate,
+  PermissionLevel,
+  PermissionRequest,
+} from "./permissionGate";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -126,12 +132,6 @@ function readVersionId(data: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-interface PermissionGate {
-  evaluate(request: unknown): Promise<{ level: string; granted: boolean }>;
-  requestPermission(request: unknown): Promise<boolean>;
-  releasePendingPermission(requestId: string): void;
-}
-
 interface PostWritingHook {
   name: string;
   enabled?: boolean;
@@ -225,6 +225,31 @@ export function createWritingOrchestrator(
         ...(args.details === undefined ? {} : { details: args.details }),
       },
     });
+  }
+
+  function normalizePermissionLevel(level: unknown): PermissionLevel {
+    if (
+      level === "auto-allow" ||
+      level === "preview-confirm" ||
+      level === "must-confirm-snapshot" ||
+      level === "budget-confirm"
+    ) {
+      return level;
+    }
+    return "preview-confirm";
+  }
+
+  function buildDiffPreview(request: WritingRequest, fullText: string): DiffPreview {
+    const original =
+      request.selection?.text ??
+      (typeof request.input.selectedText === "string" ? request.input.selectedText : "");
+    if (original.length === 0 && fullText.length > 0) {
+      return { original: "", modified: fullText, changeType: "insert" };
+    }
+    if (original.length > 0 && fullText.length === 0) {
+      return { original, modified: "", changeType: "delete" };
+    }
+    return { original, modified: fullText, changeType: "replace" };
   }
 
   return {
@@ -821,19 +846,85 @@ export function createWritingOrchestrator(
           return;
         }
 
-        // Stage 6: Permission gate
-        const evalResult = await config.permissionGate.evaluate(request);
+        let preWriteSnapshotId: string | null = null;
+        const createPreWriteSnapshot = async (): Promise<WritingEvent | null> => {
+          if (preWriteSnapshotId) {
+            return null;
+          }
 
-        if (evalResult.level === "auto-allow") {
+          const versionTool = config.toolRegistry.get("versionSnapshot");
+          if (!versionTool) {
+            return makeFailureEvent({
+              requestId,
+              code: "VERSION_SNAPSHOT_FAILED",
+              message: 'Required tool "versionSnapshot" is not registered',
+            });
+          }
+
+          const snapshotResult = await versionTool.execute({
+            projectId: request.projectId,
+            documentId: request.documentId,
+            requestId,
+            actor: "auto",
+            reason: "pre-write",
+          });
+          if (!snapshotResult.success) {
+            return makeFailureEvent({
+              requestId,
+              code: snapshotResult.error?.code ?? "VERSION_SNAPSHOT_FAILED",
+              message:
+                snapshotResult.error?.message ??
+                "Pre-write snapshot failed before document write",
+              retryable: snapshotResult.error?.retryable,
+              details: snapshotResult.error?.details,
+            });
+          }
+          const versionId = readVersionId(snapshotResult.data);
+          if (!versionId) {
+            return makeFailureEvent({
+              requestId,
+              code: "VERSION_SNAPSHOT_FAILED",
+              message: "Pre-write snapshot did not return versionId",
+            });
+          }
+          preWriteSnapshotId = versionId;
+          return null;
+        };
+
+        // Stage 6: Permission gate
+        const evalResult = config.permissionGate.evaluate
+          ? await config.permissionGate.evaluate(request)
+          : { level: "preview-confirm", granted: false };
+        const permissionLevel = normalizePermissionLevel(evalResult.level);
+
+        if (permissionLevel === "auto-allow") {
           // Auto-allow: skip permission stage entirely, proceed to write-back
         } else {
+          if (permissionLevel === "must-confirm-snapshot") {
+            const snapshotError = await createPreWriteSnapshot();
+            if (snapshotError) {
+              yield snapshotError;
+              return;
+            }
+          }
+
+          const permissionRequest: PermissionRequest = {
+            requestId,
+            level: permissionLevel,
+            description: "Operation requires user confirmation",
+            preview: buildDiffPreview(request, fullText),
+            ...(permissionLevel === "budget-confirm"
+              ? { estimatedTokenCost: totalPromptTokens + totalCompletionTokens }
+              : {}),
+          };
+
           // Need explicit permission
           taskStates.set(requestId, "paused");
 
           let timeoutId: ReturnType<typeof setTimeout> | undefined;
           let removeAbortListener: (() => void) | undefined;
           const permissionDecision = Promise.race<boolean>([
-            config.permissionGate.requestPermission(request).catch(() => false),
+            config.permissionGate.requestPermission(permissionRequest).catch(() => false),
             new Promise<boolean>((resolve) => {
               timeoutId = setTimeout(() => resolve(false), PERMISSION_TIMEOUT_MS);
             }),
@@ -849,8 +940,8 @@ export function createWritingOrchestrator(
           ]);
 
           yield makeEvent("permission-requested", requestId, {
-            level: evalResult.level,
-            description: "Operation requires user confirmation",
+            level: permissionLevel,
+            description: permissionRequest.description,
           });
 
           let granted: boolean;
@@ -890,41 +981,12 @@ export function createWritingOrchestrator(
           return;
         }
 
-        const versionTool = config.toolRegistry.get("versionSnapshot");
-        if (!versionTool) {
-          yield makeFailureEvent({
-            requestId,
-            code: "VERSION_SNAPSHOT_FAILED",
-            message: 'Required tool "versionSnapshot" is not registered',
-          });
-          return;
-        }
-        const snapshotResult = await versionTool.execute({
-          projectId: request.projectId,
-          documentId: request.documentId,
-          requestId,
-          actor: "auto",
-          reason: "pre-write",
-        });
-        if (!snapshotResult.success) {
-          yield makeFailureEvent({
-            requestId,
-            code: snapshotResult.error?.code ?? "VERSION_SNAPSHOT_FAILED",
-            message:
-              snapshotResult.error?.message ??
-              "Pre-write snapshot failed before document write",
-            retryable: snapshotResult.error?.retryable,
-            details: snapshotResult.error?.details,
-          });
-          return;
-        }
-        if (!readVersionId(snapshotResult.data)) {
-          yield makeFailureEvent({
-            requestId,
-            code: "VERSION_SNAPSHOT_FAILED",
-            message: "Pre-write snapshot did not return versionId",
-          });
-          return;
+        if (!preWriteSnapshotId) {
+          const snapshotError = await createPreWriteSnapshot();
+          if (snapshotError) {
+            yield snapshotError;
+            return;
+          }
         }
 
         const writeTool = config.toolRegistry.get("documentWrite");
