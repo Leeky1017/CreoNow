@@ -53,6 +53,7 @@ export interface VersionWorkflowService {
     projectId: string;
   }): ServiceResult<ThreeStageCommit>;
   readCommit(executionId: string): ThreeStageCommit | null;
+  cancelCommit(executionId: string): void;
 }
 
 /**
@@ -158,72 +159,81 @@ export function createVersionWorkflowService(
       if (!current) {
         return { ok: false, error: { code: "NOT_FOUND", message: "Commit not found" } };
       }
-      if (current.stage !== "ai-writing") {
-        return invalidTransition(current.stage, "user-confirmed");
-      }
-      const listed = service.listVersions({
-        projectId,
-        documentId: current.documentId,
-      });
-      if (!listed.ok) {
-        return listed;
-      }
-      const latest = listed.data.items[0];
-      if (!latest || latest.reason !== "ai-accept") {
-        const currentDoc = service.read({
+      try {
+        if (current.stage !== "ai-writing") {
+          return invalidTransition(current.stage, "user-confirmed");
+        }
+        const listed = service.listVersions({
           projectId,
           documentId: current.documentId,
         });
-        if (!currentDoc.ok) {
-          return currentDoc;
+        if (!listed.ok) {
+          return listed;
         }
-        let contentJson: unknown;
-        try {
-          contentJson = JSON.parse(currentDoc.data.contentJson);
-        } catch {
-          return {
-            ok: false,
-            error: {
-              code: "INVALID_ARGUMENT",
-              message: "Current document contentJson is invalid JSON",
-            },
-          };
+        const latest = listed.data.items[0];
+        if (!latest || latest.reason !== "ai-accept") {
+          const currentDoc = service.read({
+            projectId,
+            documentId: current.documentId,
+          });
+          if (!currentDoc.ok) {
+            return currentDoc;
+          }
+          let contentJson: unknown;
+          try {
+            contentJson = JSON.parse(currentDoc.data.contentJson);
+          } catch {
+            return {
+              ok: false,
+              error: {
+                code: "INVALID_ARGUMENT",
+                message: "Current document contentJson is invalid JSON",
+              },
+            };
+          }
+          const saved = service.save({
+            projectId,
+            documentId: current.documentId,
+            contentJson,
+            actor: "ai",
+            reason: "ai-accept",
+          });
+          if (!saved.ok) {
+            return saved;
+          }
         }
-        const saved = service.save({
-          projectId,
-          documentId: current.documentId,
-          contentJson,
-          actor: "ai",
-          reason: "ai-accept",
-        });
-        if (!saved.ok) {
-          return saved;
-        }
+        const updated: ThreeStageCommit = { ...current, stage: "user-confirmed" };
+        return { ok: true, data: updated };
+      } finally {
+        commits.delete(executionId);
       }
-      const updated: ThreeStageCommit = { ...current, stage: "user-confirmed" };
-      commits.delete(executionId);
-      return { ok: true, data: updated };
     },
     rejectCommit({ executionId, projectId }) {
       const current = readCommit(executionId);
       if (!current) {
         return { ok: false, error: { code: "NOT_FOUND", message: "Commit not found" } };
       }
-      if (current.stage !== "ai-writing") {
-        return invalidTransition(current.stage, "user-rejected");
+      try {
+        if (current.stage !== "ai-writing") {
+          return invalidTransition(current.stage, "user-rejected");
+        }
+        const rollback = service.rollbackVersion({
+          projectId,
+          documentId: current.documentId,
+          versionId: current.preWriteSnapshotId,
+        });
+        if (!rollback.ok) {
+          return rollback;
+        }
+        const updated: ThreeStageCommit = { ...current, stage: "user-rejected" };
+        return { ok: true, data: updated };
+      } finally {
+        commits.delete(executionId);
       }
-      const rollback = service.rollbackVersion({
-        projectId,
-        documentId: current.documentId,
-        versionId: current.preWriteSnapshotId,
-      });
-      if (!rollback.ok) {
-        return rollback;
-      }
-      const updated: ThreeStageCommit = { ...current, stage: "user-rejected" };
-      commits.delete(executionId);
-      return { ok: true, data: updated };
     },
     readCommit,
+    cancelCommit(executionId) {
+      commits.delete(executionId);
+    },
   };
 }

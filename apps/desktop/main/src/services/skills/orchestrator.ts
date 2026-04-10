@@ -156,6 +156,7 @@ export interface OrchestratorConfig {
     | "markAiWriting"
     | "confirmCommit"
     | "rejectCommit"
+    | "cancelCommit"
   >;
   prepareRequest?: (request: WritingRequest) => Promise<PreparedRequest>;
   generateText?: (args: {
@@ -982,29 +983,6 @@ export function createWritingOrchestrator(
         }
 
         if (!granted) {
-          if (
-            config.versionWorkflow &&
-            request.projectId &&
-            preWriteSnapshotId &&
-            aiWritingMarked &&
-            !abortController.signal.aborted
-          ) {
-            const rejected = config.versionWorkflow.rejectCommit({
-              executionId: requestId,
-              projectId: request.projectId,
-            });
-            if (!rejected.ok) {
-              yield makeFailureEvent({
-                requestId,
-                code: rejected.error.code,
-                message: rejected.error.message,
-                retryable: rejected.error.retryable,
-                details: rejected.error.details,
-              });
-              return;
-            }
-          }
-
           taskStates.set(requestId, "killed");
           pruneTaskStates();
           yield makeEvent("permission-denied", requestId);
@@ -1124,6 +1102,7 @@ export function createWritingOrchestrator(
           },
         });
       } finally {
+        config.versionWorkflow?.cancelCommit(requestId);
         abortControllers.delete(requestId);
       }
       })();

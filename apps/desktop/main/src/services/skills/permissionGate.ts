@@ -180,6 +180,7 @@ export function createPermissionGate(args?: {
       const resolver = pending.get(requestId);
       if (!resolver) {
         settled.set(requestId, granted);
+        scheduleSettledCleanup(requestId);
         return true;
       }
       pending.delete(requestId);

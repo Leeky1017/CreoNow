@@ -92,4 +92,32 @@ describe("permissionGate", () => {
     gate.rejectAll();
     await expect(Promise.all([p1, p2])).resolves.toEqual([false, false]);
   });
+
+  it("resolve 在无 pending resolver 时也会注册 settled 清理", async () => {
+    vi.useFakeTimers();
+    const gate = createPermissionGate({ confirmTimeoutMs: 10 });
+
+    gate.resolve("req-settled-cleanup", true);
+
+    await expect(
+      gate.requestPermission({
+        requestId: "req-settled-cleanup",
+        level: "preview-confirm",
+        description: "consume pre-resolved value",
+      }),
+    ).resolves.toBe(true);
+
+    gate.resolve("req-settled-cleanup", true);
+    await vi.advanceTimersByTimeAsync(30_000);
+    const pending = gate.requestPermission({
+      requestId: "req-settled-cleanup",
+      level: "preview-confirm",
+      description: "should wait after cleanup",
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    await expect(
+      pending,
+    ).resolves.toBe(false);
+    vi.useRealTimers();
+  });
 });

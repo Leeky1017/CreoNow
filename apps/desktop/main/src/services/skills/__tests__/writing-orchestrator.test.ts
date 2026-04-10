@@ -700,6 +700,73 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
+    it("权限拒绝路径也会在 finally 中清理 versionWorkflow commit", async () => {
+      const versionWorkflow = {
+        createPreWriteSnapshot: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            stage: "snapshot-created",
+            preWriteSnapshotId: "snap-pre-cleanup",
+            documentId: "doc-001",
+            executionId: "req-vw-cleanup",
+          },
+        }),
+        markAiWriting: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            stage: "ai-writing",
+            preWriteSnapshotId: "snap-pre-cleanup",
+            documentId: "doc-001",
+            executionId: "req-vw-cleanup",
+          },
+        }),
+        confirmCommit: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            stage: "user-confirmed",
+            preWriteSnapshotId: "snap-pre-cleanup",
+            documentId: "doc-001",
+            executionId: "req-vw-cleanup",
+          },
+        }),
+        rejectCommit: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            stage: "user-rejected",
+            preWriteSnapshotId: "snap-pre-cleanup",
+            documentId: "doc-001",
+            executionId: "req-vw-cleanup",
+          },
+        }),
+        cancelCommit: vi.fn(),
+      } satisfies NonNullable<OrchestratorConfig["versionWorkflow"]>;
+      const cfg = buildConfig({
+        versionWorkflow,
+        permissionGate: {
+          evaluate: vi.fn().mockResolvedValue({
+            level: "preview-confirm",
+            granted: false,
+          }),
+          requestPermission: vi.fn().mockResolvedValue(false),
+          releasePendingPermission: vi.fn(),
+        },
+      });
+      const orch = createWritingOrchestrator(cfg);
+      const requestId = "req-vw-cleanup";
+      const events = await collectEvents(orch.execute(makeRequest({ requestId, projectId: "proj-1" })));
+
+      expect(eventTypes(events)).toContain("permission-denied");
+      expect(versionWorkflow.createPreWriteSnapshot).toHaveBeenCalledWith({
+        projectId: "proj-1",
+        documentId: "doc-001",
+        executionId: requestId,
+      });
+      expect(versionWorkflow.cancelCommit).toHaveBeenCalledWith(requestId);
+      expect(versionWorkflow.confirmCommit).not.toHaveBeenCalled();
+      expect(versionWorkflow.rejectCommit).not.toHaveBeenCalled();
+      orch.dispose();
+    });
+
     it("权限请求超时时返回 permission-denied → 管线终止", async () => {
       const cfg = buildConfig({
         permissionGate: {

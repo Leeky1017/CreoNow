@@ -175,6 +175,72 @@ describe("versionService workflow", () => {
       projectId: "proj-3",
     });
     expect(rejected.ok).toBe(false);
+    expect(workflow.readCommit("exec-3")).toBeNull();
+  });
+
+  it("confirmCommit 内部失败后也会清理 commit entry", () => {
+    const workflow = createVersionWorkflowService({
+      db: {} as never,
+      logger: { logPath: "<test>", info: () => {}, error: () => {} } as never,
+      baseService: {
+        save: vi.fn().mockReturnValue({
+          ok: true,
+          data: { versionId: "snap-pre-5", updatedAt: 1, contentHash: "hash-1" },
+        }),
+        read: vi.fn().mockReturnValue({
+          ok: true,
+          data: { contentJson: "{\"type\":\"doc\",\"content\":[]}" },
+        }),
+        listVersions: vi.fn().mockReturnValue({
+          ok: false,
+          error: { code: "DB_ERROR", message: "list failed" },
+        }),
+        rollbackVersion: vi.fn(),
+      } as never,
+    });
+    workflow.createPreWriteSnapshot({
+      projectId: "proj-5",
+      documentId: "doc-5",
+      executionId: "exec-5",
+    });
+    workflow.markAiWriting("exec-5");
+
+    const confirmed = workflow.confirmCommit({
+      executionId: "exec-5",
+      projectId: "proj-5",
+    });
+    expect(confirmed.ok).toBe(false);
+    expect(workflow.readCommit("exec-5")).toBeNull();
+  });
+
+  it("cancelCommit 会清理 entry，且可重复调用", () => {
+    const workflow = createVersionWorkflowService({
+      db: {} as never,
+      logger: { logPath: "<test>", info: () => {}, error: () => {} } as never,
+      baseService: {
+        save: vi.fn().mockReturnValue({
+          ok: true,
+          data: { versionId: "snap-pre-6", updatedAt: 1, contentHash: "hash-1" },
+        }),
+        read: vi.fn().mockReturnValue({
+          ok: true,
+          data: { contentJson: "{\"type\":\"doc\",\"content\":[]}" },
+        }),
+        listVersions: vi.fn().mockReturnValue({ ok: true, data: { items: [] } }),
+        rollbackVersion: vi.fn(),
+      } as never,
+    });
+    workflow.createPreWriteSnapshot({
+      projectId: "proj-6",
+      documentId: "doc-6",
+      executionId: "exec-6",
+    });
+    expect(workflow.readCommit("exec-6")).not.toBeNull();
+
+    workflow.cancelCommit("exec-6");
+    expect(workflow.readCommit("exec-6")).toBeNull();
+
+    expect(() => workflow.cancelCommit("exec-6")).not.toThrow();
   });
 
   it("非法状态迁移会 fail-closed", () => {
