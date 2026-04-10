@@ -1,3 +1,11 @@
+/**
+ * @module apiClient
+ * ## 职责：OpenAI-compatible HTTP/SSE 客户端，负责发送 chat completion 请求并解析响应
+ * ## 不做什么：不做模型路由（由 modelRouter 负责）、不做 provider 解析
+ * ## 依赖方向：ai → shared(ipcResult, errorMapper, costTracker)
+ * ## 关键不变量：INV-9（每次调用记录成本）· INV-10（错误保留上下文）
+ */
+
 import { randomUUID } from "node:crypto";
 
 import type Database from "better-sqlite3";
@@ -26,6 +34,7 @@ type CompletionResult = {
   content: string;
   usage: CompletionUsage;
   model: string;
+  persistenceError?: unknown;
 };
 
 type StreamChunk = {
@@ -47,6 +56,7 @@ type CreateChatCompletionArgs = {
   skillId: string;
   sessionId?: string;
   requestId?: string;
+  signal?: AbortSignal;
 };
 
 type StreamChatCompletionArgs = CreateChatCompletionArgs & {
@@ -62,7 +72,7 @@ export type ApiClient = {
   ) => Promise<ServiceResult<CompletionResult>>;
 };
 
-type SettingsUsageRow = {
+type OpenAiUsagePayload = {
   prompt_tokens?: unknown;
   completion_tokens?: unknown;
   cached_tokens?: unknown;
@@ -82,7 +92,7 @@ function toNonNegativeInt(value: unknown): number {
 }
 
 function parseUsage(raw: unknown): CompletionUsage {
-  const row = asObject(raw) as SettingsUsageRow | null;
+  const row = asObject(raw) as OpenAiUsagePayload | null;
   if (!row) {
     return { promptTokens: 0, completionTokens: 0, cachedTokens: 0 };
   }
@@ -134,6 +144,25 @@ async function* readSse(args: {
   while (true) {
     const { value, done } = await reader.read();
     if (done) {
+      // Flush residual buffer — some upstreams omit trailing blank line.
+      const residual = buffer.trim();
+      if (residual.length > 0) {
+        const lines = residual.split(/\r?\n/);
+        let event: string | null = null;
+        const dataLines: string[] = [];
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            event = line.slice("event:".length).trim();
+            continue;
+          }
+          if (line.startsWith("data:")) {
+            dataLines.push(line.slice("data:".length).trimStart());
+          }
+        }
+        if (dataLines.length > 0) {
+          yield { event, data: dataLines.join("\n") };
+        }
+      }
       break;
     }
     buffer += decoder.decode(value, { stream: true });
@@ -200,6 +229,21 @@ function insertCostRecord(args: {
       args.estimatedCostUsd,
       new Date().toISOString(),
     );
+}
+
+function mergePersistenceErrorDetails(
+  details: unknown,
+  persistenceError: unknown,
+): Record<string, unknown> {
+  if (typeof details === "object" && details !== null && !Array.isArray(details)) {
+    return {
+      ...(details as Record<string, unknown>),
+      persistenceError,
+    };
+  }
+  return details === undefined
+    ? { persistenceError }
+    : { primaryDetails: details, persistenceError };
 }
 
 export function createApiClient(args: {
@@ -279,6 +323,7 @@ export function createApiClient(args: {
         }),
         {
           method: "POST",
+          signal: callArgs.signal,
           headers: {
             "Content-Type": "application/json",
             ...(callArgs.provider.apiKey
@@ -309,7 +354,17 @@ export function createApiClient(args: {
           startedAtMs,
         });
         if (!costRes.ok) {
-          return costRes;
+          return {
+            ok: false,
+            error: {
+              ...mapped,
+              retryable: classifyHttpRetryable(response.status),
+              details: mergePersistenceErrorDetails(
+                mapped.details,
+                costRes.error,
+              ),
+            },
+          };
         }
         return {
           ok: false,
@@ -333,7 +388,24 @@ export function createApiClient(args: {
           startedAtMs,
         });
         if (!costRes.ok) {
-          return costRes;
+          const invalidShape = ipcError(
+            "LLM_API_ERROR",
+            "Invalid OpenAI response shape",
+            undefined,
+            {
+              retryable: false,
+            },
+          );
+          return {
+            ok: false,
+            error: {
+              ...invalidShape.error,
+              details: mergePersistenceErrorDetails(
+                invalidShape.error.details,
+                costRes.error,
+              ),
+            },
+          };
         }
         return ipcError("LLM_API_ERROR", "Invalid OpenAI response shape", undefined, {
           retryable: false,
@@ -349,7 +421,16 @@ export function createApiClient(args: {
         startedAtMs,
       });
       if (!costRes.ok) {
-        return costRes;
+        return {
+          ok: true,
+          data: {
+            requestId,
+            content,
+            usage,
+            model: callArgs.provider.model,
+            persistenceError: costRes.error,
+          },
+        };
       }
 
       return {
@@ -371,7 +452,22 @@ export function createApiClient(args: {
         startedAtMs,
       });
       if (!costRes.ok) {
-        return costRes;
+        const networkError = ipcError(
+          "LLM_API_ERROR",
+          error instanceof Error ? error.message : "AI request failed",
+          undefined,
+          { retryable: true },
+        );
+        return {
+          ok: false,
+          error: {
+            ...networkError.error,
+            details: mergePersistenceErrorDetails(
+              networkError.error.details,
+              costRes.error,
+            ),
+          },
+        };
       }
       return ipcError(
         "LLM_API_ERROR",
@@ -402,6 +498,7 @@ export function createApiClient(args: {
         }),
         {
           method: "POST",
+          signal: callArgs.signal,
           headers: {
             "Content-Type": "application/json",
             ...(callArgs.provider.apiKey
@@ -432,7 +529,17 @@ export function createApiClient(args: {
           startedAtMs,
         });
         if (!costRes.ok) {
-          return costRes;
+          return {
+            ok: false,
+            error: {
+              ...mapped,
+              retryable: classifyHttpRetryable(response.status),
+              details: mergePersistenceErrorDetails(
+                mapped.details,
+                costRes.error,
+              ),
+            },
+          };
         }
         return {
           ok: false,
@@ -453,7 +560,22 @@ export function createApiClient(args: {
           startedAtMs,
         });
         if (!costRes.ok) {
-          return costRes;
+          const missingBody = ipcError(
+            "INTERNAL",
+            "Missing streaming response body",
+            undefined,
+            { retryable: false },
+          );
+          return {
+            ok: false,
+            error: {
+              ...missingBody.error,
+              details: mergePersistenceErrorDetails(
+                missingBody.error.details,
+                costRes.error,
+              ),
+            },
+          };
         }
         return ipcError(
           "INTERNAL",
@@ -480,7 +602,22 @@ export function createApiClient(args: {
             startedAtMs,
           });
           if (!costRes.ok) {
-            return costRes;
+            const invalidSse = ipcError(
+              "LLM_API_ERROR",
+              "Invalid SSE JSON payload",
+              { requestId, data: event.data.slice(0, 200) },
+              { retryable: false },
+            );
+            return {
+              ok: false,
+              error: {
+                ...invalidSse.error,
+                details: mergePersistenceErrorDetails(
+                  invalidSse.error.details,
+                  costRes.error,
+                ),
+              },
+            };
           }
           return ipcError(
             "LLM_API_ERROR",
@@ -517,7 +654,16 @@ export function createApiClient(args: {
         startedAtMs,
       });
       if (!costRes.ok) {
-        return costRes;
+        return {
+          ok: true,
+          data: {
+            requestId,
+            content,
+            usage,
+            model: callArgs.provider.model,
+            persistenceError: costRes.error,
+          },
+        };
       }
 
       return {
@@ -539,7 +685,22 @@ export function createApiClient(args: {
         startedAtMs,
       });
       if (!costRes.ok) {
-        return costRes;
+        const streamError = ipcError(
+          "LLM_API_ERROR",
+          error instanceof Error ? error.message : "Streaming request failed",
+          undefined,
+          { retryable: true },
+        );
+        return {
+          ok: false,
+          error: {
+            ...streamError.error,
+            details: mergePersistenceErrorDetails(
+              streamError.error.details,
+              costRes.error,
+            ),
+          },
+        };
       }
       return ipcError(
         "LLM_API_ERROR",

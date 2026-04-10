@@ -1,5 +1,14 @@
+/**
+ * @module modelConfig
+ * ## 职责：从 settings 表读取 primary/auxiliary 模型配置并解析为路由可用结构
+ * ## 不做什么：不做 provider 解析、不做网络请求
+ * ## 依赖方向：ai → shared(ipcResult)
+ * ## 关键不变量：INV-10（配置损坏需保留错误上下文）
+ */
+
 import type Database from "better-sqlite3";
 
+import type { Logger } from "../../logging/logger";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 
 const SETTINGS_SCOPE = "app" as const;
@@ -24,7 +33,12 @@ export type ModelConfigService = {
   resolve: () => ServiceResult<ResolvedModelConfig>;
 };
 
-function readSetting(db: Database.Database, key: string): unknown | null {
+function readSetting(args: {
+  db: Database.Database;
+  logger: Logger;
+  key: string;
+}): unknown | null {
+  const { db, logger, key } = args;
   const row = db
     .prepare<[string, string], SettingsRow>(
       "SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?",
@@ -36,7 +50,11 @@ function readSetting(db: Database.Database, key: string): unknown | null {
 
   try {
     return JSON.parse(row.valueJson) as unknown;
-  } catch {
+  } catch (error) {
+    logger.error("settings_json_parse_failed", {
+      key,
+      reason: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
@@ -51,11 +69,24 @@ function normalizeModel(raw: unknown): string | null {
 
 export function createModelConfigService(args: {
   db: Database.Database;
+  logger: Logger;
 }): ModelConfigService {
   function readRaw(): ModelConfig {
     return {
-      primary_model: normalizeModel(readSetting(args.db, KEY_PRIMARY_MODEL)),
-      auxiliary_model: normalizeModel(readSetting(args.db, KEY_AUXILIARY_MODEL)),
+      primary_model: normalizeModel(
+        readSetting({
+          db: args.db,
+          logger: args.logger,
+          key: KEY_PRIMARY_MODEL,
+        }),
+      ),
+      auxiliary_model: normalizeModel(
+        readSetting({
+          db: args.db,
+          logger: args.logger,
+          key: KEY_AUXILIARY_MODEL,
+        }),
+      ),
     };
   }
 
@@ -82,10 +113,8 @@ export function createModelConfigService(args: {
       };
     }
 
-    const shared = primary ?? auxiliary;
-    if (!shared) {
-      return ipcError("INTERNAL", "Resolved model config unexpectedly empty");
-    }
+    // After the two guards above, exactly one of primary/auxiliary is non-null.
+    const shared = (primary ?? auxiliary)!;
 
     return {
       ok: true,

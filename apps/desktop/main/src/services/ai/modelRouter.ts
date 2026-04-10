@@ -1,3 +1,11 @@
+/**
+ * @module modelRouter
+ * ## 职责：根据 skill/task 类型在 primary/auxiliary 模型间进行路由，并拼装 provider 配置
+ * ## 不做什么：不做 settings 持久化、不发起网络请求
+ * ## 依赖方向：ai → ai(modelConfig/providerResolver) + shared(ipcResult)
+ * ## 关键不变量：INV-10（provider/model 解析错误需原样透传）
+ */
+
 import { type ServiceResult } from "../shared/ipcResult";
 import type { ModelConfigService } from "./modelConfig";
 import type { ProviderConfig } from "./providerResolver";
@@ -7,12 +15,11 @@ export type ModelTaskType = "generation" | "auxiliary";
 export type ModelRoutingRequest = {
   skillId: string;
   taskType?: ModelTaskType;
-  estimatedTokens?: number;
-  preferredModel?: string;
+  estimatedTokens?: number; // V1-reserved: not evaluated in routing; future P2 model-tier routing
+  preferredModel?: string; // V1-reserved: user-override not yet supported; see spec P1 不做清单
 };
 
 export type RoutedProviderConfig = ProviderConfig & {
-  providerId: ProviderConfig["provider"];
   model: string;
   maxTokens: number;
   temperature: number;
@@ -77,7 +84,6 @@ export function createModelRouter(args: {
       ok: true,
       data: {
         ...providerRes.data.primary,
-        providerId: providerRes.data.primary.provider,
         model,
         maxTokens,
         temperature,

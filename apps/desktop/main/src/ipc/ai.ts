@@ -15,6 +15,7 @@ import {
 import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
 import { createAiService } from "../services/ai/aiService";
+import { createAiServiceBridge } from "../services/ai/aiServiceBridge";
 import { createSqliteTraceStore } from "../services/ai/traceStore";
 import { resolveRuntimeGovernanceFromEnv } from "../config/runtimeGovernance";
 import {
@@ -1147,6 +1148,19 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   >();
   const previewLifecycleRegisteredRendererIds = new Set<number>();
 
+  const readProxySettings = () => {
+    if (!deps.db) {
+      return null;
+    }
+    const svc = createAiProxySettingsService({
+      db: deps.db,
+      logger: deps.logger,
+      secretStorage: deps.secretStorage,
+    });
+    const res = svc.getRaw();
+    return res.ok ? res.data : null;
+  };
+
   const aiService = createAiService({
     logger: deps.logger,
     env: deps.env,
@@ -1158,18 +1172,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           }),
         }
       : {}),
-    getProxySettings: () => {
-      if (!deps.db) {
-        return null;
-      }
-      const svc = createAiProxySettingsService({
-        db: deps.db,
-        logger: deps.logger,
-        secretStorage: deps.secretStorage,
-      });
-      const res = svc.getRaw();
-      return res.ok ? res.data : null;
-    },
+    getProxySettings: readProxySettings,
   });
   const runRegistry = new Map<
     string,
@@ -1371,15 +1374,25 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     });
   };
   const writingOrchestrator = createWritingOrchestrator({
-    aiService: {
-      async *streamChat() {
-        return;
-      },
-      estimateTokens,
-      abort() {
-        return;
-      },
-    },
+    aiService:
+      deps.db !== null && deps.costTracker
+        ? createAiServiceBridge({
+            db: deps.db,
+            logger: deps.logger,
+            costTracker: deps.costTracker,
+            env: deps.env,
+            runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
+            getProxySettings: readProxySettings,
+          })
+        : {
+            async *streamChat() {
+              return;
+            },
+            estimateTokens,
+            abort() {
+              return;
+            },
+          },
     toolRegistry:
       deps.db === null
         ? createToolRegistry()

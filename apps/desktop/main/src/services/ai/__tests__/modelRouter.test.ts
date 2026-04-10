@@ -1,6 +1,8 @@
 import Database from "better-sqlite3";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import type { Logger } from "../../../logging/logger";
+import { ipcError } from "../../shared/ipcResult";
 import { createModelConfigService } from "../modelConfig";
 import { createModelRouter } from "../modelRouter";
 
@@ -24,6 +26,14 @@ function putSetting(db: Database.Database, key: string, value: unknown): void {
   ).run("app", key, JSON.stringify(value), Date.now());
 }
 
+function createLogger(): Logger {
+  return {
+    logPath: "<test>",
+    info: vi.fn(),
+    error: vi.fn(),
+  };
+}
+
 describe("modelRouter", () => {
   it("routes generation task to primary model", async () => {
     const db = createSettingsDb();
@@ -31,7 +41,7 @@ describe("modelRouter", () => {
     putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
 
     const router = createModelRouter({
-      modelConfigService: createModelConfigService({ db }),
+      modelConfigService: createModelConfigService({ db, logger: createLogger() }),
       resolveProvider: async () => ({
         ok: true,
         data: {
@@ -65,7 +75,7 @@ describe("modelRouter", () => {
     putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
 
     const router = createModelRouter({
-      modelConfigService: createModelConfigService({ db }),
+      modelConfigService: createModelConfigService({ db, logger: createLogger() }),
       resolveProvider: async () => ({
         ok: true,
         data: {
@@ -97,7 +107,7 @@ describe("modelRouter", () => {
     putSetting(db, "creonow.ai.model.primary", "gpt-4o");
 
     const router = createModelRouter({
-      modelConfigService: createModelConfigService({ db }),
+      modelConfigService: createModelConfigService({ db, logger: createLogger() }),
       resolveProvider: async () => ({
         ok: true,
         data: {
@@ -130,7 +140,7 @@ describe("modelRouter", () => {
     putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
 
     const router = createModelRouter({
-      modelConfigService: createModelConfigService({ db }),
+      modelConfigService: createModelConfigService({ db, logger: createLogger() }),
       resolveProvider: async () => ({
         ok: true,
         data: {
@@ -160,7 +170,7 @@ describe("modelRouter", () => {
   it("returns AI_NOT_CONFIGURED when no model is configured", async () => {
     const db = createSettingsDb();
     const router = createModelRouter({
-      modelConfigService: createModelConfigService({ db }),
+      modelConfigService: createModelConfigService({ db, logger: createLogger() }),
       resolveProvider: async () => ({
         ok: true,
         data: {
@@ -184,5 +194,21 @@ describe("modelRouter", () => {
       throw new Error("expected missing model config to fail");
     }
     expect(result.error.code).toBe("AI_NOT_CONFIGURED");
+  });
+
+  it("propagates resolveProvider failure", async () => {
+    const db = createSettingsDb();
+    putSetting(db, "creonow.ai.model.primary", "gpt-4o");
+
+    const router = createModelRouter({
+      modelConfigService: createModelConfigService({ db, logger: createLogger() }),
+      resolveProvider: async () =>
+        ipcError("AI_NOT_CONFIGURED", "no provider configured"),
+    });
+    const result = await router.selectProvider({ skillId: "builtin:continue" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("AI_NOT_CONFIGURED");
+    }
   });
 });

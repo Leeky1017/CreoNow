@@ -1,0 +1,293 @@
+/**
+ * @module aiServiceBridge
+ * ## 职责：把 modelConfig + modelRouter + apiClient 组合成 WritingOrchestrator 所需 aiService 接口
+ * ## 不做什么：不实现 Skill 编排、不处理写回权限门禁
+ * ## 依赖方向：ipc/skills → ai(bridge→router→apiClient)
+ * ## 关键不变量：INV-9（调用成本入库）· INV-10（上游错误上下文保留）
+ */
+
+import type Database from "better-sqlite3";
+
+import type { Logger } from "../../logging/logger";
+import { estimateTokens as estimateTokenCount } from "../context/tokenEstimation";
+import type { ServiceResult } from "../shared/ipcResult";
+import { createApiClient } from "./apiClient";
+import type { CostTracker } from "./costTracker";
+import { startFakeAiServer } from "./fakeAiServer";
+import { createModelConfigService } from "./modelConfig";
+import { createModelRouter } from "./modelRouter";
+import {
+  createProviderResolver,
+  type ProviderConfig,
+  type ProxySettings,
+} from "./providerResolver";
+import type { StreamChunk } from "./streaming";
+
+type StreamChatOptions = {
+  signal: AbortSignal;
+  onComplete: (r: unknown) => void;
+  onError: (e: unknown) => void;
+};
+
+type BridgeMessage = {
+  role: string;
+  content: string;
+};
+
+type StreamError = {
+  kind: "retryable" | "non-retryable";
+  message: string;
+  retryCount: number;
+  partialContent?: string;
+};
+
+type StreamContext = {
+  skillId: string;
+  sessionId?: string;
+  requestId?: string;
+};
+
+const DEFAULT_SKILL_ID = "builtin:continue";
+
+function normalizeRole(role: string): "system" | "user" | "assistant" | "tool" {
+  if (role === "system" || role === "assistant" || role === "tool") {
+    return role;
+  }
+  return "user";
+}
+
+function toOpenAiProvider(
+  provider: ProviderConfig & {
+    model: string;
+    maxTokens: number;
+    temperature: number;
+  },
+): {
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+  maxTokens: number;
+  temperature: number;
+} {
+  return {
+    baseUrl: provider.baseUrl,
+    ...(provider.apiKey ? { apiKey: provider.apiKey } : {}),
+    model: provider.model,
+    maxTokens: provider.maxTokens,
+    temperature: provider.temperature,
+  };
+}
+
+function extractStreamContext(options: StreamChatOptions): StreamContext {
+  const raw = options as StreamChatOptions & {
+    skillId?: string;
+    sessionId?: string;
+    requestId?: string;
+  };
+  return {
+    skillId: raw.skillId ?? DEFAULT_SKILL_ID,
+    ...(raw.sessionId ? { sessionId: raw.sessionId } : {}),
+    ...(raw.requestId ? { requestId: raw.requestId } : {}),
+  };
+}
+
+function makeStreamError(args: {
+  retryable: boolean;
+  message: string;
+  partialContent?: string;
+}): StreamError {
+  return {
+    kind: args.retryable ? "retryable" : "non-retryable",
+    message: args.message,
+    retryCount: 0,
+    ...(args.partialContent ? { partialContent: args.partialContent } : {}),
+  };
+}
+
+export function createAiServiceBridge(args: {
+  db: Database.Database;
+  logger: Logger;
+  costTracker: CostTracker;
+  env: NodeJS.ProcessEnv;
+  runtimeAiTimeoutMs: number;
+  getProxySettings?: () => ProxySettings | null;
+  fetchImpl?: typeof fetch;
+  now?: () => number;
+}): {
+  streamChat: (
+    messages: BridgeMessage[],
+    options: StreamChatOptions,
+  ) => AsyncGenerator<StreamChunk>;
+  estimateTokens: (text: string) => number;
+  abort: () => void;
+} {
+  const providerResolver = createProviderResolver({ logger: args.logger });
+  let fakeServerPromise:
+    | Promise<Awaited<ReturnType<typeof startFakeAiServer>>>
+    | null = null;
+  const modelConfigService = createModelConfigService({
+    db: args.db,
+    logger: args.logger,
+  });
+  const modelRouter = createModelRouter({
+    modelConfigService,
+    resolveProvider: () =>
+      providerResolver.resolveProviderConfig({
+        env: args.env,
+        runtimeAiTimeoutMs: args.runtimeAiTimeoutMs,
+        getFakeServer: () => {
+          if (!fakeServerPromise) {
+            fakeServerPromise = startFakeAiServer({
+              logger: args.logger,
+              env: args.env,
+            });
+          }
+          return fakeServerPromise;
+        },
+        getProxySettings: args.getProxySettings,
+      }),
+  });
+  const apiClient = createApiClient({
+    db: args.db,
+    costTracker: args.costTracker,
+    logger: args.logger,
+    ...(args.fetchImpl ? { fetchImpl: args.fetchImpl } : {}),
+    ...(args.now ? { now: args.now } : {}),
+  });
+
+  let activeAbortController: AbortController | null = null;
+
+  async function* streamChat(
+    messages: BridgeMessage[],
+    options: StreamChatOptions,
+  ): AsyncGenerator<StreamChunk> {
+    if (options.signal.aborted) {
+      return;
+    }
+
+    const streamContext = extractStreamContext(options);
+    const routeResult = await modelRouter.selectProvider({
+      skillId: streamContext.skillId,
+    });
+    if (!routeResult.ok) {
+      const streamError = makeStreamError({
+        retryable: routeResult.error.retryable ?? false,
+        message: routeResult.error.message,
+      });
+      options.onError(streamError);
+      throw streamError;
+    }
+
+    const abortController = new AbortController();
+    activeAbortController = abortController;
+
+    const onExternalAbort = () => abortController.abort();
+    options.signal.addEventListener("abort", onExternalAbort, { once: true });
+
+    const pendingChunks: Array<{ delta: string; done: boolean }> = [];
+    let notify: (() => void) | null = null;
+    let streamSettled = false;
+    let accumulatedText = "";
+
+    const wake = () => {
+      if (notify) {
+        const resolver = notify;
+        notify = null;
+        resolver();
+      }
+    };
+
+    const requestPromise: Promise<ServiceResult<{
+      requestId: string;
+      content: string;
+      usage: {
+        promptTokens: number;
+        completionTokens: number;
+        cachedTokens: number;
+      };
+      model: string;
+      persistenceError?: unknown;
+    }>> = apiClient.streamChatCompletion({
+      provider: toOpenAiProvider(routeResult.data),
+      messages: messages.map((message) => ({
+        role: normalizeRole(message.role),
+        content: message.content,
+      })),
+      skillId: streamContext.skillId,
+      ...(streamContext.sessionId ? { sessionId: streamContext.sessionId } : {}),
+      ...(streamContext.requestId ? { requestId: streamContext.requestId } : {}),
+      signal: abortController.signal,
+      onChunk: (chunk) => {
+        pendingChunks.push(chunk);
+        wake();
+      },
+    });
+    const settlePromise = requestPromise.finally(() => {
+        streamSettled = true;
+        wake();
+      });
+
+    try {
+      while (!streamSettled || pendingChunks.length > 0) {
+        if (pendingChunks.length === 0) {
+          await new Promise<void>((resolve) => {
+            notify = resolve;
+          });
+          continue;
+        }
+
+        const nextChunk = pendingChunks.shift();
+        if (!nextChunk) {
+          continue;
+        }
+        if (nextChunk.delta.length > 0) {
+          accumulatedText += nextChunk.delta;
+        }
+
+        yield {
+          delta: nextChunk.delta,
+          finishReason: nextChunk.done ? "stop" : null,
+          accumulatedTokens: estimateTokenCount(accumulatedText),
+        };
+      }
+
+      await settlePromise;
+      const streamResult = await requestPromise;
+
+      if (!streamResult.ok) {
+        const streamError = makeStreamError({
+          retryable: streamResult.error.retryable ?? false,
+          message: streamResult.error.message,
+          partialContent: accumulatedText.length > 0 ? accumulatedText : undefined,
+        });
+        options.onError(streamError);
+        throw streamError;
+      }
+
+      options.onComplete({
+        content: streamResult.data.content,
+        usage: {
+          promptTokens: streamResult.data.usage.promptTokens,
+          completionTokens: streamResult.data.usage.completionTokens,
+        },
+        wasRetried: false,
+      });
+    } finally {
+      options.signal.removeEventListener("abort", onExternalAbort);
+      if (activeAbortController === abortController) {
+        activeAbortController = null;
+      }
+    }
+  }
+
+  return {
+    streamChat,
+    estimateTokens: (text: string) => estimateTokenCount(text),
+    abort: () => {
+      if (activeAbortController) {
+        activeAbortController.abort();
+        activeAbortController = null;
+      }
+    },
+  };
+}
