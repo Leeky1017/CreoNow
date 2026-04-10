@@ -185,6 +185,10 @@ export function createAiServiceBridge(args: {
     const routeResult = await modelRouter.selectProvider({
       skillId: streamContext.skillId,
     });
+    if (options.signal.aborted) {
+      const abortedError = makeAbortError("Streaming request aborted");
+      throw abortedError;
+    }
     if (!routeResult.ok) {
       const streamError = makeStreamError({
         retryable: routeResult.error.retryable ?? false,

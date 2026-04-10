@@ -833,8 +833,9 @@ describe("WritingOrchestrator", () => {
       aiService.streamChat.mockImplementation(() => {
         throw { kind: "aborted", message: "request canceled", retryCount: 0 };
       });
+      const tracker = createMockCostTracker();
 
-      const cfg = buildConfig({ aiService });
+      const cfg = buildConfig({ aiService, costTracker: tracker });
       const orch = createWritingOrchestrator(cfg);
 
       const events = await collectEvents(orch.execute(makeRequest()));
@@ -842,6 +843,12 @@ describe("WritingOrchestrator", () => {
       expect(aiService.streamChat).toHaveBeenCalledTimes(1);
       expect(eventTypes(events)).toContain("aborted");
       expect(eventTypes(events)).not.toContain("error");
+      expect(tracker.recordUsage).toHaveBeenCalledWith(
+        { promptTokens: 10, completionTokens: 0, totalTokens: 10 },
+        "default",
+        "req-001",
+        "polish",
+      );
       orch.dispose();
     });
 
@@ -853,8 +860,9 @@ describe("WritingOrchestrator", () => {
           throw { kind: "partial-result", message: "stream interrupted", retryCount: 0 };
         })(),
       );
+      const tracker = createMockCostTracker();
 
-      const cfg = buildConfig({ aiService });
+      const cfg = buildConfig({ aiService, costTracker: tracker });
       const orch = createWritingOrchestrator(cfg);
 
       const events = await collectEvents(orch.execute(makeRequest()));
@@ -876,6 +884,12 @@ describe("WritingOrchestrator", () => {
         (errorEvent as unknown as { error: { details?: { partialContent?: string } } }).error
           .details?.partialContent,
       ).toBe("半截");
+      expect(tracker.recordUsage).toHaveBeenCalledWith(
+        { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+        "default",
+        "req-001",
+        "polish",
+      );
       orch.dispose();
     });
 

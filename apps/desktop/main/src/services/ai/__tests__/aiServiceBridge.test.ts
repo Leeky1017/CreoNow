@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { Logger } from "../../../logging/logger";
 import { createAiServiceBridge } from "../aiServiceBridge";
 import { createCostTracker, type ModelPricingTable } from "../costTracker";
+import * as modelRouterModule from "../modelRouter";
+import type { ModelRouter } from "../modelRouter";
 
 function createLogger(): Logger {
   return {
@@ -354,6 +356,84 @@ describe("aiServiceBridge", () => {
       kind: "aborted",
     });
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("stops before upstream request when signal aborts during provider selection", async () => {
+    const db = createDb();
+    putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
+    putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
+
+    let releaseRoute: () => void = () => {};
+    const routeWait = new Promise<void>((resolve) => {
+      releaseRoute = resolve;
+    });
+    const mockedRouter: ModelRouter = {
+      selectProvider: async () => {
+        await routeWait;
+        return {
+          ok: true,
+          data: {
+            provider: "openai",
+            baseUrl: "https://api.openai.com",
+            apiKey: "sk-test",
+            timeoutMs: 30_000,
+            model: "gpt-4.1-mini",
+            maxTokens: 4096,
+            temperature: 0.7,
+            taskType: "auxiliary",
+          },
+        };
+      },
+    };
+    const routerSpy = vi
+      .spyOn(modelRouterModule, "createModelRouter")
+      .mockReturnValue(mockedRouter);
+
+    try {
+      const fetchMock = vi.fn();
+      const bridge = createAiServiceBridge({
+        db,
+        logger: createLogger(),
+        costTracker: createCostTracker({
+          pricingTable: createPricingTable(),
+          budgetPolicy: {
+            warningThreshold: 10,
+            hardStopLimit: 100,
+            enabled: false,
+          },
+          estimateTokens: () => 0,
+        }),
+        env: {
+          CREONOW_AI_PROVIDER: "openai",
+          CREONOW_AI_BASE_URL: "https://api.openai.com",
+          CREONOW_AI_API_KEY: "sk-test",
+        },
+        runtimeAiTimeoutMs: 30_000,
+        fetchImpl: fetchMock as unknown as typeof fetch,
+      });
+
+      const abortController = new AbortController();
+      const onError = vi.fn();
+      const gen = bridge.streamChat([{ role: "user", content: "x" }], {
+        signal: abortController.signal,
+        onComplete: vi.fn(),
+        onError,
+        skillId: "builtin:continue",
+      });
+
+      const firstNext = gen.next();
+      abortController.abort();
+      releaseRoute();
+
+      await expect(firstNext).rejects.toMatchObject({
+        name: "AbortError",
+        kind: "aborted",
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+    } finally {
+      routerSpy.mockRestore();
+    }
   });
 
   it("rejects anthropic provider for bridge path", async () => {

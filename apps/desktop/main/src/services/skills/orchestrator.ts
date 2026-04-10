@@ -508,6 +508,11 @@ export function createWritingOrchestrator(
               (err instanceof Error && err.name === "AbortError");
 
             if (isAbortError) {
+              recordUsage({
+                promptTokens: lastPromptTokens,
+                completionTokens: lastTokens,
+                totalTokens: lastPromptTokens + lastTokens,
+              });
               taskStates.set(requestId, "killed");
               yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
               config.aiService.abort();
@@ -515,6 +520,11 @@ export function createWritingOrchestrator(
             }
 
             if (errObj?.kind === "partial-result") {
+              recordUsage({
+                promptTokens: lastPromptTokens,
+                completionTokens: lastTokens,
+                totalTokens: lastPromptTokens + lastTokens,
+              });
               const partialContent =
                 fullText.length > 0
                   ? fullText
