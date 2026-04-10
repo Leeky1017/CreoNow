@@ -549,6 +549,7 @@ describe("WritingOrchestrator", () => {
         "req-001",
         "polish",
       );
+      expect(aiService.abort).not.toHaveBeenCalled();
       orch.dispose();
     });
   });

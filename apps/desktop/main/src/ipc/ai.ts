@@ -1550,7 +1550,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
         getProxySettings: readProxySettings,
       });
-      let activeAbort = bridgeAiService.abort;
 
       return {
         async *streamChat(
@@ -1565,21 +1564,19 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             sessionId?: string;
           },
         ) {
-          activeAbort = bridgeAiService.abort;
           try {
             yield* bridgeAiService.streamChat(messages, options);
           } catch (error) {
             if (!isBridgeUnsupportedProviderError(error)) {
               throw error;
             }
-            activeAbort = legacyOrchestratorAiService.abort;
             yield* legacyOrchestratorAiService.streamChat(messages, options);
-          } finally {
-            activeAbort = bridgeAiService.abort;
           }
         },
         estimateTokens: bridgeAiService.estimateTokens,
-        abort: () => activeAbort(),
+        abort: () => {
+          // Per-request cancellation is propagated by the request-level AbortSignal chain.
+        },
       };
     })(),
     toolRegistry:

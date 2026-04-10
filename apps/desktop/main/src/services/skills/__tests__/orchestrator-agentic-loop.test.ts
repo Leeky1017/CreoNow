@@ -111,6 +111,35 @@ function makeToolCallInfo(name: string, args: Record<string, unknown> = {}, id?:
   return { id: id ?? `call-${name}-${Date.now()}`, name, arguments: args };
 }
 
+function createUnreachableAiService(estimatedTokens: number) {
+  return {
+    async *streamChat() {
+      throw new Error("unreachable: streamChat should not be called in agentic path");
+    },
+    estimateTokens: () => estimatedTokens,
+    abort: vi.fn(),
+  };
+}
+
+function createGenerateTextOnlyAiService(estimatedTokens: number) {
+  return {
+    streamChat: undefined as unknown as (
+      messages: Array<{ role: string; content: string }>,
+      options: {
+        signal: AbortSignal;
+        onComplete: (r: unknown) => void;
+        onError: (e: unknown) => void;
+        onApiCallStarted?: () => void;
+        skillId?: string;
+        requestId?: string;
+        sessionId?: string;
+      },
+    ) => AsyncGenerator<{ delta: string; finishReason: "stop" | "tool_use" | null; accumulatedTokens: number }>,
+    estimateTokens: () => estimatedTokens,
+    abort: vi.fn(),
+  };
+}
+
 // ─── test suite ─────────────────────────────────────────────────────
 
 describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
@@ -181,7 +210,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { estimateTokens: () => 10, abort: vi.fn() } as never,
+        aiService: createUnreachableAiService(10),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -275,7 +304,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { estimateTokens: () => 10, abort: vi.fn() } as never,
+        aiService: createUnreachableAiService(10),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -364,7 +393,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { estimateTokens: () => 10, abort: vi.fn() } as never,
+        aiService: createUnreachableAiService(10),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -552,7 +581,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { estimateTokens: () => 5, abort: vi.fn() } as never,
+        aiService: createUnreachableAiService(5),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -642,7 +671,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
         });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { estimateTokens: () => 5, abort: vi.fn() } as never,
+        aiService: createUnreachableAiService(5),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -686,7 +715,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { async *streamChat() { return; }, estimateTokens: () => 10, abort: vi.fn() },
+        aiService: createGenerateTextOnlyAiService(10),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,
@@ -711,7 +740,8 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       // ai-done is emitted without entering tool-use loop
       const aiDoneEvent = events.find((e) => e.type === "ai-done");
       expect(aiDoneEvent).toBeDefined();
-      expect(typeof aiDoneEvent!.fullText).toBe("string");
+      expect(generateText).toHaveBeenCalledTimes(1);
+      expect(aiDoneEvent!.fullText).toBe("润色后的文字。");
 
       // Pipeline completes normally
       expect(types).toContain("write-back-done");
@@ -730,7 +760,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       });
 
       const orchestrator = createWritingOrchestrator({
-        aiService: { estimateTokens: () => 5, abort: vi.fn() } as never,
+        aiService: createGenerateTextOnlyAiService(5),
         toolRegistry: writeRegistry,
         toolUseHandler: agenticHandler,
         permissionGate,

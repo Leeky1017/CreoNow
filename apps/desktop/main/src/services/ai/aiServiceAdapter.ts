@@ -41,7 +41,7 @@ interface UnderlyingService {
 export function createAIServiceAdapter(
   underlying: UnderlyingService,
 ): AIServiceAdapter {
-  let currentAbortController: AbortController | null = null;
+  const activeAbortControllers = new Set<AbortController>();
 
   return {
     async *streamChat(
@@ -49,7 +49,7 @@ export function createAIServiceAdapter(
       options: StreamOptions,
     ): AsyncGenerator<StreamChunk> {
       const abortController = new AbortController();
-      currentAbortController = abortController;
+      activeAbortControllers.add(abortController);
 
       try {
         if (typeof underlying.streamChat === "function") {
@@ -125,9 +125,7 @@ export function createAIServiceAdapter(
         }
         throw err;
       } finally {
-        if (currentAbortController === abortController) {
-          currentAbortController = null;
-        }
+        activeAbortControllers.delete(abortController);
       }
     },
 
@@ -136,10 +134,10 @@ export function createAIServiceAdapter(
     },
 
     abort(): void {
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
+      for (const controller of activeAbortControllers) {
+        controller.abort();
       }
+      activeAbortControllers.clear();
     },
   };
 }

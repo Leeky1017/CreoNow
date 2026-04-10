@@ -383,7 +383,7 @@ describe("aiService streamChat fallback wiring", () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
-  it("bridge fallback 到 legacy 后，abort 应命中 legacy 路径", async () => {
+  it("bridge fallback 到 legacy 后，wrapper abort 为 no-op（由 request signal 负责中止）", async () => {
     let resolveRunSkill: ((value: unknown) => void) | undefined;
     mocks.runSkillMock.mockImplementationOnce(
       () =>
@@ -442,13 +442,9 @@ describe("aiService streamChat fallback wiring", () => {
     );
 
     const pendingNext = gen.next();
-    const pendingNextWithProbe = pendingNext;
     await Promise.resolve();
     orchestratorConfig!.aiService.abort();
-    await expect(pendingNextWithProbe).rejects.toMatchObject({
-      name: "AbortError",
-      kind: "aborted",
-    });
+    expect(bridgeService?.abort).not.toHaveBeenCalled();
 
     resolveRunSkill?.({
       ok: true,
@@ -459,12 +455,15 @@ describe("aiService streamChat fallback wiring", () => {
         outputText: "late result",
       },
     });
+    const firstChunk = await pendingNext;
+    expect(firstChunk.done).toBe(false);
+    const finished = await gen.next();
+    expect(finished.done).toBe(true);
     expect(mocks.bridgeStreamChatMock).toHaveBeenCalledTimes(1);
     expect(mocks.runSkillMock).toHaveBeenCalledTimes(1);
     expect(onApiCallStarted).toHaveBeenCalledTimes(1);
     expect(onError).not.toHaveBeenCalled();
-    expect(onComplete).not.toHaveBeenCalled();
-    expect(bridgeService?.abort).not.toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalledTimes(1);
   });
 });
 

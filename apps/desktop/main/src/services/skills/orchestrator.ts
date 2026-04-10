@@ -501,7 +501,6 @@ export function createWritingOrchestrator(
                   }
                   taskStates.set(requestId, "killed");
                   yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
-                  config.aiService.abort();
                   return;
                 }
 
@@ -539,7 +538,6 @@ export function createWritingOrchestrator(
               }
               taskStates.set(requestId, "killed");
               yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
-              config.aiService.abort();
               return;
             }
 
