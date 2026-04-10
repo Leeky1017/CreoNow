@@ -80,12 +80,18 @@ export function resolveModelConfig(settings: ModelSettings): ModelAssignment {
   }
 
   // Both present → split by task responsibility
-  return {
-    writing: primary!,
-    general: primary!,
-    judge: auxiliary!,
-    embedding: auxiliary!,
-  };
+  // Guard verified both non-null above, so assert safely via narrowing
+  if (primary !== null && auxiliary !== null) {
+    return {
+      writing: primary,
+      general: primary,
+      judge: auxiliary,
+      embedding: auxiliary,
+    };
+  }
+
+  // Unreachable — all null combinations handled above
+  throw new ModelConfigError("Unexpected model config state");
 }
 
 /**

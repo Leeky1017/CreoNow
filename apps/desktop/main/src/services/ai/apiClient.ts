@@ -134,14 +134,27 @@ export function parseSSELine(
     return "done";
   }
 
-  // Parse JSON payload
-  const parsed = JSON.parse(data) as StreamChunkPayload;
-  return parsed;
+  // Parse JSON payload — classify malformed JSON as ApiError (INV-10)
+  try {
+    const parsed = JSON.parse(data) as StreamChunkPayload;
+    return parsed;
+  } catch {
+    const classified: ApiError = {
+      kind: "parse",
+      status: null,
+      message: `Malformed SSE JSON: ${data.slice(0, 120)}`,
+      retryable: false,
+    };
+    throw Object.assign(new Error(classified.message), {
+      apiError: classified,
+    });
+  }
 }
 
 /**
  * Parse a full SSE text body into an array of StreamChunkPayload.
  * Stops at [DONE].
+ * @internal — exported for testing only; not part of the public API.
  */
 export function parseSSEBody(body: string): StreamChunkPayload[] {
   const lines = body.split("\n");
@@ -252,6 +265,24 @@ export function createApiClient(deps: {
   const costTracker = deps.costTracker;
   const fetchFn = deps.fetchFn ?? globalThis.fetch;
 
+  /**
+   * Build a combined AbortSignal from the user-supplied signal and the
+   * provider's timeoutMs. Uses AbortSignal.any() when both are present.
+   */
+  function buildSignal(
+    userSignal: AbortSignal | undefined,
+    timeoutMs: number | undefined,
+  ): AbortSignal | undefined {
+    const signals: AbortSignal[] = [];
+    if (userSignal) signals.push(userSignal);
+    if (timeoutMs !== undefined && timeoutMs > 0) {
+      signals.push(AbortSignal.timeout(timeoutMs));
+    }
+    if (signals.length === 0) return undefined;
+    if (signals.length === 1) return signals[0];
+    return AbortSignal.any(signals);
+  }
+
   function recordCost(args: {
     usage: ChatCompletionUsage;
     model: string;
@@ -278,11 +309,13 @@ export function createApiClient(deps: {
         maxTokens: args.maxTokens,
       });
 
+      const signal = buildSignal(args.signal, args.provider.timeoutMs);
+
       let res: Response;
       try {
         res = await fetchFn(url, {
           ...init,
-          signal: args.signal,
+          signal,
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Network error";
@@ -307,7 +340,21 @@ export function createApiClient(deps: {
         });
       }
 
-      const data = (await res.json()) as ChatCompletionResponse;
+      // Parse response JSON — classify malformed body as ApiError (INV-10)
+      let data: ChatCompletionResponse;
+      try {
+        data = (await res.json()) as ChatCompletionResponse;
+      } catch {
+        const classified: ApiError = {
+          kind: "parse",
+          status: res.status,
+          message: `Failed to parse chat completion response as JSON (status ${res.status})`,
+          retryable: false,
+        };
+        throw Object.assign(new Error(classified.message), {
+          apiError: classified,
+        });
+      }
 
       // Record cost (INV-9) — unknown model → cost=0 via CostTracker
       const usage: ChatCompletionUsage = data.usage ?? {
@@ -334,11 +381,13 @@ export function createApiClient(deps: {
         maxTokens: args.maxTokens,
       });
 
+      const signal = buildSignal(args.signal, args.provider.timeoutMs);
+
       let res: Response;
       try {
         res = await fetchFn(url, {
           ...init,
-          signal: args.signal,
+          signal,
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Network error";
@@ -364,12 +413,22 @@ export function createApiClient(deps: {
       }
 
       if (!res.body) {
-        throw new Error("Response body is null — streaming not supported");
+        const classified: ApiError = {
+          kind: "server",
+          status: res.status,
+          message: "Response body is null — streaming not supported",
+          retryable: false,
+        };
+        throw Object.assign(
+          new Error(classified.message),
+          { apiError: classified },
+        );
       }
 
       // Track total usage across stream for cost recording
       let totalPromptTokens = 0;
       let totalCompletionTokens = 0;
+      let costRecorded = false;
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -398,6 +457,7 @@ export function createApiClient(deps: {
                 model: args.provider.model,
                 skillId: args.skillId,
               });
+              costRecorded = true;
               return;
             }
             if (parsed !== null) {
@@ -421,8 +481,21 @@ export function createApiClient(deps: {
           model: args.provider.model,
           skillId: args.skillId,
         });
+        costRecorded = true;
       } finally {
         reader.releaseLock();
+        // Record partial cost on error/abort if not already recorded (INV-9)
+        if (!costRecorded) {
+          recordCost({
+            usage: {
+              prompt_tokens: totalPromptTokens,
+              completion_tokens: totalCompletionTokens,
+              total_tokens: totalPromptTokens + totalCompletionTokens,
+            },
+            model: args.provider.model,
+            skillId: args.skillId,
+          });
+        }
       }
     },
   };

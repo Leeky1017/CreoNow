@@ -377,8 +377,16 @@ describe("ApiClient — parseSSELine", () => {
     expect((result as StreamChunkPayload).id).toBe("test");
   });
 
-  it("throws on invalid JSON after data:", () => {
-    expect(() => parseSSELine("data: {invalid json}")).toThrow();
+  it("throws classified ApiError with kind 'parse' on invalid JSON after data:", () => {
+    try {
+      parseSSELine("data: {invalid json}");
+      expect.fail("Should have thrown");
+    } catch (err: unknown) {
+      const error = err as Error & { apiError?: { kind: string; retryable: boolean } };
+      expect(error.apiError).toBeDefined();
+      expect(error.apiError!.kind).toBe("parse");
+      expect(error.apiError!.retryable).toBe(false);
+    }
   });
 });
 
@@ -842,6 +850,41 @@ describe("ApiClient — chatCompletion", () => {
     expect(result.cost.cost).toBeCloseTo(0.0075, 6);
     expect(result.cost.warning).toBeUndefined();
   });
+
+  it("non-JSON response body → throws with apiError.kind=parse (INV-10)", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response("this is not json", {
+        status: 200,
+        headers: { "Content-Type": "text/plain" },
+      }),
+    );
+
+    const client = createApiClient({ costTracker, fetchFn });
+
+    const provider = {
+      provider: "proxy" as const,
+      baseUrl: "https://api.example.com",
+      apiKey: "sk-test",
+      timeoutMs: 30_000,
+      model: "gpt-4o",
+      taskType: "general" as const,
+    };
+
+    try {
+      await client.chatCompletion({
+        provider,
+        messages: [{ role: "user", content: "Hello" }],
+        skillId: "test-skill",
+      });
+      expect.fail("should have thrown");
+    } catch (err: unknown) {
+      const e = err as Error & { apiError: { kind: string; retryable: boolean; status: number } };
+      expect(e.apiError).toBeDefined();
+      expect(e.apiError.kind).toBe("parse");
+      expect(e.apiError.retryable).toBe(false);
+      expect(e.apiError.status).toBe(200);
+    }
+  });
 });
 
 describe("ApiClient — streamChatCompletion", () => {
@@ -988,6 +1031,99 @@ describe("ApiClient — streamChatCompletion", () => {
       expect(e.apiError.kind).toBe("auth");
     }
   });
+
+  it("null response body → throws with apiError.kind=server (INV-10)", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: null,
+      headers: new Headers(),
+      json: async () => ({}),
+    } as unknown as Response);
+
+    const client = createApiClient({ costTracker, fetchFn });
+
+    const provider = {
+      provider: "proxy" as const,
+      baseUrl: "https://api.example.com",
+      apiKey: "sk-test",
+      timeoutMs: 30_000,
+      model: "gpt-4o",
+      taskType: "writing" as const,
+    };
+
+    try {
+      for await (const _chunk of client.streamChatCompletion({
+        provider,
+        messages: [{ role: "user", content: "Hello" }],
+        skillId: "stream-skill",
+      })) {
+        // should not reach here
+      }
+      expect.fail("should have thrown");
+    } catch (err: unknown) {
+      const e = err as Error & { apiError: { kind: string; retryable: boolean } };
+      expect(e.apiError).toBeDefined();
+      expect(e.apiError.kind).toBe("server");
+      expect(e.apiError.retryable).toBe(false);
+    }
+  });
+
+  it("mid-stream error still records partial cost (INV-9)", async () => {
+    // Stream yields one valid chunk, then malformed JSON → error
+    const sseLines = [
+      `data: ${JSON.stringify({
+        id: "chunk-1",
+        choices: [{ index: 0, delta: { content: "Hi" }, finish_reason: null }],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      } satisfies StreamChunkPayload)}`,
+      "",
+      "data: {this is broken json}",
+      "",
+    ].join("\n");
+
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(sseLines));
+        controller.close();
+      },
+    });
+
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(stream, {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+
+    const client = createApiClient({ costTracker, fetchFn });
+
+    const provider = {
+      provider: "proxy" as const,
+      baseUrl: "https://api.example.com",
+      apiKey: "sk-test",
+      timeoutMs: 30_000,
+      model: "gpt-4o",
+      taskType: "writing" as const,
+    };
+
+    try {
+      for await (const _chunk of client.streamChatCompletion({
+        provider,
+        messages: [{ role: "user", content: "Hello" }],
+        skillId: "stream-skill",
+      })) {
+        // consume chunks until error
+      }
+      expect.fail("should have thrown");
+    } catch {
+      // Expected — malformed JSON
+    }
+
+    // Even though stream errored, cost should still be recorded (INV-9)
+    const session = costTracker.getSessionCost();
+    expect(session.totalRequests).toBe(1);
+  });
 });
 
 // ─── Edge Cases ─────────────────────────────────────────────────────
@@ -1079,17 +1215,4 @@ describe("Edge Cases", () => {
     expect((result as StreamChunkPayload).id).toBe("x");
   });
 });
-/**
- * ModelRouter + ModelConfig + ApiClient — 综合测试
- * Issue: #89 — feat: ModelRouter with OpenAI-compatible API support
- *
- * Covers:
- * - Model config resolution (dual/single/none)
- * - Task-based routing
- * - API request format validation
- * - SSE streaming parse
- * - Error classification (401, 429, 500, network)
- * - Cost recording (known model → price, unknown → cost=0)
- * - Edge cases
- */
 
