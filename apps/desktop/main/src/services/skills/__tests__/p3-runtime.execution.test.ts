@@ -109,7 +109,9 @@ describe("P3 runtime skill chain", () => {
       const requiredIds = ["builtin:polish", "builtin:chat", "builtin:continue"] as const;
       const builtinItems = listed.data.items.filter((item) => item.scope === "builtin");
       expect(builtinItems.length).toBeGreaterThanOrEqual(3);
-      expect(builtinItems.map((item) => item.id)).toEqual(expect.arrayContaining(requiredIds));
+      expect(builtinItems.map((item) => item.id)).toEqual(
+        expect.arrayContaining([...requiredIds]),
+      );
 
       for (const skillId of requiredIds) {
         const resolved = svc.resolveForRun({ id: skillId });
