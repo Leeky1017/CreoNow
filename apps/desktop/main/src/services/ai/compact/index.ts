@@ -9,6 +9,7 @@
 export {
   createCompactConfig,
   resolveContextBudgetFromModelConfig,
+  resolveKnownContextWindow,
   type CompactConfig,
   type CompactConfigOverrides,
 } from "./compactConfig";

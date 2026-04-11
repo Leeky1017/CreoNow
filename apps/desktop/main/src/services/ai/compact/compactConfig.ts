@@ -27,7 +27,7 @@ const MODEL_CONTEXT_WINDOWS: Readonly<Record<string, number>> = {
   "gemini-2.0-flash": 1_000_000,
 };
 
-function resolveKnownContextWindow(modelId: string): number | null {
+export function resolveKnownContextWindow(modelId: string): number | null {
   const normalized = modelId.trim().toLowerCase();
   if (normalized.length === 0) {
     return null;

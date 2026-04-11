@@ -114,6 +114,59 @@ describe("AutoCompact / NarrativeCompact", () => {
     expect(result.messages).toEqual(messages);
   });
 
+  it("rejects compaction output when token count expands and resets failure counter", async () => {
+    const messages: CompactMessage[] = [
+      { id: "sys", role: "system", content: "系统提示", compactable: false },
+      { id: "u1", role: "user", content: "白塔夜色。".repeat(12) },
+      { id: "a1", role: "assistant", content: "林远巡塔。".repeat(12) },
+    ];
+    const narrativeCompact = {
+      compact: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("llm unavailable"))
+        .mockResolvedValueOnce({
+          compactedMessages: [
+            ...messages,
+            {
+              id: "summary",
+              role: "assistant",
+              content: "冗长摘要".repeat(120),
+            },
+          ] satisfies CompactMessage[],
+        }),
+    };
+    const autoCompact = createAutoCompact({
+      config: {
+        triggerThresholdPercent: 0.2,
+        preserveRecentRounds: 2,
+        maxConsecutiveFailures: 3,
+        contextBudget: 100,
+        summaryMaxTokens: 200,
+      },
+      narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
+    });
+
+    const first = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-fail-then-expand-1",
+    });
+    const second = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-fail-then-expand-2",
+    });
+
+    expect(first.reason).toBe("compact-failed");
+    expect(second.reason).toBe("expansion-rejected");
+    expect(second.compacted).toBe(false);
+    expect(second.messages).toEqual(messages);
+    expect(second.totalTokensAfter).toBeGreaterThanOrEqual(second.totalTokensBefore);
+    expect(autoCompact.getConsecutiveFailures()).toBe(0);
+  });
+
   it("above threshold triggers compaction and produces summary via skill pattern", async () => {
     const invokeSkillSummary = vi.fn().mockResolvedValue({
       summary: "## Narrative Summary\n林远调查白塔钟声。",
@@ -392,6 +445,44 @@ describe("AutoCompact / NarrativeCompact", () => {
         modelId: "gpt-4o-mini",
       }),
     );
+  });
+
+  it("uses the smaller request-model context window for threshold calculation", async () => {
+    const narrativeCompact = {
+      compact: vi.fn().mockResolvedValue({
+        compactedMessages: [
+          { id: "sys", role: "system", content: "系统提示", compactable: false },
+          { id: "summary", role: "assistant", content: "压缩摘要", compactable: false },
+        ] satisfies CompactMessage[],
+      }),
+    };
+    const autoCompact = createAutoCompact({
+      config: {
+        triggerThresholdPercent: 0.85,
+        preserveRecentRounds: 2,
+        maxConsecutiveFailures: 3,
+        contextBudget: 1_000_000,
+        summaryMaxTokens: 200,
+      },
+      narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
+    });
+    const messages: CompactMessage[] = [
+      { id: "sys", role: "system", content: "系统提示", compactable: false },
+      { id: "u1", role: "user", content: "长".repeat(80_000) },
+    ];
+
+    const result = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4.1-mini",
+      requestModelId: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-small-window",
+    });
+
+    expect(result.thresholdTokens).toBe(108_800);
+    expect(result.reason).toBe("compacted");
+    expect(result.compacted).toBe(true);
+    expect(narrativeCompact.compact).toHaveBeenCalledTimes(1);
   });
 
   it("resolves compact config lazily per request", async () => {

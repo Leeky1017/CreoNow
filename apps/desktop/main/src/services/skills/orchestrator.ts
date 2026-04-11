@@ -213,6 +213,7 @@ export interface OrchestratorConfig {
     maybeCompact: (args: {
       messages: AutoCompactMessage[];
       auxiliaryModel?: string;
+      requestModelId?: string;
       kgSnapshot: AutoCompactSnapshot;
       requestId?: string;
     }) => Promise<{ messages: AutoCompactMessage[]; totalTokensAfter: number }>;
@@ -418,6 +419,7 @@ export function createWritingOrchestrator(
                 const compactResult = await autoCompact.maybeCompact({
                   messages: convertMessagesForAutoCompact(prepared.messages),
                   auxiliaryModel: prepared.modelId,
+                  requestModelId: prepared.modelId,
                   kgSnapshot,
                   requestId,
                 });

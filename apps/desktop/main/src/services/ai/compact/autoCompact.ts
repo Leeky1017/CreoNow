@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { estimateTokens } from "@shared/tokenBudget";
 
 import type { CompactConfig } from "./compactConfig";
+import { resolveKnownContextWindow } from "./compactConfig";
 import type {
   CompactMessage,
   NarrativeKnowledgeSnapshot,
@@ -29,6 +30,7 @@ export interface AutoCompactResult {
   reason:
     | "below-threshold"
     | "no-change"
+    | "expansion-rejected"
     | "compacted"
     | "compact-failed"
     | "circuit-open";
@@ -38,6 +40,7 @@ export interface AutoCompactService {
   maybeCompact: (args: {
     messages: CompactMessage[];
     auxiliaryModel?: string;
+    requestModelId?: string;
     kgSnapshot: NarrativeKnowledgeSnapshot;
     requestId?: string;
   }) => Promise<AutoCompactResult>;
@@ -97,13 +100,21 @@ export function createAutoCompact(args: {
   async function maybeCompact(input: {
     messages: CompactMessage[];
     auxiliaryModel?: string;
+    requestModelId?: string;
     kgSnapshot: NarrativeKnowledgeSnapshot;
     requestId?: string;
   }): Promise<AutoCompactResult> {
     const config = resolveConfig();
     const totalTokensBefore = estimateConversationTokens(input.messages);
+    const requestModelBudget = input.requestModelId
+      ? resolveKnownContextWindow(input.requestModelId)
+      : null;
+    const contextBudget =
+      requestModelBudget === null
+        ? config.contextBudget
+        : Math.min(config.contextBudget, requestModelBudget);
     const thresholdTokens = Math.floor(
-      config.contextBudget * config.triggerThresholdPercent,
+      contextBudget * config.triggerThresholdPercent,
     );
 
     if (totalTokensBefore < thresholdTokens) {
@@ -150,6 +161,17 @@ export function createAutoCompact(args: {
           totalTokensAfter,
           thresholdTokens,
           reason: "no-change",
+        };
+      }
+      if (totalTokensAfter >= totalTokensBefore) {
+        consecutiveFailures = 0;
+        return {
+          messages: input.messages,
+          compacted: false,
+          totalTokensBefore,
+          totalTokensAfter,
+          thresholdTokens,
+          reason: "expansion-rejected",
         };
       }
       consecutiveFailures = 0;

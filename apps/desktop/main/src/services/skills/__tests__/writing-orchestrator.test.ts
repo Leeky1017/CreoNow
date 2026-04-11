@@ -412,6 +412,7 @@ describe("WritingOrchestrator", () => {
       });
       expect(autoCompact.maybeCompact).toHaveBeenCalledWith(
         expect.objectContaining({
+          requestModelId: "gpt-4o-mini",
           kgSnapshot: {
             entities: ["林远", "白塔"],
             relations: ["林远 -> 白塔: 守护"],
@@ -464,6 +465,7 @@ describe("WritingOrchestrator", () => {
 
       expect(autoCompact.maybeCompact).toHaveBeenCalledWith(
         expect.objectContaining({
+          requestModelId: "gpt-4o-mini",
           kgSnapshot: {
             entities: [],
             relations: [],
@@ -662,6 +664,11 @@ describe("WritingOrchestrator", () => {
 
       await collectEvents(orch.execute(makeRequest({ agenticLoop: true })));
 
+      expect(autoCompact.maybeCompact).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestModelId: "gpt-4o-mini",
+        }),
+      );
       expect(generateText).toHaveBeenCalledTimes(1);
       expect(generateText.mock.calls[0]?.[0]).toMatchObject({
         messages: [
