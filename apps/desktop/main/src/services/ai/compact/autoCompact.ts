@@ -28,6 +28,7 @@ export interface AutoCompactResult {
   error?: unknown;
   reason:
     | "below-threshold"
+    | "no-change"
     | "compacted"
     | "compact-failed"
     | "circuit-open";
@@ -139,18 +140,19 @@ export function createAutoCompact(args: {
         kgSnapshot: input.kgSnapshot,
         requestId: input.requestId ?? randomUUID(),
       });
-      consecutiveFailures = 0;
       const totalTokensAfter = estimateConversationTokens(compacted.compactedMessages);
       if (isSameMessages(compacted.compactedMessages, input.messages)) {
+        consecutiveFailures = 0;
         return {
           messages: input.messages,
           compacted: false,
           totalTokensBefore,
-          totalTokensAfter: totalTokensBefore,
+          totalTokensAfter,
           thresholdTokens,
-          reason: "below-threshold",
+          reason: "no-change",
         };
       }
+      consecutiveFailures = 0;
       return {
         messages: compacted.compactedMessages,
         compacted: true,

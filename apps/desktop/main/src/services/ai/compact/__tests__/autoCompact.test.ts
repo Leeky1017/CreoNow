@@ -69,6 +69,51 @@ describe("AutoCompact / NarrativeCompact", () => {
     expect(result.messages).toEqual(messages);
   });
 
+  it("returns no-change when threshold exceeded but compaction output is unchanged", async () => {
+    const messages: CompactMessage[] = [
+      { id: "sys", role: "system", content: "系统提示", compactable: false },
+      {
+        id: "pinned-1",
+        role: "assistant",
+        content: "角色设定：苏岚是守门人。".repeat(8),
+        compactable: false,
+      },
+      {
+        id: "pinned-2",
+        role: "user",
+        content: "未解伏笔：钟楼密室钥匙下落。".repeat(8),
+        compactable: false,
+      },
+    ];
+    const narrativeCompact = {
+      compact: vi.fn().mockResolvedValue({
+        compactedMessages: messages,
+      }),
+    };
+    const autoCompact = createAutoCompact({
+      config: {
+        triggerThresholdPercent: 0.5,
+        preserveRecentRounds: 2,
+        maxConsecutiveFailures: 3,
+        contextBudget: 80,
+        summaryMaxTokens: 200,
+      },
+      narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
+    });
+
+    const result = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-no-change",
+    });
+
+    expect(narrativeCompact.compact).toHaveBeenCalledTimes(1);
+    expect(result.compacted).toBe(false);
+    expect(result.reason).toBe("no-change");
+    expect(result.messages).toEqual(messages);
+  });
+
   it("above threshold triggers compaction and produces summary via skill pattern", async () => {
     const invokeSkillSummary = vi.fn().mockResolvedValue({
       summary: "## Narrative Summary\n林远调查白塔钟声。",

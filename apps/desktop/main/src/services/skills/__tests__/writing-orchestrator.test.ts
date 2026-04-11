@@ -617,6 +617,60 @@ describe("WritingOrchestrator", () => {
       expect(eventTypes(events)).toContain("ai-done");
       orch.dispose();
     });
+
+    it("agenticLoop 首轮 generateText 使用压缩后消息", async () => {
+      const generateText = vi.fn(async ({ emitChunk }) => {
+        emitChunk("完成", 2);
+        return {
+          fullText: "完成",
+          usage: {
+            promptTokens: 10,
+            completionTokens: 2,
+            totalTokens: 12,
+          },
+          finishReason: "stop" as const,
+        };
+      });
+      const autoCompact = {
+        maybeCompact: vi.fn().mockResolvedValue({
+          messages: [
+            {
+              id: "compact-system",
+              role: "system",
+              content: "你是小说写作助手。",
+              compactable: false,
+            },
+            {
+              id: "compact-user",
+              role: "user",
+              content: "这是压缩后的历史上下文。",
+            },
+          ],
+          totalTokensAfter: 12,
+        }),
+      };
+      const cfg = buildConfig({
+        generateText,
+        autoCompact,
+        prepareRequest: async () => ({
+          messages: [{ role: "user", content: "原始输入" }],
+          tokenCount: 256,
+          modelId: "gpt-4o-mini",
+        }),
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      await collectEvents(orch.execute(makeRequest({ agenticLoop: true })));
+
+      expect(generateText).toHaveBeenCalledTimes(1);
+      expect(generateText.mock.calls[0]?.[0]).toMatchObject({
+        messages: [
+          { role: "system", content: "你是小说写作助手。" },
+          { role: "user", content: "这是压缩后的历史上下文。" },
+        ],
+      });
+      orch.dispose();
+    });
   });
 
   // ── 中止链路 ──────────────────────────────────────────────────

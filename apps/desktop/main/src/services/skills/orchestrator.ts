@@ -559,6 +559,9 @@ export function createWritingOrchestrator(
                   onApiCallStarted: () => {
                     apiCallStarted = true;
                   },
+                  ...(request.agenticLoop === true
+                    ? { messages: preparedWithCompaction.messages }
+                    : {}),
                 })
                 .then(
                   (result) => {
