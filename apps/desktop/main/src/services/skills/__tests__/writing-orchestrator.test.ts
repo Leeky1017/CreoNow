@@ -25,6 +25,12 @@ import type {
   SessionCostSummary,
 } from "../../ai/costTracker";
 
+const DEFAULT_PROMPT_TOKENS = 10;
+const DEFAULT_COMPLETION_TOKENS = 6;
+const DEFAULT_TOTAL_TOKENS = DEFAULT_PROMPT_TOKENS + DEFAULT_COMPLETION_TOKENS;
+const STREAM_CACHED_TOKENS = 7;
+const GENERATE_CACHED_TOKENS = 9;
+
 // ─── helpers ────────────────────────────────────────────────────────
 
 /** Collect all events from an async generator */
@@ -304,10 +310,16 @@ describe("WritingOrchestrator", () => {
       const costEvent = events.find((event) => event.type === "cost-recorded");
 
       expect(tracker.recordUsage).toHaveBeenCalledWith(
-        { promptTokens: 10, completionTokens: 6, totalTokens: 16 },
+        {
+          promptTokens: DEFAULT_PROMPT_TOKENS,
+          completionTokens: DEFAULT_COMPLETION_TOKENS,
+          totalTokens: DEFAULT_TOTAL_TOKENS,
+          cachedTokens: 0,
+        },
         "default",
         "req-001",
         "polish",
+        0,
       );
       expect(costEvent).toMatchObject({
         type: "cost-recorded",
@@ -554,10 +566,11 @@ describe("WritingOrchestrator", () => {
 
       expect(eventTypes(events)).toContain("aborted");
       expect(tracker.recordUsage).toHaveBeenCalledWith(
-        { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+        { promptTokens: 10, completionTokens: 2, totalTokens: 12, cachedTokens: 0 },
         "default",
         "req-001",
         "polish",
+        0,
       );
       expect(aiService.abort).not.toHaveBeenCalled();
       orch.dispose();
@@ -1190,10 +1203,89 @@ describe("WritingOrchestrator", () => {
           .details?.partialContent,
       ).toBe("半截");
       expect(tracker.recordUsage).toHaveBeenCalledWith(
-        { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+        { promptTokens: 10, completionTokens: 2, totalTokens: 12, cachedTokens: 0 },
         "default",
         "req-001",
         "polish",
+        0,
+      );
+      orch.dispose();
+    });
+
+    it("generateText 返回 cachedTokens 时传给 costTracker", async () => {
+      const tracker = createMockCostTracker();
+      const cfg = buildConfig({
+        generateText: async ({ emitChunk, onApiCallStarted }) => {
+          onApiCallStarted?.();
+          emitChunk("缓存命中", 4);
+          return {
+            fullText: "缓存命中",
+            usage: {
+              promptTokens: 12,
+              completionTokens: 4,
+              totalTokens: 16,
+              cachedTokens: GENERATE_CACHED_TOKENS,
+            },
+            finishReason: "stop",
+          };
+        },
+        costTracker: tracker,
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      await collectEvents(
+        orch.execute(makeRequest({ requestId: "req-cached-001", agenticLoop: true })),
+      );
+
+      expect(tracker.recordUsage).toHaveBeenCalledWith(
+        {
+          promptTokens: 12,
+          completionTokens: 4,
+          totalTokens: 16,
+          cachedTokens: GENERATE_CACHED_TOKENS,
+        },
+        "default",
+        "req-cached-001",
+        "polish",
+        GENERATE_CACHED_TOKENS,
+      );
+      orch.dispose();
+    });
+
+    it("streamChat onComplete 返回 cachedTokens 时传给 costTracker", async () => {
+      const aiService = createMockAIService();
+      const tracker = createMockCostTracker();
+      aiService.streamChat.mockImplementation(
+        (_messages, options: { onApiCallStarted?: () => void; onComplete: (result: unknown) => void }) =>
+          (async function* () {
+            options.onApiCallStarted?.();
+            yield { delta: "缓存", finishReason: null, accumulatedTokens: 2 };
+            yield { delta: "命中", finishReason: "stop", accumulatedTokens: 4 };
+            options.onComplete({
+              usage: {
+                promptTokens: DEFAULT_PROMPT_TOKENS,
+                completionTokens: 4,
+                totalTokens: 14,
+                cachedTokens: STREAM_CACHED_TOKENS,
+              },
+            });
+          })(),
+      );
+      const orch = createWritingOrchestrator(buildConfig({ aiService, costTracker: tracker }));
+
+      await collectEvents(orch.execute(makeRequest({ requestId: "req-stream-cached-001" })));
+
+      expect(tracker.recordUsage).toHaveBeenCalledWith(
+        {
+          promptTokens: DEFAULT_PROMPT_TOKENS,
+          completionTokens: 4,
+          totalTokens: 14,
+          cachedTokens: STREAM_CACHED_TOKENS,
+        },
+        "default",
+        "req-stream-cached-001",
+        "polish",
+        STREAM_CACHED_TOKENS,
       );
       orch.dispose();
     });

@@ -8,6 +8,7 @@
  * 权限门禁、120s 权限超时、Post-Writing Hooks、任务状态机
  */
 
+import type { AiCompletionResult, AiTokenUsage } from "@shared/types/ai";
 import type { ToolRegistry } from "./toolRegistry";
 import type { StreamChunk, ToolCallInfo } from "../ai/streaming";
 import type { CostTracker } from "../ai/costTracker";
@@ -96,7 +97,7 @@ interface AIService {
     messages: Array<{ role: string; content: string }>,
     options: {
       signal: AbortSignal;
-      onComplete: (r: unknown) => void;
+      onComplete: (result: Partial<AiCompletionResult> & { usage?: Partial<AiTokenUsage> }) => void;
       onError: (e: unknown) => void;
       onApiCallStarted?: () => void;
       skillId?: string;
@@ -114,9 +115,11 @@ interface PreparedRequest {
   modelId: string;
 }
 
+type OrchestratorTokenUsage = AiTokenUsage;
+
 type GeneratedTextResult = {
   fullText: string;
-  usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  usage: OrchestratorTokenUsage;
   /** P2: finish reason from the AI */
   finishReason?: "stop" | "tool_use" | null;
   /** P2: tool calls requested by the AI */
@@ -168,7 +171,7 @@ export interface OrchestratorConfig {
     messages?: Array<{ role: string; content: string; toolCallId?: string }>;
   }) => Promise<{
     fullText: string;
-    usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+    usage: OrchestratorTokenUsage;
     /** P2: finish reason from the AI (null = streaming, stop = done, tool_use = wants tools) */
     finishReason?: "stop" | "tool_use" | null;
     /** P2: tool calls requested by the AI when finishReason === 'tool_use' */
@@ -343,14 +346,12 @@ export function createWritingOrchestrator(
 
         let totalPromptTokens = 0;
         let totalCompletionTokens = 0;
+        let totalCachedTokens = 0;
         const pendingCostEvents: WritingEvent[] = [];
-        const recordUsage = (usage: {
-          promptTokens: number;
-          completionTokens: number;
-          totalTokens: number;
-        }): void => {
+        const recordUsage = (usage: OrchestratorTokenUsage): void => {
           totalPromptTokens += usage.promptTokens;
           totalCompletionTokens += usage.completionTokens;
+          totalCachedTokens += Math.max(0, usage.cachedTokens ?? 0);
 
           if (!config.costTracker) {
             return;
@@ -361,6 +362,7 @@ export function createWritingOrchestrator(
             prepared.modelId,
             requestId,
             normalizeSkillId(request.skillId),
+            usage.cachedTokens,
           );
           const summary = config.costTracker.getSessionCost();
           const budgetAlert = config.costTracker.checkBudget() ?? undefined;
@@ -393,6 +395,7 @@ export function createWritingOrchestrator(
         let lastFinishReason: "stop" | "tool_use" | null = null;
         let lastToolCalls: ToolCallInfo[] = [];
         let lastPromptTokens = tokenCount;
+        let lastCachedTokens = 0;
         let apiCallStarted = false;
 
         while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
@@ -454,6 +457,7 @@ export function createWritingOrchestrator(
                       promptTokens: lastPromptTokens,
                       completionTokens: lastTokens,
                       totalTokens: lastPromptTokens + lastTokens,
+                      cachedTokens: lastCachedTokens,
                     });
                   }
                   taskStates.set(requestId, "killed");
@@ -494,6 +498,7 @@ export function createWritingOrchestrator(
               fullText = generatedResult.fullText;
               lastPromptTokens = generatedResult.usage.promptTokens;
               lastTokens = generatedResult.usage.completionTokens;
+              lastCachedTokens = generatedResult.usage.cachedTokens ?? 0;
               lastFinishReason = generatedResult.finishReason ?? null;
               lastToolCalls = generatedResult.toolCalls ?? [];
             } else if (hasStreamChat) {
@@ -502,7 +507,20 @@ export function createWritingOrchestrator(
                 prepared.messages,
                 {
                   signal: abortController.signal,
-                  onComplete: () => {},
+                  onComplete: (result) => {
+                    const completedUsage = result.usage;
+                    if (completedUsage) {
+                      if (typeof completedUsage.promptTokens === "number" && Number.isFinite(completedUsage.promptTokens)) {
+                        lastPromptTokens = Math.max(lastPromptTokens, Math.max(0, completedUsage.promptTokens));
+                      }
+                      if (typeof completedUsage.completionTokens === "number" && Number.isFinite(completedUsage.completionTokens)) {
+                        lastTokens = Math.max(lastTokens, Math.max(0, completedUsage.completionTokens));
+                      }
+                      if (typeof completedUsage.cachedTokens === "number" && Number.isFinite(completedUsage.cachedTokens)) {
+                        lastCachedTokens = Math.max(0, completedUsage.cachedTokens);
+                      }
+                    }
+                  },
                   onError: () => {},
                   onApiCallStarted: () => {
                     apiCallStarted = true;
@@ -520,6 +538,7 @@ export function createWritingOrchestrator(
                       promptTokens: lastPromptTokens,
                       completionTokens: lastTokens,
                       totalTokens: lastPromptTokens + lastTokens,
+                      cachedTokens: lastCachedTokens,
                     });
                   }
                   taskStates.set(requestId, "killed");
@@ -538,7 +557,6 @@ export function createWritingOrchestrator(
                 });
               }
               lastFinishReason = streamFinishReason;
-              lastPromptTokens = tokenCount;
             } else {
               throw new Error("No AI execution path available");
             }
@@ -557,6 +575,7 @@ export function createWritingOrchestrator(
                   promptTokens: lastPromptTokens,
                   completionTokens: lastTokens,
                   totalTokens: lastPromptTokens + lastTokens,
+                  cachedTokens: lastCachedTokens,
                 });
               }
               taskStates.set(requestId, "killed");
@@ -570,6 +589,7 @@ export function createWritingOrchestrator(
                   promptTokens: lastPromptTokens,
                   completionTokens: lastTokens,
                   totalTokens: lastPromptTokens + lastTokens,
+                  cachedTokens: lastCachedTokens,
                 });
               }
               const partialContent =
@@ -628,6 +648,7 @@ export function createWritingOrchestrator(
             promptTokens: lastPromptTokens,
             completionTokens: lastTokens,
             totalTokens: lastPromptTokens + lastTokens,
+            cachedTokens: lastCachedTokens,
           });
         }
 
@@ -784,6 +805,7 @@ export function createWritingOrchestrator(
             fullText = nextResult.fullText || roundFullText;
             lastPromptTokens = nextResult.usage.promptTokens;
             lastTokens = nextResult.usage.completionTokens;
+            lastCachedTokens = nextResult.usage.cachedTokens ?? 0;
             lastFinishReason = nextResult.finishReason ?? null;
             lastToolCalls = nextResult.toolCalls ?? [];
 
@@ -792,6 +814,7 @@ export function createWritingOrchestrator(
                 promptTokens: lastPromptTokens,
                 completionTokens: lastTokens,
                 totalTokens: lastPromptTokens + lastTokens,
+                cachedTokens: lastCachedTokens,
               });
             }
 
@@ -832,6 +855,7 @@ export function createWritingOrchestrator(
             promptTokens: totalPromptTokens,
             completionTokens: totalCompletionTokens,
             totalTokens: totalPromptTokens + totalCompletionTokens,
+            ...(totalCachedTokens > 0 ? { cachedTokens: totalCachedTokens } : {}),
           },
         });
         for (const costEvent of pendingCostEvents) {

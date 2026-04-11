@@ -12,6 +12,21 @@ export type SkillResultMetadata = {
   model: string;
   promptTokens: number;
   completionTokens: number;
+  cachedTokens?: number;
+};
+
+export type AiTokenUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cachedTokens?: number;
+};
+
+export type AiCompletionResult = {
+  content: string;
+  usage: AiTokenUsage;
+  wasRetried: boolean;
+  persistenceError?: unknown;
 };
 
 export type SkillResult = {

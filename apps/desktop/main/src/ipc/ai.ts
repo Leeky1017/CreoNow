@@ -11,6 +11,8 @@ import {
   SKILL_STREAM_DONE_CHANNEL,
   SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
+  type AiCompletionResult,
+  type AiTokenUsage,
 } from "@shared/types/ai";
 import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
@@ -136,6 +138,7 @@ function isBridgeUnsupportedProviderError(error: unknown): boolean {
 type SkillRunUsage = {
   promptTokens: number;
   completionTokens: number;
+  cachedTokens?: number;
   sessionTotalTokens: number;
   estimatedCostUsd?: number;
 };
@@ -277,6 +280,7 @@ const AI_CANDIDATE_COUNT_MAX = 5;
 type ModelPricing = {
   promptPer1kTokens: number;
   completionPer1kTokens: number;
+  cachedInputPricePer1kTokens?: number;
 };
 
 /**
@@ -718,6 +722,7 @@ function emitOrchestratorDone(args: {
           model: args.model,
           promptTokens: args.usage?.promptTokens ?? 0,
           completionTokens: args.usage?.completionTokens ?? 0,
+          cachedTokens: args.usage?.cachedTokens ?? 0,
         },
         traceId: args.traceId,
         ...(args.error ? { error: args.error } : {}),
@@ -808,19 +813,27 @@ function parseModelPricingMap(
       const record = value as Record<string, unknown>;
       const prompt = record.promptPer1kTokens;
       const completion = record.completionPer1kTokens;
+      const cachedInput = record.cachedInputPricePer1kTokens;
       if (
         typeof prompt !== "number" ||
         !Number.isFinite(prompt) ||
         prompt < 0 ||
         typeof completion !== "number" ||
         !Number.isFinite(completion) ||
-        completion < 0
+        completion < 0 ||
+        (cachedInput !== undefined &&
+          (typeof cachedInput !== "number" ||
+            !Number.isFinite(cachedInput) ||
+            cachedInput < 0))
       ) {
         continue;
       }
       map.set(model, {
         promptPer1kTokens: prompt,
         completionPer1kTokens: completion,
+        ...(typeof cachedInput === "number"
+          ? { cachedInputPricePer1kTokens: cachedInput }
+          : {}),
       });
     }
     return map;
@@ -997,6 +1010,7 @@ type PendingPreviewSession = {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
+    cachedTokens?: number;
   };
   usageSummary?: SkillRunUsage;
   completion: Promise<IpcResponse<SkillRunConfirmResponse>>;
@@ -1129,22 +1143,30 @@ function resolveUsageContextKey(context?: SkillRunPayload["context"]): string {
   return "global";
 }
 
-function buildSkillRunUsage(args: {
+export function buildSkillRunUsage(args: {
   modelPricingByModel: Map<string, ModelPricing>;
   model: string;
   promptTokens: number;
   completionTokens: number;
+  cachedTokens?: number;
   sessionTotalTokens: number;
 }): SkillRunUsage {
   const promptTokens = Math.max(0, args.promptTokens);
   const completionTokens = Math.max(0, args.completionTokens);
+  const cachedTokens = Math.min(
+    promptTokens,
+    Math.max(0, args.cachedTokens ?? 0),
+  );
+  const nonCachedPromptTokens = Math.max(0, promptTokens - cachedTokens);
   const pricing = args.modelPricingByModel.get(args.model.trim());
   const estimatedCostUsd =
     pricing === undefined
       ? undefined
       : Number(
           (
-            (promptTokens / 1000) * pricing.promptPer1kTokens +
+            (nonCachedPromptTokens / 1000) * pricing.promptPer1kTokens +
+            (cachedTokens / 1000) *
+              (pricing.cachedInputPricePer1kTokens ?? pricing.promptPer1kTokens) +
             (completionTokens / 1000) * pricing.completionPer1kTokens
           ).toFixed(6),
         );
@@ -1152,6 +1174,7 @@ function buildSkillRunUsage(args: {
   return {
     promptTokens,
     completionTokens,
+    ...(cachedTokens > 0 ? { cachedTokens } : {}),
     sessionTotalTokens: Math.max(0, args.sessionTotalTokens),
     ...(typeof estimatedCostUsd === "number" ? { estimatedCostUsd } : {}),
   };
@@ -1164,6 +1187,7 @@ function recordSkillRunUsage(
     context?: SkillRunPayload["context"];
     promptTokens: number;
     completionTokens: number;
+    cachedTokens?: number;
   },
 ): SkillRunUsage {
   const key = resolveUsageContextKey(args.context);
@@ -1177,6 +1201,7 @@ function recordSkillRunUsage(
     model: args.model,
     promptTokens: args.promptTokens,
     completionTokens: args.completionTokens,
+    cachedTokens: args.cachedTokens,
     sessionTotalTokens: nextTotal,
   });
 }
@@ -1484,7 +1509,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           messages: Array<{ role: string; content: string }>,
           options: {
             signal: AbortSignal;
-            onComplete: (r: unknown) => void;
+            onComplete: (result: {
+              usage?: Partial<AiTokenUsage>;
+            } & Partial<AiCompletionResult>) => void;
             onError: (e: unknown) => void;
             onApiCallStarted?: () => void;
             skillId?: string;
@@ -1565,6 +1592,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
                 promptTokens: 0,
                 completionTokens,
                 totalTokens: completionTokens,
+                cachedTokens: 0,
               },
               wasRetried: false,
             });
@@ -1608,7 +1636,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           messages: Array<{ role: string; content: string }>,
           options: {
             signal: AbortSignal;
-            onComplete: (r: unknown) => void;
+            onComplete: (result: {
+              usage?: Partial<AiTokenUsage>;
+            } & Partial<AiCompletionResult>) => void;
             onError: (e: unknown) => void;
             onApiCallStarted?: () => void;
             skillId?: string;
@@ -1731,7 +1761,12 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       messages,
     }) => {
       let outputText = "";
-      let usage = {
+      let usage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+        cachedTokens?: number;
+      } = {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
@@ -1759,7 +1794,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         terminal: string;
         error?: { message?: string; code?: string };
         result?: {
-          metadata: { promptTokens: number; completionTokens: number };
+          metadata: {
+            promptTokens: number;
+            completionTokens: number;
+            cachedTokens?: number;
+          };
         };
         finishReason?: "stop" | "tool_use";
         toolCalls?: Array<{
@@ -1787,6 +1826,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               estimateTokens(resolveWritingRequestInput(request))) +
             (event.result?.metadata.completionTokens ??
               estimateTokens(event.outputText)),
+          cachedTokens: event.result?.metadata.cachedTokens ?? 0,
         };
         // F1: capture finishReason and toolCalls from the done event
         if (event.finishReason !== undefined) {
@@ -1984,6 +2024,7 @@ async function drainPreviewUntilPause(args: {
         promptTokens: number;
         completionTokens: number;
         totalTokens: number;
+        cachedTokens?: number;
       }
     | undefined;
   let versionId: string | undefined;
@@ -1997,6 +2038,7 @@ async function drainPreviewUntilPause(args: {
             context: args.payload.context,
             promptTokens: usage.promptTokens,
             completionTokens: usage.completionTokens,
+            cachedTokens: usage.cachedTokens,
           })
         : undefined;
       emitOrchestratorDone({
@@ -2048,6 +2090,7 @@ async function drainPreviewUntilPause(args: {
         promptTokens: number;
         completionTokens: number;
         totalTokens: number;
+        cachedTokens?: number;
       };
       continue;
     }
@@ -2059,9 +2102,10 @@ async function drainPreviewUntilPause(args: {
             context: args.payload.context,
             promptTokens: usage.promptTokens,
             completionTokens: usage.completionTokens,
+            cachedTokens: usage.cachedTokens,
           })
         : undefined;
-      const session = {
+      const session: PendingPreviewSession = {
         executionId: args.executionId,
         runId: args.runId,
         traceId: args.traceId,
@@ -2071,7 +2115,14 @@ async function drainPreviewUntilPause(args: {
         outputText,
         usage,
         usageSummary,
-      } as PendingPreviewSession;
+        completion: Promise.resolve({
+          ok: false,
+          error: {
+            code: "INTERNAL",
+            message: "AI skill confirmation pending initialization",
+          },
+        }),
+      };
       session.completion = Promise.resolve()
         .then(() =>
           continuePreviewSession({
@@ -2197,6 +2248,7 @@ async function continuePreviewSession(args: {
               context: args.session.payload.context,
               promptTokens: args.session.usage.promptTokens,
               completionTokens: args.session.usage.completionTokens,
+              cachedTokens: args.session.usage.cachedTokens,
             })
           : undefined);
       emitOrchestratorDone({

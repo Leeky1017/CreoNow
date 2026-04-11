@@ -5,6 +5,11 @@ import { createApiClient } from "../apiClient";
 import { createCostTracker, type ModelPricingTable } from "../costTracker";
 import type { Logger } from "../../../logging/logger";
 
+const ALIAS_PROMPT_TOKENS = 120;
+const ALIAS_COMPLETION_TOKENS = 30;
+const ALIAS_CACHE_READ_TOKENS = 18;
+const OPENAI_CACHE_TOKENS = 7;
+
 function createLogger(): Logger {
   return {
     logPath: "<test>",
@@ -146,6 +151,7 @@ describe("apiClient", () => {
     expect(result.data.content).toBe("hello world");
     expect(result.data.usage.promptTokens).toBe(100);
     expect(result.data.usage.completionTokens).toBe(40);
+    expect(result.data.usage.cachedTokens).toBe(20);
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(calledUrl).toBe("https://api.openai.com/v1/chat/completions");
 
@@ -153,6 +159,232 @@ describe("apiClient", () => {
     expect(row).not.toBeNull();
     expect(row?.model).toBe("gpt-4o");
     expect(row?.estimatedCostUsd).toBeGreaterThan(0);
+  });
+
+  it("maps anthropic/local usage aliases to cachedTokens", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "alias ok" } }],
+          usage: {
+            input_tokens: ALIAS_PROMPT_TOKENS,
+            output_tokens: ALIAS_COMPLETION_TOKENS,
+            cache_read_input_tokens: ALIAS_CACHE_READ_TOKENS,
+            cache_creation_input_tokens: 2,
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 1_000,
+    });
+
+    const result = await client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        maxTokens: 512,
+        temperature: 0.2,
+      },
+      messages: [{ role: "user", content: "Say hello" }],
+      requestId: "req-alias-usage-1",
+      skillId: "builtin:continue",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected request success");
+    }
+    expect(result.data.usage).toMatchObject({
+      promptTokens: ALIAS_PROMPT_TOKENS,
+      completionTokens: ALIAS_COMPLETION_TOKENS,
+      cachedTokens: ALIAS_CACHE_READ_TOKENS,
+    });
+  });
+
+  it("prefers explicit prompt_tokens=0 over input_tokens fallback", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "zero prompt" } }],
+          usage: {
+            prompt_tokens: 0,
+            input_tokens: 10,
+            completion_tokens: 2,
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 1_000,
+    });
+
+    const result = await client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        maxTokens: 512,
+        temperature: 0.2,
+      },
+      messages: [{ role: "user", content: "Say hello" }],
+      requestId: "req-usage-zero",
+      skillId: "builtin:continue",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected request success");
+    }
+    expect(result.data.usage.promptTokens).toBe(0);
+  });
+
+  it("uses max cache-hit value for mixed provider payload", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "mixed cache fields" } }],
+          usage: {
+            prompt_tokens: 8,
+            completion_tokens: 3,
+            cached_tokens: OPENAI_CACHE_TOKENS,
+            cache_read_input_tokens: ALIAS_CACHE_READ_TOKENS,
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 1_000,
+    });
+
+    const result = await client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        maxTokens: 512,
+        temperature: 0.2,
+      },
+      messages: [{ role: "user", content: "Say hello" }],
+      requestId: "req-mixed-cache",
+      skillId: "builtin:continue",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected request success");
+    }
+    expect(result.data.usage.cachedTokens).toBe(ALIAS_CACHE_READ_TOKENS);
+  });
+
+  it("normalizes non-finite usage values to zero", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "non-finite usage" } }],
+          usage: {
+            prompt_tokens: Number.POSITIVE_INFINITY,
+            completion_tokens: Number.NaN,
+            cache_read_input_tokens: Number.NEGATIVE_INFINITY,
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 1_000,
+    });
+
+    const result = await client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        maxTokens: 512,
+        temperature: 0.2,
+      },
+      messages: [{ role: "user", content: "Say hello" }],
+      requestId: "req-non-finite-usage",
+      skillId: "builtin:continue",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected request success");
+    }
+    expect(result.data.usage).toMatchObject({
+      promptTokens: 0,
+      completionTokens: 0,
+      cachedTokens: 0,
+    });
   });
 
   it("parses SSE stream chunks and records cost", async () => {

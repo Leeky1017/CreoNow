@@ -78,6 +78,11 @@ type OpenAiUsagePayload = {
   prompt_tokens?: unknown;
   completion_tokens?: unknown;
   cached_tokens?: unknown;
+  input_tokens?: unknown;
+  output_tokens?: unknown;
+  cachedTokens?: unknown;
+  cache_read_input_tokens?: unknown;
+  cache_creation_input_tokens?: unknown;
 };
 
 const MAX_FETCH_RETRIES = 3;
@@ -91,9 +96,13 @@ function asObject(value: unknown): JsonObject | null {
 }
 
 function toNonNegativeInt(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? Math.floor(value)
     : 0;
+}
+
+function hasValue<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined;
 }
 
 function parseUsage(raw: unknown): CompletionUsage {
@@ -101,10 +110,22 @@ function parseUsage(raw: unknown): CompletionUsage {
   if (!row) {
     return { promptTokens: 0, completionTokens: 0, cachedTokens: 0 };
   }
+  const promptTokens = hasValue(row.prompt_tokens)
+    ? toNonNegativeInt(row.prompt_tokens)
+    : toNonNegativeInt(row.input_tokens);
+  const completionTokens = hasValue(row.completion_tokens)
+    ? toNonNegativeInt(row.completion_tokens)
+    : toNonNegativeInt(row.output_tokens);
+  const openAiCached = hasValue(row.cached_tokens)
+    ? toNonNegativeInt(row.cached_tokens)
+    : toNonNegativeInt(row.cachedTokens);
+  const anthropicCached = toNonNegativeInt(row.cache_read_input_tokens);
   return {
-    promptTokens: toNonNegativeInt(row.prompt_tokens),
-    completionTokens: toNonNegativeInt(row.completion_tokens),
-    cachedTokens: toNonNegativeInt(row.cached_tokens),
+    promptTokens,
+    completionTokens,
+    // Keep `max` for mixed payload compatibility: some gateways expose both
+    // OpenAI-style and Anthropic-style cache-hit fields in the same response.
+    cachedTokens: Math.max(openAiCached, anthropicCached),
   };
 }
 
