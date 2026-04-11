@@ -45,7 +45,8 @@ describe("AutoCompact / NarrativeCompact", () => {
     };
     const autoCompact = createAutoCompact({
       config: {
-        triggerThresholdPercent: 0.85,
+        minTokenThreshold: 500,
+        triggerThresholdPercent: 0.87,
         preserveRecentRounds: 3,
         maxConsecutiveFailures: 3,
         contextBudget: 20_000,
@@ -92,6 +93,7 @@ describe("AutoCompact / NarrativeCompact", () => {
     };
     const autoCompact = createAutoCompact({
       config: {
+        minTokenThreshold: 10,
         triggerThresholdPercent: 0.5,
         preserveRecentRounds: 2,
         maxConsecutiveFailures: 3,
@@ -137,6 +139,7 @@ describe("AutoCompact / NarrativeCompact", () => {
     };
     const autoCompact = createAutoCompact({
       config: {
+        minTokenThreshold: 10,
         triggerThresholdPercent: 0.2,
         preserveRecentRounds: 2,
         maxConsecutiveFailures: 3,
@@ -177,7 +180,8 @@ describe("AutoCompact / NarrativeCompact", () => {
     });
     const autoCompact = createAutoCompact({
       config: {
-        triggerThresholdPercent: 0.85,
+        minTokenThreshold: 500,
+        triggerThresholdPercent: 0.87,
         preserveRecentRounds: 2,
         maxConsecutiveFailures: 3,
         contextBudget: 120,
@@ -200,6 +204,8 @@ describe("AutoCompact / NarrativeCompact", () => {
       expect.objectContaining({
         skillId: "builtin:summarize",
         modelId: "gpt-4o-mini",
+        summaryMaxTokens: 300,
+        input: expect.stringContaining("请将摘要控制在约 300 tokens 以内。"),
       }),
     );
   });
@@ -372,6 +378,8 @@ describe("AutoCompact / NarrativeCompact", () => {
       },
     });
     expect(config.contextBudget).toBe(1_000_000);
+    expect(config.minTokenThreshold).toBe(500);
+    expect(config.triggerThresholdPercent).toBe(0.87);
   });
 
   it("falls back when configured model is unknown", () => {
@@ -423,7 +431,8 @@ describe("AutoCompact / NarrativeCompact", () => {
     });
     const autoCompact = createAutoCompact({
       config: {
-        triggerThresholdPercent: 0.85,
+        minTokenThreshold: 500,
+        triggerThresholdPercent: 0.87,
         preserveRecentRounds: 1,
         maxConsecutiveFailures: 3,
         contextBudget: 100,
@@ -458,17 +467,19 @@ describe("AutoCompact / NarrativeCompact", () => {
     };
     const autoCompact = createAutoCompact({
       config: {
-        triggerThresholdPercent: 0.85,
+        minTokenThreshold: 500,
+        triggerThresholdPercent: 0.87,
         preserveRecentRounds: 2,
         maxConsecutiveFailures: 3,
-        contextBudget: 1_000_000,
+        contextBudget: 10_000,
         summaryMaxTokens: 200,
       },
       narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
     });
     const messages: CompactMessage[] = [
       { id: "sys", role: "system", content: "系统提示", compactable: false },
-      { id: "u1", role: "user", content: "长".repeat(80_000) },
+      { id: "u1", role: "user", content: "长".repeat(5_000) },
+      { id: "a1", role: "assistant", content: "长".repeat(5_000) },
     ];
 
     const result = await autoCompact.maybeCompact({
@@ -479,7 +490,7 @@ describe("AutoCompact / NarrativeCompact", () => {
       requestId: "req-small-window",
     });
 
-    expect(result.thresholdTokens).toBe(108_800);
+    expect(result.thresholdTokens).toBe(8_700);
     expect(result.reason).toBe("compacted");
     expect(result.compacted).toBe(true);
     expect(narrativeCompact.compact).toHaveBeenCalledTimes(1);
@@ -499,7 +510,8 @@ describe("AutoCompact / NarrativeCompact", () => {
     const getConfig = vi
       .fn()
       .mockReturnValueOnce({
-        triggerThresholdPercent: 0.85,
+        minTokenThreshold: 500,
+        triggerThresholdPercent: 0.87,
         preserveRecentRounds: 1,
         maxConsecutiveFailures: 3,
         contextBudget: 100,
@@ -507,7 +519,8 @@ describe("AutoCompact / NarrativeCompact", () => {
         auxiliaryModel: "gpt-4o-mini",
       })
       .mockReturnValueOnce({
-        triggerThresholdPercent: 0.85,
+        minTokenThreshold: 500,
+        triggerThresholdPercent: 0.87,
         preserveRecentRounds: 1,
         maxConsecutiveFailures: 3,
         contextBudget: 1_000_000,
@@ -534,5 +547,36 @@ describe("AutoCompact / NarrativeCompact", () => {
     expect(second.reason).toBe("below-threshold");
     expect(getConfig).toHaveBeenCalledTimes(2);
     expect(narrativeCompact.compact).toHaveBeenCalledTimes(1);
+  });
+  it("does not trigger when below minimum absolute token threshold", async () => {
+    const narrativeCompact = {
+      compact: vi.fn(),
+    };
+    const autoCompact = createAutoCompact({
+      config: {
+        minTokenThreshold: 500,
+        triggerThresholdPercent: 0.2,
+        preserveRecentRounds: 2,
+        maxConsecutiveFailures: 3,
+        contextBudget: 100,
+        summaryMaxTokens: 200,
+      },
+      narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
+    });
+    const messages: CompactMessage[] = [
+      { id: "u1", role: "user", content: "长".repeat(30) },
+      { id: "a1", role: "assistant", content: "答".repeat(30) },
+    ];
+
+    const result = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-min-token-threshold",
+    });
+
+    expect(result.compacted).toBe(false);
+    expect(result.reason).toBe("below-threshold");
+    expect(narrativeCompact.compact).not.toHaveBeenCalled();
   });
 });

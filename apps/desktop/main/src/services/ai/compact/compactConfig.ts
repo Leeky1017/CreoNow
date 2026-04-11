@@ -43,6 +43,7 @@ export function resolveKnownContextWindow(modelId: string): number | null {
 }
 
 export interface CompactConfig {
+  minTokenThreshold: number;
   triggerThresholdPercent: number;
   preserveRecentRounds: number;
   maxConsecutiveFailures: number;
@@ -52,6 +53,7 @@ export interface CompactConfig {
 }
 
 export interface CompactConfigOverrides {
+  minTokenThreshold?: number;
   triggerThresholdPercent?: number;
   preserveRecentRounds?: number;
   maxConsecutiveFailures?: number;
@@ -83,7 +85,8 @@ export function createCompactConfig(args: {
   const resolvedBudget = resolveContextBudgetFromModelConfig(args.modelConfig);
 
   return {
-    triggerThresholdPercent: overrides.triggerThresholdPercent ?? 0.85,
+    minTokenThreshold: overrides.minTokenThreshold ?? 500,
+    triggerThresholdPercent: overrides.triggerThresholdPercent ?? 0.87,
     preserveRecentRounds: overrides.preserveRecentRounds ?? 3,
     maxConsecutiveFailures: overrides.maxConsecutiveFailures ?? 3,
     contextBudget: overrides.contextBudget ?? resolvedBudget,

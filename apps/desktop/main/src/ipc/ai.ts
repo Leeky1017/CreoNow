@@ -1582,7 +1582,10 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         });
 
         const narrativeCompact = createNarrativeCompact({
-          invokeSkillSummary: async ({ skillId, modelId, input }) => {
+          invokeSkillSummary: async (request) => {
+            const { skillId, modelId, input } = request;
+            // summaryMaxTokens is enforced in narrativeCompact prompt instructions
+            // because runSkill does not expose an output maxTokens parameter.
             const result = await aiService.runSkill({
               skillId,
               input,

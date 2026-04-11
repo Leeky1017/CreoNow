@@ -110,6 +110,7 @@ function splitConversationByRecentRounds(
 function buildNarrativeCompactPrompt(args: {
   historyMessages: ReadonlyArray<CompactMessage>;
   kgSnapshot: NarrativeKnowledgeSnapshot;
+  summaryMaxTokens: number;
 }): string {
   const historyText = toMessageText(args.historyMessages);
 
@@ -131,6 +132,7 @@ function buildNarrativeCompactPrompt(args: {
     "- preserved settings",
     "## Unresolved Plot Points",
     "- unresolved points",
+    `请将摘要控制在约 ${args.summaryMaxTokens} tokens 以内。`,
     "",
     `[KG_ENTITIES] ${args.kgSnapshot.entities.join(" | ")}`,
     `[KG_RELATIONS] ${args.kgSnapshot.relations.join(" | ")}`,
@@ -245,6 +247,7 @@ export function createNarrativeCompact(deps: NarrativeCompactDeps): {
     const prompt = buildNarrativeCompactPrompt({
       historyMessages: compactableHistoryMessages,
       kgSnapshot: request.kgSnapshot,
+      summaryMaxTokens: request.summaryMaxTokens,
     });
     const skillResult = await deps.invokeSkillSummary({
       skillId: NARRATIVE_COMPACT_SKILL_ID,

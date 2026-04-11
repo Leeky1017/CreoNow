@@ -117,6 +117,17 @@ export function createAutoCompact(args: {
       contextBudget * config.triggerThresholdPercent,
     );
 
+    if (totalTokensBefore < config.minTokenThreshold) {
+      return {
+        messages: input.messages,
+        compacted: false,
+        totalTokensBefore,
+        totalTokensAfter: totalTokensBefore,
+        thresholdTokens,
+        reason: "below-threshold",
+      };
+    }
+
     if (totalTokensBefore < thresholdTokens) {
       return {
         messages: input.messages,
