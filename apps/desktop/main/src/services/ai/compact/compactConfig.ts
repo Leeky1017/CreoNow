@@ -9,6 +9,38 @@
 import type { ResolvedModelConfig } from "../modelConfig";
 
 const FALLBACK_CONTEXT_BUDGET = 128_000;
+const MODEL_CONTEXT_WINDOWS: Readonly<Record<string, number>> = {
+  "gpt-4o": 128_000,
+  "gpt-4o-mini": 128_000,
+  "gpt-4.1": 1_000_000,
+  "gpt-4.1-mini": 1_000_000,
+  "gpt-4.1-nano": 1_000_000,
+  "claude-3-5-sonnet": 200_000,
+  "claude-3-7-sonnet": 200_000,
+  "claude-sonnet-4": 200_000,
+  "claude-sonnet-4.5": 200_000,
+  "claude-sonnet-4.6": 200_000,
+  "claude-opus-4.5": 200_000,
+  "claude-opus-4.6": 200_000,
+  "gemini-1.5-pro": 1_000_000,
+  "gemini-1.5-flash": 1_000_000,
+  "gemini-2.0-flash": 1_000_000,
+};
+
+function resolveKnownContextWindow(modelId: string): number | null {
+  const normalized = modelId.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  for (const [knownModelId, windowSize] of Object.entries(MODEL_CONTEXT_WINDOWS)) {
+    if (normalized === knownModelId || normalized.startsWith(`${knownModelId}-`)) {
+      return windowSize;
+    }
+  }
+
+  return null;
+}
 
 export interface CompactConfig {
   triggerThresholdPercent: number;
@@ -27,11 +59,18 @@ export interface CompactConfigOverrides {
 }
 
 export function resolveContextBudgetFromModelConfig(
-  _modelConfig: ResolvedModelConfig,
+  modelConfig: ResolvedModelConfig,
 ): number {
-  // Why: current model config only resolves model ids. Until runtime provides
-  // per-model context windows, we keep a conservative default and allow caller
-  // overrides for explicit budgets.
+  const primaryBudget = resolveKnownContextWindow(modelConfig.primaryModel);
+  if (primaryBudget !== null) {
+    return primaryBudget;
+  }
+
+  const auxiliaryBudget = resolveKnownContextWindow(modelConfig.auxiliaryModel);
+  if (auxiliaryBudget !== null) {
+    return auxiliaryBudget;
+  }
+
   return FALLBACK_CONTEXT_BUDGET;
 }
 

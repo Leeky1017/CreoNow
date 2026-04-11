@@ -66,7 +66,7 @@ export interface NarrativeCompactResult {
   preservedMessages: CompactMessage[];
 }
 
-const NARRATIVE_COMPACT_SKILL_ID = "builtin:narrative-compact-summary";
+const NARRATIVE_COMPACT_SKILL_ID = "builtin:summarize";
 const NARRATIVE_COMPACT_SKILL_USAGE_ID = "builtin:narrative-compact";
 
 function toMessageText(messages: readonly CompactMessage[]): string {

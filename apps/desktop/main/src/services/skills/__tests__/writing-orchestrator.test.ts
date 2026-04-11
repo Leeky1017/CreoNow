@@ -364,6 +364,48 @@ describe("WritingOrchestrator", () => {
       });
     });
 
+    it("在 AI 调用前执行 AutoCompact 并使用压缩后消息", async () => {
+      const aiService = createMockAIService();
+      const autoCompact = {
+        maybeCompact: vi.fn().mockResolvedValue({
+          messages: [
+            {
+              id: "compact-0",
+              role: "user",
+              content: "这是压缩后的用户输入",
+            },
+          ],
+          totalTokensAfter: 42,
+        }),
+      };
+      orchestrator = createWritingOrchestrator(
+        buildConfig({
+          aiService,
+          autoCompact,
+          prepareRequest: async () => ({
+            messages: [{ role: "user", content: "原始输入" }],
+            tokenCount: 500,
+            modelId: "gpt-4o-mini",
+          }),
+        }),
+      );
+
+      const events = await collectEvents(orchestrator.execute(makeRequest()));
+      const assembled = events.find((event) => event.type === "context-assembled");
+      expect(assembled).toMatchObject({
+        type: "context-assembled",
+        tokenCount: 42,
+      });
+      expect(autoCompact.maybeCompact).toHaveBeenCalledTimes(1);
+      const streamMessages = aiService.streamChat.mock.calls[0]?.[0];
+      expect(streamMessages).toEqual([
+        {
+          role: "user",
+          content: "这是压缩后的用户输入",
+        },
+      ]);
+    });
+
     it("写回前先创建 pre-write 快照，再执行 documentWrite", async () => {
       await collectEvents(orchestrator.execute(makeRequest()));
 

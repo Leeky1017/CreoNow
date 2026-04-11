@@ -133,6 +133,22 @@ interface PreparedRequest {
 
 type OrchestratorTokenUsage = AiTokenUsage;
 
+type AutoCompactMessageRole = "system" | "user" | "assistant" | "tool";
+
+type AutoCompactMessage = {
+  id: string;
+  role: AutoCompactMessageRole;
+  content: string;
+  compactable?: boolean;
+};
+
+type AutoCompactSnapshot = {
+  entities: string[];
+  relations: string[];
+  characterSettings: string[];
+  unresolvedPlotPoints: string[];
+};
+
 type GeneratedTextResult = {
   fullText: string;
   usage: OrchestratorTokenUsage;
@@ -193,6 +209,17 @@ export interface OrchestratorConfig {
     /** P2: tool calls requested by the AI when finishReason === 'tool_use' */
     toolCalls?: ToolCallInfo[];
   }>;
+  autoCompact?: {
+    maybeCompact: (args: {
+      messages: AutoCompactMessage[];
+      auxiliaryModel: string;
+      kgSnapshot: AutoCompactSnapshot;
+      requestId?: string;
+    }) => Promise<{ messages: AutoCompactMessage[]; totalTokensAfter: number }>;
+  };
+  logger?: {
+    warn: (event: string, data?: Record<string, unknown>) => void;
+  };
 }
 
 export interface WritingOrchestrator {
@@ -269,6 +296,33 @@ export function createWritingOrchestrator(
     return { original, modified: fullText, changeType: "replace" };
   }
 
+  function normalizeAutoCompactRole(role: string): AutoCompactMessageRole {
+    if (role === "system" || role === "assistant" || role === "tool") {
+      return role;
+    }
+    return "user";
+  }
+
+  function convertMessagesForAutoCompact(
+    messages: Array<{ role: string; content: string }>,
+  ): AutoCompactMessage[] {
+    return messages.map((message, index) => ({
+      id: `prepared-${index}`,
+      role: normalizeAutoCompactRole(message.role),
+      content: message.content,
+      compactable: message.role === "system" ? false : undefined,
+    }));
+  }
+
+  function convertMessagesFromAutoCompact(
+    messages: AutoCompactMessage[],
+  ): Array<{ role: string; content: string }> {
+    return messages.map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
+  }
+
   return {
     execute(request: WritingRequest): AsyncGenerator<WritingEvent> {
       const { requestId } = request;
@@ -331,7 +385,37 @@ export function createWritingOrchestrator(
               tokenCount: config.aiService.estimateTokens(request.input.selectedText ?? ""),
               modelId: request.modelId ?? "default",
             };
-        const tokenCount = prepared.tokenCount;
+        const autoCompact = config.autoCompact;
+        const preparedWithCompaction = autoCompact
+          ? await (async (): Promise<PreparedRequest> => {
+              try {
+                const compactResult = await autoCompact.maybeCompact({
+                  messages: convertMessagesForAutoCompact(prepared.messages),
+                  auxiliaryModel: prepared.modelId,
+                  kgSnapshot: {
+                    entities: [],
+                    relations: [],
+                    characterSettings: [],
+                    unresolvedPlotPoints: [],
+                  },
+                  requestId,
+                });
+                return {
+                  ...prepared,
+                  messages: convertMessagesFromAutoCompact(compactResult.messages),
+                  tokenCount: compactResult.totalTokensAfter,
+                };
+              } catch (error) {
+                config.logger?.warn("orchestrator_auto_compact_degraded", {
+                  requestId,
+                  error:
+                    error instanceof Error ? error.message : String(error),
+                });
+                return prepared;
+              }
+            })()
+          : prepared;
+        const tokenCount = preparedWithCompaction.tokenCount;
         yield makeEvent("context-assembled", requestId, { tokenCount });
 
         if (abortController.signal.aborted) {
@@ -341,7 +425,9 @@ export function createWritingOrchestrator(
         }
 
         // Stage 3: model-selected
-        yield makeEvent("model-selected", requestId, { modelId: prepared.modelId });
+        yield makeEvent("model-selected", requestId, {
+          modelId: preparedWithCompaction.modelId,
+        });
 
         if (abortController.signal.aborted) {
           taskStates.set(requestId, "killed");
@@ -375,7 +461,7 @@ export function createWritingOrchestrator(
 
           const requestCost = config.costTracker.recordUsage(
             usage,
-            prepared.modelId,
+            preparedWithCompaction.modelId,
             requestId,
             normalizeSkillId(request.skillId),
             usage.cachedTokens,
@@ -520,7 +606,7 @@ export function createWritingOrchestrator(
             } else if (hasStreamChat) {
               let streamFinishReason: "stop" | "tool_use" | null = null;
               const gen = config.aiService.streamChat(
-                prepared.messages,
+                preparedWithCompaction.messages,
                 {
                   signal: abortController.signal,
                   onComplete: (result) => {
@@ -725,7 +811,7 @@ export function createWritingOrchestrator(
 
             // Inject tool results into message history
             const baseMsgs = (agenticMessages ??
-              prepared.messages) as AgenticMessage[];
+              preparedWithCompaction.messages) as AgenticMessage[];
             // Append assistant message (partial AI text before tool_use) then tool results
             const msgsWithAssistant: AgenticMessage[] = [
               ...(baseMsgs.map((m) => ({

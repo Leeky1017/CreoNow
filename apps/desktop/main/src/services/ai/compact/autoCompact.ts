@@ -25,6 +25,7 @@ export interface AutoCompactResult {
   totalTokensBefore: number;
   totalTokensAfter: number;
   thresholdTokens: number;
+  error?: unknown;
   reason:
     | "below-threshold"
     | "compacted"
@@ -54,6 +55,9 @@ export function estimateConversationTokens(
 export function createAutoCompact(args: {
   config: CompactConfig;
   narrativeCompact: NarrativeCompactService;
+  logger?: {
+    warn: (event: string, data?: Record<string, unknown>) => void;
+  };
 }): AutoCompactService {
   let consecutiveFailures = 0;
 
@@ -109,14 +113,21 @@ export function createAutoCompact(args: {
         thresholdTokens,
         reason: "compacted",
       };
-    } catch {
+    } catch (error) {
       consecutiveFailures += 1;
+      args.logger?.warn("auto_compact_failed", {
+        reason: "narrative_compact_error",
+        consecutiveFailures,
+        maxConsecutiveFailures: args.config.maxConsecutiveFailures,
+        error,
+      });
       return {
         messages: input.messages,
         compacted: false,
         totalTokensBefore,
         totalTokensAfter: totalTokensBefore,
         thresholdTokens,
+        error,
         reason: "compact-failed",
       };
     }

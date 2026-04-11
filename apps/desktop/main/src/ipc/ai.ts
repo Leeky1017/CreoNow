@@ -18,6 +18,7 @@ import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
 import { createAiService } from "../services/ai/aiService";
 import { createAiServiceBridge } from "../services/ai/aiServiceBridge";
+import { createModelConfigService } from "../services/ai/modelConfig";
 import { createSqliteTraceStore } from "../services/ai/traceStore";
 import { resolveRuntimeGovernanceFromEnv } from "../config/runtimeGovernance";
 import {
@@ -74,6 +75,11 @@ import { createDocumentCoreService } from "../services/documents/documentCoreSer
 import { createVersionWorkflowService } from "../services/documents/versionService";
 import { editorSchema } from "../services/editor/prosemirrorSchema";
 import type { CostTracker } from "../services/ai/costTracker";
+import {
+  createAutoCompact,
+  createCompactConfig,
+  createNarrativeCompact,
+} from "../services/ai/compact";
 
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
@@ -1509,6 +1515,63 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
     }
   }
+
+  const autoCompactService =
+    deps.db !== null &&
+    typeof (deps.db as { prepare?: unknown }).prepare === "function"
+    ? (() => {
+        const modelConfigService = createModelConfigService({
+          db: deps.db,
+          logger: deps.logger,
+        });
+        const resolvedModelConfig = modelConfigService.resolve();
+        if (!resolvedModelConfig.ok) {
+          deps.logger.info("auto_compact_disabled_model_config", {
+            reason: resolvedModelConfig.error.message,
+          });
+          return undefined;
+        }
+
+        const narrativeCompact = createNarrativeCompact({
+          invokeSkillSummary: async ({ skillId, modelId, input }) => {
+            const result = await aiService.runSkill({
+              skillId,
+              input,
+              mode: "ask",
+              model: modelId,
+              stream: false,
+              ts: nowTs(),
+              emitEvent: () => {},
+            });
+
+            if (!result.ok) {
+              const error = Object.assign(new Error(result.error.message), {
+                code: result.error.code,
+                ...(result.error.details === undefined
+                  ? {}
+                  : { details: result.error.details }),
+              });
+              throw error;
+            }
+
+            return {
+              summary: result.data.outputText ?? "",
+            };
+          },
+          ...(deps.costTracker ? { costTracker: deps.costTracker } : {}),
+        });
+
+        return createAutoCompact({
+          config: createCompactConfig({
+            modelConfig: resolvedModelConfig.data,
+          }),
+          narrativeCompact,
+          logger: {
+            warn: (event, data) => deps.logger.info(event, data),
+          },
+        });
+      })()
+    : undefined;
   const writingOrchestrator = createWritingOrchestrator({
     aiService: (() => {
       const legacyActiveAbortControllers = new Set<AbortController>();
@@ -1713,6 +1776,10 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     ],
     defaultTimeoutMs: 30_000,
     costTracker: deps.costTracker,
+    autoCompact: autoCompactService,
+    logger: {
+      warn: (event, data) => deps.logger.info(event, data),
+    },
     prepareRequest: async (request) => {
       const prepared = await prepareWritingRequest({
         ctx: {

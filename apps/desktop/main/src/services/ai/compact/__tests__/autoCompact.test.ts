@@ -100,7 +100,7 @@ describe("AutoCompact / NarrativeCompact", () => {
     expect(result.messages.some((m) => m.id.startsWith("compact-summary-"))).toBe(true);
     expect(invokeSkillSummary).toHaveBeenCalledWith(
       expect.objectContaining({
-        skillId: "builtin:narrative-compact-summary",
+        skillId: "builtin:summarize",
         modelId: "gpt-4o-mini",
       }),
     );
@@ -222,9 +222,11 @@ describe("AutoCompact / NarrativeCompact", () => {
     const narrativeCompact = createNarrativeCompact({
       invokeSkillSummary: vi.fn().mockRejectedValue(new Error("llm unavailable")),
     });
+    const warn = vi.fn();
     const autoCompact = createAutoCompact({
       config,
       narrativeCompact,
+      logger: { warn },
     });
     const messages = makeMessages();
 
@@ -254,5 +256,65 @@ describe("AutoCompact / NarrativeCompact", () => {
     expect(third.reason).toBe("compact-failed");
     expect(fourth.reason).toBe("circuit-open");
     expect(fourth.messages).toEqual(messages);
+    expect(first.error).toBeInstanceOf(Error);
+    expect(warn).toHaveBeenCalledWith(
+      "auto_compact_failed",
+      expect.objectContaining({
+        reason: "narrative_compact_error",
+      }),
+    );
+  });
+
+  it("uses model context window from configured model id", () => {
+    const config = createCompactConfig({
+      modelConfig: {
+        primaryModel: "gpt-4.1-mini",
+        auxiliaryModel: "gpt-4o-mini",
+        sharedModel: false,
+      },
+    });
+    expect(config.contextBudget).toBe(1_000_000);
+  });
+
+  it("falls back when configured model is unknown", () => {
+    const config = createCompactConfig({
+      modelConfig: {
+        primaryModel: "unknown-model",
+        auxiliaryModel: "also-unknown-model",
+        sharedModel: false,
+      },
+    });
+    expect(config.contextBudget).toBe(128_000);
+  });
+
+  it("returns fallback summary when no history message is compactable", async () => {
+    const invokeSkillSummary = vi.fn().mockResolvedValue({
+      summary: "不应被调用",
+    });
+    const narrativeCompact = createNarrativeCompact({
+      invokeSkillSummary,
+    });
+    const messages: CompactMessage[] = [
+      { id: "sys", role: "system", content: "系统提示", compactable: false },
+      { id: "pinned-history", role: "assistant", content: "角色设定：苏岚", compactable: false },
+      { id: "u-recent", role: "user", content: "最近一轮用户消息", compactable: false },
+      { id: "a-recent", role: "assistant", content: "最近一轮助手消息", compactable: false },
+    ];
+
+    const result = await narrativeCompact.compact({
+      messages,
+      preserveRecentRounds: 1,
+      summaryMaxTokens: 200,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-no-compactable",
+    });
+
+    expect(result.summaryMessage.content).toBe("无需压缩：历史中没有可压缩内容。");
+    expect(invokeSkillSummary).not.toHaveBeenCalled();
+    const ids = result.compactedMessages.map((message) => message.id);
+    expect(ids).toContain("pinned-history");
+    expect(ids).toContain("u-recent");
+    expect(ids).toContain("a-recent");
   });
 });
