@@ -1,0 +1,258 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  createAutoCompact,
+  estimateConversationTokens,
+} from "../autoCompact";
+import { createCompactConfig } from "../compactConfig";
+import {
+  createNarrativeCompact,
+  type CompactMessage,
+  type NarrativeKnowledgeSnapshot,
+} from "../narrativeCompact";
+
+function makeMessages(): CompactMessage[] {
+  return [
+    { id: "sys", role: "system", content: "你是小说写作助手。", compactable: false },
+    { id: "u1", role: "user", content: "第一轮提问：描写白塔城。".repeat(8) },
+    { id: "a1", role: "assistant", content: "第一轮回答：白塔城终年雾海。".repeat(8) },
+    {
+      id: "pinned",
+      role: "assistant",
+      content: "角色设定：林远是白塔守护者。",
+      compactable: false,
+    },
+    { id: "u2", role: "user", content: "第二轮提问：补充冲突。".repeat(8) },
+    { id: "a2", role: "assistant", content: "第二轮回答：冲突升级。".repeat(8) },
+    { id: "u3", role: "user", content: "第三轮提问：推进伏笔。".repeat(8) },
+    { id: "a3", role: "assistant", content: "第三轮回答：伏笔尚未揭晓。".repeat(8) },
+  ];
+}
+
+function makeKg(): NarrativeKnowledgeSnapshot {
+  return {
+    entities: ["林远", "白塔"],
+    relations: ["林远->白塔守护者"],
+    characterSettings: ["林远寡言谨慎"],
+    unresolvedPlotPoints: ["白塔钟声来源未揭示"],
+  };
+}
+
+describe("AutoCompact / NarrativeCompact", () => {
+  it("below threshold does not trigger compaction", async () => {
+    const narrativeCompact = {
+      compact: vi.fn(),
+    };
+    const autoCompact = createAutoCompact({
+      config: {
+        triggerThresholdPercent: 0.85,
+        preserveRecentRounds: 3,
+        maxConsecutiveFailures: 3,
+        contextBudget: 20_000,
+        summaryMaxTokens: 400,
+      },
+      narrativeCompact,
+    });
+    const messages = [
+      { id: "u1", role: "user", content: "你好" },
+    ] satisfies CompactMessage[];
+
+    const result = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+
+    expect(result.compacted).toBe(false);
+    expect(result.reason).toBe("below-threshold");
+    expect(narrativeCompact.compact).not.toHaveBeenCalled();
+    expect(result.messages).toEqual(messages);
+  });
+
+  it("above threshold triggers compaction and produces summary via skill pattern", async () => {
+    const invokeSkillSummary = vi.fn().mockResolvedValue({
+      summary: "## Narrative Summary\n林远调查白塔钟声。",
+      usage: { promptTokens: 120, completionTokens: 40 },
+    });
+    const narrativeCompact = createNarrativeCompact({
+      invokeSkillSummary,
+    });
+    const autoCompact = createAutoCompact({
+      config: {
+        triggerThresholdPercent: 0.85,
+        preserveRecentRounds: 2,
+        maxConsecutiveFailures: 3,
+        contextBudget: 120,
+        summaryMaxTokens: 300,
+      },
+      narrativeCompact,
+    });
+
+    const result = await autoCompact.maybeCompact({
+      messages: makeMessages(),
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-compact-1",
+    });
+
+    expect(result.compacted).toBe(true);
+    expect(result.reason).toBe("compacted");
+    expect(result.messages.some((m) => m.id.startsWith("compact-summary-"))).toBe(true);
+    expect(invokeSkillSummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skillId: "builtin:narrative-compact-summary",
+        modelId: "gpt-4o-mini",
+      }),
+    );
+  });
+
+  it("preserves compactable:false messages", async () => {
+    const narrativeCompact = createNarrativeCompact({
+      invokeSkillSummary: vi.fn().mockResolvedValue({
+        summary: "压缩摘要。",
+      }),
+    });
+
+    const result = await narrativeCompact.compact({
+      messages: makeMessages(),
+      preserveRecentRounds: 1,
+      summaryMaxTokens: 200,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-pinned",
+    });
+
+    const ids = result.compactedMessages.map((message) => message.id);
+    expect(ids).toContain("pinned");
+  });
+
+  it("uses CJK-aware token estimation accuracy", () => {
+    const tokens = estimateConversationTokens([
+      { id: "cjk", role: "user", content: "你好世界" },
+    ]);
+    expect(tokens).toBe(6);
+  });
+
+  it("records compaction call cost", async () => {
+    const recordUsage = vi.fn();
+    const narrativeCompact = createNarrativeCompact({
+      invokeSkillSummary: vi.fn().mockResolvedValue({
+        summary: "## Narrative Summary\n完成压缩。",
+        usage: { promptTokens: 88, completionTokens: 22 },
+      }),
+      costTracker: {
+        recordUsage,
+      },
+    });
+
+    await narrativeCompact.compact({
+      messages: makeMessages(),
+      preserveRecentRounds: 1,
+      summaryMaxTokens: 200,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-cost",
+    });
+
+    expect(recordUsage).toHaveBeenCalledWith(
+      { promptTokens: 88, completionTokens: 22 },
+      "gpt-4o-mini",
+      "req-cost",
+      "builtin:narrative-compact",
+    );
+  });
+
+  it("preserves KG entities and relations in summary", async () => {
+    const narrativeCompact = createNarrativeCompact({
+      invokeSkillSummary: vi.fn().mockResolvedValue({
+        summary: "## Narrative Summary\n林远继续调查。",
+      }),
+    });
+
+    const result = await narrativeCompact.compact({
+      messages: makeMessages(),
+      preserveRecentRounds: 1,
+      summaryMaxTokens: 200,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-kg",
+    });
+
+    expect(result.summaryMessage.content).toContain("林远");
+    expect(result.summaryMessage.content).toContain("林远->白塔守护者");
+    expect(result.summaryMessage.content).toContain("白塔钟声来源未揭示");
+  });
+
+  it("preserves recent N rounds", async () => {
+    const narrativeCompact = createNarrativeCompact({
+      invokeSkillSummary: vi.fn().mockResolvedValue({
+        summary: "## Narrative Summary\n历史已压缩。",
+      }),
+    });
+
+    const result = await narrativeCompact.compact({
+      messages: makeMessages(),
+      preserveRecentRounds: 2,
+      summaryMaxTokens: 200,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-rounds",
+    });
+
+    const ids = result.compactedMessages.map((message) => message.id);
+    expect(ids).toContain("u2");
+    expect(ids).toContain("a2");
+    expect(ids).toContain("u3");
+    expect(ids).toContain("a3");
+  });
+
+  it("returns original messages when compaction fails and trips circuit breaker", async () => {
+    const config = createCompactConfig({
+      modelConfig: {
+        primaryModel: "gpt-4o",
+        auxiliaryModel: "gpt-4o-mini",
+        sharedModel: false,
+      },
+      overrides: {
+        contextBudget: 100,
+        summaryMaxTokens: 120,
+        preserveRecentRounds: 1,
+      },
+    });
+    const narrativeCompact = createNarrativeCompact({
+      invokeSkillSummary: vi.fn().mockRejectedValue(new Error("llm unavailable")),
+    });
+    const autoCompact = createAutoCompact({
+      config,
+      narrativeCompact,
+    });
+    const messages = makeMessages();
+
+    const first = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+    const second = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+    const third = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+    const fourth = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+
+    expect(first.reason).toBe("compact-failed");
+    expect(second.reason).toBe("compact-failed");
+    expect(third.reason).toBe("compact-failed");
+    expect(fourth.reason).toBe("circuit-open");
+    expect(fourth.messages).toEqual(messages);
+  });
+});
