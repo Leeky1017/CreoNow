@@ -970,7 +970,7 @@ export function createWritingOrchestrator(
         // This is the ONLY enforcement point for permission policy.
         // The IPC layer resolves the raw permission level from the skill
         // manifest but does NOT override or enforce it — that is our job.
-        // auto-allow is intentionally unreachable for write-back operations.
+        // auto-allow is intentionally escalated to preview-confirm for write-back operations.
         const evalResult = config.permissionGate.evaluate
           ? await config.permissionGate.evaluate(request)
           : { level: "preview-confirm", granted: false };

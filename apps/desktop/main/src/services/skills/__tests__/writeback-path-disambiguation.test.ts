@@ -401,7 +401,7 @@ describe("Write-back Path Disambiguation (Issue #109)", () => {
       orchestrator = createWritingOrchestrator(config);
 
       const events = await collectEvents(
-        orchestrator.execute(makeRequest({ level: "auto-allow" as never })),
+        orchestrator.execute(makeRequest({ level: "auto-allow" })),
       );
       const permEvent = events.find(
         (e) => e.type === "permission-requested",
@@ -409,7 +409,7 @@ describe("Write-back Path Disambiguation (Issue #109)", () => {
 
       // The orchestrator should have escalated auto-allow → preview-confirm
       expect(permEvent).toBeDefined();
-      expect(permEvent!.level).not.toBe("auto-allow");
+      expect(permEvent!.level).toBe("preview-confirm");
     });
   });
 
