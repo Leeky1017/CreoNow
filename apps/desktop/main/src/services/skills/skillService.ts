@@ -212,9 +212,13 @@ function requireCustomScope(scope: string): ServiceResult<CustomSkillScope> {
   return validationError("scope", "scope 必须为 global 或 project");
 }
 
-function parseContextRulesJson(raw: string): Record<string, unknown> {
+function parseContextRulesJson(args: {
+  raw: string;
+  logger: Logger;
+  skillId: string;
+}): Record<string, unknown> {
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(args.raw);
     if (
       typeof parsed === "object" &&
       parsed !== null &&
@@ -223,7 +227,11 @@ function parseContextRulesJson(raw: string): Record<string, unknown> {
       return parsed as Record<string, unknown>;
     }
     return {};
-  } catch {
+  } catch (error) {
+    args.logger.error("custom_skill_context_rules_parse_failed", {
+      skillId: args.skillId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return {};
   }
 }
@@ -244,14 +252,22 @@ function customPromptSystem(args: {
   return lines.join("\n");
 }
 
-function toCustomSkillRecord(row: CustomSkillDbRow): CustomSkillRecord {
+function toCustomSkillRecord(args: {
+  row: CustomSkillDbRow;
+  logger: Logger;
+}): CustomSkillRecord {
+  const row = args.row;
   return {
     id: row.id,
     name: row.name,
     description: row.description,
     promptTemplate: row.promptTemplate,
     inputType: row.inputType,
-    contextRules: parseContextRulesJson(row.contextRules),
+    contextRules: parseContextRulesJson({
+      raw: row.contextRules,
+      logger: args.logger,
+      skillId: row.id,
+    }),
     scope: row.scope,
     enabled: row.enabled === 1,
     createdAt: row.createdAt,
@@ -372,7 +388,9 @@ function readCustomSkills(args: {
 
     return {
       ok: true,
-      data: rows.map((row) => toCustomSkillRecord(row)),
+      data: rows.map((row) =>
+        toCustomSkillRecord({ row, logger: args.logger }),
+      ),
     };
   } catch (error) {
     return ipcError(

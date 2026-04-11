@@ -1491,6 +1491,7 @@ function createAiStreamHelpers(
                     },
                   ];
                 } catch {
+                  // Partial tool-call chunks may contain incomplete JSON; keep call trace with null arguments.
                   return [
                     {
                       id: value.id,

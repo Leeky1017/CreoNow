@@ -31,6 +31,7 @@ function tryParseUrl(targetUrl: string): URL | null {
   try {
     return new URL(targetUrl);
   } catch {
+    // Treat malformed URL as blocked target to keep navigation policy fail-closed.
     return null;
   }
 }

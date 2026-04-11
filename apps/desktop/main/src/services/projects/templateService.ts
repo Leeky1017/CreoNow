@@ -57,6 +57,7 @@ function isDirectory(candidate: string): boolean {
   try {
     return fs.statSync(candidate).isDirectory();
   } catch {
+    // Resolve flow probes multiple candidates; inaccessible path means "not a directory".
     return false;
   }
 }

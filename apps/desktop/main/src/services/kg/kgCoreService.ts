@@ -297,9 +297,12 @@ function validateAndNormalizeAttributes(args: {
   return { ok: true, data: normalized };
 }
 
-function parseAttributes(attributesJson: string): Record<string, string> {
+function parseAttributes(args: {
+  attributesJson: string;
+  logger: Logger;
+}): Record<string, string> {
   try {
-    const parsed = JSON.parse(attributesJson) as unknown;
+    const parsed = JSON.parse(args.attributesJson) as unknown;
     if (!isRecord(parsed)) {
       return {};
     }
@@ -311,20 +314,26 @@ function parseAttributes(attributesJson: string): Record<string, string> {
       }
     }
     return normalized;
-  } catch {
+  } catch (error) {
+    args.logger.error("kg_entity_attributes_parse_failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
     return {};
   }
 }
 
-function parseAliases(aliasesJson: string): string[] {
+function parseAliases(args: { aliasesJson: string; logger: Logger }): string[] {
   try {
-    const parsed = JSON.parse(aliasesJson) as unknown;
+    const parsed = JSON.parse(args.aliasesJson) as unknown;
     const normalized = ALIASES_SCHEMA.safeParse(parsed);
     if (!normalized.success) {
       return [];
     }
     return normalized.data;
-  } catch {
+  } catch (error) {
+    args.logger.error("kg_entity_aliases_parse_failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 }
@@ -400,10 +409,13 @@ function rowToEntity(row: EntityRow): KnowledgeEntity {
     type: row.type,
     name: row.name,
     description: row.description,
-    attributes: parseAttributes(row.attributesJson),
+    attributes: parseAttributes({
+      attributesJson: row.attributesJson,
+      logger: args.logger,
+    }),
     lastSeenState: row.lastSeenState ?? undefined,
     aiContextLevel: normalizedAiContextLevel,
-    aliases: parseAliases(row.aliasesJson),
+    aliases: parseAliases({ aliasesJson: row.aliasesJson, logger: args.logger }),
     version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
