@@ -337,6 +337,7 @@ function readEnabledMap(
 function readCustomSkills(args: {
   db: Database.Database;
   currentProjectId: string | null;
+  logger: Logger;
 }): ServiceResult<CustomSkillRecord[]> {
   try {
     let rows: CustomSkillDbRow[];
@@ -405,10 +406,12 @@ function readCustomSkillById(args: {
   db: Database.Database;
   currentProjectId: string | null;
   id: string;
+  logger: Logger;
 }): ServiceResult<CustomSkillRecord | null> {
   const listed = readCustomSkills({
     db: args.db,
     currentProjectId: args.currentProjectId,
+    logger: args.logger,
   });
   if (!listed.ok) {
     return listed;
@@ -956,6 +959,7 @@ function executeSkillToggle(
     db: ctx.db,
     currentProjectId: loaded.data.currentProjectId,
     id: normalizedCustomId,
+    logger: ctx.logger,
   });
   if (!custom.ok) {
     return custom;
@@ -1153,6 +1157,7 @@ async function executeUpdateCustom(
     db: ctx.db,
     currentProjectId: loaded.data.currentProjectId,
     id: customId,
+    logger: ctx.logger,
   });
   if (!custom.ok) {
     return custom;
@@ -1384,6 +1389,7 @@ function executeResolveForRun(
     db: ctx.db,
     currentProjectId: loaded.data.currentProjectId,
     id: customId,
+    logger: ctx.logger,
   });
   if (!custom.ok) {
     return custom;
@@ -1627,6 +1633,7 @@ export function createSkillService(deps: {
       const customSkills = readCustomSkills({
         db: deps.db,
         currentProjectId: loaded.data.currentProjectId,
+        logger: deps.logger,
       });
       if (!customSkills.ok) {
         return customSkills;
@@ -1697,6 +1704,7 @@ export function createSkillService(deps: {
         db: deps.db,
         currentProjectId: loaded.data.currentProjectId,
         id: normalizedId,
+        logger: deps.logger,
       });
       if (!custom.ok) {
         return custom;
@@ -1729,6 +1737,7 @@ export function createSkillService(deps: {
       const listed = readCustomSkills({
         db: deps.db,
         currentProjectId: loaded.data.currentProjectId,
+        logger: deps.logger,
       });
       if (!listed.ok) {
         return listed;
@@ -1756,6 +1765,7 @@ export function createSkillService(deps: {
           db: deps.db,
           currentProjectId: loaded.data.currentProjectId,
           id: normalizeCustomSkillId(trimmed),
+          logger: deps.logger,
         });
         if (!custom.ok) {
           return custom;

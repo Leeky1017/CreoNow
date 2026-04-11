@@ -299,7 +299,7 @@ function validateAndNormalizeAttributes(args: {
 
 function parseAttributes(args: {
   attributesJson: string;
-  logger: Logger;
+  logger?: Logger;
 }): Record<string, string> {
   try {
     const parsed = JSON.parse(args.attributesJson) as unknown;
@@ -315,14 +315,20 @@ function parseAttributes(args: {
     }
     return normalized;
   } catch (error) {
-    args.logger.error("kg_entity_attributes_parse_failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+    if (args.logger) {
+      args.logger.error("kg_entity_attributes_parse_failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } else {
+      console.error("kg_entity_attributes_parse_failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     return {};
   }
 }
 
-function parseAliases(args: { aliasesJson: string; logger: Logger }): string[] {
+function parseAliases(args: { aliasesJson: string; logger?: Logger }): string[] {
   try {
     const parsed = JSON.parse(args.aliasesJson) as unknown;
     const normalized = ALIASES_SCHEMA.safeParse(parsed);
@@ -331,9 +337,15 @@ function parseAliases(args: { aliasesJson: string; logger: Logger }): string[] {
     }
     return normalized.data;
   } catch (error) {
-    args.logger.error("kg_entity_aliases_parse_failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+    if (args.logger) {
+      args.logger.error("kg_entity_aliases_parse_failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } else {
+      console.error("kg_entity_aliases_parse_failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     return [];
   }
 }
@@ -411,11 +423,10 @@ function rowToEntity(row: EntityRow): KnowledgeEntity {
     description: row.description,
     attributes: parseAttributes({
       attributesJson: row.attributesJson,
-      logger: args.logger,
     }),
     lastSeenState: row.lastSeenState ?? undefined,
     aiContextLevel: normalizedAiContextLevel,
-    aliases: parseAliases({ aliasesJson: row.aliasesJson, logger: args.logger }),
+    aliases: parseAliases({ aliasesJson: row.aliasesJson }),
     version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
