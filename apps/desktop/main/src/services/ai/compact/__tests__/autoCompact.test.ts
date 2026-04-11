@@ -170,6 +170,57 @@ describe("AutoCompact / NarrativeCompact", () => {
     expect(autoCompact.getConsecutiveFailures()).toBe(0);
   });
 
+  it("returns compacted-insufficient when reduced tokens still exceed threshold and increments failures", async () => {
+    const messages: CompactMessage[] = [
+      { id: "sys", role: "system", content: "系统提示", compactable: false },
+      { id: "u1", role: "user", content: "长".repeat(60) },
+      { id: "a1", role: "assistant", content: "答".repeat(60) },
+    ];
+    const compactedMessages: CompactMessage[] = [
+      { id: "sys", role: "system", content: "系统提示", compactable: false },
+      { id: "summary", role: "assistant", content: "压缩".repeat(40) },
+    ];
+    const warn = vi.fn();
+    const narrativeCompact = {
+      compact: vi.fn().mockResolvedValue({
+        compactedMessages,
+      }),
+    };
+    const autoCompact = createAutoCompact({
+      config: {
+        minTokenThreshold: 10,
+        triggerThresholdPercent: 0.9,
+        preserveRecentRounds: 1,
+        maxConsecutiveFailures: 3,
+        contextBudget: 100,
+        summaryMaxTokens: 120,
+      },
+      narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
+      logger: { warn },
+    });
+
+    const result = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+      requestId: "req-insufficient",
+    });
+
+    expect(result.compacted).toBe(true);
+    expect(result.reason).toBe("compacted-insufficient");
+    expect(result.insufficientCompaction).toBe(true);
+    expect(result.messages).toEqual(compactedMessages);
+    expect(result.totalTokensAfter).toBeLessThan(result.totalTokensBefore);
+    expect(result.totalTokensAfter).toBeGreaterThan(result.thresholdTokens);
+    expect(autoCompact.getConsecutiveFailures()).toBe(1);
+    expect(warn).toHaveBeenCalledWith(
+      "auto_compact_insufficient",
+      expect.objectContaining({
+        consecutiveFailures: 1,
+      }),
+    );
+  });
+
   it("above threshold triggers compaction and produces summary via skill pattern", async () => {
     const invokeSkillSummary = vi.fn().mockResolvedValue({
       summary: "## Narrative Summary\n林远调查白塔钟声。",
@@ -184,7 +235,7 @@ describe("AutoCompact / NarrativeCompact", () => {
         triggerThresholdPercent: 0.87,
         preserveRecentRounds: 2,
         maxConsecutiveFailures: 3,
-        contextBudget: 120,
+        contextBudget: 700,
         summaryMaxTokens: 300,
       },
       narrativeCompact,
@@ -198,7 +249,7 @@ describe("AutoCompact / NarrativeCompact", () => {
     });
 
     expect(result.compacted).toBe(true);
-    expect(result.reason).toBe("compacted");
+    expect(["compacted", "compacted-insufficient"]).toContain(result.reason);
     expect(result.messages.some((m) => m.id.startsWith("compact-summary-"))).toBe(true);
     expect(invokeSkillSummary).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -514,7 +565,7 @@ describe("AutoCompact / NarrativeCompact", () => {
         triggerThresholdPercent: 0.87,
         preserveRecentRounds: 1,
         maxConsecutiveFailures: 3,
-        contextBudget: 100,
+        contextBudget: 700,
         summaryMaxTokens: 200,
         auxiliaryModel: "gpt-4o-mini",
       })

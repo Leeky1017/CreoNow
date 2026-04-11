@@ -26,11 +26,13 @@ export interface AutoCompactResult {
   totalTokensBefore: number;
   totalTokensAfter: number;
   thresholdTokens: number;
+  insufficientCompaction?: boolean;
   error?: unknown;
   reason:
     | "below-threshold"
     | "no-change"
     | "expansion-rejected"
+    | "compacted-insufficient"
     | "compacted"
     | "compact-failed"
     | "circuit-open";
@@ -183,6 +185,26 @@ export function createAutoCompact(args: {
           totalTokensAfter,
           thresholdTokens,
           reason: "expansion-rejected",
+        };
+      }
+      if (totalTokensAfter > thresholdTokens) {
+        // Spec circuit-breaker rule: compaction that still exceeds target budget counts as one failure.
+        consecutiveFailures += 1;
+        args.logger?.warn("auto_compact_insufficient", {
+          totalTokensBefore,
+          totalTokensAfter,
+          thresholdTokens,
+          consecutiveFailures,
+          maxConsecutiveFailures: config.maxConsecutiveFailures,
+        });
+        return {
+          messages: compacted.compactedMessages,
+          compacted: true,
+          totalTokensBefore,
+          totalTokensAfter,
+          thresholdTokens,
+          insufficientCompaction: true,
+          reason: "compacted-insufficient",
         };
       }
       consecutiveFailures = 0;

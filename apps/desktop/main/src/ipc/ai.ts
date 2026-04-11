@@ -1908,7 +1908,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
 
       const entityResult = kgServiceForContext.entityList({
         projectId,
-        limit: 500,
+        limit: 500, // Snapshot safety cap: most novel projects stay well below 500 entities; bounds prompt size for AutoCompact context.
         offset: 0,
       });
       if (!entityResult.ok) {
@@ -1916,7 +1916,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
       const relationResult = kgServiceForContext.relationList({
         projectId,
-        limit: 500,
+        limit: 500, // Snapshot safety cap mirrors entity limit to avoid oversized relation payloads in compaction prompts.
         offset: 0,
       });
       if (!relationResult.ok) {

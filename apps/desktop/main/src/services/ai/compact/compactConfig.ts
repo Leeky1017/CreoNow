@@ -85,12 +85,12 @@ export function createCompactConfig(args: {
   const resolvedBudget = resolveContextBudgetFromModelConfig(args.modelConfig);
 
   return {
-    minTokenThreshold: overrides.minTokenThreshold ?? 500,
-    triggerThresholdPercent: overrides.triggerThresholdPercent ?? 0.87,
-    preserveRecentRounds: overrides.preserveRecentRounds ?? 3,
-    maxConsecutiveFailures: overrides.maxConsecutiveFailures ?? 3,
+    minTokenThreshold: overrides.minTokenThreshold ?? 500, // Spec P2 shouldCompress floor: do not compact below 500 absolute tokens.
+    triggerThresholdPercent: overrides.triggerThresholdPercent ?? 0.87, // Spec P2 trigger ratio: start compaction at 87% of context budget.
+    preserveRecentRounds: overrides.preserveRecentRounds ?? 3, // Narrative safety default: keep ~3 recent rounds to preserve immediate writing intent.
+    maxConsecutiveFailures: overrides.maxConsecutiveFailures ?? 3, // Spec circuit breaker: open after 3 consecutive compaction failures.
     contextBudget: overrides.contextBudget ?? resolvedBudget,
-    summaryMaxTokens: overrides.summaryMaxTokens ?? 1_500,
+    summaryMaxTokens: overrides.summaryMaxTokens ?? 1_500, // Summary cap default: ~3-4 short narrative paragraphs without over-expanding context.
     auxiliaryModel: args.modelConfig.auxiliaryModel.trim() || undefined,
   };
 }
