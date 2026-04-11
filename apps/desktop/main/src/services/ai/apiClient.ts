@@ -101,7 +101,7 @@ function toNonNegativeInt(value: unknown): number {
     : 0;
 }
 
-function hasValue(value: unknown): value is number {
+function hasValue<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined;
 }
 

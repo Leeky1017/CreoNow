@@ -1143,7 +1143,7 @@ function resolveUsageContextKey(context?: SkillRunPayload["context"]): string {
   return "global";
 }
 
-function buildSkillRunUsage(args: {
+export function buildSkillRunUsage(args: {
   modelPricingByModel: Map<string, ModelPricing>;
   model: string;
   promptTokens: number;
@@ -1153,7 +1153,10 @@ function buildSkillRunUsage(args: {
 }): SkillRunUsage {
   const promptTokens = Math.max(0, args.promptTokens);
   const completionTokens = Math.max(0, args.completionTokens);
-  const cachedTokens = Math.max(0, args.cachedTokens ?? 0);
+  const cachedTokens = Math.min(
+    promptTokens,
+    Math.max(0, args.cachedTokens ?? 0),
+  );
   const nonCachedPromptTokens = Math.max(0, promptTokens - cachedTokens);
   const pricing = args.modelPricingByModel.get(args.model.trim());
   const estimatedCostUsd =
