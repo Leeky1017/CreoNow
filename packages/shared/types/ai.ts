@@ -12,6 +12,7 @@ export type SkillResultMetadata = {
   model: string;
   promptTokens: number;
   completionTokens: number;
+  cachedTokens?: number;
 };
 
 export type SkillResult = {

@@ -1484,7 +1484,14 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           messages: Array<{ role: string; content: string }>,
           options: {
             signal: AbortSignal;
-            onComplete: (r: unknown) => void;
+            onComplete: (result: {
+              usage?: {
+                promptTokens?: number;
+                completionTokens?: number;
+                totalTokens?: number;
+                cachedTokens?: number;
+              };
+            }) => void;
             onError: (e: unknown) => void;
             onApiCallStarted?: () => void;
             skillId?: string;
@@ -1565,6 +1572,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
                 promptTokens: 0,
                 completionTokens,
                 totalTokens: completionTokens,
+                cachedTokens: 0,
               },
               wasRetried: false,
             });
@@ -1608,7 +1616,14 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           messages: Array<{ role: string; content: string }>,
           options: {
             signal: AbortSignal;
-            onComplete: (r: unknown) => void;
+            onComplete: (result: {
+              usage?: {
+                promptTokens?: number;
+                completionTokens?: number;
+                totalTokens?: number;
+                cachedTokens?: number;
+              };
+            }) => void;
             onError: (e: unknown) => void;
             onApiCallStarted?: () => void;
             skillId?: string;
@@ -1759,7 +1774,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         terminal: string;
         error?: { message?: string; code?: string };
         result?: {
-          metadata: { promptTokens: number; completionTokens: number };
+          metadata: {
+            promptTokens: number;
+            completionTokens: number;
+            cachedTokens?: number;
+          };
         };
         finishReason?: "stop" | "tool_use";
         toolCalls?: Array<{
@@ -1787,6 +1806,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               estimateTokens(resolveWritingRequestInput(request))) +
             (event.result?.metadata.completionTokens ??
               estimateTokens(event.outputText)),
+          cachedTokens: event.result?.metadata.cachedTokens ?? 0,
         };
         // F1: capture finishReason and toolCalls from the done event
         if (event.finishReason !== undefined) {

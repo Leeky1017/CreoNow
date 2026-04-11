@@ -146,6 +146,7 @@ describe("apiClient", () => {
     expect(result.data.content).toBe("hello world");
     expect(result.data.usage.promptTokens).toBe(100);
     expect(result.data.usage.completionTokens).toBe(40);
+    expect(result.data.usage.cachedTokens).toBe(20);
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(calledUrl).toBe("https://api.openai.com/v1/chat/completions");
 
@@ -153,6 +154,65 @@ describe("apiClient", () => {
     expect(row).not.toBeNull();
     expect(row?.model).toBe("gpt-4o");
     expect(row?.estimatedCostUsd).toBeGreaterThan(0);
+  });
+
+  it("maps anthropic/local usage aliases to cachedTokens", async () => {
+    const db = createDb();
+    const tracker = createCostTracker({
+      pricingTable: createPricingTable(),
+      budgetPolicy: {
+        warningThreshold: 10,
+        hardStopLimit: 100,
+        enabled: false,
+      },
+      estimateTokens: () => 0,
+    });
+
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "alias ok" } }],
+          usage: {
+            input_tokens: 120,
+            output_tokens: 30,
+            cache_read_input_tokens: 18,
+            cache_creation_input_tokens: 2,
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const client = createApiClient({
+      db,
+      costTracker: tracker,
+      logger: createLogger(),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => 1_000,
+    });
+
+    const result = await client.createChatCompletion({
+      provider: {
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        maxTokens: 512,
+        temperature: 0.2,
+      },
+      messages: [{ role: "user", content: "Say hello" }],
+      requestId: "req-alias-usage-1",
+      skillId: "builtin:continue",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected request success");
+    }
+    expect(result.data.usage).toMatchObject({
+      promptTokens: 120,
+      completionTokens: 30,
+      cachedTokens: 20,
+    });
   });
 
   it("parses SSE stream chunks and records cost", async () => {

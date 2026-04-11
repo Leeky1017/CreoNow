@@ -78,6 +78,11 @@ type OpenAiUsagePayload = {
   prompt_tokens?: unknown;
   completion_tokens?: unknown;
   cached_tokens?: unknown;
+  input_tokens?: unknown;
+  output_tokens?: unknown;
+  cachedTokens?: unknown;
+  cache_read_input_tokens?: unknown;
+  cache_creation_input_tokens?: unknown;
 };
 
 const MAX_FETCH_RETRIES = 3;
@@ -101,10 +106,17 @@ function parseUsage(raw: unknown): CompletionUsage {
   if (!row) {
     return { promptTokens: 0, completionTokens: 0, cachedTokens: 0 };
   }
+  const promptTokens = toNonNegativeInt(row.prompt_tokens) || toNonNegativeInt(row.input_tokens);
+  const completionTokens =
+    toNonNegativeInt(row.completion_tokens) || toNonNegativeInt(row.output_tokens);
+  const openAiCached = toNonNegativeInt(row.cached_tokens) || toNonNegativeInt(row.cachedTokens);
+  const anthropicCached =
+    toNonNegativeInt(row.cache_read_input_tokens) +
+    toNonNegativeInt(row.cache_creation_input_tokens);
   return {
-    promptTokens: toNonNegativeInt(row.prompt_tokens),
-    completionTokens: toNonNegativeInt(row.completion_tokens),
-    cachedTokens: toNonNegativeInt(row.cached_tokens),
+    promptTokens,
+    completionTokens,
+    cachedTokens: Math.max(openAiCached, anthropicCached),
   };
 }
 

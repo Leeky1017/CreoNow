@@ -304,10 +304,11 @@ describe("WritingOrchestrator", () => {
       const costEvent = events.find((event) => event.type === "cost-recorded");
 
       expect(tracker.recordUsage).toHaveBeenCalledWith(
-        { promptTokens: 10, completionTokens: 6, totalTokens: 16 },
+        { promptTokens: 10, completionTokens: 6, totalTokens: 16, cachedTokens: 0 },
         "default",
         "req-001",
         "polish",
+        0,
       );
       expect(costEvent).toMatchObject({
         type: "cost-recorded",
@@ -554,10 +555,11 @@ describe("WritingOrchestrator", () => {
 
       expect(eventTypes(events)).toContain("aborted");
       expect(tracker.recordUsage).toHaveBeenCalledWith(
-        { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+        { promptTokens: 10, completionTokens: 2, totalTokens: 12, cachedTokens: 0 },
         "default",
         "req-001",
         "polish",
+        0,
       );
       expect(aiService.abort).not.toHaveBeenCalled();
       orch.dispose();
@@ -1190,10 +1192,51 @@ describe("WritingOrchestrator", () => {
           .details?.partialContent,
       ).toBe("半截");
       expect(tracker.recordUsage).toHaveBeenCalledWith(
-        { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+        { promptTokens: 10, completionTokens: 2, totalTokens: 12, cachedTokens: 0 },
         "default",
         "req-001",
         "polish",
+        0,
+      );
+      orch.dispose();
+    });
+
+    it("generateText 返回 cachedTokens 时传给 costTracker", async () => {
+      const tracker = createMockCostTracker();
+      const cfg = buildConfig({
+        generateText: async ({ emitChunk, onApiCallStarted }) => {
+          onApiCallStarted?.();
+          emitChunk("缓存命中", 4);
+          return {
+            fullText: "缓存命中",
+            usage: {
+              promptTokens: 12,
+              completionTokens: 4,
+              totalTokens: 16,
+              cachedTokens: 9,
+            },
+            finishReason: "stop",
+          };
+        },
+        costTracker: tracker,
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      await collectEvents(
+        orch.execute(makeRequest({ requestId: "req-cached-001", agenticLoop: true })),
+      );
+
+      expect(tracker.recordUsage).toHaveBeenCalledWith(
+        {
+          promptTokens: 12,
+          completionTokens: 4,
+          totalTokens: 16,
+          cachedTokens: 9,
+        },
+        "default",
+        "req-cached-001",
+        "polish",
+        9,
       );
       orch.dispose();
     });

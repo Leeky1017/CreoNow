@@ -162,6 +162,7 @@ describe("aiServiceBridge", () => {
           promptTokens: 11,
           completionTokens: 4,
           totalTokens: 15,
+          cachedTokens: 0,
         },
       }),
     );

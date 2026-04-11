@@ -26,7 +26,17 @@ import type { StreamChunk } from "./streaming";
 
 type StreamChatOptions = {
   signal: AbortSignal;
-  onComplete: (r: unknown) => void;
+  onComplete: (result: {
+    content: string;
+    usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+      cachedTokens?: number;
+    };
+    wasRetried: boolean;
+    persistenceError?: unknown;
+  }) => void;
   onError: (e: unknown) => void;
   onApiCallStarted?: () => void;
   skillId?: string;
@@ -347,6 +357,7 @@ export function createAiServiceBridge(args: {
           totalTokens:
             streamResult.data.usage.promptTokens +
             streamResult.data.usage.completionTokens,
+          cachedTokens: streamResult.data.usage.cachedTokens,
         },
         ...(streamResult.data.persistenceError
           ? { persistenceError: streamResult.data.persistenceError }

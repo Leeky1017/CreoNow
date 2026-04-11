@@ -11,7 +11,16 @@ export type { StreamChunk };
 
 interface StreamOptions {
   signal?: AbortSignal;
-  onComplete: (result: { content: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number }; wasRetried: boolean }) => void;
+  onComplete: (result: {
+    content: string;
+    usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+      cachedTokens?: number;
+    };
+    wasRetried: boolean;
+  }) => void;
   onError: (error: { kind: string; message: string; retryCount: number; partialContent?: string }) => void;
   onApiCallStarted?: () => void;
 }
