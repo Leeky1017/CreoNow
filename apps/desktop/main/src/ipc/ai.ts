@@ -2159,6 +2159,11 @@ async function drainPreviewUntilPause(args: {
       };
     }
 
+    // ── Write-back event consumption (READ-ONLY) ────────────────────
+    // IPC captures the versionId from the orchestrator's write-back-done
+    // event purely for the skill-run response payload.  The actual
+    // document write happened in orchestrator.ts Stage 7; IPC performs
+    // NO document writes itself.  See Issue #109.
     if (event.type === "write-back-done") {
       versionId =
         typeof event.versionId === "string" ? event.versionId : undefined;
@@ -2277,6 +2282,7 @@ async function continuePreviewSession(args: {
     }
 
     const event = next.value;
+    // Read-only: capture versionId for the response — see comment above.
     if (event.type === "write-back-done") {
       versionId =
         typeof event.versionId === "string" ? event.versionId : versionId;
@@ -2471,6 +2477,9 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         ctx,
         sender: e.sender,
       });
+      // IPC layer resolves the declared permission level from the skill manifest
+      // but does NOT enforce policy — the orchestrator's Stage 6 is the single
+      // authority that evaluates + enforces permission (INV-1).
       const permissionLevel = resolveSkillPermissionLevel({
         ctx,
         skillId: normalizedPayload.skillId,
@@ -2478,10 +2487,7 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
       const generator = ctx.writingOrchestrator.execute({
         requestId: executionId,
         skillId: normalizedPayload.skillId,
-        level:
-          permissionLevel === "auto-allow"
-            ? "preview-confirm"
-            : permissionLevel,
+        level: permissionLevel,
         input: {
           selectedText:
             normalizedPayload.selection?.text ?? normalizedPayload.input,
