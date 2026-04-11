@@ -117,6 +117,71 @@ describe("ai:skill:run selection contract", () => {
     }
   });
 
+  it("prepareWritingRequest includes prior session messages when sessionId is provided", async () => {
+    const db = {
+      prepare: vi.fn().mockReturnValue({
+        all: vi.fn().mockReturnValue([
+          { role: "user", content: "上一轮：描述白塔城" },
+          { role: "assistant", content: "上一轮回答：白塔城终年雾海" },
+        ]),
+      }),
+    } as unknown as Database.Database;
+
+    const prepared = await prepareWritingRequest({
+      ctx: {
+        deps: {
+          db,
+          logger: createLogger(),
+        },
+        contextAssemblyService: {
+          assemble: vi.fn(),
+        },
+        skillServiceFactory: () => ({
+          resolveForRun: () => ({
+            ok: false,
+            error: { code: "NOT_FOUND", message: "missing", retryable: false },
+          }),
+        }),
+      } as never,
+      payload: {
+        skillId: "builtin:rewrite",
+        hasSelection: true,
+        input: "旧 input",
+        userInstruction: "保持文风",
+        mode: "ask",
+        model: "gpt-4.1-mini",
+        context: {
+          projectId: "proj-1",
+          documentId: "doc-1",
+          sessionId: "sess-1",
+        },
+        selection: {
+          from: 1,
+          to: 3,
+          text: "正文",
+          selectionTextHash: "hash",
+        },
+        stream: false,
+      },
+    });
+
+    expect(prepared.ok).toBe(true);
+    if (prepared.ok) {
+      expect(prepared.data.messages).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: "user",
+            content: "上一轮：描述白塔城",
+          }),
+          expect.objectContaining({
+            role: "assistant",
+            content: "上一轮回答：白塔城终年雾海",
+          }),
+        ]),
+      );
+    }
+  });
+
   it("forwards full SelectionRef into the main-process execution seam", async () => {
     orchestratorExecuteSpy.mockReset();
     orchestratorExecuteSpy.mockImplementation(async function* () {

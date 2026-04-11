@@ -234,12 +234,9 @@ export function createNarrativeCompact(deps: NarrativeCompactDeps): {
         content: "无需压缩：历史中没有可压缩内容。",
         compactable: false,
       };
-      const preservedMessages = dedupeById([
-        ...pinnedHistoryMessages,
-        ...recentMessages,
-      ]);
+      const preservedMessages = dedupeById([...request.messages]);
       return {
-        compactedMessages: [...systemMessages, fallbackSummary, ...preservedMessages],
+        compactedMessages: [...request.messages],
         summaryMessage: fallbackSummary,
         preservedMessages,
       };

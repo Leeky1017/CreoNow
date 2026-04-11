@@ -427,6 +427,39 @@ function resolveSkillPermissionLevel(args: {
   return normalizeLevel(fallback?.permissionLevel);
 }
 
+function loadSessionHistoryMessages(args: {
+  db: Database.Database | null;
+  projectId: string;
+  sessionId: string;
+}): Array<{ role: "user" | "assistant"; content: string }> {
+  if (
+    args.db === null ||
+    args.projectId.trim().length === 0 ||
+    args.sessionId.trim().length === 0
+  ) {
+    return [];
+  }
+  const rows = args.db
+    .prepare<
+      [string, string],
+      { role: "user" | "assistant" | string; content: string }
+    >(
+      "SELECT role, content FROM chat_messages WHERE project_id = ? AND session_id = ? ORDER BY timestamp ASC",
+    )
+    .all(args.projectId, args.sessionId);
+  return rows
+    .filter(
+      (row): row is { role: "user" | "assistant"; content: string } =>
+        (row.role === "user" || row.role === "assistant") &&
+        typeof row.content === "string" &&
+        row.content.trim().length > 0,
+    )
+    .map((row) => ({
+      role: row.role,
+      content: row.content,
+    }));
+}
+
 export async function prepareWritingRequest(args: {
   ctx: AiIpcContext;
   payload: SkillRunPayload;
@@ -501,6 +534,7 @@ export async function prepareWritingRequest(args: {
   let contextPrompt = "";
   const projectId = args.payload.context?.projectId?.trim() ?? "";
   const documentId = args.payload.context?.documentId?.trim() ?? "";
+  const sessionId = args.payload.context?.sessionId?.trim() ?? "";
   const cursorPosition = resolveCursorPosition(args.payload);
 
   // Compute plain-text cursor offset for context assembly: PM positions include node
@@ -568,15 +602,30 @@ export async function prepareWritingRequest(args: {
     },
   });
 
+  const historyMessages = loadSessionHistoryMessages({
+    db: args.ctx.deps.db,
+    projectId,
+    sessionId,
+  });
+  const latestHistoryMessage = historyMessages.at(-1);
+  const includeCurrentUserPrompt =
+    !latestHistoryMessage ||
+    latestHistoryMessage.role !== "user" ||
+    latestHistoryMessage.content !== userPrompt;
   const messages = [
     {
       role: "system",
       content: [systemPrompt, contextPrompt].filter(Boolean).join("\n\n"),
     },
-    {
-      role: "user",
-      content: userPrompt,
-    },
+    ...historyMessages,
+    ...(includeCurrentUserPrompt
+      ? [
+          {
+            role: "user" as const,
+            content: userPrompt,
+          },
+        ]
+      : []),
   ];
 
   const tokenCount = estimateTokens(
@@ -1524,13 +1573,13 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           db: deps.db,
           logger: deps.logger,
         });
-        const resolvedModelConfig = modelConfigService.resolve();
-        if (!resolvedModelConfig.ok) {
-          deps.logger.info("auto_compact_disabled_model_config", {
-            reason: resolvedModelConfig.error.message,
-          });
-          return undefined;
-        }
+        let latestConfig = createCompactConfig({
+          modelConfig: {
+            primaryModel: "fallback-model",
+            auxiliaryModel: "fallback-model",
+            sharedModel: true,
+          },
+        });
 
         const narrativeCompact = createNarrativeCompact({
           invokeSkillSummary: async ({ skillId, modelId, input }) => {
@@ -1562,9 +1611,19 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         });
 
         return createAutoCompact({
-          config: createCompactConfig({
-            modelConfig: resolvedModelConfig.data,
-          }),
+          getConfig: () => {
+            const resolvedModelConfig = modelConfigService.resolve();
+            if (!resolvedModelConfig.ok) {
+              deps.logger.info("auto_compact_model_config_degraded", {
+                reason: resolvedModelConfig.error.message,
+              });
+              return latestConfig;
+            }
+            latestConfig = createCompactConfig({
+              modelConfig: resolvedModelConfig.data,
+            });
+            return latestConfig;
+          },
           narrativeCompact,
           logger: {
             warn: (event, data) => deps.logger.info(event, data),
@@ -1813,6 +1872,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           context: {
             projectId: request.projectId,
             documentId: request.documentId,
+            ...(request.sessionId === undefined
+              ? {}
+              : { sessionId: request.sessionId }),
           },
           selection: request.selection,
           stream: true,
@@ -1828,6 +1890,71 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         throw err;
       }
       return prepared.data;
+    },
+    getAutoCompactSnapshot: async ({ request }) => {
+      const emptySnapshot = {
+        entities: [],
+        relations: [],
+        characterSettings: [],
+        unresolvedPlotPoints: [],
+      };
+      const projectId = request.projectId?.trim() ?? "";
+      if (!kgServiceForContext || projectId.length === 0) {
+        return emptySnapshot;
+      }
+
+      const entityResult = kgServiceForContext.entityList({
+        projectId,
+        limit: 500,
+        offset: 0,
+      });
+      if (!entityResult.ok) {
+        throw new Error(entityResult.error.message);
+      }
+      const relationResult = kgServiceForContext.relationList({
+        projectId,
+        limit: 500,
+        offset: 0,
+      });
+      if (!relationResult.ok) {
+        throw new Error(relationResult.error.message);
+      }
+
+      const entities = entityResult.data.items;
+      const entityNameById = new Map(entities.map((entity) => [entity.id, entity.name]));
+      const dedupe = (values: string[]): string[] =>
+        [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
+      const relations = relationResult.data.items.map((relation) => {
+        const sourceName =
+          entityNameById.get(relation.sourceEntityId) ?? relation.sourceEntityId;
+        const targetName =
+          entityNameById.get(relation.targetEntityId) ?? relation.targetEntityId;
+        const base = `${sourceName} -> ${targetName}: ${relation.relationType}`;
+        return relation.description.trim().length > 0
+          ? `${base} (${relation.description})`
+          : base;
+      });
+      const characterSettings = entities
+        .filter((entity) => entity.type === "character")
+        .map((entity) => {
+          const attrs = Object.entries(entity.attributes)
+            .map(([key, value]) => `${key}=${value}`)
+            .join("；");
+          const details = [entity.description, attrs].filter((part) => part.length > 0);
+          return details.length > 0
+            ? `${entity.name}: ${details.join("；")}`
+            : entity.name;
+        });
+      const unresolvedPlotPoints = entities
+        .filter((entity) => entity.lastSeenState && entity.lastSeenState.trim().length > 0)
+        .map((entity) => `${entity.name}: ${entity.lastSeenState?.trim() ?? ""}`);
+
+      return {
+        entities: dedupe(entities.map((entity) => entity.name)),
+        relations: dedupe(relations),
+        characterSettings: dedupe(characterSettings),
+        unresolvedPlotPoints: dedupe(unresolvedPlotPoints),
+      };
     },
     generateText: async ({
       request,

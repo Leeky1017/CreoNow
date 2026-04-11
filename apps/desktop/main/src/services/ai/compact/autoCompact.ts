@@ -36,7 +36,7 @@ export interface AutoCompactResult {
 export interface AutoCompactService {
   maybeCompact: (args: {
     messages: CompactMessage[];
-    auxiliaryModel: string;
+    auxiliaryModel?: string;
     kgSnapshot: NarrativeKnowledgeSnapshot;
     requestId?: string;
   }) => Promise<AutoCompactResult>;
@@ -53,23 +53,56 @@ export function estimateConversationTokens(
 }
 
 export function createAutoCompact(args: {
-  config: CompactConfig;
+  config?: CompactConfig;
+  getConfig?: () => CompactConfig;
   narrativeCompact: NarrativeCompactService;
   logger?: {
     warn: (event: string, data?: Record<string, unknown>) => void;
   };
 }): AutoCompactService {
   let consecutiveFailures = 0;
+  const resolveConfig = (): CompactConfig => {
+    if (args.getConfig) {
+      return args.getConfig();
+    }
+    if (args.config) {
+      return args.config;
+    }
+    throw new Error("AutoCompact requires config or getConfig");
+  };
+
+  function isSameMessages(
+    lhs: ReadonlyArray<CompactMessage>,
+    rhs: ReadonlyArray<CompactMessage>,
+  ): boolean {
+    if (lhs.length !== rhs.length) {
+      return false;
+    }
+    for (let index = 0; index < lhs.length; index += 1) {
+      const left = lhs[index];
+      const right = rhs[index];
+      if (
+        left?.id !== right?.id ||
+        left?.role !== right?.role ||
+        left?.content !== right?.content ||
+        left?.compactable !== right?.compactable
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   async function maybeCompact(input: {
     messages: CompactMessage[];
-    auxiliaryModel: string;
+    auxiliaryModel?: string;
     kgSnapshot: NarrativeKnowledgeSnapshot;
     requestId?: string;
   }): Promise<AutoCompactResult> {
+    const config = resolveConfig();
     const totalTokensBefore = estimateConversationTokens(input.messages);
     const thresholdTokens = Math.floor(
-      args.config.contextBudget * args.config.triggerThresholdPercent,
+      config.contextBudget * config.triggerThresholdPercent,
     );
 
     if (totalTokensBefore < thresholdTokens) {
@@ -83,7 +116,7 @@ export function createAutoCompact(args: {
       };
     }
 
-    if (consecutiveFailures >= args.config.maxConsecutiveFailures) {
+    if (consecutiveFailures >= config.maxConsecutiveFailures) {
       return {
         messages: input.messages,
         compacted: false,
@@ -94,17 +127,30 @@ export function createAutoCompact(args: {
       };
     }
 
+    const auxiliaryModel =
+      config.auxiliaryModel ?? input.auxiliaryModel ?? "default";
+
     try {
       const compacted = await args.narrativeCompact.compact({
         messages: input.messages,
-        preserveRecentRounds: args.config.preserveRecentRounds,
-        summaryMaxTokens: args.config.summaryMaxTokens,
-        auxiliaryModel: input.auxiliaryModel,
+        preserveRecentRounds: config.preserveRecentRounds,
+        summaryMaxTokens: config.summaryMaxTokens,
+        auxiliaryModel,
         kgSnapshot: input.kgSnapshot,
         requestId: input.requestId ?? randomUUID(),
       });
       consecutiveFailures = 0;
       const totalTokensAfter = estimateConversationTokens(compacted.compactedMessages);
+      if (isSameMessages(compacted.compactedMessages, input.messages)) {
+        return {
+          messages: input.messages,
+          compacted: false,
+          totalTokensBefore,
+          totalTokensAfter: totalTokensBefore,
+          thresholdTokens,
+          reason: "below-threshold",
+        };
+      }
       return {
         messages: compacted.compactedMessages,
         compacted: true,
@@ -118,7 +164,7 @@ export function createAutoCompact(args: {
       args.logger?.warn("auto_compact_failed", {
         reason: "narrative_compact_error",
         consecutiveFailures,
-        maxConsecutiveFailures: args.config.maxConsecutiveFailures,
+        maxConsecutiveFailures: config.maxConsecutiveFailures,
         error,
       });
       return {

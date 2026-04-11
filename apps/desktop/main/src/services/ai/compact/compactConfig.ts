@@ -48,6 +48,7 @@ export interface CompactConfig {
   maxConsecutiveFailures: number;
   contextBudget: number;
   summaryMaxTokens: number;
+  auxiliaryModel?: string;
 }
 
 export interface CompactConfigOverrides {
@@ -87,5 +88,6 @@ export function createCompactConfig(args: {
     maxConsecutiveFailures: overrides.maxConsecutiveFailures ?? 3,
     contextBudget: overrides.contextBudget ?? resolvedBudget,
     summaryMaxTokens: overrides.summaryMaxTokens ?? 1_500,
+    auxiliaryModel: args.modelConfig.auxiliaryModel.trim() || undefined,
   };
 }

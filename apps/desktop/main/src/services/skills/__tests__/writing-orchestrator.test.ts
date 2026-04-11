@@ -366,6 +366,12 @@ describe("WritingOrchestrator", () => {
 
     it("在 AI 调用前执行 AutoCompact 并使用压缩后消息", async () => {
       const aiService = createMockAIService();
+      const getAutoCompactSnapshot = vi.fn().mockResolvedValue({
+        entities: ["林远", "白塔"],
+        relations: ["林远 -> 白塔: 守护"],
+        characterSettings: ["林远: 谨慎寡言"],
+        unresolvedPlotPoints: ["白塔钟声来源未揭示"],
+      });
       const autoCompact = {
         maybeCompact: vi.fn().mockResolvedValue({
           messages: [
@@ -382,6 +388,7 @@ describe("WritingOrchestrator", () => {
         buildConfig({
           aiService,
           autoCompact,
+          getAutoCompactSnapshot,
           prepareRequest: async () => ({
             messages: [{ role: "user", content: "原始输入" }],
             tokenCount: 500,
@@ -397,6 +404,22 @@ describe("WritingOrchestrator", () => {
         tokenCount: 42,
       });
       expect(autoCompact.maybeCompact).toHaveBeenCalledTimes(1);
+      expect(getAutoCompactSnapshot).toHaveBeenCalledWith({
+        request: expect.objectContaining({
+          requestId: "req-001",
+          documentId: "doc-001",
+        }),
+      });
+      expect(autoCompact.maybeCompact).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kgSnapshot: {
+            entities: ["林远", "白塔"],
+            relations: ["林远 -> 白塔: 守护"],
+            characterSettings: ["林远: 谨慎寡言"],
+            unresolvedPlotPoints: ["白塔钟声来源未揭示"],
+          },
+        }),
+      );
       const streamMessages = aiService.streamChat.mock.calls[0]?.[0];
       expect(streamMessages).toEqual([
         {
@@ -404,6 +427,57 @@ describe("WritingOrchestrator", () => {
           content: "这是压缩后的用户输入",
         },
       ]);
+    });
+
+    it("AutoCompact KG 快照获取失败时降级为空快照继续执行", async () => {
+      const aiService = createMockAIService();
+      const warn = vi.fn();
+      const autoCompact = {
+        maybeCompact: vi.fn().mockResolvedValue({
+          messages: [
+            {
+              id: "compact-0",
+              role: "user",
+              content: "这是压缩后的用户输入",
+            },
+          ],
+          totalTokensAfter: 42,
+        }),
+      };
+      orchestrator = createWritingOrchestrator(
+        buildConfig({
+          aiService,
+          autoCompact,
+          logger: { warn },
+          getAutoCompactSnapshot: vi
+            .fn()
+            .mockRejectedValue(new Error("kg unavailable")),
+          prepareRequest: async () => ({
+            messages: [{ role: "user", content: "原始输入" }],
+            tokenCount: 500,
+            modelId: "gpt-4o-mini",
+          }),
+        }),
+      );
+
+      await collectEvents(orchestrator.execute(makeRequest()));
+
+      expect(autoCompact.maybeCompact).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kgSnapshot: {
+            entities: [],
+            relations: [],
+            characterSettings: [],
+            unresolvedPlotPoints: [],
+          },
+        }),
+      );
+      expect(warn).toHaveBeenCalledWith(
+        "orchestrator_auto_compact_kg_degraded",
+        expect.objectContaining({
+          requestId: "req-001",
+        }),
+      );
     });
 
     it("写回前先创建 pre-write 快照，再执行 documentWrite", async () => {

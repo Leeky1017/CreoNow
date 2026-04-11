@@ -212,11 +212,14 @@ export interface OrchestratorConfig {
   autoCompact?: {
     maybeCompact: (args: {
       messages: AutoCompactMessage[];
-      auxiliaryModel: string;
+      auxiliaryModel?: string;
       kgSnapshot: AutoCompactSnapshot;
       requestId?: string;
     }) => Promise<{ messages: AutoCompactMessage[]; totalTokensAfter: number }>;
   };
+  getAutoCompactSnapshot?: (args: {
+    request: Pick<WritingRequest, "projectId" | "documentId" | "requestId">;
+  }) => Promise<AutoCompactSnapshot>;
   logger?: {
     warn: (event: string, data?: Record<string, unknown>) => void;
   };
@@ -387,17 +390,35 @@ export function createWritingOrchestrator(
             };
         const autoCompact = config.autoCompact;
         const preparedWithCompaction = autoCompact
-          ? await (async (): Promise<PreparedRequest> => {
+            ? await (async (): Promise<PreparedRequest> => {
               try {
+                let kgSnapshot: AutoCompactSnapshot = {
+                  entities: [],
+                  relations: [],
+                  characterSettings: [],
+                  unresolvedPlotPoints: [],
+                };
+                if (config.getAutoCompactSnapshot) {
+                  try {
+                    kgSnapshot = await config.getAutoCompactSnapshot({
+                      request: {
+                        projectId: request.projectId,
+                        documentId: request.documentId,
+                        requestId,
+                      },
+                    });
+                  } catch (error) {
+                    config.logger?.warn("orchestrator_auto_compact_kg_degraded", {
+                      requestId,
+                      error:
+                        error instanceof Error ? error.message : String(error),
+                    });
+                  }
+                }
                 const compactResult = await autoCompact.maybeCompact({
                   messages: convertMessagesForAutoCompact(prepared.messages),
                   auxiliaryModel: prepared.modelId,
-                  kgSnapshot: {
-                    entities: [],
-                    relations: [],
-                    characterSettings: [],
-                    unresolvedPlotPoints: [],
-                  },
+                  kgSnapshot,
                   requestId,
                 });
                 return {

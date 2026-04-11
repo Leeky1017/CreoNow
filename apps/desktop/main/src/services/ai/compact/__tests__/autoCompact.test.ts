@@ -312,9 +312,91 @@ describe("AutoCompact / NarrativeCompact", () => {
 
     expect(result.summaryMessage.content).toBe("无需压缩：历史中没有可压缩内容。");
     expect(invokeSkillSummary).not.toHaveBeenCalled();
-    const ids = result.compactedMessages.map((message) => message.id);
-    expect(ids).toContain("pinned-history");
-    expect(ids).toContain("u-recent");
-    expect(ids).toContain("a-recent");
+    expect(result.compactedMessages).toEqual(messages);
+    expect(result.compactedMessages.some((message) => message.id.startsWith("compact-summary-"))).toBe(false);
+  });
+
+  it("uses configured auxiliary model before request fallback model", async () => {
+    const invokeSkillSummary = vi.fn().mockResolvedValue({
+      summary: "## Narrative Summary\n使用辅助模型进行压缩。",
+    });
+    const narrativeCompact = createNarrativeCompact({
+      invokeSkillSummary,
+    });
+    const autoCompact = createAutoCompact({
+      config: {
+        triggerThresholdPercent: 0.85,
+        preserveRecentRounds: 1,
+        maxConsecutiveFailures: 3,
+        contextBudget: 100,
+        summaryMaxTokens: 200,
+        auxiliaryModel: "gpt-4o-mini",
+      },
+      narrativeCompact,
+    });
+
+    await autoCompact.maybeCompact({
+      messages: makeMessages(),
+      auxiliaryModel: "gpt-4o",
+      kgSnapshot: makeKg(),
+      requestId: "req-aux-priority",
+    });
+
+    expect(invokeSkillSummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modelId: "gpt-4o-mini",
+      }),
+    );
+  });
+
+  it("resolves compact config lazily per request", async () => {
+    const narrativeCompact = {
+      compact: vi.fn().mockResolvedValue({
+        compactedMessages: [
+          { id: "sys", role: "system", content: "系统提示", compactable: false },
+          { id: "summary", role: "assistant", content: "压缩摘要", compactable: false },
+          { id: "u3", role: "user", content: "第三轮提问：推进伏笔。".repeat(8) },
+          { id: "a3", role: "assistant", content: "第三轮回答：伏笔尚未揭晓。".repeat(8) },
+        ] satisfies CompactMessage[],
+      }),
+    };
+    const getConfig = vi
+      .fn()
+      .mockReturnValueOnce({
+        triggerThresholdPercent: 0.85,
+        preserveRecentRounds: 1,
+        maxConsecutiveFailures: 3,
+        contextBudget: 100,
+        summaryMaxTokens: 200,
+        auxiliaryModel: "gpt-4o-mini",
+      })
+      .mockReturnValueOnce({
+        triggerThresholdPercent: 0.85,
+        preserveRecentRounds: 1,
+        maxConsecutiveFailures: 3,
+        contextBudget: 1_000_000,
+        summaryMaxTokens: 200,
+        auxiliaryModel: "gpt-4o-mini",
+      });
+    const autoCompact = createAutoCompact({
+      getConfig,
+      narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
+    });
+
+    const first = await autoCompact.maybeCompact({
+      messages: makeMessages(),
+      kgSnapshot: makeKg(),
+      requestId: "req-lazy-1",
+    });
+    const second = await autoCompact.maybeCompact({
+      messages: makeMessages(),
+      kgSnapshot: makeKg(),
+      requestId: "req-lazy-2",
+    });
+
+    expect(first.reason).toBe("compacted");
+    expect(second.reason).toBe("below-threshold");
+    expect(getConfig).toHaveBeenCalledTimes(2);
+    expect(narrativeCompact.compact).toHaveBeenCalledTimes(1);
   });
 });
