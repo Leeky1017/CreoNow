@@ -158,7 +158,7 @@ export function createKgMutationSkill(deps: {
 
     // Stage 3: Execute — delegate to KG Service
     const payload = request.payload as Record<string, unknown>;
-    const fullPayload = { projectId: request.projectId, ...payload };
+    const fullPayload = { ...payload, projectId: request.projectId };
 
     switch (request.mutationType) {
       case "entity:create":
