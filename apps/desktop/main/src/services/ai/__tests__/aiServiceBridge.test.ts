@@ -187,6 +187,96 @@ describe("aiServiceBridge", () => {
     );
   });
 
+  it("propagates cachedTokens > 0 through bridge completion and persistence", async () => {
+    const db = createDb();
+    putSetting(db, "creonow.ai.model.primary", "gpt-4.1");
+    putSetting(db, "creonow.ai.model.auxiliary", "gpt-4.1-mini");
+
+    const bridge = createAiServiceBridge({
+      db,
+      logger: createLogger(),
+      costTracker: createCostTracker({
+        pricingTable: createPricingTable(),
+        budgetPolicy: {
+          warningThreshold: 10,
+          hardStopLimit: 100,
+          enabled: false,
+        },
+        estimateTokens: () => 0,
+      }),
+      env: {
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_BASE_URL: "https://api.openai.com",
+        CREONOW_AI_API_KEY: "sk-test",
+      },
+      runtimeAiTimeoutMs: 30_000,
+      fetchImpl: (async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(
+                  [
+                    'data: {"choices":[{"delta":{"content":"cached "}}]}',
+                    "",
+                    'data: {"choices":[{"delta":{"content":"ok"}}]}',
+                    "",
+                    'data: {"usage":{"prompt_tokens":1000,"completion_tokens":200,"cached_tokens":400}}',
+                    "",
+                    "data: [DONE]",
+                    "",
+                  ].join("\n"),
+                ),
+              );
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        )) as unknown as typeof fetch,
+      now: () => 1_000,
+    });
+
+    const onComplete = vi.fn();
+    for await (const _chunk of bridge.streamChat(
+      [{ role: "user", content: "summarize this" }],
+      {
+        signal: new AbortController().signal,
+        onComplete,
+        onError: vi.fn(),
+        skillId: "builtin:summarize",
+        requestId: "bridge-req-cached",
+      },
+    )) {
+      // drain
+    }
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usage: expect.objectContaining({
+          cachedTokens: 400,
+        }),
+      }),
+    );
+
+    const row = db
+      .prepare<
+        [string],
+        {
+          inputTokens: number;
+          outputTokens: number;
+          cacheHitTokens: number;
+        }
+      >(
+        "SELECT input_tokens AS inputTokens, output_tokens AS outputTokens, cache_hit_tokens AS cacheHitTokens FROM cost_records WHERE id = ?",
+      )
+      .get("bridge-req-cached");
+    expect(row).toEqual({
+      inputTokens: 1000,
+      outputTokens: 200,
+      cacheHitTokens: 400,
+    });
+  });
+
   it("logs persistenceError and propagates it in onComplete payload", async () => {
     const db = createDb();
     putSetting(db, "creonow.ai.model.primary", "gpt-4.1");

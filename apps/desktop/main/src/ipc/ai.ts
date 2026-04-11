@@ -280,6 +280,7 @@ const AI_CANDIDATE_COUNT_MAX = 5;
 type ModelPricing = {
   promptPer1kTokens: number;
   completionPer1kTokens: number;
+  cachedInputPricePer1kTokens?: number;
 };
 
 /**
@@ -812,19 +813,27 @@ function parseModelPricingMap(
       const record = value as Record<string, unknown>;
       const prompt = record.promptPer1kTokens;
       const completion = record.completionPer1kTokens;
+      const cachedInput = record.cachedInputPricePer1kTokens;
       if (
         typeof prompt !== "number" ||
         !Number.isFinite(prompt) ||
         prompt < 0 ||
         typeof completion !== "number" ||
         !Number.isFinite(completion) ||
-        completion < 0
+        completion < 0 ||
+        (cachedInput !== undefined &&
+          (typeof cachedInput !== "number" ||
+            !Number.isFinite(cachedInput) ||
+            cachedInput < 0))
       ) {
         continue;
       }
       map.set(model, {
         promptPer1kTokens: prompt,
         completionPer1kTokens: completion,
+        ...(typeof cachedInput === "number"
+          ? { cachedInputPricePer1kTokens: cachedInput }
+          : {}),
       });
     }
     return map;
@@ -1001,6 +1010,7 @@ type PendingPreviewSession = {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
+    cachedTokens?: number;
   };
   usageSummary?: SkillRunUsage;
   completion: Promise<IpcResponse<SkillRunConfirmResponse>>;
@@ -1144,13 +1154,16 @@ function buildSkillRunUsage(args: {
   const promptTokens = Math.max(0, args.promptTokens);
   const completionTokens = Math.max(0, args.completionTokens);
   const cachedTokens = Math.max(0, args.cachedTokens ?? 0);
+  const nonCachedPromptTokens = Math.max(0, promptTokens - cachedTokens);
   const pricing = args.modelPricingByModel.get(args.model.trim());
   const estimatedCostUsd =
     pricing === undefined
       ? undefined
       : Number(
           (
-            (promptTokens / 1000) * pricing.promptPer1kTokens +
+            (nonCachedPromptTokens / 1000) * pricing.promptPer1kTokens +
+            (cachedTokens / 1000) *
+              (pricing.cachedInputPricePer1kTokens ?? pricing.promptPer1kTokens) +
             (completionTokens / 1000) * pricing.completionPer1kTokens
           ).toFixed(6),
         );
@@ -2089,7 +2102,7 @@ async function drainPreviewUntilPause(args: {
             cachedTokens: usage.cachedTokens,
           })
         : undefined;
-      const session = {
+      const session: PendingPreviewSession = {
         executionId: args.executionId,
         runId: args.runId,
         traceId: args.traceId,
@@ -2099,7 +2112,14 @@ async function drainPreviewUntilPause(args: {
         outputText,
         usage,
         usageSummary,
-      } as PendingPreviewSession;
+        completion: Promise.resolve({
+          ok: false,
+          error: {
+            code: "INTERNAL",
+            message: "AI skill confirmation pending initialization",
+          },
+        }),
+      };
       session.completion = Promise.resolve()
         .then(() =>
           continuePreviewSession({
@@ -2225,6 +2245,7 @@ async function continuePreviewSession(args: {
               context: args.session.payload.context,
               promptTokens: args.session.usage.promptTokens,
               completionTokens: args.session.usage.completionTokens,
+              cachedTokens: args.session.usage.cachedTokens,
             })
           : undefined);
       emitOrchestratorDone({
