@@ -235,6 +235,8 @@ async function parseJsonResponse(
   try {
     return { ok: true, data: JSON.parse(bodyText) as unknown };
   } catch {
+    // Non-JSON upstream bodies are intentionally fail-closed as LLM_API_ERROR;
+    // caller-side request logging already captures provider, endpoint, and HTTP status context.
     return ipcError("LLM_API_ERROR", "Non-JSON upstream response");
   }
 }
