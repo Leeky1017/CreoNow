@@ -2,57 +2,14 @@
 
 在这个仓库里，VS Code / GitHub Copilot Agent 不应把 GitHub 交付理解成“用户手动补最后一步”。请遵守以下规则：
 
-## 1+1+1+Duck 审计编排模型配置
-
-| 角色 | 说明 | 数量 |
-| --- | --- | --- |
-| Main session Agent | 与用户当前对话模型，**仅负责编排**，不直接审计 | 1 |
-| Audit Subagent 1 | 与主会话同模型的独立 Subagent，第一路全量审计 | 1 |
-| Audit Subagent 2 | Claude Sonnet 4.6，第二路独立全量审计 | 1 |
-| Rubber Duck（GPT-5.4） | 每轮任务完成后，强制 `critique this plan` 交叉审计 | 1 |
-
-## 主会话 Agent 角色定义（仅编排）
-
-主会话 Agent 必须严格执行以下职责：
-
-1. 接收用户的初始 prompt，并完整理解全部需求。
-2. 将目标拆解为有顺序的子任务。
-3. 按需启动工程、审计子代理。
-4. 监控各子代理状态，并在正确时机启动 / 停止 / 重启。
-5. 向用户汇总进展。
-6. 唯一目标是完整满足初始 prompt，不遗漏、不缩水。
-7. 工程完成后，委派与自己同模型的独立 Subagent 执行第一路全量审计。自己不直接审计。
-
-## 1+1+1+Duck 执行流（强制）
-
-`用户任务` → `主会话 Agent 拆解` → `工程 Subagent 实现/测试/提 PR（含完整 INV checklist）` → `主会话启动 3 路审计`：
-
-1. 与主会话同模型的独立 Subagent 执行第一路全量审计
-2. Claude Sonnet 4.6 Subagent 独立全量审计
-3. Rubber Duck（GPT-5.4）`critique this plan` 交叉审计
-
-之后：
-
-- 收集 3 份审计报告
-- 任一 finding（含 non-blocking / suggestion / nit）→ 回工程修复
-- 修复后必须重跑全部 3 路审计
-- 工程席必须按轮次重建：每轮都启动一个新的 Engineering Subagent（附完整 issue/PR/审计上下文），禁止复用单个长生命周期工程席跨轮次累计上下文
-- 仅当 3 路审计都 zero findings 时才允许合并
-
-## 审计规则（三审独立、全量审计）
-
-- 三个审计方（主会话 + Sonnet Subagent + Rubber Duck）都必须对同一变更做独立**全量审计**，禁止按维度拆分。
-- 任一 finding（包括 `non-blocking` / `suggestion` / `nit`）即 `REJECT`。
-- 仅当三路审计全部 zero findings 才可进入合并。
-- 每条结论必须附证据（diff 引用或命令输出）。
-
-## Engineering 规则
-
-- 编码前必须阅读 `AGENTS.md` 与 `ARCHITECTURE.md`。
-- PR 正文必须包含 invariant checklist。
-- 代码必须携带测试，覆盖率 `>= 80%`。
-
-## 通用交付规则
+- 用户的原始指令默认发给主会话 Agent；主会话 Agent 仅负责编排，不直接审计。
+- 需要实现时，主会话 Agent 委派工程 Subagent 执行。
+- 每一轮工程实现完成后，执行三路独立审计：与主会话同模型的独立 Subagent 做第一路全量审计，Claude Sonnet 4.6 Subagent 做第二路独立审计，强制 Copilot Rubber Duck 模式 `critique this plan` 触发 GPT-5.4 做第三路交叉审计。
+- 任一审计只要报告任何问题，就继续"工程 Subagent 修复 → 三路审计复审"的循环。
+- 只有三路审计都达到 zero findings，且分别给出 `FINAL-VERDICT` + `ACCEPT`，并确认 required checks 全绿、证据完整时，才可收口。
+- 主会话 Agent 只有在工程 Subagent 达到“可交审条件”后，才可转给审计；未达到前不得宣称完成，不得提前收口。
+- “可交审条件”至少包括：全程在 `.worktrees/issue-<N>-<slug>` 中完成实现 / 提 PR / 修 CI / 回应审计；PR 已创建或更新且正文含 `Closes #N`、`Invariant Checklist`（INV-1~INV-10 勾选项）、验证证据、回滚点、审计门禁；`scripts/agent_pr_preflight.sh` 通过；required checks 全绿；前端 PR 正文直接可见截图，并附可点击 Storybook artifact/link（适用）与视觉验收说明。
+- 上述任一缺失，工程 Subagent 都必须继续工作，不得把任务转交审计 Agent。
 
 - 先读 `AGENTS.md`、相关 `openspec/specs/<module>/spec.md`、`docs/references/audit-protocol.md`。
 - 默认禁止在控制面 `main` 根目录直接实现 / 提 PR / 修 CI / 回应审计；先运行 `scripts/agent_task_begin.sh <N> <slug>` 进入 `.worktrees/issue-<N>-<slug>`（gh-only；若仅有 MCP，请改走手动脚本链路）。
@@ -71,9 +28,9 @@
   - `selected_channel=none`：明确报告 `missing_tool / missing_auth / missing_permission`，不要只说“没有 gh 上下文”。
 - 默认策略：**只创建 / 更新 PR，不自动开启 auto-merge**。
   - auto-merge 默认关闭。
-  - 仅当 3 路审计报告均为 zero findings，且三路审计都给出 ACCEPT 后，才允许显式执行 `scripts/agent_pr_automerge_and_sync.sh --enable-auto-merge`。
+  - 只有在三路独立审计都已发布 zero findings 的 `FINAL-VERDICT` 且结论为 `ACCEPT` 后，才允许显式执行 `scripts/agent_pr_automerge_and_sync.sh --enable-auto-merge`。
 - 不要在尚未尝试 `gh` 与 GitHub MCP 两条通道前，把 PR 创建、PR 评论、Issue 更新甩回给用户手工完成。
-- PR 文案必须包含 `Closes #N`、`Invariant Checklist`（INV-1~INV-10 勾选项）、验证证据、回滚点、审计门禁；前端 PR 还必须在正文直接嵌入截图，并附可点击 Storybook artifact/link 与视觉验收说明。
+- PR 文案必须包含 `Closes #N`、验证证据、回滚点、审计门禁；前端 PR 还必须在正文直接嵌入截图，并附可点击 Storybook artifact/link 与视觉验收说明。
 - 修改 GitHub 交付脚本或文档时，要同步维护 `AGENTS.md`、`docs/references/audit-protocol.md`、`scripts/README.md` 的一致性。
 
 可在 VS Code Chat Diagnostics 中确认这些 instructions / prompt files / agents 是否已加载。
@@ -85,13 +42,15 @@
 **完整规范详见 `docs/references/frontend-visual-quality.md`**（Token 路径、组件复用、视觉验收清单等），此处仅列核心要点：
 
 1. **实现前必须读取 Design Token 文件**（路径以 `docs/references/frontend-visual-quality.md` §二 为准）
-2. **检查视觉参考**：如果 Issue 附带了视觉参考截图或设计稿，优先参照
-3. **通过 Figma MCP 读取设计上下文**：如果 Issue 附带了 Figma 文件链接，优先通过 MCP 加载设计文件，获取组件结构、样式值、布局信息（优先级高于截图和 HTML 设计稿）
-4. **复用已有组件**：检查 `primitives/` 和 `composites/` 目录中的已有组件，禁止在已有 Primitive 的情况下创建新的 button/input/select
-5. **新组件必须有 Storybook Story**
-6. **前端 PR 的视觉验收**：Storybook 可构建 | 禁止硬编码颜色 | 交互状态有过渡动画 | PR 正文直接可见截图 | Storybook artifact/link 可点击 | 视觉验收说明明确
-7. **视觉 DNA**：CreoNow 对标 Linear × Cursor × Bear 的冷灰、紧凑、克制风格。视觉决策参照 `AGENTS.md` P-Visual 章节。
-8. **Figma Make 优先**：Agent 不应在没有设计输入（截图、Figma 设计稿、HTML 设计稿，至少有其一）的情况下做视觉决策。
+2. **读取黄金设计源**：`figma_design/前端完整参考/` 是 CN 前端的唯一权威设计参考，前端任务开始前必须读取对应页面的 `.tsx` 源码
+3. **前端策略：小修补，不大动**——现有设计中的动效、Zen Mode、布局结构、交互模式均属优秀设计，禁止推翻重建。前端任务应在现有 `figma_design/前端完整参考/` 基础上做增量修补（修 bug、接通 IPC、补充缺失状态），而非从零重写页面或组件
+4. **检查视觉参考**：如果 Issue 附带了视觉参考截图或设计稿，优先参照
+5. **通过 Figma MCP 读取设计上下文**：如果 Issue 附带了 Figma 文件链接，优先通过 MCP 加载设计文件，获取组件结构、样式值、布局信息（优先级高于截图和 HTML 设计稿）
+6. **复用已有组件**：检查 `primitives/` 和 `composites/` 目录中的已有组件，禁止在已有 Primitive 的情况下创建新的 button/input/select
+7. **新组件必须有 Storybook Story**
+8. **前端 PR 的视觉验收**：Storybook 可构建 | 禁止硬编码颜色 | 交互状态有过渡动画 | PR 正文直接可见截图 | Storybook artifact/link 可点击 | 视觉验收说明明确
+9. **视觉 DNA**：CreoNow 对标 Linear × Cursor × Bear 的冷灰、紧凑、克制风格。视觉决策参照 `AGENTS.md` P-V 章节。
+10. **Figma Make 优先**：Agent 不应在没有设计输入（截图、Figma 设计稿、HTML 设计稿，至少有其一）的情况下做视觉决策。
 
 ## Recommended specialized entrypoints
 
@@ -106,6 +65,6 @@
 - 审计 Agent 的职责是极严格划红线，不负责帮作者“圆过去”。
 - 只有 zero findings + required checks 全绿 + 证据完整时，审计 Agent 才允许给出 `FINAL-VERDICT` + `ACCEPT`。
 - 只要存在任何 finding，包括 `non-blocking` / `suggestion` / `nit` / `tiny issue`，都必须维持 `FINAL-VERDICT` = `REJECT`。
-- 同一轮变更必须执行 3 路独立全量审计（主会话 + Claude Sonnet 4.6 + Rubber Duck GPT-5.4），任一审计报告任何问题，都不得收口。
+- 同一轮变更必须执行 3 路独立全量审计（与主会话同模型的独立 Subagent + Claude Sonnet 4.6 Subagent + Rubber Duck GPT-5.4），任一审计报告任何问题，都不得收口。
 
 详见 `AGENTS.md` §九、`docs/references/audit-protocol.md`。

@@ -827,9 +827,237 @@ AI 感知：自定义 schema 在上下文组装时作为 world rules 注入
 
 ---
 
-## 六、与现有架构的集成点
+## 六、超越成瘾：5 个热爱维度
 
-### 6.1 INV 遵守清单
+> **成瘾让用户"不得不用"，热爱让用户"发自内心推荐给朋友"。** 前者是留存引擎，后者是增长引擎。CN 两个都要——但最终定义 CN 品牌的，是后者。
+
+|  | 成瘾设计（14 个机制） | 热爱设计（5 个维度） |
+|--|---------------------|---------------------|
+| **驱动力** | 多巴胺（刺激-奖赏循环） | 催产素 + 血清素（归属感、信任、满足感） |
+| **用户感受** | "离不开""舍不得""忍不住" | "喜欢""信任""属于我的" |
+| **竞品可复制性** | 部分可模仿 | 极难复制（需要整体品味和长期积累） |
+| **长期效果** | 留存 | 品牌忠诚 + 口碑传播 |
+
+### 6.1 维度 1 · 情绪空间感（Emotional Atmosphere）
+
+**目标**：CN 不只是工具，是「创作者的精神栖息地」——深色调、低饱和、柔光的"深夜书房"感。
+
+#### 产品场景
+
+| 场景 | 描述 | 技术依赖 |
+|------|------|---------|
+| 视觉调性 | 暗色主题默认更温暖（对比 Obsidian），像深夜台灯下的光影 | Design Token `--cn-surface-*` 系列，`prefers-color-scheme` 响应 |
+| 动态氛围 | 凌晨 2 点界面更暗更柔，下午色调稍亮——工具"懂你此刻的状态" | `timeAwareTheme` 服务（纯前端，读系统时间），CSS 变量动态切换 |
+| 写作白噪音 | 内置环境音（雨声/咖啡馆/壁炉/深夜虫鸣），一键开启 | `ambientAudioService`（Renderer 进程，Web Audio API），音频资源 ≤ 5MB |
+| 打字质感 | 每个字落屏有"落笔"的重量感（可选视觉 + 音效反馈） | `keystrokeFeedback` 前端模块，CSS `@keyframes` 微动画 + 可选 AudioContext |
+
+#### Agent 实现规范
+
+**动态氛围服务**（`renderer/src/services/timeAwareTheme.ts`）
+
+```
+输入：系统时间
+输出：ThemeModifier { surfaceLightness: number, accentOpacity: number }
+
+逻辑：
+  00:00-05:00 → 最暗（surfaceLightness -8%，accent 降至 60% opacity）
+  05:00-08:00 → 渐亮过渡
+  08:00-18:00 → 标准
+  18:00-22:00 → 渐暗
+  22:00-00:00 → 接近最暗
+
+实现：CSS 变量覆盖，不修改 Token 源文件，30 分钟检查一次
+用户可关闭：设置项 `atmosphere.timeAware: boolean`
+```
+
+**白噪音服务**（`renderer/src/services/ambientAudio.ts`）
+
+```
+内置 preset：rain | cafe | fireplace | night_insects | silence
+音频格式：OGG Vorbis，单文件 ≤ 1MB，可循环
+API：play(preset) | stop() | setVolume(0-1) | currentPreset
+存储：音量和 preset 偏好存入 Memory Layer 0（用户级）
+```
+
+### 6.2 维度 2 · 仪式感与神圣时刻（Ritual & Sacred Moments）
+
+**目标**：用仪式标记创作旅程的关键节点，让用户对自己的创作产生情感记忆。
+
+#### 产品场景
+
+| 场景 | 描述 | 技术依赖 |
+|------|------|---------|
+| 创世仪式 | 新建项目 → "你即将创造一个新世界" → 名字输入 → 优雅过渡 → 空白编辑器等第一行字 | 项目创建 IPC + 前端过渡动画（Framer Motion 300ms @ease-out） |
+| 完稿庆典 | 标记完成 → 创作旅程回顾（第一个角色、最快一天、最复杂关系链）→ KG 全景动画 | `creation-report` Skill（纯统计，无 LLM）+ KG 可视化 + 前端 overlay |
+| 角色告别 | 角色死亡 → KG 实体灰化 → 关系线渐隐 → 一句话旅程摘要 | KG `state` 字段更新 + 前端 d3 过渡动画 + `characterEpitaph` 查询 |
+| 年度回顾 | Wrapped 风格年度报告 → 角色数、故事线数、写作高峰月、主题词云 → 可分享卡片 | `annual-review` Skill（统计 + 词云）+ 前端卡片生成 + 导出为图片 |
+
+#### Agent 实现规范
+
+**角色告别查询**（`services/engagement/characterEpitaphService.ts`）
+
+```
+输入：entityId (角色 KG ID)
+输出：CharacterEpitaph {
+  name: string
+  firstAppearance: { chapter: number, line: string }
+  lastAppearance: { chapter: number, line: string }
+  eventCount: number
+  relationCount: number
+  epitaph: string  // "张三走完了他的旅程。从第 1 章到第 23 章…"
+}
+
+算法：
+1. 从 KG 查询该 entityId 的所有 relations
+2. 从 documents_fts 搜索该角色名的所有出现（首次/末次）
+3. 组装纯文本摘要（不调用 LLM）
+性能：≤ 200ms
+```
+
+**年度回顾服务**（`services/engagement/annualReviewService.ts`）
+
+```
+输入：userId, year
+输出：AnnualReview {
+  totalWords: number
+  totalCharacters: number  // KG 角色总数
+  totalStorylines: number  // KG 关系链
+  peakMonth: string
+  topThemes: Array<{ word: string, count: number }>  // FTS5 词频
+  writingStreak: { longest: number, current: number }
+}
+
+数据源：write_sessions + kg_entities + documents_fts
+LLM：否（纯统计 + FTS5 词频）
+```
+
+### 6.3 维度 3 · 美学一致性与手工感（Craft & Polish）
+
+**目标**：每个细节都透着"有人认真做了这个东西"——微交互、排版、KG 可视化、过渡动画。
+
+#### 产品场景
+
+| 场景 | 描述 | 技术依赖 |
+|------|------|---------|
+| 微交互讲究 | KG 展开弹性动画 + 角色卡悬停光影 + 拖拽吸附触感 | Framer Motion spring 物理 + CSS `box-shadow` 过渡 + `useSpring` |
+| 排版即作品 | 行高/字间距严格调优，中文排版讲究（避头尾、标点挤压、段首缩进） | ProseMirror 自定义 schema + CSS `text-indent` + `font-feature-settings` |
+| KG 是艺术品 | 力导向图有机、美、像活的生态系统——截图分享时第一反应是"太美了" | d3-force + 自定义着色/粒子效果 + Canvas/WebGL 渲染 |
+| 叙事感过渡 | 编辑器 → KG："从文字世界进入上帝视角"的空间转换感 | Framer Motion layout animation + shared element transition |
+
+#### Agent 实现规范
+
+**排版约束**（ProseMirror Schema 层面）
+
+```
+中文排版规则（对应 CSS）：
+  - 段首缩进：text-indent: 2em（可通过 Token 配置）
+  - 避头尾：word-break: break-all + CSS @supports 的 text-spacing-trim
+  - 标点挤压：font-feature-settings: "halt" 1（Source Han Serif SC 支持）
+  - 行高：--cn-leading-body: 1.75（中文需要比英文更大的行高）
+  - 段间距：margin-bottom: 1em
+
+不需要 LLM。纯 CSS + ProseMirror NodeView 实现。
+```
+
+### 6.4 维度 4 · AI 的"人格"设计（AI Persona）
+
+**目标**：AI 不是服务员，是有个性的创作搭档——有审美、有幽默感、知道自己的局限。
+
+#### 产品场景
+
+| 场景 | 描述 | 技术依赖 |
+|------|------|---------|
+| 同行者语气 | "我们接下来往哪个方向走？"而非"请问您需要什么？" | System Prompt 人格模板 + Memory Layer 0 注入 |
+| 审美推回 | "这段有点赶，要不要多一点内心挣扎？"——像好编辑而非 yes man | `judge` 服务质量评估 + 条件触发 Skill（质量分 < 阈值时建议） |
+| 情境幽默 | "你 3 小时杀了 4 个角色，世界还好吗？"——基于创作状态的轻松一刻 | `writerStateTracker`（KG entity state 变更计数）+ System Prompt 幽默条件 |
+| 谦逊边界 | "这个转折我不确定，你来判断？"——比自信但错误更可信 | Confidence score 阈值（< 0.7 时主动表达不确定） |
+
+#### Agent 实现规范
+
+**AI 人格模板**（存入 Memory Layer 0，所有 Skill 注入）
+
+```
+persona_template:
+  tone: collaborative  # "我们" > "我"
+  assertiveness: moderate  # 有观点但不强硬
+  humor: contextual  # 仅在检测到高强度创作后触发
+  humility: high  # 主动标记不确定性
+  never:
+    - 使用"请问您需要什么"式的服务员语气
+    - 无条件赞美用户的每一个决策
+    - 假装对不在 KG 中的信息了如指掌
+```
+
+**幽默触发条件**
+
+```
+条件集合（满足任一即可触发幽默旁注）：
+1. 连续写作 > 2h 且 character_death_count >= 3（近 1h 内）
+2. 用户在 5 分钟内撤销 > 5 次
+3. 同一章节修改 > 10 次仍未标记完成
+
+触发方式：在 AI 响应末尾附加一行轻松旁注（不打断主内容）
+用户可关闭：设置项 `ai.persona.humor: boolean`
+```
+
+### 6.5 维度 5 · "未来的我"可视化（Future Self Visualization）
+
+**目标**：让用户看到"如果继续写下去，世界会变成什么样"——终点越近，动力越强。
+
+#### 产品场景
+
+| 场景 | 描述 | 技术依赖 |
+|------|------|---------|
+| 大纲 → KG 预览 | 写粗略大纲 → AI 生成未来 KG 轮廓（新实体/关系预测） | `outline-kg-preview` Skill（LLM 推演 + KG 模拟） |
+| 完本预测 | 按当前节奏预估完本时间和总字数 | `completionEstimator`（纯统计：write_sessions + 大纲进度） |
+| 作品定位 | "你的叙事密度接近《谍影重重》，世界观规模接近《三体》1/3" | `work-positioning` Skill（LLM 分析 KG 结构 + 叙事模式） |
+| 遗产感 | "你的世界观可支撑一个完整宇宙——至少 5 个独立故事空间" | KG 规模统计 + `universe-potential` Skill（LLM 基于 KG 推演） |
+
+#### Agent 实现规范
+
+**完本预测服务**（`services/engagement/completionEstimatorService.ts`）
+
+```
+输入：projectId
+输出：CompletionEstimate {
+  currentWordCount: number
+  estimatedTotalWords: number  // 基于大纲章节数 × 平均章节长度
+  estimatedCompletionDate: Date  // 基于近 30 天平均日字数
+  confidenceLevel: 'high' | 'medium' | 'low'  // 数据点 < 7 天 → low
+  dailyAverage: number
+}
+
+算法：
+1. 从 write_sessions 读取近 30 天日字数
+2. 从 documents 读取大纲章节总数（type = 'chapter', status != 'completed'）
+3. 估算剩余字数 = 未完成章节 × 已完成章节平均字数
+4. 预估完成日期 = 剩余字数 / 近 30 天日均字数
+LLM：否（纯统计）
+性能：≤ 200ms
+```
+
+**大纲 → KG 预览 Skill**（`outline-kg-preview`）
+
+```
+触发：用户提交章节大纲（≥ 3 章节描述）
+输入：{ outline: string[], currentKG: KGSnapshot }
+输出：KGPreview {
+  predictedNewEntities: number
+  predictedNewRelations: number
+  keyNewCharacters: string[]
+  keyNewRelationChains: string[]
+  visualDiff: KGDiffGraph  // 当前 KG + 预测新增（虚线节点/边）
+}
+LLM：是（推演阶段，单次调用）
+INV-6：注册为标准 Skill
+INV-9：调用纳入成本追踪
+```
+
+---
+
+## 七、与现有架构的集成点
+
+### 7.1 INV 遵守清单
 
 | INV | 成瘾引擎遵守方式 |
 |-----|-----------------|
@@ -841,14 +1069,14 @@ AI 感知：自定义 schema 在上下文组装时作为 world rules 注入
 | INV-9 | 分析 Skill 的 LLM 调用纳入成本追踪 |
 | INV-10 | 分析 Skill 失败不影响写作流程（降级为静默跳过，但记录错误事件） |
 
-### 6.2 新增数据表
+### 7.2 新增数据表
 
 | 表名 | 用途 | Migration 要求 |
 |------|------|---------------|
 | `project_milestones` | 已触发里程碑记录 | 新 migration |
 | `inspirations` | 闪念捕捉（可选方案：直接用 KG 实体 type="inspiration"） | 视实现方案 |
 
-### 6.3 新增 Skill
+### 7.3 新增 Skill
 
 | Skill | 触发方式 | LLM 调用 |
 |-------|---------|---------|
@@ -860,7 +1088,7 @@ AI 感知：自定义 schema 在上下文组装时作为 world rules 注入
 
 ---
 
-## 七、UI 约束
+## 八、UI 约束
 
 - 所有成瘾触点的 UI 展示遵循 `docs/references/frontend-visual-quality.md` 视觉 DNA
 - 绝不使用弹窗打断写作——所有通知融入 Dashboard / 边栏 / Toast
