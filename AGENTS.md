@@ -92,6 +92,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 | 修复 CI | §四(P3) · §七 | `test-commands.md` |
 | 后端实现 | §三(INV) · §四(P0-P5) · §六 · §七 | `ARCHITECTURE.md` · `testing-guide.md` |
 | 前端实现 | §三(INV) · §四(P0-P5, P-V) · §六 · §七 | `frontend-visual-quality.md` |
+| 用户留存/心流/成癢机制 | §三(INV) · §四(P0, P-V) | `engagement-engine.md` |
 | 审计/Review | §三(INV) · §四(P0, P3) · §九 | `audit-protocol.md` |
 | 写测试 | §四(P2, P4) | `testing-guide.md` · `test-commands.md` |
 | 文档/Spec | §四(P1, P5) | 对应 `openspec/specs/<module>/spec.md` |
@@ -111,7 +112,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 | INV-1 | 原稿保护 | AI 写操作必须经 Permission Gate + 版本快照。无快照 = 禁写 |
 | INV-2 | 并发安全 | `isConcurrencySafe` 默认 false。未标记 = 串行 |
 | INV-3 | CJK Token | 中文 ~1.5 tokens/字。禁止 `UTF8_BYTES / 4` |
-| INV-4 | Memory-First | 三层记忆（L0 始终注入 / L1 选择注入 / L2 KG+FTS5）。KG+FTS5 为主检索路径，RAG 仅限降级补充。当前已含 sqlite-vec 语义召回，禁止再新增额外向量存储 |
+| INV-4 | Memory-First | 三层记忆（L0 始终注入 / L1 选择注入 / L2 KG+FTS5）。KG+FTS5 为主检索路径，sqlite-vec 语义召回为补充。禁止新增额外向量存储 |
 | INV-5 | 叙事压缩 | AutoCompact 保留 KG 实体、角色设定、未解伏笔。标记 `compactable: false` |
 | INV-6 | 一切皆 Skill | 统一管线：Schema → 权限 → 执行 → 返回。禁止裸调 LLM |
 | INV-7 | 统一入口 | 所有操作走 `CommandDispatcher.execute()`（計劃实现，当前 IPC handler 直调 Service）。禁止 IPC handler 直调 Service |
@@ -126,16 +127,14 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 ## 四、核心原则
 
-### P0. Orchestrator-First（主会话只编排）
+### P0. Orchestrator-First（主会话仅编排）
 
-主会话 Agent 拆任务、设边界、汇总结论，**不直接写代码、不直接做审计结论**。
+主会话 Agent 拆任务、设边界、汇总结论
 
 - 实现 → 委派工程 Subagent
-- 审计 → 每轮并行委派 **4 个独立审计 Subagent** 做同一变更的全量交叉审计（固定模型见 §九）
-- 任一 finding（含 non-blocking / suggestion / nit）→ 回工程 Subagent 修复 → 重跑四审
-- 每轮 Reviewer 汇总评论发布后，主会话与工程席都必须先读取该最新评论，再继续下一轮
-- 工程席必须“按轮次重建”：每轮都启动一个**新的** Engineering Subagent（附完整 issue/PR/审计上下文），禁止复用单个长生命周期工程席跨轮次累计上下文
-- 只有四审都 zero findings + `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 发布单条原样汇总评论 → 收口
+- 审计 → 工程完成后，与主会话模型自己同样的模型subagent做第一路审计 + 委派 Claude Sonnet 4.6 Subagent 做第二路审计 + 强制 Rubber Duck（GPT-5.4）`critique this plan` 做第三路审计
+- 任一 finding（含 non-blocking / suggestion / nit）→ 回工程 Subagent 修复 → 重跑三路审计
+- 只有三路审计都 zero findings + `FINAL-VERDICT` + `ACCEPT` → 收口
 
 ### P1. Spec-First（规范优先）
 
@@ -150,7 +149,7 @@ CreoNow（CN）是一个 AI 驱动的文字创作 IDE，定位为「创作者的
 
 ### P3. Gates（门禁全绿）
 
-CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + `Invariant Checklist`（INV-1~INV-10 勾选项）+ 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。auto-merge 默认关闭；只有四审都 zero findings + `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条原样汇总评论后才可显式开启。详见 `docs/references/gates-design/README.md`。
+CI 不绿不合并，不得「先合并再修」。PR 必须含 `Closes #N` + `Invariant Checklist`（INV-1~INV-10 勾选项）+ 验证证据 + 回滚点。`scripts/agent_pr_preflight.sh` 必须通过。前端 PR 必须嵌入截图。auto-merge 默认关闭；只有三路审计都 zero findings + `FINAL-VERDICT` + `ACCEPT` 后才可显式开启。详见 `docs/references/gates-design/README.md`。
 
 ### P4. Deterministic & Isolated（确定性与隔离）
 
@@ -164,9 +163,27 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 
 「测试通过 + CI 绿灯」≠「视觉合格」。前端交付标准是「看起来对」。
 
+- **黄金设计源（Golden Design Source）**：`figma_design/前端完整参考/`
+  - 这是 CN 前端所有页面布局、交互模式、组件风格、色彩体系的**唯一权威参考**
+  - 包含完整的 Layout、Editor、AI Panel、Dashboard、Characters、Worldbuilding、Knowledge Graph、Memory、Scenarios、Calendar、Welcome Screen、Command Palette、Settings、Export/Publish 全部页面设计
+  - 所有前端开发、优化、重构**必须以此文件夹中的设计为基准**
+  - 前端任务开始前必须先阅读该文件夹中对应页面的 `.tsx` 源码，理解其布局结构、交互模式、色彩用法
+  - **前端策略：小修补，不大动**——现有设计中的动效、Zen Mode、布局结构、交互模式均属优秀设计，禁止推翻重建。前端任务应在现有 `figma_design/前端完整参考/` 基础上做增量修补（修 bug、接通 IPC、补充缺失状态），而非从零重写页面或组件
 - 黄金组件库 Figma：https://www.figma.com/design/qgCo8ZV53IUGlYRbElaYv5/CreoNow黄金组件?node-id=169-3
 - 颜色/间距用 Token（无硬编码）· 文本走 `t()` · 新组件有 Story · PR 嵌入截图
 - 完整视觉 DNA + 合格标准 → `docs/references/frontend-visual-quality.md`
+
+### P-E. 成瘾引擎驱动（Engagement-Driven）
+
+> 「善战者，求之于势，不责于人。」
+
+CN 的产品设计以人性底层心理机制为哲学基础——14 个心理弱点（即时满足、未完成焦虑、可变奖赏、心流渴求、沉没成本、禀赋效应等）系统性融入产品功能。所有涉及用户留存、心流体验、情感黏性的功能开发，必须以 `docs/references/engagement-engine.md` 为设计依据。
+
+核心约束：
+- 成瘾触点绝不打断写作心流——所有通知融入 Dashboard / 边栏 / Toast，禁止弹窗
+- 故事状态摘要、伏笔追踪等查询服务 ≤ 200ms（纯 SQLite + KG，禁止 LLM 调用）
+- 分析类 Skill（风格分析、模式识别）必须注册为 INV-6 合规 Skill
+- 世界规模更新通过 INV-8 post-writing Hook 触发，不新增独立 pipeline
 
 ---
 
@@ -221,7 +238,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 
 ### 后端专用
 
-1. 默认使用 KG+FTS5。当前已含 sqlite-vec 语义召回（`apps/desktop/main/src/services/memory/userMemoryVec.ts`），禁止再新增额外向量存储（FAISS/Pinecone 等）——INV-4
+1. 默认使用 KG+FTS5。当前已含 sqlite-vec 语义召回（`apps/desktop/main/src/services/memory/userMemoryVec.ts`），禁止新增额外向量存储（FAISS/Pinecone 等）——INV-4
 2. 禁止静默 try-catch 返回默认值——错误要么重试要么上报（反防御型编程）
 3. 禁止在 Skill 体系外直接调用 LLM 或修改文档（INV-6）
 4. 禁止 `UTF8_BYTES / 4` 统一估算 Token——必须区分 CJK（INV-3）
@@ -243,7 +260,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | --- | --- |
 | **准备** | Issue 已创建 · spec 已阅读 · 分支已创建 · 已进入 worktree |
 | **可交审** | PR 含 `Closes #N` + `Invariant Checklist`（INV-1~INV-10） • 证据 · `agent_pr_preflight.sh` 通过 · required checks 全绿 · 前端 PR 已嵌入截图 |
-| **交付** | 四审 zero findings + `FINAL-VERDICT` • `ACCEPT` · Reviewer 单条汇总评论完成 · 合并到 `main` |
+| **交付** | 三路审计 zero findings + `FINAL-VERDICT` • `ACCEPT` · 合并到 `main` |
 
 ---
 
@@ -252,31 +269,25 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 > 「明者因时而变，知者随事而制。」——桓宽《盐铁论》
 > 
 
-### 1+4+1 固定模型配置
+### 1+1+1+Duck 审计模型配置
 
-| 角色 | 模型 | reasoning effort | 数量 |
-| --- | --- | --- | --- |
-| Engineering Subagent | GPT-5.3 Codex | extra high（xhigh） | 1 |
-| Audit Subagent 1 | GPT-5.4 | extra high（xhigh） | 1 |
-| Audit Subagent 2 | GPT-5.3 Codex | extra high（xhigh） | 1 |
-| Audit Subagent 3 | Claude Opus 4.6 | high | 1 |
-| Audit Subagent 4 | Claude Sonnet 4.6 | high | 1 |
-| Reviewer Subagent | Claude Opus 4.6 | high | 1 |
-| Main session Agent | 与用户当前对话模型 | 不固定 | 1 |
+| 角色 | 说明 | 数量 |
+| --- | --- | --- |
+| Main session Agent | 与用户当前对话模型，**仅负责编排**，不直接审计 | 1 |
+| Audit Subagent 1 | 与主会话同模型的独立 Subagent，第一路全量审计 | 1 |
+| Audit Subagent 2 | Claude Sonnet 4.6，第二路独立全量审计 | 1 |
+| Rubber Duck（GPT-5.4） | 每轮任务完成后，强制 `critique this plan` 交叉审计 | 1 |
 
 **核心规则**：
 
-- 同一变更必须 **4 个独立审计 Agent** 并行交叉审计（均为全量审计）
-- 四席模型固定为：GPT-5.4（xhigh）/ GPT-5.3 Codex（xhigh）/ Claude Opus 4.6（high）/ Claude Sonnet 4.6（high）
+- 同一变更必须经过 **3 路独立审计**：与主会话同模型的 Subagent 审计 + Claude Sonnet 4.6 Subagent 审计 + Rubber Duck（GPT-5.4）交叉审计
+- 每轮工程完成后必须强制使用 Copilot Rubber Duck 模式 `critique this plan` 触发 GPT-5.4 审计
 - 任一 finding → `REJECT`（含 non-blocking / suggestion / nit）
-- 每轮 Reviewer 汇总评论发布后，主会话与下一轮新工程席都必须先读取该最新评论
-- 工程席按轮次重建：每轮必须启动新的 Engineering Subagent（附完整上下文），禁止复用长生命周期工程席
-- 只有四审都 zero findings + `ACCEPT`，且 Reviewer 发布单条原样汇总评论 → 可合并
+- 只有三路审计都 zero findings + `ACCEPT` → 可合并
 - 每条结论必须有证据（diff 引用或命令输出）
 - CI 能查的信任 CI；审计主战场是语义正确性、spec 对齐、架构合理性
-- `creonow-reviewer` 是唯一拥有 PR discussion timeline（issue comment）汇总评论发布权限的 Agent，必须将 4 份审计报告原样（verbatim）粘贴为一条评论一次性发出
 
-> 完整审计协议（1+4+1 编排 · 零问题原则 · 审计四律 · 层级 L/S/D · 关键禁令 · Reviewer Agent 定义）详见 `docs/references/audit-protocol.md`。
+> 完整审计协议（1+1+1+Duck 编排 · 零问题原则 · 审计四律 · 层级 L/S/D · 关键禁令）详见 `docs/references/audit-protocol.md`。
 > 
 
 ---
@@ -286,6 +297,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | 文档 | 路径 | 查阅时机 |
 | --- | --- | --- |
 | **架构规则 + INV 详解** | `ARCHITECTURE.md` | **任何任务前必读** |
+| **后端质量评估** | `docs/references/backend-quality-assessment.md` | 后端开发时了解模块现状 |
 | 后端设计规范 | `docs/references/backend-design/README.md` | 后端开发时 |
 | 测试指南 | `docs/references/testing-guide.md` | 写测试前 |
 | 测试命令 | `docs/references/test-commands.md` | 跑测试时 |
@@ -295,6 +307,7 @@ Spec 不存在 / 矛盾 / 超出范围 → 停下来，通知 Owner。
 | 产品质量清单 | `docs/references/product-quality-checklist.md` | PR 自检时 |
 | 门禁规范 | `docs/references/gates-design/README.md` | 门禁配置时 |
 | UI Prompt 工程 | `docs/references/prompt-engineering-for-ui.md` | AI UI 生成时 |
+| **成癢引擎规范** | `docs/references/engagement-engine.md` | 用户留存/心流/情感黏性功能开发时 |
 | WSL 开发指南 | `docs/references/wsl-development-guide.md` | 启动服务/浏览器访问时 |
 
 **脚本索引**（`scripts/`）：

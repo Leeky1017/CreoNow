@@ -2,17 +2,14 @@
 
 在这个仓库里，VS Code / GitHub Copilot Agent 不应把 GitHub 交付理解成“用户手动补最后一步”。请遵守以下规则：
 
-## 1+4+1 固定编排模型配置
+## 1+1+1+Duck 审计编排模型配置
 
-| 角色 | 模型 | reasoning effort | 数量 |
-| --- | --- | --- | --- |
-| Engineering Subagent | GPT-5.3 Codex | extra high（xhigh） | 1 |
-| Audit Subagent 1 | GPT-5.4 | extra high（xhigh） | 1 |
-| Audit Subagent 2 | GPT-5.3 Codex | extra high（xhigh） | 1 |
-| Audit Subagent 3 | Claude Opus 4.6 | high | 1 |
-| Audit Subagent 4 | Claude Sonnet 4.6 | high | 1 |
-| Reviewer Subagent | Claude Opus 4.6 | high | 1 |
-| Main session Agent | 与用户当前对话模型 | 不固定 | 1 |
+| 角色 | 说明 | 数量 |
+| --- | --- | --- |
+| Main session Agent | 与用户当前对话模型，**仅负责编排**，不直接审计 | 1 |
+| Audit Subagent 1 | 与主会话同模型的独立 Subagent，第一路全量审计 | 1 |
+| Audit Subagent 2 | Claude Sonnet 4.6，第二路独立全量审计 | 1 |
+| Rubber Duck（GPT-5.4） | 每轮任务完成后，强制 `critique this plan` 交叉审计 | 1 |
 
 ## 主会话 Agent 角色定义（仅编排）
 
@@ -20,48 +17,37 @@
 
 1. 接收用户的初始 prompt，并完整理解全部需求。
 2. 将目标拆解为有顺序的子任务。
-3. 按需启动工程、审计、Reviewer 子代理。
+3. 按需启动工程、审计子代理。
 4. 监控各子代理状态，并在正确时机启动 / 停止 / 重启。
 5. 向用户汇总进展。
 6. 唯一目标是完整满足初始 prompt，不遗漏、不缩水。
-7. 不直接写代码、不直接审计、不直接发评论；只做编排。
+7. 工程完成后，委派与自己同模型的独立 Subagent 执行第一路全量审计。自己不直接审计。
 
-## 1+4+1 执行流（强制）
+## 1+1+1+Duck 执行流（强制）
 
-`用户任务` → `主会话 Agent 拆解` → `工程 Subagent（GPT-5.3 Codex xhigh）实现/测试/提 PR（含完整 INV checklist）` → `主会话并行启动 4 个审计 Subagent`：
+`用户任务` → `主会话 Agent 拆解` → `工程 Subagent 实现/测试/提 PR（含完整 INV checklist）` → `主会话启动 3 路审计`：
 
-1. GPT-5.4 xhigh 全量审计
-2. GPT-5.3 Codex xhigh 全量审计
-3. Claude Opus 4.6 high 全量审计
-4. Claude Sonnet 4.6 high 全量审计
+1. 与主会话同模型的独立 Subagent 执行第一路全量审计
+2. Claude Sonnet 4.6 Subagent 独立全量审计
+3. Rubber Duck（GPT-5.4）`critique this plan` 交叉审计
 
 之后：
 
-- 收集 4 份审计报告
-- Reviewer Subagent（Claude Opus 4.6 high）发布**一条**结构化 PR 评论，在分节标题下逐条粘贴 4 份审计原文（verbatim）
+- 收集 3 份审计报告
 - 任一 finding（含 non-blocking / suggestion / nit）→ 回工程修复
-- 修复后必须重跑全部 4 审
-- Reviewer 重新发布汇总
-- 每次 Reviewer 汇总评论发布后，主会话与下一轮新的 Engineering Subagent 都必须先读取该最新评论，再继续
+- 修复后必须重跑全部 3 路审计
 - 工程席必须按轮次重建：每轮都启动一个新的 Engineering Subagent（附完整 issue/PR/审计上下文），禁止复用单个长生命周期工程席跨轮次累计上下文
-- 仅当 4 审都 zero findings 时才允许合并
+- 仅当 3 路审计都 zero findings 时才允许合并
 
-## 审计规则（四审并行、全量独立）
+## 审计规则（三审独立、全量审计）
 
-- 四个审计 Subagent 都必须对同一变更做独立**全量审计**，禁止按维度拆分、禁止“你看安全我看性能”的分工。
+- 三个审计方（主会话 + Sonnet Subagent + Rubber Duck）都必须对同一变更做独立**全量审计**，禁止按维度拆分。
 - 任一 finding（包括 `non-blocking` / `suggestion` / `nit`）即 `REJECT`。
-- 仅当四份审计全部 zero findings 才可进入合并。
+- 仅当三路审计全部 zero findings 才可进入合并。
 - 每条结论必须附证据（diff 引用或命令输出）。
-
-## Reviewer 规则
-
-- Reviewer Subagent 仅做汇总发布，不做独立判断。
-- 必须原样粘贴四份审计报告，不得删减、不得降级严重度。
-- 必须发布为一条评论，而不是四条分散评论。
 
 ## Engineering 规则
 
-- Engineering Subagent 固定使用 GPT-5.3 Codex（xhigh）。
 - 编码前必须阅读 `AGENTS.md` 与 `ARCHITECTURE.md`。
 - PR 正文必须包含 invariant checklist。
 - 代码必须携带测试，覆盖率 `>= 80%`。
@@ -85,7 +71,7 @@
   - `selected_channel=none`：明确报告 `missing_tool / missing_auth / missing_permission`，不要只说“没有 gh 上下文”。
 - 默认策略：**只创建 / 更新 PR，不自动开启 auto-merge**。
   - auto-merge 默认关闭。
-  - 仅当 4 份审计报告均为 zero findings，且 Reviewer 已发布单条原样汇总评论后，才允许显式执行 `scripts/agent_pr_automerge_and_sync.sh --enable-auto-merge`。
+  - 仅当 3 路审计报告均为 zero findings，且三路审计都给出 ACCEPT 后，才允许显式执行 `scripts/agent_pr_automerge_and_sync.sh --enable-auto-merge`。
 - 不要在尚未尝试 `gh` 与 GitHub MCP 两条通道前，把 PR 创建、PR 评论、Issue 更新甩回给用户手工完成。
 - PR 文案必须包含 `Closes #N`、`Invariant Checklist`（INV-1~INV-10 勾选项）、验证证据、回滚点、审计门禁；前端 PR 还必须在正文直接嵌入截图，并附可点击 Storybook artifact/link 与视觉验收说明。
 - 修改 GitHub 交付脚本或文档时，要同步维护 `AGENTS.md`、`docs/references/audit-protocol.md`、`scripts/README.md` 的一致性。
@@ -110,17 +96,16 @@
 ## Recommended specialized entrypoints
 
 - Use `creonow-delivery` for end-to-end Issue / PR handoff.
-- Use `creonow-audit` for 1+4+1 audit orchestration and enforcing four independent full audits per round.
+- Use `creonow-audit` for 1+1+1+Duck audit orchestration and enforcing three independent full audits per round.
 - Use `creonow-fix-ci` when the task is to repair failing CI on an existing Issue / PR chain without breaking audit continuity.
-- Use `creonow-reviewer` when consolidating the four audit reports into one structured PR discussion comment (issue comment). This is the only agent permitted to publish that consolidated discussion comment.
 
 ## Audit system
 
-审计体系采用分层自适应审计（Tiered Adaptive Audit）+ 1+4+1 四审交叉制。审计 Agent 必须：
+审计体系采用分层自适应审计（Tiered Adaptive Audit）+ 1+1+1+Duck 三审交叉制。审计 Agent 必须：
 
 - 审计 Agent 的职责是极严格划红线，不负责帮作者“圆过去”。
 - 只有 zero findings + required checks 全绿 + 证据完整时，审计 Agent 才允许给出 `FINAL-VERDICT` + `ACCEPT`。
 - 只要存在任何 finding，包括 `non-blocking` / `suggestion` / `nit` / `tiny issue`，都必须维持 `FINAL-VERDICT` = `REJECT`。
-- 同一轮变更必须并行执行 4 个独立全量审计，任一审计报告任何问题，都不得收口。
+- 同一轮变更必须执行 3 路独立全量审计（主会话 + Claude Sonnet 4.6 + Rubber Duck GPT-5.4），任一审计报告任何问题，都不得收口。
 
 详见 `AGENTS.md` §九、`docs/references/audit-protocol.md`。
