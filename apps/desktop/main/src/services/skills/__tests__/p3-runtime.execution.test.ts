@@ -90,6 +90,48 @@ function builtinSkillsDir(): string {
 }
 
 describe("P3 runtime skill chain", () => {
+  it("lists at least three required builtin skills with complete runtime schema", () => {
+    const db = createSkillTestDb();
+    try {
+      const svc = createSkillService({
+        db,
+        userDataDir: builtinSkillsDir(),
+        builtinSkillsDir: builtinSkillsDir(),
+        logger: createNoopLogger(),
+      });
+
+      const listed = svc.list({ includeDisabled: true });
+      expect(listed.ok).toBe(true);
+      if (!listed.ok) {
+        throw new Error("expected list() to succeed");
+      }
+
+      const requiredIds = ["builtin:polish", "builtin:chat", "builtin:continue"] as const;
+      const builtinItems = listed.data.items.filter((item) => item.scope === "builtin");
+      expect(builtinItems.length).toBeGreaterThanOrEqual(3);
+      expect(builtinItems.map((item) => item.id)).toEqual(
+        expect.arrayContaining([...requiredIds]),
+      );
+
+      for (const skillId of requiredIds) {
+        const resolved = svc.resolveForRun({ id: skillId });
+        expect(resolved.ok).toBe(true);
+        if (!resolved.ok) {
+          throw new Error(`expected ${skillId} to resolve`);
+        }
+
+        expect(resolved.data.enabled).toBe(true);
+        expect(resolved.data.skill.valid).toBe(true);
+        expect(resolved.data.skill.scope).toBe("builtin");
+        expect(resolved.data.skill.permissionLevel).toBeTruthy();
+        expect(resolved.data.skill.prompt?.system?.trim().length).toBeGreaterThan(0);
+        expect(resolved.data.skill.prompt?.user?.trim().length).toBeGreaterThan(0);
+      }
+    } finally {
+      db.close();
+    }
+  });
+
   it("loads the three builtin P3 skills through the real loader", () => {
     const db = createSkillTestDb();
     try {
