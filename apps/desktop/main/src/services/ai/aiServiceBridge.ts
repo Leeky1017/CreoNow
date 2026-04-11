@@ -7,6 +7,7 @@
  */
 
 import type Database from "better-sqlite3";
+import type { AiCompletionResult } from "@shared/types/ai";
 
 import type { Logger } from "../../logging/logger";
 import { estimateTokens as estimateTokenCount } from "../context/tokenEstimation";
@@ -26,17 +27,7 @@ import type { StreamChunk } from "./streaming";
 
 type StreamChatOptions = {
   signal: AbortSignal;
-  onComplete: (result: {
-    content: string;
-    usage: {
-      promptTokens: number;
-      completionTokens: number;
-      totalTokens: number;
-      cachedTokens?: number;
-    };
-    wasRetried: boolean;
-    persistenceError?: unknown;
-  }) => void;
+  onComplete: (result: AiCompletionResult) => void;
   onError: (e: unknown) => void;
   onApiCallStarted?: () => void;
   skillId?: string;
