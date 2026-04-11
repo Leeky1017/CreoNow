@@ -1008,7 +1008,6 @@ describe("kgCoreService — Relation CRUD（关系增删改查）", () => {
 
   describe("parse fallback logging (INV-10)", () => {
     it("entityRead attributesJson 解析失败时记录日志并返回空 attributes", () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       db.prepare
         .mockReturnValueOnce(projectExistsStmt())
         .mockReturnValueOnce(
@@ -1020,15 +1019,13 @@ describe("kgCoreService — Relation CRUD（关系增删改查）", () => {
       if (result.ok) {
         expect(result.data.attributes).toEqual({});
       }
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
         "kg_entity_attributes_parse_failed",
         expect.objectContaining({ message: expect.any(String) }),
       );
-      consoleSpy.mockRestore();
     });
 
     it("entityRead aliasesJson 解析失败时记录日志并返回空 aliases", () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       db.prepare
         .mockReturnValueOnce(projectExistsStmt())
         .mockReturnValueOnce(
@@ -1040,11 +1037,10 @@ describe("kgCoreService — Relation CRUD（关系增删改查）", () => {
       if (result.ok) {
         expect(result.data.aliases).toEqual([]);
       }
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
         "kg_entity_aliases_parse_failed",
         expect.objectContaining({ message: expect.any(String) }),
       );
-      consoleSpy.mockRestore();
     });
   });
 });

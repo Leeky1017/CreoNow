@@ -1490,7 +1490,21 @@ function createAiStreamHelpers(
                       arguments: parsedArgs,
                     },
                   ];
-                } catch {
+                } catch (error) {
+                  logWarn(
+                    deps.logger as Logger & {
+                      warn?: (event: string, data?: Record<string, unknown>) => void;
+                    },
+                    "tool_call_json_parse_failed",
+                    {
+                      module: "ai-service",
+                      provider: "openai",
+                      toolCallId: value.id,
+                      toolName: value.name,
+                      error: error instanceof Error ? error.message : String(error),
+                      rawJson: value.argumentsRaw.slice(0, SSE_PARSE_RAW_MAX_LEN),
+                    },
+                  );
                   // Partial tool-call chunks may contain incomplete JSON; keep call trace with null arguments.
                   return [
                     {
