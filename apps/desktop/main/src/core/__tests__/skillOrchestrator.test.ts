@@ -65,6 +65,7 @@ function makeMockWritingOrchestrator(): WritingOrchestrator & {
     execute: executeSpy,
     abort: abortSpy,
     dispose: disposeSpy,
+    getTaskState: vi.fn().mockReturnValue("pending" as const),
     executeSpy,
     abortSpy,
     disposeSpy,
