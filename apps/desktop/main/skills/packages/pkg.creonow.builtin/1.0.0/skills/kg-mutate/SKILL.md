@@ -8,6 +8,9 @@ kind: single
 scope: builtin
 packageId: pkg.creonow.builtin
 permissionLevel: auto-allow
+prompt:
+  system: "Data-only skill — no LLM invocation."
+  user: "N/A"
 context_rules:
   surrounding: 0
   user_preferences: false
