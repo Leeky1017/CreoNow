@@ -194,6 +194,7 @@ export function createSettingsService(deps: Deps): SettingsService {
       ).get(args.projectId, args.type, args.name, args.excludeId ?? "");
       return typeof row?.id === "string";
     } catch {
+      // Name conflict check is best-effort; DB probe failure should not block in-memory guard path.
       return false;
     }
   }

@@ -174,6 +174,7 @@ describe("createSkillService", () => {
   let projectRoot: string;
   let db: Database.Database;
   let svc: SkillService;
+  let logger: Logger;
 
   beforeEach(() => {
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "creonow-skill-svc-"));
@@ -197,11 +198,12 @@ describe("createSkillService", () => {
     seedProject({ db, projectId: "proj-1", projectRoot });
     setCurrentProject({ db, projectId: "proj-1" });
 
+    logger = createNoopLogger();
     svc = createSkillService({
       db,
       userDataDir,
       builtinSkillsDir,
-      logger: createNoopLogger(),
+      logger,
     });
   });
 
@@ -593,6 +595,39 @@ describe("createSkillService", () => {
       if (result.ok) {
         expect(result.data.items).toHaveLength(2);
       }
+    });
+
+    it("should log when persisted context_rules JSON is invalid", () => {
+      const ts = Date.now();
+      db.prepare(
+        "INSERT INTO custom_skills (id, name, description, prompt_template, input_type, context_rules, scope, project_id, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      ).run(
+        "custom-invalid-json",
+        "坏数据技能",
+        "bad payload",
+        "template",
+        "selection",
+        "{invalid-json",
+        "global",
+        null,
+        1,
+        ts,
+        ts,
+      );
+
+      const result = svc.listCustom();
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const target = result.data.items.find(
+          (item) => item.id === "custom-invalid-json",
+        );
+        expect(target?.contextRules).toEqual({});
+      }
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "custom_skill_context_rules_parse_failed",
+        expect.objectContaining({ skillId: "custom-invalid-json" }),
+      );
     });
   });
 

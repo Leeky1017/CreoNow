@@ -1005,6 +1005,44 @@ describe("kgCoreService — Relation CRUD（关系增删改查）", () => {
       }
     });
   });
+
+  describe("parse fallback logging (INV-10)", () => {
+    it("entityRead attributesJson 解析失败时记录日志并返回空 attributes", () => {
+      db.prepare
+        .mockReturnValueOnce(projectExistsStmt())
+        .mockReturnValueOnce(
+          selectEntityStmt(makeEntityRow({ attributesJson: "{invalid" })),
+        );
+
+      const result = svc.entityRead({ projectId: PROJECT_ID, id: ENTITY_ID });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.attributes).toEqual({});
+      }
+      expect(logger.error).toHaveBeenCalledWith(
+        "kg_entity_attributes_parse_failed",
+        expect.objectContaining({ message: expect.any(String) }),
+      );
+    });
+
+    it("entityRead aliasesJson 解析失败时记录日志并返回空 aliases", () => {
+      db.prepare
+        .mockReturnValueOnce(projectExistsStmt())
+        .mockReturnValueOnce(
+          selectEntityStmt(makeEntityRow({ aliasesJson: "{invalid" })),
+        );
+
+      const result = svc.entityRead({ projectId: PROJECT_ID, id: ENTITY_ID });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.aliases).toEqual([]);
+      }
+      expect(logger.error).toHaveBeenCalledWith(
+        "kg_entity_aliases_parse_failed",
+        expect.objectContaining({ message: expect.any(String) }),
+      );
+    });
+  });
 });
 
 // ===========================================================================

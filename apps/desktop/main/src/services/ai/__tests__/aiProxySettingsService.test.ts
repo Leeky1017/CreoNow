@@ -196,6 +196,38 @@ describe("createAiProxySettingsService", () => {
         expect(res.data.anthropicByok).toBeDefined();
       }
     });
+
+    it("settings JSON 损坏时记录解析错误日志", () => {
+      const parseFailDb = {
+        prepare: vi.fn((sql: string) => {
+          if (sql.includes("SELECT")) {
+            return {
+              get: vi.fn(() => ({ valueJson: "{" })),
+              all: vi.fn(() => []),
+              run: vi.fn(),
+            };
+          }
+          return {
+            run: vi.fn(),
+            get: vi.fn(),
+            all: vi.fn(),
+          };
+        }),
+        exec: vi.fn(),
+        transaction: vi.fn((fn: () => void) => fn),
+      };
+      const parseFailSvc = createAiProxySettingsService({
+        db: parseFailDb as never,
+        logger: logger as never,
+        secretStorage,
+      });
+      const res = parseFailSvc.getRaw();
+      expect(res.ok).toBe(true);
+      expect(logger.error).toHaveBeenCalledWith(
+        "ai_proxy_settings_parse_failed",
+        expect.objectContaining({ key: expect.any(String) }),
+      );
+    });
   });
 
   // ── update ──
@@ -285,6 +317,32 @@ describe("createAiProxySettingsService", () => {
       if (!res.ok) {
         expect(["UNSUPPORTED", "INTERNAL"]).toContain(res.error.code);
       }
+    });
+
+    it("加密失败时记录错误日志", () => {
+      const brokenSecretStorage: SecretStorageAdapter = {
+        isEncryptionAvailable: () => true,
+        encryptString: () => {
+          throw new Error("encrypt failed");
+        },
+        decryptString: (buf: Buffer) => buf.toString("utf8"),
+      };
+      const svcWithBrokenEncryption = createAiProxySettingsService({
+        db: db as never,
+        logger: logger as never,
+        secretStorage: brokenSecretStorage,
+      });
+      const res = svcWithBrokenEncryption.update({
+        patch: { openAiCompatibleApiKey: "sk-test12345678" },
+      });
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.error.code).toBe("INTERNAL");
+      }
+      expect(logger.error).toHaveBeenCalledWith(
+        "ai_proxy_settings_secret_encrypt_failed",
+        expect.objectContaining({ message: "encrypt failed" }),
+      );
     });
 
     it("更新后日志记录成功", () => {

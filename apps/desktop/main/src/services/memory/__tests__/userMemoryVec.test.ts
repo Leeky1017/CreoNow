@@ -22,6 +22,25 @@ function createLogger(): Logger {
   };
 }
 
+function createSpyLogger(): Logger & {
+  infoEvents: string[];
+  errorEvents: string[];
+} {
+  const infoEvents: string[] = [];
+  const errorEvents: string[] = [];
+  return {
+    logPath: "<test>",
+    info: (event: string) => {
+      infoEvents.push(event);
+    },
+    error: (event: string) => {
+      errorEvents.push(event);
+    },
+    infoEvents,
+    errorEvents,
+  };
+}
+
 function createModelUnavailableDbStub(): Database.Database {
   const db = {
     prepare: () => ({
@@ -34,6 +53,30 @@ function createModelUnavailableDbStub(): Database.Database {
     },
   } as unknown as Database.Database;
 
+  return db;
+}
+
+function createInvalidSettingDbStub(): Database.Database {
+  const db = {
+    prepare: (sql: string) => {
+      if (sql.includes("SELECT value_json as valueJson FROM settings")) {
+        return {
+          get: () => ({ valueJson: "{" }),
+        };
+      }
+      if (sql.includes("SELECT vec_version() as version")) {
+        return {
+          get: () => ({ version: "0.1.0" }),
+        };
+      }
+      return {
+        get: () => undefined,
+        run: () => undefined,
+      };
+    },
+    exec: () => undefined,
+    loadExtension: () => undefined,
+  } as unknown as Database.Database;
   return db;
 }
 
@@ -158,6 +201,43 @@ function cosine(a: readonly number[], b: readonly number[]): number {
       true,
     );
   }
+}
+
+// Scenario: sqlite-vec probe failures should be logged (INV-10 no silent catch)
+{
+  const logger = createSpyLogger();
+  const svc = createUserMemoryVecService({
+    db: createModelUnavailableDbStub(),
+    logger,
+  });
+  const result = svc.topK({
+    sources: [{ memoryId: "m-1", content: "高兴的打斗节奏" }],
+    queryText: "开心动作",
+    k: 1,
+    ts: 1_700_000_000_000,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(logger.infoEvents.includes("sqlite_vec_probe_failed"), true);
+}
+
+// Scenario: damaged settings JSON should be logged and fallback to default dimension
+{
+  const logger = createSpyLogger();
+  const svc = createUserMemoryVecService({
+    db: createInvalidSettingDbStub(),
+    logger,
+  });
+  const result = svc.topK({
+    sources: [{ memoryId: "m-1", content: "高兴的打斗节奏" }],
+    queryText: "开心动作",
+    k: 1,
+    ts: 1_700_000_000_000,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(
+    logger.errorEvents.includes("user_memory_vec_setting_parse_failed"),
+    true,
+  );
 }
 
 console.log("userMemoryVec.test.ts: all assertions passed");

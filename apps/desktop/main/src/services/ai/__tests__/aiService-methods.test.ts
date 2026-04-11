@@ -8,8 +8,17 @@ import type { AiStreamEvent } from "@shared/types/ai";
 import type { Logger } from "../../../logging/logger";
 import { createAiService, type AiService } from "../aiService";
 
-function nopLogger(): Logger {
-  return { logPath: "<test>", info: vi.fn(), error: vi.fn() };
+type TestLogger = Logger & {
+  warn: ReturnType<typeof vi.fn>;
+};
+
+function createTestLogger(): TestLogger {
+  return {
+    logPath: "<test>",
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  };
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -30,12 +39,13 @@ function makeService(overrides?: {
   retryBackoffMs?: readonly number[];
   sessionTokenBudget?: number;
   env?: NodeJS.ProcessEnv;
+  logger?: TestLogger;
   traceStore?: {
     recordTraceFeedback: ReturnType<typeof vi.fn>;
   };
 }): AiService {
   return createAiService({
-    logger: nopLogger(),
+    logger: (overrides?.logger ?? createTestLogger()) as Logger,
     env: {
       CREONOW_AI_PROVIDER: "openai",
       CREONOW_AI_BASE_URL: "https://api.openai.com",
@@ -394,5 +404,57 @@ describe("aiService.runSkill basics", () => {
       expect(res.data.runId).toBeTruthy();
       expect(res.data.traceId).toBeTruthy();
     }
+  });
+
+  it("tool call 参数 JSON 解析失败时记录 warning 并降级为 null arguments", async () => {
+    const logger = createTestLogger();
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        [
+          `data: ${JSON.stringify({
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: "call_1",
+                      function: { name: "lookup", arguments: "{" },
+                    },
+                  ],
+                },
+                finish_reason: "tool_calls",
+              },
+            ],
+          })}\n\n`,
+          "data: [DONE]\n\n",
+        ].join(""),
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      ),
+    );
+
+    const events: AiStreamEvent[] = [];
+    const svc = makeService({ logger });
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "gpt-4o",
+      stream: true,
+      ts: Date.now(),
+      emitEvent: (e) => events.push(e),
+    });
+
+    expect(res.ok).toBe(true);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "tool_call_json_parse_failed",
+      expect.objectContaining({
+        module: "ai-service",
+        provider: "openai",
+        toolCallId: "call_1",
+        toolName: "lookup",
+        rawJson: "{",
+      }),
+    );
   });
 });

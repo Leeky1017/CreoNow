@@ -838,6 +838,7 @@ function parseModelPricingMap(
     }
     return map;
   } catch {
+    // Invalid pricing JSON must degrade to empty map instead of breaking chat startup.
     return new Map();
   }
 }
