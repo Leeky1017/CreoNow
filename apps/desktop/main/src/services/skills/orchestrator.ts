@@ -1,9 +1,25 @@
 /**
- * WritingOrchestrator — 9 阶段写作管线
+ * @module WritingOrchestrator — 9-stage writing pipeline
  *
+ * ## Pipeline stages
  * intent-resolved → context-assembled → model-selected → ai-chunk* →
  * ai-done → permission-requested → permission-granted/denied →
  * write-back-done → hooks-done
+ *
+ * ## Responsibility
+ * This module is the ONLY code path that writes AI output to documents.
+ * Stage 6 enforces Permission Gate (INV-1), Stage 7 executes the write-back
+ * via the `documentWrite` tool (registered in writingTooling.ts).
+ *
+ * ## What this module does NOT do
+ * - Does not resolve which skill to run (IPC layer does that)
+ * - Does not send events to the renderer (IPC layer drains the generator)
+ *
+ * ## Key invariants
+ * - INV-1: pre-write snapshot → permission gate → documentWrite → confirmCommit
+ * - INV-2: documentWrite has isConcurrencySafe=false (serial only)
+ * - INV-6: all capabilities are Skills; write-back uses registered tool
+ * - INV-8: Stage 8 post-writing hooks run after write-back
  *
  * 权限门禁、120s 权限超时、Post-Writing Hooks、任务状态机
  */
@@ -950,7 +966,11 @@ export function createWritingOrchestrator(
           return null;
         };
 
-        // Stage 6: Permission gate
+        // Stage 6: Permission gate (SINGLE AUTHORITY — INV-1)
+        // This is the ONLY enforcement point for permission policy.
+        // The IPC layer resolves the raw permission level from the skill
+        // manifest but does NOT override or enforce it — that is our job.
+        // auto-allow is intentionally unreachable for write-back operations.
         const evalResult = config.permissionGate.evaluate
           ? await config.permissionGate.evaluate(request)
           : { level: "preview-confirm", granted: false };
@@ -1034,6 +1054,16 @@ export function createWritingOrchestrator(
           return;
         }
 
+        // ── Stage 7: Write-back (CANONICAL PATH — INV-1) ──────────────────
+        // This is the ONLY location in the entire codebase that executes
+        // AI-generated content write-back to a document.  The sequence is:
+        //   1. Pre-write snapshot (above) — ensures rollback is possible
+        //   2. Permission gate (Stage 6)  — user must approve the write
+        //   3. documentWrite tool (below) — performs the actual DB save
+        //   4. confirmCommit              — finalises the version record
+        //
+        // No other module (IPC layer, renderer, etc.) may perform document
+        // writes on behalf of AI output.  See Issue #109 for context.
         const writeTool = config.toolRegistry.get("documentWrite");
         if (!writeTool) {
           yield makeFailureEvent({
