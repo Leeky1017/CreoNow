@@ -82,6 +82,7 @@ function createMockAIService() {
 /** Create mock PermissionGate */
 function createMockPermissionGate(autoGrant = true) {
   return {
+    confirmTimeoutMs: 120_000,
     evaluate: vi.fn().mockResolvedValue(
       autoGrant ? { level: "preview-confirm", granted: true } : { level: "must-confirm-snapshot", granted: false },
     ),
@@ -95,6 +96,7 @@ function createTrackablePermissionGate() {
 
   return {
     pending,
+    confirmTimeoutMs: 120_000,
     evaluate: vi.fn().mockResolvedValue({
       level: "must-confirm-snapshot",
       granted: false,
@@ -106,7 +108,9 @@ function createTrackablePermissionGate() {
       });
     }),
     releasePendingPermission: vi.fn().mockImplementation((requestId: string) => {
+      const resolver = pending.get(requestId);
       pending.delete(requestId);
+      resolver?.(false);
     }),
     settle(requestId: string, granted: boolean) {
       const resolver = pending.get(requestId);
@@ -174,8 +178,11 @@ function createMockCostTracker(
 
 /** Build OrchestratorConfig with mocks */
 function buildConfig(
-  overrides: Partial<OrchestratorConfig> = {},
+  overrides: Omit<Partial<OrchestratorConfig>, "permissionGate"> & {
+    permissionGate?: Partial<OrchestratorConfig["permissionGate"]>;
+  } = {},
 ): OrchestratorConfig {
+  const { permissionGate: permissionGateOverride, ...restOverrides } = overrides;
   const toolRegistry = createToolRegistry();
   // Register V1 built-in tools
   toolRegistry.register({
@@ -200,11 +207,14 @@ function buildConfig(
   return {
     aiService: createMockAIService(),
     toolRegistry,
-    permissionGate: createMockPermissionGate(),
+    permissionGate: {
+      ...createMockPermissionGate(),
+      ...(permissionGateOverride ?? {}),
+    },
     postWritingHooks: [createMockHook("auto-save-version")],
     defaultTimeoutMs: 30_000,
     costTracker: createMockCostTracker(),
-    ...overrides,
+    ...restOverrides,
   };
 }
 
@@ -557,11 +567,11 @@ describe("WritingOrchestrator", () => {
   // ── 权限门禁 ──────────────────────────────────────────────────
 
   describe("Permission Gate — 权限门禁", () => {
-    it("auto-allow 类型不产出 permission-requested 事件", async () => {
+    it("auto-allow 写操作会被提升到 preview-confirm 并产出 permission-requested", async () => {
       const cfg = buildConfig({
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "auto-allow", granted: true }),
-          requestPermission: vi.fn(),
+          requestPermission: vi.fn().mockResolvedValue(true),
           releasePendingPermission: vi.fn(),
         },
       });
@@ -570,7 +580,7 @@ describe("WritingOrchestrator", () => {
       const events = await collectEvents(orch.execute(makeRequest()));
       const permEvents = events.filter((e) => e.type === "permission-requested");
 
-      expect(permEvents).toHaveLength(0);
+      expect(permEvents).toHaveLength(1);
       orch.dispose();
     });
 
@@ -594,6 +604,84 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
+    it("must-confirm-snapshot 会先创建 pre-write 快照，再触发 permission 请求", async () => {
+      const permissionGate = {
+        evaluate: vi.fn().mockResolvedValue({
+          level: "must-confirm-snapshot",
+          granted: false,
+        }),
+        requestPermission: vi.fn().mockResolvedValue(true),
+        releasePendingPermission: vi.fn(),
+      };
+      const cfg = buildConfig({ permissionGate });
+      const orch = createWritingOrchestrator(cfg);
+      await collectEvents(orch.execute(makeRequest()));
+
+      const versionTool = cfg.toolRegistry.get("versionSnapshot") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      expect(versionTool?.execute).toHaveBeenCalledTimes(1);
+      expect(permissionGate.requestPermission).toHaveBeenCalledTimes(1);
+      expect(versionTool?.execute.mock.invocationCallOrder[0]).toBeLessThan(
+        permissionGate.requestPermission.mock.invocationCallOrder[0],
+      );
+      orch.dispose();
+    });
+
+    it("budget-confirm 也会先创建 pre-write 快照，再触发 permission 请求", async () => {
+      const permissionGate = {
+        evaluate: vi.fn().mockResolvedValue({
+          level: "budget-confirm",
+          granted: false,
+        }),
+        requestPermission: vi.fn().mockResolvedValue(true),
+        releasePendingPermission: vi.fn(),
+      };
+      const cfg = buildConfig({ permissionGate });
+      const orch = createWritingOrchestrator(cfg);
+      await collectEvents(orch.execute(makeRequest({ requestId: "req-budget-order" })));
+
+      const versionTool = cfg.toolRegistry.get("versionSnapshot") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      expect(versionTool?.execute).toHaveBeenCalledTimes(1);
+      expect(permissionGate.requestPermission).toHaveBeenCalledTimes(1);
+      expect(versionTool?.execute.mock.invocationCallOrder[0]).toBeLessThan(
+        permissionGate.requestPermission.mock.invocationCallOrder[0],
+      );
+      orch.dispose();
+    });
+
+    it("must-confirm-snapshot 若 pre-write 快照失败则 fail-closed，且不触发 permission/write-back", async () => {
+      const permissionGate = {
+        evaluate: vi.fn().mockResolvedValue({
+          level: "must-confirm-snapshot",
+          granted: false,
+        }),
+        requestPermission: vi.fn().mockResolvedValue(true),
+        releasePendingPermission: vi.fn(),
+      };
+      const cfg = buildConfig({ permissionGate });
+      const versionTool = cfg.toolRegistry.get("versionSnapshot") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      const writeTool = cfg.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      versionTool?.execute.mockResolvedValue({
+        success: false,
+        error: { code: "VERSION_SNAPSHOT_FAILED", message: "snapshot failed" },
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const failureEvent = events.find((event) => event.type === "error");
+      expect(failureEvent).toBeDefined();
+      expect(permissionGate.requestPermission).not.toHaveBeenCalled();
+      expect(writeTool?.execute).not.toHaveBeenCalled();
+      orch.dispose();
+    });
+
     it("权限被拒绝 → 产出 permission-denied，不执行 write-back", async () => {
       const cfg = buildConfig({
         permissionGate: {
@@ -612,39 +700,87 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
-    it("权限请求 120 秒超时 → permission-denied → 管线终止", async () => {
+    it("权限拒绝路径也会在 finally 中清理 versionWorkflow commit", async () => {
+      const versionWorkflow = {
+        createPreWriteSnapshot: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            stage: "snapshot-created",
+            preWriteSnapshotId: "snap-pre-cleanup",
+            documentId: "doc-001",
+            executionId: "req-vw-cleanup",
+          },
+        }),
+        markAiWriting: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            stage: "ai-writing",
+            preWriteSnapshotId: "snap-pre-cleanup",
+            documentId: "doc-001",
+            executionId: "req-vw-cleanup",
+          },
+        }),
+        confirmCommit: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            stage: "user-confirmed",
+            preWriteSnapshotId: "snap-pre-cleanup",
+            documentId: "doc-001",
+            executionId: "req-vw-cleanup",
+          },
+        }),
+        rejectCommit: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            stage: "user-rejected",
+            preWriteSnapshotId: "snap-pre-cleanup",
+            documentId: "doc-001",
+            executionId: "req-vw-cleanup",
+          },
+        }),
+        cancelCommit: vi.fn(),
+      } satisfies NonNullable<OrchestratorConfig["versionWorkflow"]>;
       const cfg = buildConfig({
+        versionWorkflow,
         permissionGate: {
-          evaluate: vi.fn().mockResolvedValue({ level: "must-confirm-snapshot", granted: false }),
-          requestPermission: vi.fn().mockImplementation(() => new Promise(() => {})),
+          evaluate: vi.fn().mockResolvedValue({
+            level: "preview-confirm",
+            granted: false,
+          }),
+          requestPermission: vi.fn().mockResolvedValue(false),
           releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
+      const requestId = "req-vw-cleanup";
+      const events = await collectEvents(orch.execute(makeRequest({ requestId, projectId: "proj-1" })));
 
-      const events: WritingEvent[] = [];
-      const gen = orch.execute(makeRequest({ requestId: "req-timeout" }));
+      expect(eventTypes(events)).toContain("permission-denied");
+      expect(versionWorkflow.createPreWriteSnapshot).toHaveBeenCalledWith({
+        projectId: "proj-1",
+        documentId: "doc-001",
+        executionId: requestId,
+      });
+      expect(versionWorkflow.cancelCommit).toHaveBeenCalledWith(requestId);
+      expect(versionWorkflow.confirmCommit).not.toHaveBeenCalled();
+      expect(versionWorkflow.rejectCommit).not.toHaveBeenCalled();
+      orch.dispose();
+    });
 
-      // Consume events until we hit permission-requested
-      let result = await gen.next();
-      while (!result.done && result.value.type !== "permission-requested") {
-        events.push(result.value);
-        result = await gen.next();
-      }
-      if (!result.done) events.push(result.value);
-
-      // Advance 120 seconds
-      await vi.advanceTimersByTimeAsync(120_000);
-
-      // Drain remaining events
-      result = await gen.next();
-      while (!result.done) {
-        events.push(result.value);
-        result = await gen.next();
-      }
+    it("权限请求超时时返回 permission-denied → 管线终止", async () => {
+      const cfg = buildConfig({
+        permissionGate: {
+          evaluate: vi.fn().mockResolvedValue({ level: "preview-confirm", granted: false }),
+          requestPermission: vi.fn().mockResolvedValue(false),
+          releasePendingPermission: vi.fn(),
+        },
+      });
+      const orch = createWritingOrchestrator(cfg);
+      const events = await collectEvents(orch.execute(makeRequest({ requestId: "req-timeout" })));
 
       const types = eventTypes(events);
       expect(types).toContain("permission-denied");
+      expect(types).not.toContain("error");
       expect(types).not.toContain("write-back-done");
       orch.dispose();
     });
@@ -668,36 +804,38 @@ describe("WritingOrchestrator", () => {
       orch.dispose();
     });
 
-    it("权限请求 120 秒超时后会显式释放 pending resolver", async () => {
+    it("权限 IPC 异常时返回 PERMISSION_IPC_ERROR", async () => {
+      const cfg = buildConfig({
+        permissionGate: {
+          evaluate: vi.fn().mockResolvedValue({ level: "preview-confirm", granted: false }),
+          requestPermission: vi.fn().mockRejectedValue({
+            code: "PERMISSION_IPC_ERROR",
+            details: { channel: "ai:skill:confirm" },
+          }),
+          releasePendingPermission: vi.fn(),
+        },
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest({ requestId: "req-ipc-error" })));
+      const errorEvent = events.find((event) => event.type === "error") as
+        | ({ error?: { code?: string } } & WritingEvent)
+        | undefined;
+      expect(errorEvent?.error?.code).toBe("PERMISSION_IPC_ERROR");
+      expect(eventTypes(events)).not.toContain("permission-denied");
+      orch.dispose();
+    });
+
+    it("权限请求超时（false）后返回 permission-denied", async () => {
       const permissionGate = createTrackablePermissionGate();
+      permissionGate.requestPermission.mockResolvedValue(false);
       const cfg = buildConfig({ permissionGate });
       const orch = createWritingOrchestrator(cfg);
-      const events: WritingEvent[] = [];
-      const gen = orch.execute(makeRequest({ requestId: "req-timeout-release" }));
-
-      let result = await gen.next();
-      while (!result.done && result.value.type !== "permission-requested") {
-        events.push(result.value);
-        result = await gen.next();
-      }
-      expect(result.done).toBe(false);
-      events.push(result.value);
-      expect(permissionGate.pending.size).toBe(1);
-
-      const waitForPermissionResolution = gen.next();
-      await vi.advanceTimersByTimeAsync(120_000);
-
-      result = await waitForPermissionResolution;
-      while (!result.done) {
-        events.push(result.value);
-        result = await gen.next();
-      }
+      const events = await collectEvents(
+        orch.execute(makeRequest({ requestId: "req-timeout-release" })),
+      );
 
       expect(eventTypes(events)).toContain("permission-denied");
-      expect(permissionGate.pending.size).toBe(0);
-      expect(permissionGate.releasePendingPermission).toHaveBeenCalledWith(
-        "req-timeout-release",
-      );
       orch.dispose();
     });
 
@@ -712,7 +850,7 @@ describe("WritingOrchestrator", () => {
         result = await gen.next();
       }
       expect(result.done).toBe(false);
-      expect(permissionGate.pending.size).toBe(1);
+      expect(result.value).toMatchObject({ type: "permission-requested" });
 
       const waiting = gen.next();
       await Promise.resolve();
@@ -739,7 +877,7 @@ describe("WritingOrchestrator", () => {
         result = await grantGen.next();
       }
       expect(result.done).toBe(false);
-      expect(grantGate.pending.size).toBe(1);
+      expect(result.value).toMatchObject({ type: "permission-requested" });
       const grantWait = grantGen.next();
       await Promise.resolve();
       grantGate.settle("req-grant-release", true);
@@ -760,7 +898,7 @@ describe("WritingOrchestrator", () => {
         result = await rejectGen.next();
       }
       expect(result.done).toBe(false);
-      expect(rejectGate.pending.size).toBe(1);
+      expect(result.value).toMatchObject({ type: "permission-requested" });
       const rejectWait = rejectGen.next();
       await Promise.resolve();
       rejectGate.settle("req-reject-release", false);
@@ -784,7 +922,7 @@ describe("WritingOrchestrator", () => {
         result = await gen.next();
       }
       expect(result.done).toBe(false);
-      expect(permissionGate.pending.size).toBe(1);
+      expect(result.value).toMatchObject({ type: "permission-requested" });
 
       // Abort while task is paused waiting for permission
       const waiting = gen.next();

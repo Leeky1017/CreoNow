@@ -1,10 +1,12 @@
 import { MAX_SKILL_TIMEOUT_MS } from "../ai/runtimeConfig";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
+import type { PermissionLevel } from "./permissionGate";
 export type { ServiceResult };
 
 export type SkillScope = "builtin" | "global" | "project";
 export type SkillKind = "single" | "chat";
 export type SkillInputType = "selection" | "document";
+export type SkillPermissionLevel = PermissionLevel;
 
 export type SkillContextRules = {
   surrounding?: number;
@@ -43,6 +45,7 @@ export type SkillFrontmatter = {
   dependsOn?: string[];
   timeoutMs?: number;
   inputType?: SkillInputType;
+  permissionLevel: SkillPermissionLevel;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -607,6 +610,20 @@ export function validateSkillFrontmatter(args: {
   if (!inputTypeRes.ok) {
     return inputTypeRes;
   }
+  const permissionLevelRes = optionalEnumField({
+    obj,
+    fieldName: "permissionLevel",
+    allowed: [
+      "auto-allow",
+      "preview-confirm",
+      "must-confirm-snapshot",
+      "budget-confirm",
+    ] as const,
+    defaultValue: "preview-confirm",
+  });
+  if (!permissionLevelRes.ok) {
+    return permissionLevelRes;
+  }
 
   const kindRes = optionalEnumField({
     obj,
@@ -656,6 +673,7 @@ export function validateSkillFrontmatter(args: {
       dependsOn: dependsOnRes.data.length ? dependsOnRes.data : undefined,
       timeoutMs: timeoutMsRes.data,
       inputType: inputTypeRes.data,
+      permissionLevel: permissionLevelRes.data,
     },
   };
 }

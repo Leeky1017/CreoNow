@@ -456,10 +456,12 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     const reasons =
       versions.ok ? versions.data.items.map((item) => item.reason) : [];
     expect(reasons).not.toContain("ai-accept");
-    expect(reasons).not.toContain("pre-write");
+    expect(reasons).not.toContain("pre-rollback");
+    expect(reasons).not.toContain("rollback");
+    expect(reasons).toContain("pre-write");
   });
 
-  it("pre-write snapshot 失败时，confirm 经 IPC 返回显式错误且不会伪装 completed", async () => {
+  it("文档内容损坏时，confirm 经 IPC 返回显式错误且不会伪装 completed", async () => {
     const harness = createHarness();
     opened.push(harness.db);
     const { projectId, documentId } = createProjectAndDocument({
@@ -504,7 +506,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
 
     expect(confirm.ok).toBe(false);
     expect(confirm.error).toMatchObject({
-      code: "VERSION_SNAPSHOT_FAILED",
+      code: "WRITE_BACK_FAILED",
     });
   });
 
@@ -576,7 +578,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(read.ok && read.data.contentText).toBe("用户已改动");
   });
 
-  it("缺少 versionSnapshot tool 时，accept 通过 IPC seam 硬失败且原稿保持不变", async () => {
+  it("缺少 versionSnapshot tool 时，仍可通过 workflow 创建 pre-write 并完成 accept", async () => {
     const realCreateWritingToolRegistry = writingTooling.createWritingToolRegistry;
     vi.spyOn(writingTooling, "createWritingToolRegistry").mockImplementation((args) => {
       const registry = realCreateWritingToolRegistry(args);
@@ -624,16 +626,12 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     projectId,
     });
 
-    expect(confirm.ok).toBe(false);
-    expect(confirm.error).toMatchObject({
-      code: "VERSION_SNAPSHOT_FAILED",
-      message: 'Required tool "versionSnapshot" is not registered',
-    });
+    expect(confirm.ok).toBe(true);
 
     const service = createDocumentService({ db: harness.db, logger: createLogger() });
     const read = service.read({ projectId, documentId });
     expect(read.ok).toBe(true);
-    expect(read.ok && read.data.contentText).toBe("原文");
+    expect(read.ok && read.data.contentText).toBe(run.data?.outputText);
   });
 
   it("缺少 documentWrite tool 时，accept 通过 IPC seam 返回 WRITE_BACK_FAILED", async () => {

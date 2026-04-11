@@ -10,6 +10,7 @@ import {
   type SkillFrontmatter,
   type SkillInputType,
   type SkillOutputConstraints,
+  type SkillPermissionLevel,
   type SkillPrompt,
   type SkillScope,
 } from "./skillValidator";
@@ -41,6 +42,7 @@ export type LoadedSkill = {
   dependsOn?: string[];
   timeoutMs?: number;
   inputType?: SkillInputType;
+  permissionLevel: SkillPermissionLevel;
 };
 
 export type DirectoryScanError = {
@@ -231,6 +233,7 @@ export function loadSkillFile(args: { ref: SkillFileRef }): LoadedSkill {
       error_code: "IO_ERROR",
       error_message:
         error instanceof Error ? error.message : "Failed to read skill file",
+      permissionLevel: "preview-confirm",
     };
   }
 
@@ -246,6 +249,7 @@ export function loadSkillFile(args: { ref: SkillFileRef }): LoadedSkill {
       valid: false,
       error_code: split.error.code,
       error_message: split.error.message,
+      permissionLevel: "preview-confirm",
     };
   }
 
@@ -261,6 +265,7 @@ export function loadSkillFile(args: { ref: SkillFileRef }): LoadedSkill {
       valid: false,
       error_code: parsedYaml.error.code,
       error_message: parsedYaml.error.message,
+      permissionLevel: "preview-confirm",
     };
   }
 
@@ -294,6 +299,7 @@ export function loadSkillFile(args: { ref: SkillFileRef }): LoadedSkill {
       valid: false,
       error_code: validated.error.code,
       error_message: validated.error.message,
+      permissionLevel: "preview-confirm",
     };
   }
 
@@ -326,6 +332,7 @@ function toLoadedSkill(args: {
     dependsOn: args.frontmatter.dependsOn,
     timeoutMs: args.frontmatter.timeoutMs,
     inputType: args.frontmatter.inputType,
+    permissionLevel: args.frontmatter.permissionLevel,
   };
 }
 

@@ -12,6 +12,14 @@ import type { ToolRegistry } from "./toolRegistry";
 import type { StreamChunk, ToolCallInfo } from "../ai/streaming";
 import type { CostTracker } from "../ai/costTracker";
 import type { ToolUseHandler } from "./toolUseHandler";
+import type {
+  DiffPreview,
+  PermissionGate,
+  PermissionLevel,
+  PermissionRequest,
+} from "./permissionGate";
+import { normalizeLevel } from "./permissionGate";
+import type { VersionWorkflowService } from "../documents/versionService";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -25,6 +33,7 @@ type AgenticMessage = {
 export interface WritingRequest {
   requestId: string;
   skillId: string;
+  level?: PermissionLevel;
   sessionId?: string;
   input: { selectedText?: string; precedingText?: string; followingText?: string; [key: string]: unknown };
   userInstruction?: string;
@@ -126,12 +135,6 @@ function readVersionId(data: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-interface PermissionGate {
-  evaluate(request: unknown): Promise<{ level: string; granted: boolean }>;
-  requestPermission(request: unknown): Promise<boolean>;
-  releasePendingPermission(requestId: string): void;
-}
-
 interface PostWritingHook {
   name: string;
   enabled?: boolean;
@@ -147,6 +150,14 @@ export interface OrchestratorConfig {
   costTracker?: Pick<CostTracker, "checkBudget" | "recordUsage" | "getSessionCost">;
   /** P2: handler for Agentic Loop tool execution (read-only registry) */
   toolUseHandler?: ToolUseHandler;
+  versionWorkflow?: Pick<
+    VersionWorkflowService,
+    | "createPreWriteSnapshot"
+    | "markAiWriting"
+    | "confirmCommit"
+    | "rejectCommit"
+    | "cancelCommit"
+  >;
   prepareRequest?: (request: WritingRequest) => Promise<PreparedRequest>;
   generateText?: (args: {
     request: WritingRequest;
@@ -173,7 +184,6 @@ export interface WritingOrchestrator {
 }
 
 const VALID_SKILL_IDS = ["polish", "expand", "summarize", "translate", "rewrite", "continue"];
-const PERMISSION_TIMEOUT_MS = 120_000;
 const MAX_TASK_ENTRIES = 1000;
 /** P2: Maximum agentic tool-use rounds — exported so ToolUseConfig.maxToolRounds stays in sync */
 export const AGENTIC_MAX_ROUNDS = 5;
@@ -225,6 +235,19 @@ export function createWritingOrchestrator(
         ...(args.details === undefined ? {} : { details: args.details }),
       },
     });
+  }
+
+  function buildDiffPreview(request: WritingRequest, fullText: string): DiffPreview {
+    const original =
+      request.selection?.text ??
+      (typeof request.input.selectedText === "string" ? request.input.selectedText : "");
+    if (original.length === 0 && fullText.length > 0) {
+      return { original: "", modified: fullText, changeType: "insert" };
+    }
+    if (original.length > 0 && fullText.length === 0) {
+      return { original, modified: "", changeType: "delete" };
+    }
+    return { original, modified: fullText, changeType: "replace" };
   }
 
   return {
@@ -821,68 +844,137 @@ export function createWritingOrchestrator(
           return;
         }
 
-        // Stage 6: Permission gate
-        const evalResult = await config.permissionGate.evaluate(request);
+        let preWriteSnapshotId: string | null = null;
+        let aiWritingMarked = false;
+        const createPreWriteSnapshot = async (): Promise<WritingEvent | null> => {
+          if (preWriteSnapshotId) {
+            return null;
+          }
 
-        if (evalResult.level === "auto-allow") {
-          // Auto-allow: skip permission stage entirely, proceed to write-back
-        } else {
-          // Need explicit permission
-          taskStates.set(requestId, "paused");
-
-          let timeoutId: ReturnType<typeof setTimeout> | undefined;
-          let removeAbortListener: (() => void) | undefined;
-          const permissionDecision = Promise.race<boolean>([
-            config.permissionGate.requestPermission(request).catch(() => false),
-            new Promise<boolean>((resolve) => {
-              timeoutId = setTimeout(() => resolve(false), PERMISSION_TIMEOUT_MS);
-            }),
-            new Promise<boolean>((resolve) => {
-              const handleAbort = () => resolve(false);
-              abortController.signal.addEventListener("abort", handleAbort, {
-                once: true,
+          if (config.versionWorkflow && request.projectId) {
+            const workflowSnapshot = config.versionWorkflow.createPreWriteSnapshot({
+              projectId: request.projectId,
+              documentId: request.documentId,
+              executionId: requestId,
+            });
+            if (!workflowSnapshot.ok) {
+              return makeFailureEvent({
+                requestId,
+                code: workflowSnapshot.error.code,
+                message: workflowSnapshot.error.message,
+                retryable: workflowSnapshot.error.retryable,
+                details: workflowSnapshot.error.details,
               });
-              removeAbortListener = () => {
-                abortController.signal.removeEventListener("abort", handleAbort);
-              };
-            }),
-          ]);
-
-          yield makeEvent("permission-requested", requestId, {
-            level: evalResult.level,
-            description: "Operation requires user confirmation",
-          });
-
-          let granted: boolean;
-          try {
-            granted = await permissionDecision;
-          } catch {
-            granted = false;
-          } finally {
-            if (timeoutId !== undefined) {
-              clearTimeout(timeoutId);
             }
-            removeAbortListener?.();
-            config.permissionGate.releasePendingPermission(requestId);
+            preWriteSnapshotId = workflowSnapshot.data.preWriteSnapshotId;
+            return null;
           }
 
-          taskStates.set(requestId, "running");
-
-          if (abortController.signal.aborted) {
-            taskStates.set(requestId, "killed");
-            yield makeEvent("aborted", requestId, { reason: "user-abort" });
-            return;
+          const versionTool = config.toolRegistry.get("versionSnapshot");
+          if (!versionTool) {
+            return makeFailureEvent({
+              requestId,
+              code: "VERSION_SNAPSHOT_FAILED",
+              message: 'Required tool "versionSnapshot" is not registered',
+            });
           }
 
-          if (!granted) {
-            taskStates.set(requestId, "killed");
-            pruneTaskStates();
-            yield makeEvent("permission-denied", requestId);
-            return;
+          const snapshotResult = await versionTool.execute({
+            projectId: request.projectId,
+            documentId: request.documentId,
+            requestId,
+            actor: "auto",
+            reason: "pre-write",
+          });
+          if (!snapshotResult.success) {
+            return makeFailureEvent({
+              requestId,
+              code: snapshotResult.error?.code ?? "VERSION_SNAPSHOT_FAILED",
+              message:
+                snapshotResult.error?.message ??
+                "Pre-write snapshot failed before document write",
+              retryable: snapshotResult.error?.retryable,
+              details: snapshotResult.error?.details,
+            });
           }
+          const versionId = readVersionId(snapshotResult.data);
+          if (!versionId) {
+            return makeFailureEvent({
+              requestId,
+              code: "VERSION_SNAPSHOT_FAILED",
+              message: "Pre-write snapshot did not return versionId",
+            });
+          }
+          preWriteSnapshotId = versionId;
+          return null;
+        };
+        const markAiWritingStage = (): WritingEvent | null => {
+          if (!config.versionWorkflow || aiWritingMarked) {
+            return null;
+          }
+          const writing = config.versionWorkflow.markAiWriting(requestId);
+          if (!writing.ok) {
+            return makeFailureEvent({
+              requestId,
+              code: writing.error.code,
+              message: writing.error.message,
+              retryable: writing.error.retryable,
+              details: writing.error.details,
+            });
+          }
+          aiWritingMarked = true;
+          return null;
+        };
 
-          yield makeEvent("permission-granted", requestId);
+        // Stage 6: Permission gate
+        const evalResult = config.permissionGate.evaluate
+          ? await config.permissionGate.evaluate(request)
+          : { level: "preview-confirm", granted: false };
+        const rawPermissionLevel = normalizeLevel(evalResult.level ?? request.level);
+        const permissionLevel: PermissionLevel =
+          rawPermissionLevel === "auto-allow"
+            ? "preview-confirm"
+            : rawPermissionLevel;
+
+        const snapshotError = await createPreWriteSnapshot();
+        if (snapshotError) {
+          yield snapshotError;
+          return;
         }
+
+        const permissionRequest: PermissionRequest = {
+          requestId,
+          level: permissionLevel,
+          description: "Operation requires user confirmation",
+          preview: buildDiffPreview(request, fullText),
+          ...(permissionLevel === "budget-confirm"
+            ? { estimatedTokenCost: totalPromptTokens + totalCompletionTokens }
+            : {}),
+        };
+
+        // Need explicit permission
+        taskStates.set(requestId, "paused");
+
+        yield makeEvent("permission-requested", requestId, {
+          level: permissionLevel,
+          description: permissionRequest.description,
+        });
+
+        let granted = false;
+        try {
+          granted = await config.permissionGate.requestPermission(permissionRequest);
+        } catch (error) {
+          config.permissionGate.releasePendingPermission(requestId);
+          yield makeFailureEvent({
+            requestId,
+            code: "PERMISSION_IPC_ERROR",
+            message: "Permission confirmation IPC failed",
+            details: error,
+          });
+          return;
+        }
+
+        taskStates.set(requestId, "running");
 
         if (abortController.signal.aborted) {
           taskStates.set(requestId, "killed");
@@ -890,40 +982,31 @@ export function createWritingOrchestrator(
           return;
         }
 
-        const versionTool = config.toolRegistry.get("versionSnapshot");
-        if (!versionTool) {
-          yield makeFailureEvent({
-            requestId,
-            code: "VERSION_SNAPSHOT_FAILED",
-            message: 'Required tool "versionSnapshot" is not registered',
-          });
+        if (!granted) {
+          taskStates.set(requestId, "killed");
+          pruneTaskStates();
+          yield makeEvent("permission-denied", requestId);
           return;
         }
-        const snapshotResult = await versionTool.execute({
-          projectId: request.projectId,
-          documentId: request.documentId,
-          requestId,
-          actor: "auto",
-          reason: "pre-write",
-        });
-        if (!snapshotResult.success) {
-          yield makeFailureEvent({
-            requestId,
-            code: snapshotResult.error?.code ?? "VERSION_SNAPSHOT_FAILED",
-            message:
-              snapshotResult.error?.message ??
-              "Pre-write snapshot failed before document write",
-            retryable: snapshotResult.error?.retryable,
-            details: snapshotResult.error?.details,
-          });
+
+        yield makeEvent("permission-granted", requestId);
+
+        if (abortController.signal.aborted) {
+          taskStates.set(requestId, "killed");
+          yield makeEvent("aborted", requestId, { reason: "user-abort" });
           return;
         }
-        if (!readVersionId(snapshotResult.data)) {
-          yield makeFailureEvent({
-            requestId,
-            code: "VERSION_SNAPSHOT_FAILED",
-            message: "Pre-write snapshot did not return versionId",
-          });
+
+        if (!preWriteSnapshotId) {
+          const snapshotError = await createPreWriteSnapshot();
+          if (snapshotError) {
+            yield snapshotError;
+            return;
+          }
+        }
+        const markError = markAiWritingStage();
+        if (markError) {
+          yield markError;
           return;
         }
 
@@ -966,6 +1049,23 @@ export function createWritingOrchestrator(
           return;
         }
 
+        if (config.versionWorkflow && request.projectId) {
+          const confirmed = config.versionWorkflow.confirmCommit({
+            executionId: requestId,
+            projectId: request.projectId,
+          });
+          if (!confirmed.ok) {
+            yield makeFailureEvent({
+              requestId,
+              code: confirmed.error.code,
+              message: confirmed.error.message,
+              retryable: confirmed.error.retryable,
+              details: confirmed.error.details,
+            });
+            return;
+          }
+        }
+
         yield makeEvent("write-back-done", requestId, { versionId });
 
         // Stage 8: Post-writing hooks
@@ -1002,6 +1102,7 @@ export function createWritingOrchestrator(
           },
         });
       } finally {
+        config.versionWorkflow?.cancelCommit(requestId);
         abortControllers.delete(requestId);
       }
       })();
