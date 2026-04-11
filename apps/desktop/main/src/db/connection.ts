@@ -150,6 +150,7 @@ export function initConnection(dbPath: string): Database.Database {
 /**
  * Register an already-opened Database instance as the singleton.
  *
+<<<<<<< Updated upstream
  * Primarily used by test harnesses and future integration points that open
  * their own connection and need getDb() to resolve it.
  *
@@ -159,6 +160,14 @@ export function initConnection(dbPath: string): Database.Database {
  *
  * Why: silent replacement can orphan the old handle, violating the singleton
  * invariant and leaking a usable database connection in-process.
+=======
+ * Used by init.ts to bridge the existing raw-SQL startup flow into the new
+ * TypeScript migration system: init.ts opens and configures the connection
+ * itself (applying WAL / foreign_keys / recommendedPragmas), then hands it
+ * to this module so that getDb() works for all downstream consumers.
+ *
+ * Idempotent when called with the same instance.
+>>>>>>> Stashed changes
  */
 export function setDbInstance(db: Database.Database): void {
   if (!canUseConnection(db)) {

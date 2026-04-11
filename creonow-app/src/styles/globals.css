@@ -42,7 +42,7 @@
 
   /* -- Typography -- */
   --cn-font-ui: 'Inter', system-ui, -apple-system, sans-serif;
-  --cn-font-body: 'Source Han Sans', 'Noto Sans SC', sans-serif;
+  --cn-font-body: 'Lora', 'Source Han Serif SC', 'Noto Serif SC', serif;
   --cn-font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 
   --cn-text-xs: 12px;

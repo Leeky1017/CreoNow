@@ -73,8 +73,8 @@ interface IPCChannelDefinition {
 | `memory`      | Memory System   | `memory:episode:record`   |
 | `version`     | Version Control | `version:snapshot:create` |
 | `search`      | Search          | `search:fts:query`        |
-| `embedding`   | Embedding       | `embedding:search`        |
-| `rag`         | RAG             | `rag:retrieve`            |
+| `embedding`   | Embedding       | `embedding:search`        | [DEPRECATED] |
+| `rag`         | RAG             | `rag:retrieve`            | [DEPRECATED] |
 | `context`     | Context Engine  | `context:assemble`        |
 | `constraints` | Context Engine  | `constraints:create`      |
 | `ai`          | AI Service      | `ai:config:get`           |

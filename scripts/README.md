@@ -11,11 +11,14 @@
 | `agent_task_begin.sh`                | gh-only fail-closed 任务入口：capabilities + sync + worktree + hook 安装 | 阶段 3：环境隔离   |
 | `agent_worktree_setup.sh`            | 创建 worktree 隔离环境                                                   | 阶段 3：环境隔离   |
 | `agent_pr_preflight.sh`              | 提交前 / 请求审计前的预检查（必要不充分）                                | 阶段 5：提交前     |
-| `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，四审 zero findings 全部通过、Reviewer 在 PR discussion timeline 的汇总 issue comment 匹配当前 HEAD 后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
+| `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，三审（1+1+1+Duck）zero findings 全部通过、Reviewer 在 PR discussion timeline 的汇总 issue comment 匹配当前 HEAD 后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
 | `agent_github_delivery.py`           | GitHub 能力探测、PR/评论模板、gh/MCP 通道选择                            | 阶段 5：提交与合并 |
 | `review-audit.sh`                    | 分层自适应审计命令入口（Tier L/S/D），仅用于已达可交审条件的 PR          | 审计：分类后执行   |
 | `daily_doc_audit.sh`                 | 每日文档健康检查：校验路径引用、INV 定义、spec 完整性                    | 手动 / 定期       |
 | `agent_worktree_cleanup.sh`          | 清理 worktree                                                            | 阶段 6：收口       |
+| `agent_pr_preflight.py`             | PR 预检查 Python 版本（与 `.sh` 版配合）                                  | 阶段 5：提交前     |
+| `wsl_storybook_url.sh`              | WSL 环境下 Storybook URL 解析                                            | 开发环境配置       |
+| `capture-screenshots.mjs`           | 自动截图工具                                                             | 视觉验收           |
 
 ### TypeScript 门禁脚本清单（CI / preflight）
 
@@ -51,25 +54,35 @@
 5. 前端 PR 正文直接嵌入至少 1 张截图，并附可点击 Storybook artifact/link（适用）与视觉验收说明。
 6. 任一条件缺失，工程阶段都不得宣称完成，也不得把任务转交审计 Agent。
 
-## 1+4+1 固定模型配置
+## 1+1+1+Duck 审计编排模型配置
 
-| 角色 | 模型 | reasoning effort | 数量 |
-| --- | --- | --- | --- |
-| Engineering Subagent | GPT-5.3 Codex | extra high（xhigh） | 1 |
-| Audit Subagent 1 | GPT-5.4 | extra high（xhigh） | 1 |
-| Audit Subagent 2 | GPT-5.3 Codex | extra high（xhigh） | 1 |
-| Audit Subagent 3 | Claude Opus 4.6 | high | 1 |
-| Audit Subagent 4 | Claude Sonnet 4.6 | high | 1 |
-| Reviewer Subagent | Claude Opus 4.6 | high | 1 |
-| Main session Agent | 与用户当前对话模型 | 不固定 | 1 |
+| 角色 | 说明 | 数量 |
+| --- | --- | --- |
+| Main session Agent | 与用户当前对话模型，**仅负责编排**，不直接审计 | 1 |
+| Audit Subagent 1 | 与主会话同模型的独立 Subagent，第一路全量审计 | 1 |
+| Audit Subagent 2 | Claude Sonnet 4.6，第二路独立全量审计 | 1 |
+| Rubber Duck（GPT-5.4） | 每轮任务完成后，强制 `critique this plan` 交叉审计 | 1 |
 
 ## 使用约定
 
-- 主会话 Agent 只负责编排，不直接写代码、不直接做审计结论；实现工作交给工程 Subagent，审计工作交给 4 个独立审计 Subagent，最终评论由 Reviewer Subagent 发布。
-- 工程席固定为 GPT-5.3 Codex（xhigh）；四审席固定为 GPT-5.4（xhigh）、GPT-5.3 Codex（xhigh）、Claude Opus 4.6（high）、Claude Sonnet 4.6（high）；Reviewer 席固定为 Claude Opus 4.6（high）。
+- 主会话 Agent **仅负责编排**，不直接审计；第一路审计由与主会话同模型的独立 Subagent 执行。
+- 三路审计：与主会话同模型的 Subagent 第一路审计 + Claude Sonnet 4.6 Subagent 独立审计 + Rubber Duck（GPT-5.4）`critique this plan` 交叉审计。
 - 主会话 Agent 只有在工程 Subagent 达到“可交审条件”后，才可转给审计 Subagent。
-- 每一轮实现完成后，必须由 4 个独立审计 Subagent 对同一变更做全量交叉审计；任一审计报告任何问题，就必须回到工程 Subagent 修复，再次四审。
-- 任一 finding（含 non-blocking / suggestion / nit）都必须维持 `REJECT`；仅当 4 个审计 Subagent 均给出 zero-findings `FINAL-VERDICT` + `ACCEPT`，且 Reviewer 已发布单条原样（verbatim）汇总评论，才可收口。
+- 每一轮实现完成后，必须执行 3 路独立全量审计；任一审计报告任何问题，就必须回到工程 Subagent 修复，再次三审。
+- 任一 finding（含 non-blocking / suggestion / nit）都必须维持 `REJECT`；仅当 3 路审计均给出 zero-findings `FINAL-VERDICT` + `ACCEPT` 才可收口。
 - 所有实现、提 PR、修 CI、回应审计都必须在 `.worktrees/issue-<N>-<slug>` 内完成；控制面根目录不负责“补最后一步”。
-- 默认不自动开启 auto-merge；只有在四审全绿且 Reviewer 单条原样汇总评论已发布后，才可显式传入 `--enable-auto-merge`。
+- 默认不自动开启 auto-merge；只有在三路审计全绿且都给出 ACCEPT 后，才可显式传入 `--enable-auto-merge`。
 - `CODEX_AUDIT_TRUSTED_REVIEWERS` 可显式锁定可信 Reviewer 账号；默认不允许 PR 作者回退。仅当该变量为空且显式设置 `CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true` 时，才允许回退使用 PR 作者账号；否则门禁 fail-closed 并直接拒绝自动合并。
+
+## 历史/辅助脚本（未归入正式流程）
+
+以下脚本为一次性修复或实验性质，不在正式交付流程中：
+
+- `fix_editor.cjs` / `fix_editor.js` / `fix_editor2.cjs` / `fix_editor3.cjs` — 编辑器修复脚本（历史）
+- `cc_codex_controller_prompt.md` / `cc_codex_worker.py` — Codex 集成实验
+
+以下目录为脚本支持设施：
+
+- `eslint-rules/` — 自定义 ESLint 规则
+- `tests/` — 脚本测试
+- `lint-baseline.json` — lint ratchet 基线数据

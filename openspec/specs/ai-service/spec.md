@@ -1473,7 +1473,7 @@ const costTrackingHook: PostWritingHook = {
     // 从 CostTracker 获取最新费用统计
     // 检查 budget alert threshold
     // 触发通知（如需要）
-    // 返回 { success: true }
+    // 返回 { ok: true }
   },
   priority: 5, // 优先级高于 auto-save-version（priority: 10）
 };
@@ -1519,7 +1519,7 @@ type CostRecordedEvent = {
 
 - **假设** CostTracker 因定价表缺失导致费用计算失败
 - **当** `cost-tracking` Hook 执行
-- **则** Hook 返回 `{ success: false, error: '模型 xxx 无定价信息' }`
+- **则** Hook 返回 `{ ok: false, error: '模型 xxx 无定价信息' }`
 - **并且** 编排器记录警告日志
 - **并且** 管线继续执行后续 Hook（`auto-save-version`）
 - **并且** 写回本身不受影响

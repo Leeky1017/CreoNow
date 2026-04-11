@@ -306,7 +306,7 @@ finalScore = 0.55 * bm25Norm + 0.35 * semanticScore + 0.10 * recencyScore
 
 - FTS 查询：p50 < 80ms，p95 < 300ms，p99 < 600ms
 - Hybrid 查询：p50 < 220ms，p95 < 650ms，p99 < 1.2s
-- RAG 召回：p50 < 150ms，p95 < 450ms，p99 < 900ms
+- 检索增强（P4+ 规划）：p50 < 150ms，p95 < 450ms，p99 < 900ms
 
 **Capacity**
 

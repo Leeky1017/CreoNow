@@ -6,6 +6,20 @@
 
 ---
 
+## 零、前端策略：小修补，不大动
+
+**黄金设计源**：`figma_design/前端完整参考/`
+
+现有设计中的动效、Zen Mode、布局结构、交互模式均属优秀设计。前端任务的正确姿态是：
+
+- **增量修补**：修 bug、接通 IPC、补充缺失交互状态、对齐 Token
+- **禁止推翻重建**：不应从零重写页面或组件
+- **保护核心设计**：动效系统、Zen Mode 各交互、侧边栏布局结构、面板切换动画——这些都是经过精心设计的，不允许在「优化」名义下被替换或简化
+
+具体操作时，先阅读 `figma_design/前端完整参考/` 中对应页面的 `.tsx` 源码，理解其布局结构、交互模式、色彩用法，然后在此基础上做最小必要修改。
+
+---
+
 ## 一、CreoNow 视觉 DNA
 
 | 维度 | 风格 | 实现要点 |
@@ -16,7 +30,7 @@
 | 圆角 | 中等圆角 | `var(--radius-md)`（犹豫时选 md） |
 | 阴影 | 轻柔阴影 | `var(--shadow-*)` Token，禁止 `shadow-lg/xl/2xl` |
 | 动效 | 快速精确 | `var(--duration-fast)` + `var(--ease-default)` |
-| 字体 | Inter（UI）Lora（正文）JetBrains Mono（代码） | 已本地打包 14 个 woff2 |
+| 字体 | Inter（UI）Lora + Source Han Serif SC（正文/CJK）JetBrains Mono（代码） | 已本地打包 14 个 woff2 |
 | 图标 | Lucide 线性，1.5px stroke | CI guard 限制只用 `lucide-react` |
 | 留白 | 8px 节奏 | `--space-2`(8px) 为基础单位 |
 | 品牌 | 克制的强调色 | `var(--color-accent)` |
@@ -76,6 +90,7 @@
 
 **前端任务开始前，Agent 必须按顺序执行：**
 
+0. **阅读黄金设计源**：`figma_design/前端完整参考/` —— 这是 CN 前端所有页面布局、交互模式、组件风格、色彩体系的**唯一权威参考**。包含完整的 Layout、Editor、AI Panel、Dashboard、Characters、Worldbuilding、Knowledge Graph、Memory、Scenarios、Calendar、Welcome Screen、Command Palette、Settings、Export/Publish 全部页面设计。前端任务开始前必须先阅读该文件夹中对应页面的 `.tsx` 源码，理解其布局结构、交互模式、色彩用法。
 1. **读取 Token 文件**：`apps/desktop/renderer/src/styles/tokens.css`
 2. **读取组件规范卡片**：`design/system/02-component-cards/<组件名>.md`（如存在）
 3. **通过 Figma MCP 读取设计上下文**：如 Issue 附 Figma 链接，优先用 MCP 加载

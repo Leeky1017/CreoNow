@@ -640,6 +640,10 @@ interface ProseMirrorExporter {
 
 #### 导出进度推送载荷
 
+<!-- NOTE: WritingEvent / ExportLifecycleEvent 是事件推送负载，
+     使用 `success` 字段标识完成/失败状态。
+     IPC 请求-响应统一使用 `{ ok: true/false }`（见 ipc/spec.md）。 -->
+
 ```typescript
 type ExportLifecycleEvent =
   | {
@@ -696,6 +700,8 @@ Renderer **必须**在收到 `export-completed` 或 `export-failed` 后清除导
 | 导出过程中断 | `EXPORT_INTERRUPTED` | 清理临时文件 |
 
 #### WritingEvent 扩展
+
+<!-- NOTE: 事件推送负载使用 `success` 字段，非 IPC 响应的 `ok` 字段 -->
 
 ```typescript
 /** P3 新增 WritingEvent——导出完成 */

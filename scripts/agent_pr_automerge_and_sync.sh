@@ -12,7 +12,7 @@ Behavior:
     - If preflight fails: creates/keeps PR as draft and waits by default
   - Ensures a PR exists (creates one unless --no-create)
   - Keeps auto-merge disabled by default; only enables it when --enable-auto-merge is passed
-  - --enable-auto-merge requires 4 zero-finding audit reports plus 1 reviewer consolidated verbatim PR discussion comment (issue comment)
+  - --enable-auto-merge requires 3 zero-finding audit reports plus 1 reviewer consolidated verbatim PR discussion comment (issue comment)
   - Trusted reviewer policy:
     - CODEX_AUDIT_TRUSTED_REVIEWERS="<login1>,<login2>" enforces explicit trusted reviewer list
     - CODEX_AUDIT_ALLOW_PR_AUTHOR_FALLBACK=true|false controls fallback to PR author only when trusted list is empty (default: false; otherwise gate fails closed)
@@ -20,7 +20,7 @@ Behavior:
 
 Options:
   --skip-preflight           Skip preflight entirely
-  --enable-auto-merge        Explicitly enable auto-merge after 4 zero-finding reports and reviewer consolidated verbatim PR discussion comment (issue comment) is present
+  --enable-auto-merge        Explicitly enable auto-merge after 3 zero-finding reports and reviewer consolidated verbatim PR discussion comment (issue comment) is present
   --force                   Proceed even if preflight fails
   --no-wait-preflight        Fail fast if preflight fails (still creates draft PR)
   --wait-interval <seconds>  Preflight polling interval (default: 60)
@@ -189,7 +189,7 @@ require_audit_pass_comment() {
     stats_summary="${stats_summary}, matching_head_comments=${matching_head_comments:-0}"
   fi
 
-  echo "ERROR: PR #${pr_number} does not yet satisfy the 1+4+1 reviewer-consolidated zero-findings gate ('FINAL-VERDICT' + 'ACCEPT'; ${stats_summary}). A trusted Reviewer account must post one consolidated verbatim comment containing all four qualifying audit reports before auto-merge." >&2
+  echo "ERROR: PR #${pr_number} does not yet satisfy the 1+1+1+Duck reviewer-consolidated zero-findings gate ('FINAL-VERDICT' + 'ACCEPT'; ${stats_summary}). A trusted Reviewer account must post one consolidated verbatim comment containing all three qualifying audit reports before auto-merge." >&2
   comment_pr_with_kind "$pr_number" "audit-required" "$pr_url"
   exit 1
 }

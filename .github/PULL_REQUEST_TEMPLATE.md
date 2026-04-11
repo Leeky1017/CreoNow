@@ -90,20 +90,16 @@ N/A
 
 <!-- 以下由审计流程自动填写，PR 作者不要修改 -->
 
-**审计模型配置：**
-- 工程：GPT-5.3 Codex (xhigh)
-- 审计 1：GPT-5.4 (xhigh)
-- 审计 2：GPT-5.3 Codex (xhigh)
-- 审计 3：Claude Opus 4.6 (high)
-- 审计 4：Claude Sonnet 4.6 (high)
-- 评论汇总：Claude Opus 4.6 (high)
+**审计模型配置（1+1+1+Duck）：**
+- 第一路审计：主会话 Agent
+- 第二路审计：Claude Sonnet 4.6 Subagent
+- 第三路审计：Rubber Duck（GPT-5.4）`critique this plan`
 
-- [ ] 审计 1（GPT-5.4）：FINAL-VERDICT ___
-- [ ] 审计 2（GPT-5.3 Codex）：FINAL-VERDICT ___
-- [ ] 审计 3（Claude Opus 4.6）：FINAL-VERDICT ___
-- [ ] 审计 4（Claude Sonnet 4.6）：FINAL-VERDICT ___
+- [ ] 审计 1（主会话 Agent）：FINAL-VERDICT ___
+- [ ] 审计 2（Claude Sonnet 4.6）：FINAL-VERDICT ___
+- [ ] 审计 3（Rubber Duck GPT-5.4）：FINAL-VERDICT ___
 
-<!-- 4 个都 ACCEPT 才可合并 -->
+<!-- 3 路都 ACCEPT 才可合并 -->
 
 ---
 

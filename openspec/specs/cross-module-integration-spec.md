@@ -168,7 +168,7 @@ interface SkillExecutionEnvelope {
 
 - **假设** 技能执行超过 `timeoutMs`
 - **当** 调度器触发超时
-- **则** `skill:stream:done` 返回 `{ success: false, error: { code: "SKILL_TIMEOUT" } }`
+- **则** `skill:stream:done` 返回 `{ ok: false, error: { code: "SKILL_TIMEOUT" } }`
 - **并且** AI Service 在面板展示重试入口
 
 ---
@@ -195,7 +195,7 @@ interface SkillExecutionEnvelope {
 
 - 命名必须 `domain:resource:action`
 - 所有 request/response 必须由 zod 校验
-- 统一响应结构：`{ success: true, data } | { success: false, error }`
+- 统一响应结构：`{ ok: true, data } | { ok: false, error }`
 
 #### Scenario: 契约校验通过并生成代码
 

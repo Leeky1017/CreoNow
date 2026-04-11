@@ -1,3 +1,7 @@
+> ⚠️ **历史快照**：本分析撰写于项目早期阶段，部分结论已过时（Renderer 已实现、编辑器已从 TipTap 迁移到 ProseMirror、前端不再是 0%）。仅供历史参考，当前架构以 `ARCHITECTURE.md` 为准。
+
+---
+
 # CreoNow — Comprehensive Architecture Analysis Report
 
 > **Project**: CreoNow — AI-native creative writing IDE  

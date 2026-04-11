@@ -261,10 +261,10 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
             )
             self.assertEqual(0, result.returncode, result.stdout)
             self.assertIn(
-                "4 zero-finding audit reports plus 1 reviewer consolidated verbatim PR discussion comment (issue comment)",
+                "3 zero-finding audit reports plus 1 reviewer consolidated verbatim PR discussion comment (issue comment)",
                 result.stdout,
             )
-            self.assertNotIn("four independent audit comments", result.stdout)
+            self.assertNotIn("three independent audit comments", result.stdout)
         finally:
             shutil.rmtree(temp_dir)
 
@@ -305,7 +305,7 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
                 extra_env={"CODEX_AUDIT_TRUSTED_REVIEWERS": "reviewer-bot"},
             )
             self.assertEqual(1, result.returncode, result.stdout)
-            self.assertIn("1+4+1 reviewer-consolidated zero-findings gate", result.stdout)
+            self.assertIn("1+1+1+Duck reviewer-consolidated zero-findings gate", result.stdout)
             self.assertIn("trusted reviewer account must post one consolidated verbatim comment", result.stdout.lower())
             self.assertIn("matching_comments=0", result.stdout)
             self.assertIn("distinct_authors=0", result.stdout)

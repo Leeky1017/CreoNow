@@ -119,13 +119,13 @@ All CSS Custom Properties follow `--cn-{category}-{name}` pattern.
 | Role | Family | Fallback | Usage |
 |------|--------|----------|-------|
 | UI | Inter | system-ui, sans-serif | Menus, buttons, labels, all UI chrome |
-| Body / Editor | Source Han Sans | Noto Sans SC, sans-serif | Document content (CJK default) |
+| Body / Editor | Lora + Source Han Serif SC | Noto Serif SC, serif | Lora for Latin, Source Han Serif SC for CJK |
 | Monospace | JetBrains Mono | Fira Code, Consolas, monospace | Code blocks, terminal |
 
 ```css
 :root {
   --cn-font-ui: "Inter", system-ui, -apple-system, sans-serif;
-  --cn-font-body: "Source Han Sans", "Noto Sans SC", sans-serif;
+  --cn-font-body: "Lora", "Source Han Serif SC", "Noto Serif SC", serif;
   --cn-font-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
 }
 ```

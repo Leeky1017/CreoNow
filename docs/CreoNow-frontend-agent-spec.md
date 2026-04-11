@@ -1,3 +1,7 @@
+> ⚠️ **已归档**：本文件的有效内容已整合至 `docs/references/frontend-visual-quality.md`。技术栈决策以 `AGENTS.md` P-V 章节为准。仅保留做历史溯源参考。
+
+---
+
 # CreoNow Frontend Agent Spec
 
 This is the canonical, Agent-consumable specification for CreoNow (CN) frontend development. Every rule is a hard constraint unless marked TODO.
@@ -39,7 +43,7 @@ Source: [CreoNow 前端构想（语音记录）](https://www.notion.so/CreoNow-c
 - Animation: **Framer Motion**
 - Shell: **Electron**
 - Text measurement (Round 5+): **Pretext** (`@chenglou/pretext`)
-- Fonts: UI = Inter + Source Han Sans | Body = Source Han Sans | Mono = JetBrains Mono
+- Fonts: UI = Inter | Body = Lora + Source Han Serif SC | Mono = JetBrains Mono
 
 ---
 
@@ -443,7 +447,7 @@ KG, Memory, Characters, Worldbuilding = **same system, different viewports**.
 - Use `--cn-*` tokens for every visual value
 - Use Framer Motion for every state transition
 - Use action verbs for SKILL buttons (润色, 翻译, 扩写)
-- Use Inter + Source Han Sans for UI
+- Use Inter for UI; Lora + Source Han Serif SC for body
 - Write strict TypeScript with no `any`
 - Generate Storybook Stories for every component
 - Keep Zen Mode as a CSS skin swap, not a separate mode
