@@ -13,7 +13,6 @@
  *   setDbInstance()  — register an externally-opened connection (no replacement)
  *
  * Startup path:
-<<<<<<< Updated upstream
  *   The production startup path is init.ts → initDb(). It runs the legacy SQL
  *   migrations directly and returns the open connection, then bridges this TS
  *   migration layer.
@@ -25,15 +24,6 @@
  *   init.ts startup path remains legacy-first by design, but now consumes the
  *   shared `DB_MIGRATIONS` registry so TS bridge registration stays consistent
  *   across init and direct migration entrypoints.
-=======
- *   The production startup path is init.ts → initDb(). After running its
- *   legacy SQL migrations, initDb() calls setDbInstance(conn) to register the
- *   connection with the singleton here, then calls runMigrations (migrator.ts)
- *   to layer the TypeScript schema on top.
- *
- *   This means getDb() is safe to call after initDb() returns successfully.
- *   Do NOT call getDb() before initDb() completes in production.
->>>>>>> Stashed changes
  *
  * Test harnesses:
  *   Import setDbInstance(db) and runMigrations() from this module; seed legacy
@@ -60,13 +50,8 @@ export { getDb, closeDb };
  * Apply all registered TypeScript migrations to the database obtained via
  * getDb().
  *
-<<<<<<< Updated upstream
  * In tests, call this after setDbInstance(db) to set up an isolated
  * in-memory test database.
-=======
- * In production, initDb() (init.ts) handles this automatically via the bridge.
- * In tests, call this after _injectDbForTesting(db).
->>>>>>> Stashed changes
  *
  * Idempotent — safe to call on every startup; already-applied migrations are
  * skipped via the _migrations tracking table.
