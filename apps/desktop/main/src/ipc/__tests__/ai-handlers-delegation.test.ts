@@ -19,6 +19,23 @@ const mocks = vi.hoisted(() => {
     ok: true,
     data: { executionId: "exec-1", runId: "run-1", traceId: "trace-1", outputText: "ok" },
   });
+  const skillListMock = vi.fn().mockReturnValue({ ok: true, data: { items: [] } });
+  const skillResolveForRunMock = vi.fn().mockReturnValue({
+    ok: true,
+    data: {
+      skill: {
+        id: "builtin:chat",
+        prompt: { system: "s", user: "u" },
+        output: undefined,
+        valid: true,
+        dependsOn: [],
+        timeoutMs: 30_000,
+        permissionLevel: "preview-confirm",
+      },
+      enabled: true,
+      inputType: "document",
+    },
+  });
   const bridgeStreamChatMock = vi.fn(async function* () {
     throw { kind: "unsupported-provider" };
   });
@@ -47,9 +64,12 @@ const mocks = vi.hoisted(() => {
       update: vi.fn().mockReturnValue({ ok: true, data: {} }),
       test: vi.fn().mockResolvedValue({ ok: true, data: { ok: true, latencyMs: 50 } }),
     })),
+    skillListMock,
+    skillResolveForRunMock,
     createSkillServiceMock: vi.fn(() => ({
-      listSkills: vi.fn().mockReturnValue({ ok: true, data: { items: [] } }),
-      getSkill: vi.fn(),
+      list: skillListMock,
+      resolveForRun: skillResolveForRunMock,
+      isDependencyAvailable: vi.fn().mockReturnValue({ ok: true, data: { available: true } }),
     })),
     createSkillExecutorMock: vi.fn(() => ({
       execute: vi.fn(),
@@ -243,6 +263,27 @@ function createHarness(dbNull = false, withCostTracker = false) {
 // ── Channel Registration ──
 
 describe("AI IPC channel registration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.skillListMock.mockReturnValue({ ok: true, data: { items: [] } });
+    mocks.skillResolveForRunMock.mockReturnValue({
+      ok: true,
+      data: {
+        skill: {
+          id: "builtin:chat",
+          prompt: { system: "s", user: "u" },
+          output: undefined,
+          valid: true,
+          dependsOn: [],
+          timeoutMs: 30_000,
+          permissionLevel: "preview-confirm",
+        },
+        enabled: true,
+        inputType: "document",
+      },
+    });
+  });
+
   it("注册所有预期通道", () => {
     const harness = createHarness();
     const expectedChannels = [
@@ -260,6 +301,21 @@ describe("AI IPC channel registration", () => {
     for (const ch of expectedChannels) {
       expect(harness.handlers.has(ch), `missing channel: ${ch}`).toBe(true);
     }
+  });
+
+  it("启动阶段预热 Skill registry 并检查必需内置技能", () => {
+    createHarness();
+    expect(mocks.createSkillServiceMock).toHaveBeenCalled();
+    expect(mocks.skillListMock).toHaveBeenCalledWith({ includeDisabled: true });
+    expect(mocks.skillResolveForRunMock).toHaveBeenCalledWith({
+      id: "builtin:polish",
+    });
+    expect(mocks.skillResolveForRunMock).toHaveBeenCalledWith({
+      id: "builtin:chat",
+    });
+    expect(mocks.skillResolveForRunMock).toHaveBeenCalledWith({
+      id: "builtin:continue",
+    });
   });
 });
 

@@ -1437,6 +1437,32 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       logger: deps.logger,
     });
   };
+  if (deps.db) {
+    const startupSkillService = skillServiceFactory();
+    const listed = startupSkillService.list({ includeDisabled: true });
+    if (!listed.ok) {
+      deps.logger.error("skill_registry_warmup_failed", {
+        code: listed.error.code,
+        message: listed.error.message,
+      });
+    } else {
+      const requiredBuiltinSkillIds = [
+        "builtin:polish",
+        "builtin:chat",
+        "builtin:continue",
+      ] as const;
+      for (const skillId of requiredBuiltinSkillIds) {
+        const resolved = startupSkillService.resolveForRun({ id: skillId });
+        if (!resolved.ok) {
+          deps.logger.error("builtin_skill_missing_on_startup", {
+            skillId,
+            code: resolved.error.code,
+            message: resolved.error.message,
+          });
+        }
+      }
+    }
+  }
   const writingOrchestrator = createWritingOrchestrator({
     aiService: (() => {
       const legacyActiveAbortControllers = new Set<AbortController>();
