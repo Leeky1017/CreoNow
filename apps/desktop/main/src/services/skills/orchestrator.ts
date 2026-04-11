@@ -96,7 +96,12 @@ interface AIService {
     messages: Array<{ role: string; content: string }>,
     options: {
       signal: AbortSignal;
-      onComplete: (result: { usage?: Partial<TokenUsage> }) => void;
+      onComplete: (result: {
+        usage?: Partial<TokenUsage>;
+        content?: string;
+        wasRetried?: boolean;
+        persistenceError?: unknown;
+      }) => void;
       onError: (e: unknown) => void;
       onApiCallStarted?: () => void;
       skillId?: string;
@@ -507,13 +512,17 @@ export function createWritingOrchestrator(
               lastToolCalls = generatedResult.toolCalls ?? [];
             } else if (hasStreamChat) {
               let streamFinishReason: "stop" | "tool_use" | null = null;
-              let streamUsage: Partial<TokenUsage> | null = null;
               const gen = config.aiService.streamChat(
                 prepared.messages,
                 {
                   signal: abortController.signal,
                   onComplete: (result) => {
-                    streamUsage = result.usage ?? null;
+                    const completedUsage = result.usage;
+                    if (completedUsage) {
+                      lastPromptTokens = completedUsage.promptTokens ?? lastPromptTokens;
+                      lastTokens = completedUsage.completionTokens ?? lastTokens;
+                      lastCachedTokens = completedUsage.cachedTokens ?? lastCachedTokens;
+                    }
                   },
                   onError: () => {},
                   onApiCallStarted: () => {
@@ -551,9 +560,9 @@ export function createWritingOrchestrator(
                 });
               }
               lastFinishReason = streamFinishReason;
-              lastPromptTokens = streamUsage?.promptTokens ?? tokenCount;
-              lastTokens = streamUsage?.completionTokens ?? lastTokens;
-              lastCachedTokens = streamUsage?.cachedTokens ?? 0;
+              if (lastPromptTokens === tokenCount && lastTokens === 0) {
+                lastPromptTokens = tokenCount;
+              }
             } else {
               throw new Error("No AI execution path available");
             }

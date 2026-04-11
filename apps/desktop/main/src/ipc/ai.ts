@@ -1485,12 +1485,15 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           options: {
             signal: AbortSignal;
             onComplete: (result: {
+              content?: string;
               usage?: {
                 promptTokens?: number;
                 completionTokens?: number;
                 totalTokens?: number;
                 cachedTokens?: number;
               };
+              wasRetried?: boolean;
+              persistenceError?: unknown;
             }) => void;
             onError: (e: unknown) => void;
             onApiCallStarted?: () => void;
@@ -1617,12 +1620,15 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           options: {
             signal: AbortSignal;
             onComplete: (result: {
+              content?: string;
               usage?: {
                 promptTokens?: number;
                 completionTokens?: number;
                 totalTokens?: number;
                 cachedTokens?: number;
               };
+              wasRetried?: boolean;
+              persistenceError?: unknown;
             }) => void;
             onError: (e: unknown) => void;
             onApiCallStarted?: () => void;
@@ -1746,7 +1752,12 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       messages,
     }) => {
       let outputText = "";
-      let usage = {
+      let usage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+        cachedTokens?: number;
+      } = {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
