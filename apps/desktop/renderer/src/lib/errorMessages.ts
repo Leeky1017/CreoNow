@@ -32,6 +32,7 @@ export const IPC_ERROR_MESSAGE_KEYS = {
   AI_NOT_CONFIGURED: "errors.aiNotConfigured",
   AI_PROVIDER_UNAVAILABLE: "errors.aiProviderUnavailable",
   AI_RATE_LIMITED: "errors.rateLimited",
+  AI_SERVICE_ERROR: "errors.upstream",
   AI_SESSION_TOKEN_BUDGET_EXCEEDED: "errors.capacityExceeded",
   ALREADY_EXISTS: "errors.conflict",
   CANCELED: "errors.canceled",

@@ -480,8 +480,8 @@ describe("E2E IPC path: ai:skill:run -> SkillOrchestrator -> write-back", () => 
       expect(read.data.contentText).toBe("origin");
     }
     const reasons = readSnapshotReasons(harness.db, documentId);
-    // Cancel occurs after preview pause; pre-write snapshot may already exist from Stage 5.
-    // The invariant here is no ai-accept write-back snapshot is created.
+    // Stage 5 (pre-write snapshot) already completed before the preview pause;
+    // cancel only suppresses ai-accept write-back, it does not remove the pre-write snapshot.
     expect(reasons).toContain("pre-write");
     expect(reasons).not.toContain("ai-accept");
   });
