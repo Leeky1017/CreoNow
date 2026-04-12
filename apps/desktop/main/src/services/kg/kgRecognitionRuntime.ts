@@ -895,11 +895,17 @@ export function createKgRecognitionRuntime(args: {
       });
     }
 
-    const existingKeys = new Set(
-      listRes.data.items.map((entity) =>
+    const existingKeys = new Set<string>();
+    for (const entity of listRes.data.items) {
+      existingKeys.add(
         normalizeSuggestionKey({ name: entity.name, type: entity.type }),
-      ),
-    );
+      );
+      for (const alias of entity.aliases ?? []) {
+        existingKeys.add(
+          normalizeSuggestionKey({ name: alias, type: entity.type }),
+        );
+      }
+    }
 
     const sessionState = getOrCreateRecognitionSession(
       sessions,

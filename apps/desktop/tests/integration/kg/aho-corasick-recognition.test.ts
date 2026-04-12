@@ -6,14 +6,16 @@
  * pre-created in the in-memory SQLite DB and then matched by the Aho-Corasick
  * automaton inside `matchEntities()`.
  *
- * T1: Happy-path — alias-based matches bypass dedup, produce push events
- * T2: Alias matching — entity detected via alias, not canonical name
- * T3: never-excluded — entity with aiContextLevel "never" produces no suggestion
+ * T1: Happy-path — recognizer detects 3 aliases; pipeline deduplicates them all
+ * T2: Alias matching — recognizer detects alias; pipeline deduplicates it
+ * T3: never-excluded — entity with aiContextLevel "never" produces no candidate
  * T4: always-unconditional — entity with aiContextLevel "always" yields candidate
  *     even without text mention (tested via recognizer directly)
  * T5: Empty DB — no entities → empty candidates, degraded: false
  * T6: Dedup — entity name appears in text → matched, but deduplicated by processTask
- * T7: Mixed entity types — character + location + item with aliases → all detected
+ * T7: Mixed entity types — character + location + item + faction → all detected
+ * T8: Alias-dedup regression — alias match is deduplicated (prevents duplicate
+ *     entity creation when user accepts)
  */
 import assert from "node:assert/strict";
 
@@ -45,16 +47,15 @@ type EntityDto = {
 };
 
 // ---------------------------------------------------------------------------
-// T1 — Happy-path: alias matches bypass dedup, produce push events
+// T1 — Happy-path: recognizer detects 3 aliases; pipeline deduplicates all
 // ---------------------------------------------------------------------------
 // Three entities with aliases. Text uses the aliases (not canonical names).
-// Because matchedTerm (alias) ≠ entity.name (canonical), dedup cannot
-// filter them → 3 push events expected.
+// The recognizer produces candidates for each alias. processTask dedup now
+// includes aliases → all candidates are filtered → 0 push events.
 {
   const harness = createKnowledgeGraphIpcHarness();
 
   try {
-    // Create 3 entities with aliases and when_detected level
     const entitySpecs = [
       {
         type: "character" as const,
@@ -87,48 +88,68 @@ type EntityDto = {
       assert.equal(createRes.ok, true, `create ${spec.name}`);
     }
 
-    // Enqueue recognition using aliases in the text (NOT canonical names)
+    // Verify recognizer DETECTS all 3 aliases (direct recognizer test)
+    const kgService = createKnowledgeGraphService({
+      db: harness.db,
+      logger: {
+        logPath: ":memory:",
+        info: () => {},
+        error: () => {},
+      },
+    });
+    const recognizer = createAhoCorasickRecognizer({ kgService });
+
+    const result = await recognizer.recognize({
+      projectId: harness.projectId,
+      documentId: "doc-t1",
+      sessionId: "session-t1",
+      contentText: "小雨手持天火剑登上龙脊，迎风而立。",
+      traceId: "trace-t1",
+    });
+
+    assert.equal(result.ok, true);
+    if (!result.ok) {
+      assert.fail("expected recognition success");
+    }
+    assert.equal(result.data.degraded, false);
+
+    const candidateNames = new Set(
+      result.data.candidates.map((c) => c.name),
+    );
+    assert.ok(candidateNames.has("小雨"), "recognizer should detect alias 小雨");
+    assert.ok(candidateNames.has("天火剑"), "recognizer should detect alias 天火剑");
+    assert.ok(candidateNames.has("龙脊"), "recognizer should detect alias 龙脊");
+
+    // Verify pipeline DEDUPLICATES all (aliases now in dedup set)
     const enqueueRes = await harness.invoke<RecognitionEnqueueDto>(
       "knowledge:recognition:enqueue",
       {
         projectId: harness.projectId,
-        documentId: "doc-t1",
-        sessionId: "session-t1",
+        documentId: "doc-t1-ipc",
+        sessionId: "session-t1-ipc",
         contentText: "小雨手持天火剑登上龙脊，迎风而立。",
-        traceId: "trace-t1",
+        traceId: "trace-t1-ipc",
       },
     );
-
     assert.equal(enqueueRes.ok, true);
-    if (!enqueueRes.ok) {
-      assert.fail("expected enqueue success");
-    }
 
-    // Wait for push events (one per unique candidate that passes dedup)
-    const hasPush = await harness.waitForPushCount(
-      KG_SUGGESTION_CHANNEL,
-      3,
-      2_000,
-    );
-    assert.equal(hasPush, true, "expected 3 suggestion push events");
-
+    // Give recognition time to complete — all candidates deduplicated → 0 push events
+    await new Promise<void>((resolve) => setTimeout(resolve, 300));
     const pushEvents = harness.takePushEvents<KgSuggestionEvent>(
       KG_SUGGESTION_CHANNEL,
     );
-    assert.equal(pushEvents.length, 3);
-
-    // Collect suggestion names — should be the ALIASES (matchedTerm)
-    const names = new Set(pushEvents.map((event) => event.payload.name));
-    assert.ok(names.has("小雨"), "expected alias 小雨");
-    assert.ok(names.has("天火剑"), "expected alias 天火剑");
-    assert.ok(names.has("龙脊"), "expected alias 龙脊");
+    assert.equal(
+      pushEvents.length,
+      0,
+      "alias matches should be deduplicated (aliases belong to existing entities)",
+    );
   } finally {
     harness.close();
   }
 }
 
 // ---------------------------------------------------------------------------
-// T2 — Alias matching: entity detected via alias in text
+// T2 — Alias matching: recognizer detects alias; pipeline deduplicates it
 // ---------------------------------------------------------------------------
 {
   const harness = createKnowledgeGraphIpcHarness();
@@ -146,38 +167,64 @@ type EntityDto = {
     );
     assert.equal(createRes.ok, true);
 
+    // Verify recognizer detects the alias
+    const kgService = createKnowledgeGraphService({
+      db: harness.db,
+      logger: {
+        logPath: ":memory:",
+        info: () => {},
+        error: () => {},
+      },
+    });
+    const recognizer = createAhoCorasickRecognizer({ kgService });
+
+    const result = await recognizer.recognize({
+      projectId: harness.projectId,
+      documentId: "doc-t2",
+      sessionId: "session-t2",
+      contentText: "小云静静地站在那里。",
+      traceId: "trace-t2",
+    });
+
+    assert.equal(result.ok, true);
+    if (!result.ok) {
+      assert.fail("expected recognition success");
+    }
+    const aliasCandidate = result.data.candidates.find(
+      (c) => c.name === "小云",
+    );
+    assert.ok(aliasCandidate, "recognizer should detect alias 小云");
+    assert.equal(aliasCandidate?.type, "character");
+
+    // Verify pipeline deduplicates the alias match
     const enqueueRes = await harness.invoke<RecognitionEnqueueDto>(
       "knowledge:recognition:enqueue",
       {
         projectId: harness.projectId,
-        documentId: "doc-t2",
-        sessionId: "session-t2",
+        documentId: "doc-t2-ipc",
+        sessionId: "session-t2-ipc",
         contentText: "小云静静地站在那里。",
-        traceId: "trace-t2",
+        traceId: "trace-t2-ipc",
       },
     );
     assert.equal(enqueueRes.ok, true);
 
-    const hasPush = await harness.waitForPushCount(
-      KG_SUGGESTION_CHANNEL,
-      1,
-      2_000,
-    );
-    assert.equal(hasPush, true, "expected 1 suggestion for alias match");
-
+    await new Promise<void>((resolve) => setTimeout(resolve, 300));
     const pushEvents = harness.takePushEvents<KgSuggestionEvent>(
       KG_SUGGESTION_CHANNEL,
     );
-    assert.equal(pushEvents.length, 1);
-    assert.equal(pushEvents[0]?.payload.name, "小云");
-    assert.equal(pushEvents[0]?.payload.type, "character");
+    assert.equal(
+      pushEvents.length,
+      0,
+      "alias 小云 should be deduplicated (belongs to existing entity 云中君)",
+    );
   } finally {
     harness.close();
   }
 }
 
 // ---------------------------------------------------------------------------
-// T3 — never-excluded: entity with aiContextLevel "never" produces no suggestion
+// T3 — never-excluded: entity with aiContextLevel "never" produces no candidate
 // ---------------------------------------------------------------------------
 {
   const harness = createKnowledgeGraphIpcHarness();
@@ -196,7 +243,7 @@ type EntityDto = {
     );
     assert.equal(createRes.ok, true);
 
-    // Also create a when_detected entity so we can verify recognition runs
+    // Also create a when_detected entity to verify recognition runs
     const controlCreate = await harness.invoke<EntityDto>(
       "knowledge:entity:create",
       {
@@ -209,38 +256,64 @@ type EntityDto = {
     );
     assert.equal(controlCreate.ok, true);
 
+    // Verify recognizer: "影子" NOT detected, "暗谷" IS detected
+    const kgService = createKnowledgeGraphService({
+      db: harness.db,
+      logger: {
+        logPath: ":memory:",
+        info: () => {},
+        error: () => {},
+      },
+    });
+    const recognizer = createAhoCorasickRecognizer({ kgService });
+
+    const result = await recognizer.recognize({
+      projectId: harness.projectId,
+      documentId: "doc-t3",
+      sessionId: "session-t3",
+      contentText: "影子在暗谷中穿行。",
+      traceId: "trace-t3",
+    });
+
+    assert.equal(result.ok, true);
+    if (!result.ok) {
+      assert.fail("expected recognition success");
+    }
+
+    const candidateNames = new Set(
+      result.data.candidates.map((c) => c.name),
+    );
+    assert.ok(
+      !candidateNames.has("影子"),
+      "never-entity alias should NOT be detected",
+    );
+    assert.ok(
+      !candidateNames.has("影子刺客"),
+      "never-entity name should NOT be detected",
+    );
+    assert.ok(
+      candidateNames.has("暗谷"),
+      "when_detected entity alias should be detected",
+    );
+
+    // Verify pipeline: 0 push events (暗谷 is deduplicated as alias of existing entity)
     const enqueueRes = await harness.invoke<RecognitionEnqueueDto>(
       "knowledge:recognition:enqueue",
       {
         projectId: harness.projectId,
-        documentId: "doc-t3",
-        sessionId: "session-t3",
+        documentId: "doc-t3-ipc",
+        sessionId: "session-t3-ipc",
         contentText: "影子在暗谷中穿行。",
-        traceId: "trace-t3",
+        traceId: "trace-t3-ipc",
       },
     );
     assert.equal(enqueueRes.ok, true);
 
-    // Only the "暗谷" alias should produce a push event (not "影子")
-    const hasPush = await harness.waitForPushCount(
-      KG_SUGGESTION_CHANNEL,
-      1,
-      2_000,
-    );
-    assert.equal(hasPush, true, "expected exactly 1 push event (暗谷)");
-
+    await new Promise<void>((resolve) => setTimeout(resolve, 300));
     const pushEvents = harness.takePushEvents<KgSuggestionEvent>(
       KG_SUGGESTION_CHANNEL,
     );
-    assert.equal(pushEvents.length, 1);
-    assert.equal(pushEvents[0]?.payload.name, "暗谷");
-
-    // Small grace period to ensure no additional push comes for the "never" entity
-    await new Promise<void>((resolve) => setTimeout(resolve, 200));
-    const extra = harness.takePushEvents<KgSuggestionEvent>(
-      KG_SUGGESTION_CHANNEL,
-    );
-    assert.equal(extra.length, 0, "never entity should produce no suggestion");
+    assert.equal(pushEvents.length, 0, "no push events expected");
   } finally {
     harness.close();
   }
@@ -344,7 +417,7 @@ type EntityDto = {
 // T6 — Dedup: canonical name match is deduplicated by processTask
 // ---------------------------------------------------------------------------
 // Entity "林远" exists. Text contains "林远". matchedTerm = "林远" = entity.name.
-// processTask's dedup logic at L785-809 will filter this candidate because
+// processTask's dedup logic will filter this candidate because
 // normalizeSuggestionKey matches an existing entity → no push event.
 {
   const harness = createKnowledgeGraphIpcHarness();
@@ -389,7 +462,7 @@ type EntityDto = {
 }
 
 // ---------------------------------------------------------------------------
-// T7 — Mixed entity types: character + location + item with aliases
+// T7 — Mixed entity types: character + location + item + faction → all detected
 // ---------------------------------------------------------------------------
 {
   const harness = createKnowledgeGraphIpcHarness();
@@ -433,37 +506,137 @@ type EntityDto = {
       assert.equal(createRes.ok, true, `create ${spec.name}`);
     }
 
+    // Verify recognizer detects all 4 entity types via aliases
+    const kgService = createKnowledgeGraphService({
+      db: harness.db,
+      logger: {
+        logPath: ":memory:",
+        info: () => {},
+        error: () => {},
+      },
+    });
+    const recognizer = createAhoCorasickRecognizer({ kgService });
+
+    const result = await recognizer.recognize({
+      projectId: harness.projectId,
+      documentId: "doc-t7",
+      sessionId: "session-t7",
+      contentText: "无痕手持破界弓站在碧湖畔，星教教众在远方集结。",
+      traceId: "trace-t7",
+    });
+
+    assert.equal(result.ok, true);
+    if (!result.ok) {
+      assert.fail("expected recognition success");
+    }
+
+    const byName = new Map(
+      result.data.candidates.map((c) => [c.name, c.type]),
+    );
+    assert.equal(byName.get("无痕"), "character", "recognizer should detect character alias");
+    assert.equal(byName.get("碧湖"), "location", "recognizer should detect location alias");
+    assert.equal(byName.get("破界弓"), "item", "recognizer should detect item alias");
+    assert.equal(byName.get("星教"), "faction", "recognizer should detect faction alias");
+
+    // Verify pipeline deduplicates all alias matches
     const enqueueRes = await harness.invoke<RecognitionEnqueueDto>(
       "knowledge:recognition:enqueue",
       {
         projectId: harness.projectId,
-        documentId: "doc-t7",
-        sessionId: "session-t7",
+        documentId: "doc-t7-ipc",
+        sessionId: "session-t7-ipc",
         contentText: "无痕手持破界弓站在碧湖畔，星教教众在远方集结。",
-        traceId: "trace-t7",
+        traceId: "trace-t7-ipc",
       },
     );
     assert.equal(enqueueRes.ok, true);
 
-    const hasPush = await harness.waitForPushCount(
-      KG_SUGGESTION_CHANNEL,
-      4,
-      2_000,
-    );
-    assert.equal(hasPush, true, "expected 4 suggestion push events");
-
+    await new Promise<void>((resolve) => setTimeout(resolve, 300));
     const pushEvents = harness.takePushEvents<KgSuggestionEvent>(
       KG_SUGGESTION_CHANNEL,
     );
-    assert.equal(pushEvents.length, 4);
-
-    const byName = new Map(
-      pushEvents.map((event) => [event.payload.name, event.payload.type]),
+    assert.equal(
+      pushEvents.length,
+      0,
+      "all alias matches should be deduplicated (aliases belong to existing entities)",
     );
-    assert.equal(byName.get("无痕"), "character");
-    assert.equal(byName.get("碧湖"), "location");
-    assert.equal(byName.get("破界弓"), "item");
-    assert.equal(byName.get("星教"), "faction");
+  } finally {
+    harness.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// T8 — Alias-dedup regression: alias match must NOT create duplicate entity
+// ---------------------------------------------------------------------------
+// Reproduces the exact Duck audit finding:
+//   1. Entity "林小雨" with alias "小雨" exists
+//   2. Text mentions "小雨"
+//   3. Recognizer emits candidate name: "小雨"
+//   4. Before fix: dedup only checked canonical name "林小雨" → alias "小雨"
+//      bypassed dedup → suggestion pushed → accepting creates duplicate entity
+//   5. After fix: dedup includes aliases → "小雨" is in dedup set → filtered
+{
+  const harness = createKnowledgeGraphIpcHarness();
+
+  try {
+    const createRes = await harness.invoke<EntityDto>(
+      "knowledge:entity:create",
+      {
+        projectId: harness.projectId,
+        type: "character",
+        name: "林小雨",
+        aliases: ["小雨", "雨儿"],
+        aiContextLevel: "when_detected",
+      },
+    );
+    assert.equal(createRes.ok, true);
+
+    // Use alias "小雨" in text — should be detected but deduplicated
+    const enqueueRes = await harness.invoke<RecognitionEnqueueDto>(
+      "knowledge:recognition:enqueue",
+      {
+        projectId: harness.projectId,
+        documentId: "doc-t8",
+        sessionId: "session-t8",
+        contentText: "小雨站在窗前，望着远方。",
+        traceId: "trace-t8",
+      },
+    );
+    assert.equal(enqueueRes.ok, true);
+
+    // Wait — should get 0 push events (alias is deduplicated)
+    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+    const pushEvents = harness.takePushEvents<KgSuggestionEvent>(
+      KG_SUGGESTION_CHANNEL,
+    );
+    assert.equal(
+      pushEvents.length,
+      0,
+      "alias match 小雨 must NOT produce suggestion (prevents duplicate entity creation)",
+    );
+
+    // Also try "雨儿" alias
+    const enqueueRes2 = await harness.invoke<RecognitionEnqueueDto>(
+      "knowledge:recognition:enqueue",
+      {
+        projectId: harness.projectId,
+        documentId: "doc-t8b",
+        sessionId: "session-t8b",
+        contentText: "雨儿轻声叹了口气。",
+        traceId: "trace-t8b",
+      },
+    );
+    assert.equal(enqueueRes2.ok, true);
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+    const pushEvents2 = harness.takePushEvents<KgSuggestionEvent>(
+      KG_SUGGESTION_CHANNEL,
+    );
+    assert.equal(
+      pushEvents2.length,
+      0,
+      "alias match 雨儿 must NOT produce suggestion (prevents duplicate entity creation)",
+    );
   } finally {
     harness.close();
   }
