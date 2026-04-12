@@ -359,6 +359,23 @@ describe("project:project:getcurrent", () => {
       },
     );
   });
+
+  it("trie 预热抛出异常时记录 warmup 错误且不影响 getcurrent 成功", async () => {
+    mocks.entityListMock.mockImplementationOnce(() => {
+      throw new Error("warmup exploded");
+    });
+    const harness = createHarness();
+
+    const res = await harness.invoke<{ projectId: string }>(
+      "project:project:getcurrent",
+    );
+
+    expect(res.ok).toBe(true);
+    expect(harness.logger.error).toHaveBeenCalledWith("trie_cache_warmup_failed", {
+      projectId: "proj-1",
+      error: "Error: warmup exploded",
+    });
+  });
 });
 
 describe("project:project:setcurrent", () => {

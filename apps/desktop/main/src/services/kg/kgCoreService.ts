@@ -178,7 +178,7 @@ function runTrieCacheMutation(args: {
   try {
     args.mutate();
   } catch (error) {
-    args.logger.info(args.event, {
+    args.logger.error(args.event, {
       projectId: args.projectId,
       error: error instanceof Error ? error.message : String(error),
     });

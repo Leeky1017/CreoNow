@@ -397,7 +397,7 @@ describe("kgCoreService — Entity CRUD（实体增删改查）", () => {
       });
 
       expect(result.ok).toBe(true);
-      expect(logger.info).toHaveBeenCalledWith("trie_cache_upsert_failed", {
+      expect(logger.error).toHaveBeenCalledWith("trie_cache_upsert_failed", {
         projectId: PROJECT_ID,
         error: "cache broken",
       });
@@ -506,7 +506,7 @@ describe("kgCoreService — Entity CRUD（实体增删改查）", () => {
       });
 
       expect(result.ok).toBe(true);
-      expect(logger.info).toHaveBeenCalledWith("trie_cache_upsert_failed", {
+      expect(logger.error).toHaveBeenCalledWith("trie_cache_upsert_failed", {
         projectId: PROJECT_ID,
         error: "cache broken",
       });
@@ -785,7 +785,7 @@ describe("kgCoreService — Entity CRUD（实体增删改查）", () => {
       const result = svc.entityDelete({ projectId: PROJECT_ID, id: ENTITY_ID });
 
       expect(result.ok).toBe(true);
-      expect(logger.info).toHaveBeenCalledWith("trie_cache_remove_failed", {
+      expect(logger.error).toHaveBeenCalledWith("trie_cache_remove_failed", {
         projectId: PROJECT_ID,
         error: "cache broken",
       });

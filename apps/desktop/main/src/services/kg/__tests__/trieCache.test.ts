@@ -45,7 +45,7 @@ describe("trieCache", () => {
     const buildStart = performance.now();
     trieCachePrime({ cacheKey, entities });
     const buildDuration = performance.now() - buildStart;
-    expect(buildDuration).toBeLessThan(150);
+    expect(buildDuration).toBeLessThan(50);
 
     const result = matchEntities("角色0001 与 角色0499 出现。", entities, {
       cacheKey,
@@ -68,7 +68,7 @@ describe("trieCache", () => {
     const matchStart = performance.now();
     const result = matchEntities(text, entities, { cacheKey });
     const matchDuration = performance.now() - matchStart;
-    expect(matchDuration).toBeLessThan(15);
+    expect(matchDuration).toBeLessThan(5);
     expect(result.length).toBe(2);
     const ids = result.map((r) => r.entityId).sort();
     expect(ids).toEqual(["e-1", "e-999"]);
@@ -111,7 +111,7 @@ describe("trieCache", () => {
       trieCacheRemoveEntity({ cacheKey, entityId: benchmarkEntityId });
     }
     const incrementalDurationPerOp = (performance.now() - incrementalStart) / (benchmarkRounds * 2);
-    expect(incrementalDurationPerOp).toBeLessThan(3);
+    expect(incrementalDurationPerOp).toBeLessThan(1);
   });
 
   it("KG-TRIE-P3-02-S4: keeps state valid under async interleave", async () => {
