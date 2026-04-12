@@ -272,6 +272,16 @@ describe("E2E IPC path: ai:skill:run -> SkillOrchestrator -> write-back", () => 
     expect(run.ok).toBe(true);
     expect(run.data?.status).toBe("preview");
     expect(executeCalls.length).toBe(1);
+    const chunkEvents = harness.sentEvents.filter(
+      (event) => event.channel === "skill:stream:chunk",
+    );
+    expect(chunkEvents.length).toBeGreaterThan(0);
+    expect(
+      chunkEvents.some((event) => {
+        const payload = event.payload as { chunk?: unknown };
+        return typeof payload.chunk === "string" && payload.chunk.length > 0;
+      }),
+    ).toBe(true);
 
     const confirm = await harness.invoke<{
       ok: boolean;
@@ -284,6 +294,14 @@ describe("E2E IPC path: ai:skill:run -> SkillOrchestrator -> write-back", () => 
     expect(confirm.ok).toBe(true);
     expect(confirm.data?.status).toBe("completed");
     expect(confirm.data?.versionId).toBeTruthy();
+    const doneEvent = harness.sentEvents.find(
+      (event) =>
+        event.channel === "skill:stream:done" &&
+        (event.payload as { executionId?: string; terminal?: string }).executionId ===
+          run.data?.executionId,
+    );
+    expect(doneEvent).toBeTruthy();
+    expect((doneEvent?.payload as { terminal?: string }).terminal).toBe("completed");
 
     const service = createDocumentService({ db: harness.db, logger: createLogger() });
     const read = service.read({ projectId, documentId });
@@ -298,7 +316,7 @@ describe("E2E IPC path: ai:skill:run -> SkillOrchestrator -> write-back", () => 
     );
   });
 
-  it("permission denied path: preview -> reject keeps original text and no ai-accept snapshot", async () => {
+  it("permission denied path: preview -> reject keeps original text and skips ai-accept snapshot", async () => {
     const harness = createHarness({
       env: {
         ...process.env,
@@ -355,6 +373,8 @@ describe("E2E IPC path: ai:skill:run -> SkillOrchestrator -> write-back", () => 
       expect(read.data.contentText).toBe("origin");
     }
     const reasons = readSnapshotReasons(harness.db, documentId);
+    // Snapshot is created at pre-write stage before permission decision (INV-1 fail-closed).
+    // Reject must only block ai-accept write-back, not retroactively remove pre-write snapshot.
     expect(reasons).toContain("pre-write");
     expect(reasons).not.toContain("ai-accept");
   });
@@ -374,8 +394,6 @@ describe("E2E IPC path: ai:skill:run -> SkillOrchestrator -> write-back", () => 
       db: harness.db,
       text: "origin",
     });
-    const upstreamSelection = "origin E2E_UPSTREAM_ERROR";
-
     const run = await harness.invoke<{
       ok: boolean;
       error?: { code: string; message: string };
@@ -389,14 +407,14 @@ describe("E2E IPC path: ai:skill:run -> SkillOrchestrator -> write-back", () => 
       context: { projectId, documentId },
       selection: {
         from: 1,
-        to: upstreamSelection.length + 1,
-        text: upstreamSelection,
-        selectionTextHash: computeSelectionTextHash(upstreamSelection),
+        to: 7,
+        text: "origin",
+        selectionTextHash: computeSelectionTextHash("origin"),
       },
       stream: true,
     });
     expect(run.ok).toBe(false);
-    expect(run.error?.code).toBeTruthy();
+    expect(run.error?.code).toBe("AI_SERVICE_ERROR");
 
     const service = createDocumentService({ db: harness.db, logger: createLogger() });
     const read = service.read({ projectId, documentId });
@@ -462,6 +480,8 @@ describe("E2E IPC path: ai:skill:run -> SkillOrchestrator -> write-back", () => 
       expect(read.data.contentText).toBe("origin");
     }
     const reasons = readSnapshotReasons(harness.db, documentId);
+    // Cancel occurs after preview pause; pre-write snapshot may already exist from Stage 5.
+    // The invariant here is no ai-accept write-back snapshot is created.
     expect(reasons).toContain("pre-write");
     expect(reasons).not.toContain("ai-accept");
   });
