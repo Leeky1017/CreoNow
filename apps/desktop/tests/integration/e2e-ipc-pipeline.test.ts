@@ -224,6 +224,49 @@ function createMockDocumentWriteTool(
   });
 }
 
+/**
+ * Create an AIService WITH a working streamChat implementation.
+ * Used to test the streamChat code path in the orchestrator.
+ * Each word in fullText becomes one StreamChunk with delta + accumulatedTokens.
+ */
+function createStreamingAiService(fullText: string): OrchestratorConfig["aiService"] {
+  const words = fullText.split(" ");
+  return {
+    streamChat(
+      _messages: Array<{ role: string; content: string }>,
+      options: {
+        signal: AbortSignal;
+        onComplete: (result: { usage?: { promptTokens?: number; completionTokens?: number } }) => void;
+        onError: (e: unknown) => void;
+        onApiCallStarted?: () => void;
+      },
+    ): AsyncGenerator<{ delta: string; finishReason: "stop" | "tool_use" | null; accumulatedTokens: number }> {
+      return (async function* () {
+        options.onApiCallStarted?.();
+        let accumulated = 0;
+        for (let i = 0; i < words.length; i++) {
+          if (options.signal.aborted) return;
+          const delta = i === 0 ? words[i]! : ` ${words[i]!}`;
+          accumulated += 1;
+          yield {
+            delta,
+            finishReason: (i === words.length - 1 ? "stop" : null) as "stop" | "tool_use" | null,
+            accumulatedTokens: accumulated,
+          };
+        }
+        options.onComplete({
+          usage: {
+            promptTokens: 100,
+            completionTokens: words.length,
+          },
+        });
+      })();
+    },
+    estimateTokens: vi.fn((_text: string) => 42),
+    abort: vi.fn(),
+  } as unknown as OrchestratorConfig["aiService"];
+}
+
 // ── Test Suite ──────────────────────────────────────────────────────────
 
 describe("E2E IPC Pipeline — WritingOrchestrator closed-loop", () => {
@@ -231,6 +274,7 @@ describe("E2E IPC Pipeline — WritingOrchestrator closed-loop", () => {
 
   afterEach(() => {
     orchestrator?.dispose();
+    vi.useRealTimers();
   });
 
   // ────────────────────────────────────────────────────────────────────
@@ -312,6 +356,41 @@ describe("E2E IPC Pipeline — WritingOrchestrator closed-loop", () => {
     expect(aiDoneEvent).toBeDefined();
     expect(aiDoneEvent!.fullText).toBe(AI_OUTPUT);
 
+    // ── F1: ai-chunk events present and count matches words ──
+    expect(types).toContain("ai-chunk");
+    const aiChunkCount = types.filter((t) => t === "ai-chunk").length;
+    const wordCount = AI_OUTPUT.split(" ").length;
+    expect(aiChunkCount).toBe(wordCount);
+
+    // ── F2: Exact core sequence (filter + toEqual) ──
+    const coreSequence = types.filter((t) =>
+      [
+        "intent-resolved",
+        "context-assembled",
+        "model-selected",
+        "ai-done",
+        "permission-requested",
+        "permission-granted",
+        "write-back-done",
+        "hooks-done",
+      ].includes(t),
+    );
+    expect(coreSequence).toEqual([
+      "intent-resolved",
+      "context-assembled",
+      "model-selected",
+      "ai-done",
+      "permission-requested",
+      "permission-granted",
+      "write-back-done",
+      "hooks-done",
+    ]);
+
+    // ── F2: Uniqueness — single-occurrence events appear exactly once ──
+    for (const unique of ["permission-requested", "permission-granted", "write-back-done", "hooks-done"]) {
+      expect(types.filter((t) => t === unique)).toHaveLength(1);
+    }
+
     // ── Task state is completed ──
     expect(orchestrator.getTaskState(request.requestId)).toBe("completed");
   });
@@ -367,6 +446,9 @@ describe("E2E IPC Pipeline — WritingOrchestrator closed-loop", () => {
 
     // cancelCommit is called in finally
     expect(versionCalls.cancelCommit).toHaveLength(1);
+
+    // ── F5: Task state is "killed" on permission denied ──
+    expect(orchestrator.getTaskState(request.requestId)).toBe("killed");
   });
 
   // ────────────────────────────────────────────────────────────────────
@@ -649,5 +731,215 @@ describe("E2E IPC Pipeline — WritingOrchestrator closed-loop", () => {
     const hooksEvent = events.find((e) => e.type === "hooks-done");
     expect(hooksEvent).toBeDefined();
     expect((hooksEvent as WritingEvent & { executed: string[] }).executed).toContain("search-reindex");
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // T6: Abort during permission wait — no write, state "killed"
+  // ────────────────────────────────────────────────────────────────────
+  it("abort during permission wait: yields aborted event, no writes (INV-1 fail-closed)", async () => {
+    const request = makeRequest({ requestId: "req-abort-006" });
+
+    // Use onPermissionRequested to trigger abort while permission is pending.
+    // The orchestrator's abort() calls controller.abort() + releasePendingPermission,
+    // which causes the gate to return false and the generator to check the abort flag.
+    let orchestratorRef: ReturnType<typeof createWritingOrchestrator>;
+    const gate = createPermissionGate({
+      onPermissionRequested: async (req) => {
+        orchestratorRef.abort(req.requestId);
+      },
+    });
+
+    const writeCalls: Array<Record<string, unknown>> = [];
+    const registry = createToolRegistry();
+    registry.register(createMockDocumentWriteTool(writeCalls));
+    const { service: versionWorkflow, calls: versionCalls } = createMockVersionWorkflow();
+
+    const config: OrchestratorConfig = {
+      aiService: createMockAiService(),
+      toolRegistry: registry,
+      permissionGate: gate,
+      postWritingHooks: [],
+      defaultTimeoutMs: 30_000,
+      versionWorkflow,
+      generateText: createMockGenerateText("Should not be written"),
+    };
+
+    orchestrator = createWritingOrchestrator(config);
+    orchestratorRef = orchestrator;
+    const events = await drainEvents(orchestrator.execute(request));
+    const types = events.map((e) => e.type);
+
+    // permission-requested fires, then abort during gate → aborted event
+    expect(types).toContain("permission-requested");
+    expect(types).toContain("aborted");
+    const abortedEvent = events.find((e) => e.type === "aborted");
+    expect(abortedEvent).toBeDefined();
+    expect(abortedEvent!.reason).toBe("user-abort");
+
+    // No write-back, no hooks (abort short-circuits the pipeline)
+    expect(types).not.toContain("write-back-done");
+    expect(types).not.toContain("hooks-done");
+
+    // documentWrite never called (INV-1 fail-closed)
+    expect(writeCalls).toHaveLength(0);
+
+    // confirmCommit never called (no version commit after abort)
+    expect(versionCalls.confirmCommit).toHaveLength(0);
+
+    // Task state is "killed"
+    expect(orchestrator.getTaskState(request.requestId)).toBe("killed");
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // T7: Permission timeout — gate returns false, no writes
+  // ────────────────────────────────────────────────────────────────────
+  it("permission timeout: yields permission-denied, no writes (vi.useFakeTimers)", async () => {
+    vi.useFakeTimers();
+    const request = makeRequest({ requestId: "req-timeout-007" });
+
+    // Create gate with a very short timeout — do NOT pre-resolve.
+    // The timeout fires, returning false (denied).
+    const gate = createPermissionGate({ confirmTimeoutMs: 100 });
+
+    const writeCalls: Array<Record<string, unknown>> = [];
+    const registry = createToolRegistry();
+    registry.register(createMockDocumentWriteTool(writeCalls));
+    const { service: versionWorkflow, calls: versionCalls } = createMockVersionWorkflow();
+
+    const config: OrchestratorConfig = {
+      aiService: createMockAiService(),
+      toolRegistry: registry,
+      permissionGate: gate,
+      postWritingHooks: [],
+      defaultTimeoutMs: 30_000,
+      versionWorkflow,
+      generateText: createMockGenerateText("Timeout test content"),
+    };
+
+    orchestrator = createWritingOrchestrator(config);
+    const gen = orchestrator.execute(request);
+
+    // Start draining events — the generator will block at requestPermission
+    const eventsPromise = drainEvents(gen);
+
+    // Advance fake timers past the 100ms timeout to unblock the gate
+    await vi.advanceTimersByTimeAsync(200);
+
+    const events = await eventsPromise;
+    const types = events.map((e) => e.type);
+
+    // permission-requested fires, then timeout → permission-denied
+    expect(types).toContain("permission-requested");
+    expect(types).toContain("permission-denied");
+
+    // No write-back, no hooks
+    expect(types).not.toContain("permission-granted");
+    expect(types).not.toContain("write-back-done");
+    expect(types).not.toContain("hooks-done");
+
+    // documentWrite never called
+    expect(writeCalls).toHaveLength(0);
+
+    // confirmCommit never called
+    expect(versionCalls.confirmCommit).toHaveLength(0);
+
+    // Task state is "killed" (permission denied → killed)
+    expect(orchestrator.getTaskState(request.requestId)).toBe("killed");
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // T8: streamChat happy path — full pipeline via streamChat code path
+  // ────────────────────────────────────────────────────────────────────
+  it("streamChat path: full pipeline produces ai-chunk events and versionId", async () => {
+    const AI_OUTPUT = "Streaming output with five words.";
+    const request = makeRequest({ requestId: "req-stream-008" });
+
+    // Pre-resolve permission
+    const gate = createPermissionGate();
+    gate.resolve(request.requestId, true);
+
+    const writeCalls: Array<Record<string, unknown>> = [];
+    const registry = createToolRegistry();
+    registry.register(createMockDocumentWriteTool(writeCalls));
+    const { service: versionWorkflow, calls: versionCalls } = createMockVersionWorkflow();
+
+    // Use streaming AIService (with streamChat) and NO generateText.
+    // This forces the orchestrator into the streamChat code path.
+    const config: OrchestratorConfig = {
+      aiService: createStreamingAiService(AI_OUTPUT),
+      toolRegistry: registry,
+      permissionGate: gate,
+      postWritingHooks: [
+        {
+          name: "stream-hook",
+          execute: async () => {},
+        },
+      ],
+      defaultTimeoutMs: 30_000,
+      versionWorkflow,
+      // NOTE: no generateText — forces streamChat path
+    };
+
+    orchestrator = createWritingOrchestrator(config);
+    const events = await drainEvents(orchestrator.execute(request));
+    const types = events.map((e) => e.type);
+
+    // ── ai-chunk events: one per word from streamChat ──
+    expect(types).toContain("ai-chunk");
+    const aiChunks = events.filter((e) => e.type === "ai-chunk");
+    const expectedWordCount = AI_OUTPUT.split(" ").length;
+    expect(aiChunks).toHaveLength(expectedWordCount);
+
+    // Each chunk has delta and accumulatedTokens
+    for (const chunk of aiChunks) {
+      expect(typeof chunk.delta).toBe("string");
+      expect((chunk.delta as string).length).toBeGreaterThan(0);
+      expect(typeof chunk.accumulatedTokens).toBe("number");
+    }
+
+    // ── ai-done event with full text ──
+    const aiDoneEvent = events.find((e) => e.type === "ai-done");
+    expect(aiDoneEvent).toBeDefined();
+    expect(aiDoneEvent!.fullText).toBe(AI_OUTPUT);
+
+    // ── Full pipeline completed ──
+    const coreSequence = types.filter((t) =>
+      [
+        "intent-resolved",
+        "context-assembled",
+        "model-selected",
+        "ai-done",
+        "permission-requested",
+        "permission-granted",
+        "write-back-done",
+        "hooks-done",
+      ].includes(t),
+    );
+    expect(coreSequence).toEqual([
+      "intent-resolved",
+      "context-assembled",
+      "model-selected",
+      "ai-done",
+      "permission-requested",
+      "permission-granted",
+      "write-back-done",
+      "hooks-done",
+    ]);
+
+    // ── Write-back has versionId ──
+    const wbEvent = events.find((e) => e.type === "write-back-done");
+    expect(wbEvent).toBeDefined();
+    expect(wbEvent!.versionId).toBe("ver-req-stream-008");
+
+    // ── documentWrite called once with AI output ──
+    expect(writeCalls).toHaveLength(1);
+    expect(writeCalls[0]!.content).toBe(AI_OUTPUT);
+
+    // ── Version workflow calls ──
+    expect(versionCalls.createPreWriteSnapshot).toHaveLength(1);
+    expect(versionCalls.confirmCommit).toHaveLength(1);
+
+    // ── Task state completed ──
+    expect(orchestrator.getTaskState(request.requestId)).toBe("completed");
   });
 });
