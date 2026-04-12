@@ -8,6 +8,7 @@ import { registerContextFsHandlers } from "./contextFs";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { createMemoryService } from "../services/memory/memoryService";
 import { createEpisodicMemoryService, createSqliteEpisodeRepository } from "../services/memory/episodicMemoryService";
+import { createSessionMemoryService } from "../services/memory/sessionMemory";
 import { createSqliteSynopsisStore } from "../services/context/synopsisStore";
 import {
   createContextLayerAssemblyService,
@@ -59,6 +60,13 @@ export function registerContextIpcHandlers(deps: {
           logger: deps.logger,
         })
       : undefined;
+  const sessionMemoryService =
+    deps.db !== null
+      ? createSessionMemoryService({
+          db: deps.db,
+          logger: deps.logger,
+        })
+      : undefined;
   const contextAssemblyService =
     deps.contextAssemblyService ??
     createContextLayerAssemblyService(undefined, {
@@ -69,6 +77,7 @@ export function registerContextIpcHandlers(deps: {
       ...(memoryService ? { memoryService } : {}),
       ...(synopsisStore ? { synopsisStore } : {}),
       ...(episodicMemoryService ? { episodicMemoryService } : {}),
+      ...(sessionMemoryService ? { sessionMemoryService } : {}),
       logger: deps.logger,
       degradationCounter,
     });

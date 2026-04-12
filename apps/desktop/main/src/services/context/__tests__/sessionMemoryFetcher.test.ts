@@ -187,4 +187,33 @@ describe("createSessionMemoryFetcher", () => {
     expect(result.chunks).toHaveLength(1);
     expect(result.chunks[0]?.source).toBe("session_memory:l1");
   });
+
+  it("uses request.sessionId when deps.sessionId is absent", async () => {
+    const injectForContext = makeInjectOk("[会话记忆 — L1 自动注入]\n[note] from request");
+    const fetcher = createSessionMemoryFetcher({
+      sessionMemoryService: { injectForContext },
+      // No deps.sessionId — should fall through to request.sessionId
+    });
+
+    const result = await fetcher(makeRequest({ sessionId: "req-sess-42" }));
+    expect(result.chunks).toHaveLength(1);
+    expect(injectForContext).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "req-sess-42" }),
+    );
+  });
+
+  it("prefers request.sessionId over deps.sessionId", async () => {
+    const injectForContext = makeInjectOk("[会话记忆 — L1 自动注入]\n[note] request wins");
+    const fetcher = createSessionMemoryFetcher({
+      sessionMemoryService: { injectForContext },
+      sessionId: "deps-sess",
+    });
+
+    const result = await fetcher(makeRequest({ sessionId: "request-sess" }));
+    expect(result.chunks).toHaveLength(1);
+    // request.sessionId should take precedence
+    expect(injectForContext).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "request-sess" }),
+    );
+  });
 });

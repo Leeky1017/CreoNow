@@ -323,12 +323,19 @@ export function createSessionMemoryService(deps: {
     return '"' + raw.replace(/"/g, '""') + '"';
   }
 
+  /**
+   * FTS5 keyword search with mandatory session/project scoping.
+   *
+   * @returns ServiceResult — errors are propagated to the caller, never
+   *   silently swallowed (INV-10: errors must not lose context; §七 ban on
+   *   silent catch returning default values).
+   */
   function ftsSearch(args: {
     sessionId?: string;
     projectId?: string;
     queryText: string;
     limit: number;
-  }): SessionMemoryRow[] {
+  }): ServiceResult<SessionMemoryRow[]> {
     try {
       // FTS5 match via content-rowid join. The base table join restores all
       // columns (fts only stores content).
@@ -352,13 +359,14 @@ export function createSessionMemoryService(deps: {
         args.limit,
       );
 
-      return rows;
+      return { ok: true, data: rows };
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       logger.error("session_memory_fts_error", {
-        message: err instanceof Error ? err.message : String(err),
+        message,
         queryText: args.queryText,
       });
-      return [];
+      return ipcError("DB_ERROR", `FTS5 search failed: ${message}`);
     }
   }
 
@@ -473,13 +481,23 @@ export function createSessionMemoryService(deps: {
       let rows: SessionMemoryRow[];
 
       if (args.queryText && args.queryText.trim().length > 0) {
-        // FTS5 path: keyword matching (INV-4 compliant)
-        rows = ftsSearch({
+        // FTS5 path: keyword matching (INV-4 compliant).
+        // Scope guard: at least one of sessionId/projectId must be provided to
+        // prevent cross-session/cross-project data leakage (F2 audit finding).
+        if (!args.sessionId && !args.projectId) {
+          return ipcError("INVALID_ARGUMENT", "at least sessionId or projectId is required for FTS queries");
+        }
+        const ftsResult = ftsSearch({
           sessionId: args.sessionId,
           projectId: args.projectId,
           queryText: args.queryText.trim(),
           limit,
         });
+        // Propagate FTS errors (INV-10: errors must not lose context)
+        if (!ftsResult.ok) {
+          return ftsResult;
+        }
+        rows = ftsResult.data;
       } else if (args.sessionId && args.category) {
         rows = stmtListBySessionAndCategory.all(args.sessionId, args.category, limit);
       } else if (args.projectId && args.category) {

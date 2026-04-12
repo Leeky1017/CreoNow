@@ -147,7 +147,10 @@ describe("ai:skill:run selection contract", () => {
 
     registerAiIpcHandlers({
       ipcMain,
-      db: {} as Database.Database,
+      db: {
+        exec: vi.fn(),
+        prepare: vi.fn(() => ({ run: vi.fn(), get: vi.fn(), all: vi.fn() })),
+      } as unknown as Database.Database,
       userDataDir: "<test-user-data>",
       builtinSkillsDir: "<test-skills>",
       logger: createLogger(),

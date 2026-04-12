@@ -89,7 +89,9 @@ export function createSessionMemoryFetcher(
   }
 
   return async (request) => {
-    const sessionId = deps.sessionId;
+    // Prefer per-request sessionId (threaded from AI chat IPC) over the static
+    // dep captured at service creation time.
+    const sessionId = request.sessionId ?? deps.sessionId;
 
     if (!sessionId) {
       // No active session wired — degrade silently; not an error condition.

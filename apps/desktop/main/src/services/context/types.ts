@@ -20,6 +20,14 @@ export type ContextAssembleRequest = {
   provider?: string;
   model?: string;
   tokenizerVersion?: string;
+  /**
+   * Active chat session ID for L1 session-aware memory injection.
+   *
+   * When provided, the sessionMemoryFetcher uses this to scope L1 lookups to
+   * the active conversation. Optional — when absent, L1 degrades gracefully
+   * (returns empty chunks).
+   */
+  sessionId?: string;
   conversationMessages?: Array<{
     role: "system" | "user" | "assistant" | "tool";
     content: string;

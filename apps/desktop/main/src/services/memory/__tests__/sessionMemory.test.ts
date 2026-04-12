@@ -419,6 +419,37 @@ describe("SessionMemoryService.list with queryText (FTS5)", () => {
     if (!r.ok) return;
     expect(r.data.some((e) => e.content === "dark theme target")).toBe(true);
   });
+
+  it("returns DB_ERROR when FTS5 query fails instead of silent empty fallback (INV-10)", () => {
+    const { service, db, logger } = createService();
+    service.create({ sessionId: "s", projectId: "p", category: "note", content: "test entry" });
+
+    // Corrupt the FTS5 index by dropping the virtual table; subsequent MATCH
+    // queries will throw a SQLite error.
+    db.exec("DROP TABLE IF EXISTS session_memory_fts");
+
+    const r = service.list({ sessionId: "s", queryText: "test" });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.code).toBe("DB_ERROR");
+    expect(r.error.message).toContain("FTS5 search failed");
+    // Verify the error was logged (not silently swallowed)
+    expect(logger.error).toHaveBeenCalledWith(
+      "session_memory_fts_error",
+      expect.objectContaining({ queryText: "test" }),
+    );
+  });
+
+  it("requires at least sessionId or projectId for FTS queries (scope guard)", () => {
+    const { service } = createService();
+    service.create({ sessionId: "s", projectId: "p", category: "note", content: "searchable" });
+
+    // FTS query without scope should be rejected to prevent cross-session leakage
+    const r = service.list({ queryText: "searchable" });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.code).toBe("INVALID_ARGUMENT");
+  });
 });
 
 // ─── injectForContext ─────────────────────────────────────────────────────────

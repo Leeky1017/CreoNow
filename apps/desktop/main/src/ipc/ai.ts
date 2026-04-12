@@ -29,6 +29,7 @@ import {
   createEpisodicMemoryService,
   createSqliteEpisodeRepository,
 } from "../services/memory/episodicMemoryService";
+import { createSessionMemoryService } from "../services/memory/sessionMemory";
 import {
   recordSkillFeedbackAndLearn,
   type SkillFeedbackAction,
@@ -538,6 +539,7 @@ export async function prepareWritingRequest(args: {
         additionalInputIsSelection: inputType === "selection",
         provider: "ai-service",
         model: args.payload.model,
+        sessionId: args.payload.context?.sessionId,
       });
       contextPrompt =
         normalizeAssembledContextPrompt({
@@ -1289,6 +1291,13 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           logger: deps.logger,
         })
       : undefined;
+  const sessionMemoryServiceForContext =
+    deps.db !== null
+      ? createSessionMemoryService({
+          db: deps.db,
+          logger: deps.logger,
+        })
+      : undefined;
   const contextAssemblyService = createContextLayerAssemblyService(
     undefined,
     deps.db
@@ -1301,6 +1310,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             : {}),
           ...(episodicMemoryServiceForContext
             ? { episodicMemoryService: episodicMemoryServiceForContext }
+            : {}),
+          ...(sessionMemoryServiceForContext
+            ? { sessionMemoryService: sessionMemoryServiceForContext }
             : {}),
         }
       : undefined,
