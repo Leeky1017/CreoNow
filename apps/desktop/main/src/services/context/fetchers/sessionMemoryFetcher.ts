@@ -100,9 +100,11 @@ export function createSessionMemoryFetcher(
 
     try {
       // Estimate total budget for cap calculation.
-      // Why: we use a safe default when the request doesn't carry an explicit
-      // budget — the SessionMemoryService will apply the 15% cap on this value,
-      // so under-estimating here is conservative (injects less, never more).
+      // Known limitation: ContextAssembleRequest currently has no total-budget
+      // field. We therefore use a fixed 6000-token assumption. This can
+      // over-estimate the 15% cap on smaller context windows (<6000) and
+      // under-estimate on larger windows; wire real budget through request when
+      // available.
       const totalBudget = 6000;
 
       const result = await deps.sessionMemoryService.injectForContext({

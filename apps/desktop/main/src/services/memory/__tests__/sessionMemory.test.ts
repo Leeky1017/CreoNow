@@ -228,6 +228,18 @@ describe("SessionMemoryService.update", () => {
     if (!r.ok) return;
     expect(r.data.expiresAt).toBeNull();
   });
+
+  it("returns INVALID_ARGUMENT when content is blank after trim", () => {
+    const { service } = createService();
+    const c = service.create({ sessionId: "s", projectId: "p", category: "note", content: "x" });
+    expect(c.ok).toBe(true);
+    if (!c.ok) return;
+
+    const r = service.update({ id: c.data.id, content: "   " });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.code).toBe("INVALID_ARGUMENT");
+  });
 });
 
 // ─── remove ───────────────────────────────────────────────────────────────────
@@ -296,6 +308,24 @@ describe("SessionMemoryService.list", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.data).toHaveLength(2);
+  });
+
+  it("scopes by both sessionId and projectId when both are provided", () => {
+    const { service } = createService();
+    service.create({ sessionId: "same-session", projectId: "proj-A", category: "note", content: "A1" });
+    service.create({ sessionId: "same-session", projectId: "proj-B", category: "note", content: "B1" });
+
+    const a = service.list({ sessionId: "same-session", projectId: "proj-A" });
+    expect(a.ok).toBe(true);
+    if (!a.ok) return;
+    expect(a.data).toHaveLength(1);
+    expect(a.data[0]?.projectId).toBe("proj-A");
+
+    const b = service.list({ sessionId: "same-session", projectId: "proj-B" });
+    expect(b.ok).toBe(true);
+    if (!b.ok) return;
+    expect(b.data).toHaveLength(1);
+    expect(b.data[0]?.projectId).toBe("proj-B");
   });
 
   it("returns INVALID_PARAMS when neither sessionId nor projectId given", () => {

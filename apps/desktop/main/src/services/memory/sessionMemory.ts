@@ -243,8 +243,9 @@ export function createSessionMemoryService(deps: {
   try {
     ensureSchema();
   } catch (err) {
-    // Schema may already exist (idempotent CREATE IF NOT EXISTS). Log and continue.
-    logger.info("session_memory_schema_bootstrap", {
+    // Any error here is a real bootstrap failure; CREATE IF NOT EXISTS should
+    // not throw for pre-existing schema objects.
+    logger.error("session_memory_schema_bootstrap", {
       message: err instanceof Error ? err.message : String(err),
     });
   }
@@ -305,6 +306,22 @@ export function createSessionMemoryService(deps: {
   const stmtPurgeExpired = db.prepare<[string, string]>(`
     DELETE FROM session_memory
     WHERE project_id = ? AND expires_at IS NOT NULL AND expires_at <= ?
+  `);
+
+  const stmtListBySessionAndProject = db.prepare<[string, string, number], SessionMemoryRow>(`
+    SELECT id, session_id, project_id, category, content, relevance_score, created_at, expires_at
+    FROM session_memory
+    WHERE session_id = ? AND project_id = ?
+    ORDER BY created_at DESC
+    LIMIT ?
+  `);
+
+  const stmtListBySessionAndProjectAndCategory = db.prepare<[string, string, string, number], SessionMemoryRow>(`
+    SELECT id, session_id, project_id, category, content, relevance_score, created_at, expires_at
+    FROM session_memory
+    WHERE session_id = ? AND project_id = ? AND category = ?
+    ORDER BY created_at DESC
+    LIMIT ?
   `);
 
   // ── FTS5 search helper ────────────────────────────────────────────────────
@@ -433,6 +450,9 @@ export function createSessionMemoryService(deps: {
     }
 
     const newContent = args.content !== undefined ? args.content.trim() : existing.content;
+    if (!newContent) {
+      return ipcError("INVALID_ARGUMENT", "content must not be empty");
+    }
     const newScore =
       args.relevanceScore !== undefined
         ? Math.max(0, Math.min(1, args.relevanceScore))
@@ -498,6 +518,15 @@ export function createSessionMemoryService(deps: {
           return ftsResult;
         }
         rows = ftsResult.data;
+      } else if (args.sessionId && args.projectId && args.category) {
+        rows = stmtListBySessionAndProjectAndCategory.all(
+          args.sessionId,
+          args.projectId,
+          args.category,
+          limit,
+        );
+      } else if (args.sessionId && args.projectId) {
+        rows = stmtListBySessionAndProject.all(args.sessionId, args.projectId, limit);
       } else if (args.sessionId && args.category) {
         rows = stmtListBySessionAndCategory.all(args.sessionId, args.category, limit);
       } else if (args.projectId && args.category) {
