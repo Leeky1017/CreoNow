@@ -184,6 +184,47 @@ function resetCache(): void {
   assert.equal(buildCallCount, 2, "after invalidation, rebuilds");
 }
 
+// Scenario TC-S10: concurrent reads around invalidation boundaries
+//
+// Why (Finding #6): In JS, the event loop is single-threaded so true data races
+// are impossible, but we need to verify that interleaved sync operations —
+// read → invalidate → read — behave correctly: a reader that starts before
+// invalidation sees the old cache, and a reader after invalidation triggers
+// a fresh rebuild with whatever entities are passed in.
+{
+  resetCache();
+
+  const entitiesV1 = [createEntity({ id: "e-1", name: "林远" })];
+  const entitiesV2 = [
+    createEntity({ id: "e-1", name: "林远" }),
+    createEntity({ id: "e-2", name: "张薇" }),
+  ];
+  const text = "林远和张薇在长安城相遇。";
+
+  // Build initial cache with V1 entities
+  const resultsPreInvalidate = matchEntitiesCached(text, entitiesV1, "proj-concurrent");
+  assert.equal(resultsPreInvalidate.length, 1, "V1 has 1 match");
+  assert.equal(trieCacheHas("proj-concurrent"), true);
+
+  // Simulate interleaved operations: read (cache hit) → invalidate → read (cache miss → rebuild)
+  const resultsStillCached = matchEntitiesCached(text, entitiesV1, "proj-concurrent");
+  assert.equal(resultsStillCached.length, 1, "still V1 before invalidation");
+
+  trieCacheInvalidate("proj-concurrent");
+  assert.equal(trieCacheHas("proj-concurrent"), false, "cache cleared");
+
+  // Next read with V2 entities should rebuild and see both entities
+  const resultsAfterRebuild = matchEntitiesCached(text, entitiesV2, "proj-concurrent");
+  assert.equal(resultsAfterRebuild.length, 2, "V2 sees both entities after rebuild");
+  assert.equal(trieCacheHas("proj-concurrent"), true, "cache repopulated");
+
+  // Verify that multiple rapid reads after rebuild all return the same V2 results
+  for (let i = 0; i < 5; i += 1) {
+    const repeatedResults = matchEntitiesCached(text, entitiesV2, "proj-concurrent");
+    assert.deepEqual(repeatedResults, resultsAfterRebuild, `repeated read ${i} consistent`);
+  }
+}
+
 // Cleanup
 resetCache();
 

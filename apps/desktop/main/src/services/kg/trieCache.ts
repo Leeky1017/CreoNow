@@ -8,21 +8,33 @@
  *    is atomically swapped (JS single-threaded + reference assignment).
  *    Write-side invalidation deletes the entry; next read lazily rebuilds.
  * ## Performance constraint: 1000-entity build < 50ms; single match (10K chars) < 5ms.
+ *
+ * ## Design Decision — Invalidation + Lazy Rebuild vs Incremental Update
+ *
+ *    We chose invalidation + lazy rebuild (Approach A) over true incremental
+ *    trie mutation (Approach B) for the following reasons:
+ *
+ *    1. **Simplicity & correctness**: Aho-Corasick failure links form a global
+ *       graph across all patterns.  Inserting or removing a single pattern
+ *       requires recomputing failure links for *every* node reachable from the
+ *       affected path — effectively an O(total_pattern_chars) operation, the
+ *       same cost as a full rebuild.  An incremental approach would add
+ *       complexity with no asymptotic gain.
+ *
+ *    2. **Amortised cost**: Entity CRUD is rare (user-driven, not per-request).
+ *       The trie is read thousands of times between writes, so a single lazy
+ *       rebuild (~2–5ms for 1000 entities) is amortised across many reads.
+ *
+ *    3. **Atomicity**: Map.delete + lazy Map.set on next read means readers
+ *       always see either a fully-built automaton or trigger a full rebuild.
+ *       No partially-mutated trie can leak to a concurrent reader.
+ *
+ *    If profiling shows CRUD-heavy workloads where rebuild cost dominates,
+ *    this decision should be revisited — but for the current access pattern
+ *    (read-heavy, write-rare) invalidation + rebuild is the pragmatic choice.
  */
 
-import type { MatchableEntity } from "./entityMatcher";
-
-type AutomatonNode = {
-  transitions: Map<string, number>;
-  fail: number;
-  outputs: PatternOutput[];
-};
-
-type PatternOutput = {
-  entityId: string;
-  matchedTerm: string;
-  length: number;
-};
+import type { MatchableEntity, AutomatonNode } from "./entityMatcher";
 
 export type CachedAutomaton = {
   nodes: AutomatonNode[];

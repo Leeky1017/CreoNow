@@ -14,13 +14,13 @@ export type MatchResult = {
   position: number;
 };
 
-type PatternOutput = {
+export type PatternOutput = {
   entityId: string;
   matchedTerm: string;
   length: number;
 };
 
-type AutomatonNode = {
+export type AutomatonNode = {
   transitions: Map<string, number>;
   fail: number;
   outputs: PatternOutput[];

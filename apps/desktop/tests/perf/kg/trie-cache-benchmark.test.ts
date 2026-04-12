@@ -116,36 +116,59 @@ trieCacheInvalidate();
   console.log(`B2: 10K-char cached scan median=${scanMedian.toFixed(2)}ms (budget: <5ms)`);
 }
 
-// Benchmark B3: cache invalidation should be < 1ms
+// Benchmark B3: full invalidation → lazy rebuild cycle should be < 1ms overhead
 //
-// Why: invalidation is Map.delete — essentially O(1). We verify the operation
-// is near-instantaneous even with a populated cache.
+// Why: the audit finding correctly noted that measuring only Map.delete is
+// trivial.  The real performance guarantee is that the *full cycle* —
+// build trie → CRUD invalidation → lazy rebuild on next matchEntitiesCached()
+// — completes well within budget.  The rebuild itself is measured by B1;
+// here we verify the invalidation + cache-miss + rebuild path adds < 1ms
+// of overhead beyond the raw build cost.
 {
   trieCacheInvalidate();
 
-  // Build caches for 10 projects
-  for (let i = 0; i < 10; i += 1) {
-    const entities = [createEntity(`e-${i}`, `entity${i}`)];
-    matchEntitiesCached("entity" + String(i), entities, `bench-proj-${i}`);
+  const entities: MatchableEntity[] = Array.from(
+    { length: 100 },
+    (_, i) =>
+      createEntity(`e-${i}`, `角色${i}`, [`别名${i}`]),
+  );
+  const text = "天地玄黄宇宙洪荒".repeat(50);
+
+  // Measure raw uncached build cost as baseline
+  const baselineSamples: number[] = [];
+  for (let round = 0; round < 10; round += 1) {
+    baselineSamples.push(measureMs(() => matchEntities(text, entities)));
+  }
+  const baselineMedian = medianMs(baselineSamples);
+
+  // Measure full cycle: prime cache → invalidate → rebuild via matchEntitiesCached
+  const cycleSamples: number[] = [];
+  for (let round = 0; round < 10; round += 1) {
+    const projId = `bench-b3-${round}`;
+    // Prime
+    matchEntitiesCached(text, entities, projId);
+    assert.equal(trieCacheHas(projId), true, "cache primed");
+
+    // Full cycle: invalidate + lazy rebuild
+    cycleSamples.push(
+      measureMs(() => {
+        trieCacheInvalidate(projId);
+        matchEntitiesCached(text, entities, projId);
+      }),
+    );
+    assert.equal(trieCacheHas(projId), true, "cache rebuilt after invalidation");
   }
 
-  const samples: number[] = [];
-  for (let round = 0; round < 100; round += 1) {
-    // Re-seed a cache entry
-    const projId = `bench-inv-${round}`;
-    matchEntitiesCached("x", [createEntity("e-x", "x")], projId);
+  const cycleMedian = medianMs(cycleSamples);
+  const overhead = cycleMedian - baselineMedian;
 
-    samples.push(measureMs(() => trieCacheInvalidate(projId)));
-  }
-
-  const invalidateMedian = medianMs(samples);
   assert.equal(
-    invalidateMedian < 1,
+    overhead < 1,
     true,
-    `B3: invalidation median=${invalidateMedian.toFixed(4)}ms exceeds 1ms budget`,
+    `B3: invalidation+rebuild overhead=${overhead.toFixed(4)}ms exceeds 1ms budget (cycle=${cycleMedian.toFixed(2)}ms baseline=${baselineMedian.toFixed(2)}ms)`,
   );
   console.log(
-    `B3: invalidation median=${invalidateMedian.toFixed(4)}ms (budget: <1ms)`,
+    `B3: invalidation+rebuild overhead=${overhead.toFixed(4)}ms (cycle=${cycleMedian.toFixed(2)}ms baseline=${baselineMedian.toFixed(2)}ms, budget: <1ms overhead)`,
   );
 }
 
