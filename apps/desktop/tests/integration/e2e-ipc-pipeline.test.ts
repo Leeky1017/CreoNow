@@ -503,6 +503,11 @@ describe("E2E IPC Pipeline — WritingOrchestrator closed-loop", () => {
     expect(err.message.length).toBeGreaterThan(0);
     expect(typeof err.retryable).toBe("boolean");
 
+    // ── F2: Precise error contract values (not just type checks) ──
+    expect(err.code).toBe("AI_SERVICE_ERROR");
+    expect(err.message).toBe("Model unavailable — rate limit exceeded");
+    expect(err.retryable).toBe(false);
+
     // No writes occurred (fail-closed)
     expect(writeCalls).toHaveLength(0);
     expect(types).not.toContain("permission-requested");
@@ -941,5 +946,157 @@ describe("E2E IPC Pipeline — WritingOrchestrator closed-loop", () => {
 
     // ── Task state completed ──
     expect(orchestrator.getTaskState(request.requestId)).toBe("completed");
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // T9: Abort while orchestrator is BLOCKED on pending permission promise
+  // (covers the releasePendingPermission → pending resolver branch)
+  // ────────────────────────────────────────────────────────────────────
+  it("abort while blocked on pending permission: resolves pending resolver, yields aborted (INV-1)", async () => {
+    const request = makeRequest({ requestId: "req-abort-blocked-009" });
+
+    // Gate with no callback and no pre-resolve — requestPermission
+    // will install a pending resolver and block until someone calls
+    // resolve() or releasePendingPermission().
+    const gate = createPermissionGate();
+
+    const writeCalls: Array<Record<string, unknown>> = [];
+    const registry = createToolRegistry();
+    registry.register(createMockDocumentWriteTool(writeCalls));
+    const { service: versionWorkflow, calls: versionCalls } = createMockVersionWorkflow();
+
+    const config: OrchestratorConfig = {
+      aiService: createMockAiService(),
+      toolRegistry: registry,
+      permissionGate: gate,
+      postWritingHooks: [],
+      defaultTimeoutMs: 30_000,
+      versionWorkflow,
+      generateText: createMockGenerateText("Abort blocked test content"),
+    };
+
+    orchestrator = createWritingOrchestrator(config);
+    const gen = orchestrator.execute(request);
+    const events: WritingEvent[] = [];
+
+    // ── Step 1: Drain events up to and including "permission-requested" ──
+    let next = await gen.next();
+    while (!next.done) {
+      events.push(next.value);
+      if (next.value.type === "permission-requested") break;
+      next = await gen.next();
+    }
+    expect(events.map((e) => e.type)).toContain("permission-requested");
+
+    // ── Step 2: Advance generator — it will block on requestPermission's
+    //    pending promise (the pending resolver is installed synchronously
+    //    inside the Promise constructor at permissionGate.ts:162) ──
+    const blockedNext = gen.next();
+
+    // Flush microtask queue so requestPermission() progresses past its
+    // internal `await onPermissionRequested?.()` (no-op when no callback)
+    // and installs the pending resolver via `pending.set(requestId, resolve)`.
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    // ── Step 3: Abort — this calls controller.abort() + releasePendingPermission(),
+    //    which finds the pending resolver and resolves it with false.
+    //    The generator then resumes, sees abortController.signal.aborted === true,
+    //    and yields the "aborted" event. ──
+    orchestrator.abort(request.requestId);
+
+    // ── Step 4: Drain remaining events from the blocked gen.next() ──
+    const blockedResult = await blockedNext;
+    if (!blockedResult.done) events.push(blockedResult.value);
+
+    let remaining = await gen.next();
+    while (!remaining.done) {
+      events.push(remaining.value);
+      remaining = await gen.next();
+    }
+
+    const types = events.map((e) => e.type);
+
+    // aborted event with user-abort reason
+    expect(types).toContain("aborted");
+    const abortedEvent = events.find((e) => e.type === "aborted");
+    expect(abortedEvent).toBeDefined();
+    expect(abortedEvent!.reason).toBe("user-abort");
+
+    // No write-back, no hooks (abort short-circuits the pipeline)
+    expect(types).not.toContain("write-back-done");
+    expect(types).not.toContain("hooks-done");
+
+    // documentWrite never called (INV-1 fail-closed)
+    expect(writeCalls).toHaveLength(0);
+
+    // confirmCommit never called
+    expect(versionCalls.confirmCommit).toHaveLength(0);
+
+    // Task state is "killed"
+    expect(orchestrator.getTaskState(request.requestId)).toBe("killed");
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // T10: Write-back failure — documentWrite returns { success: false }
+  // Permission granted, but write-back fails → error event, no confirmCommit
+  // ────────────────────────────────────────────────────────────────────
+  it("write-back failure: yields error event, no confirmCommit, state failed (INV-1)", async () => {
+    const request = makeRequest({ requestId: "req-write-fail-010" });
+
+    // Pre-resolve permission to true so we reach the write-back stage
+    const gate = createPermissionGate();
+    gate.resolve(request.requestId, true);
+
+    const writeCalls: Array<Record<string, unknown>> = [];
+    const registry = createToolRegistry();
+    // fail: true causes the mock to return { success: false, error: { code, message } }
+    registry.register(createMockDocumentWriteTool(writeCalls, { fail: true }));
+    const { service: versionWorkflow, calls: versionCalls } = createMockVersionWorkflow();
+
+    const config: OrchestratorConfig = {
+      aiService: createMockAiService(),
+      toolRegistry: registry,
+      permissionGate: gate,
+      postWritingHooks: [],
+      defaultTimeoutMs: 30_000,
+      versionWorkflow,
+      generateText: createMockGenerateText("Content that fails on write-back"),
+    };
+
+    orchestrator = createWritingOrchestrator(config);
+    const events = await drainEvents(orchestrator.execute(request));
+    const types = events.map((e) => e.type);
+
+    // Pipeline reached write-back stage: permission was granted
+    expect(types).toContain("permission-requested");
+    expect(types).toContain("permission-granted");
+
+    // documentWrite WAS called (it just failed)
+    expect(writeCalls).toHaveLength(1);
+
+    // Error event with WRITE_BACK_FAILED code
+    const errorEvent = events.find((e) => e.type === "error");
+    expect(errorEvent).toBeDefined();
+    expect(errorEvent!.error).toBeDefined();
+    const err = errorEvent!.error as { code: string; message: string; retryable: boolean };
+    expect(err.code).toBe("WRITE_BACK_FAILED");
+    expect(err.message).toBe("Mock write failure");
+    expect(err.retryable).toBe(false);
+
+    // No write-back-done or hooks-done (pipeline stopped at error)
+    expect(types).not.toContain("write-back-done");
+    expect(types).not.toContain("hooks-done");
+
+    // confirmCommit never called (write-back failed before version confirmation)
+    expect(versionCalls.confirmCommit).toHaveLength(0);
+
+    // createPreWriteSnapshot and markAiWriting WERE called (they happen before write-back)
+    expect(versionCalls.createPreWriteSnapshot).toHaveLength(1);
+
+    // cancelCommit called in finally block
+    expect(versionCalls.cancelCommit).toHaveLength(1);
+
+    // Task state is "failed"
+    expect(orchestrator.getTaskState(request.requestId)).toBe("failed");
   });
 });
