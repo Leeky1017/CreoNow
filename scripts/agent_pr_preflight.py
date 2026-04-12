@@ -36,19 +36,20 @@ NA_VALUE_PATTERN = re.compile(r"(?i)^(?:-\s*\[[xX]\]\s*)?N/A(?:（[^）]+）|\([
 EMPTY_BULLET_PATTERN = re.compile(r"^-\s*$")
 EMPTY_CHECKBOX_PATTERN = re.compile(r"^-\s*\[[ xX]\]\s*$")
 EMPTY_LABEL_PATTERN = re.compile(r"^-\s*[^:：]+[:：]\s*$")
+# 1+1+1+Duck concrete configuration.
+# Seat 1 role is "same model as main session" (AGENTS.md §九);
+# current main session model is Claude Opus 4.6.
 AUDIT_GATE_MODEL_LINES = (
-    "- 工程：GPT-5.3 Codex (xhigh)",
-    "- 审计 1：GPT-5.4 (xhigh)",
-    "- 审计 2：GPT-5.3 Codex (xhigh)",
-    "- 审计 3：Claude Opus 4.6 (high)",
-    "- 审计 4：Claude Sonnet 4.6 (high)",
+    "- 工程：Claude Opus 4.6 (high)",
+    "- 审计 1（同模型）：Claude Opus 4.6 (high)",
+    "- 审计 2：Claude Sonnet 4.6 (high)",
+    "- 审计 3（Rubber Duck）：GPT-5.4 (xhigh)",
     "- 评论汇总：Claude Opus 4.6 (high)",
 )
 AUDIT_GATE_SEAT_PATTERNS = (
-    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 1（GPT-5\.4）[:：]\s*FINAL-VERDICT\b.+$"),
-    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 2（GPT-5\.3 Codex）[:：]\s*FINAL-VERDICT\b.+$"),
-    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 3（Claude Opus 4\.6）[:：]\s*FINAL-VERDICT\b.+$"),
-    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 4（Claude Sonnet 4\.6）[:：]\s*FINAL-VERDICT\b.+$"),
+    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 1（Claude Opus 4\.6）[:：]\s*FINAL-VERDICT\b.+$"),
+    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 2（Claude Sonnet 4\.6）[:：]\s*FINAL-VERDICT\b.+$"),
+    re.compile(r"(?m)^-\s*\[[ xX]\]\s*审计 3（GPT-5\.4）[:：]\s*FINAL-VERDICT\b.+$"),
 )
 INVARIANT_IDS = tuple(f"INV-{index}" for index in range(1, 11))
 

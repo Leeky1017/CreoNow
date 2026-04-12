@@ -14,5 +14,5 @@ Always:
 - Prefer the smallest fix that restores the broken gate.
 - Re-run relevant tests and report evidence before claiming CI is fixed.
 - Before calling the PR ready again, verify "可交审条件": `scripts/agent_pr_preflight.sh` passes, required checks are green, and frontend PRs keep visible 截图 (screenshots) plus clickable Storybook artifact/link.
-- Keep the delivery loop open until all three audit reports (main session + Sonnet subagent + Rubber Duck) are zero findings with `FINAL-VERDICT` + `ACCEPT`.
+- Keep the delivery loop open until all three audit reports (同模型 Subagent + Sonnet Subagent + Rubber Duck) are zero findings with `FINAL-VERDICT` + `ACCEPT`.
 - Keep auto-merge off unless the three-way zero-findings audit has already passed.
