@@ -113,10 +113,6 @@ type KgEntityRow = {
   attributesJson: string;
 };
 
-type MemoryRow = {
-  content: string;
-};
-
 // ─── 推断 suggestedAction（无 LLM）──────────────────────────────────────────
 
 /**
@@ -182,7 +178,11 @@ export function createStoryStatusService(deps: {
         )
         .get(projectId);
       return row?.maxUpdatedAt ?? 0;
-    } catch {
+    } catch (error) {
+      logger.error("story_status_stamp_query_failed", {
+        projectId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return 0;
     }
   }
@@ -286,18 +286,9 @@ export function createStoryStatusService(deps: {
         }));
 
         // ── 3. 用户记忆 L0（user_memory 表）─────────────────
-        // 读取 scope='project' 的偏好记录；INV-4 Memory-First 规范要求读取 L0。
-        // 当前实现将记忆计入未来扩展路径，不暴露在返回值中。
-        // 使用 void 明确表达"有意不使用返回值"。
-        void db
-          .prepare<[string], MemoryRow>(
-            `SELECT content FROM user_memory
-             WHERE project_id = ? AND scope = 'project'
-               AND deleted_at IS NULL
-             ORDER BY updated_at DESC
-             LIMIT 10`,
-          )
-          .all(normalizedId);
+        // 当前版本暂不读取 user_memory，预留给未来 L0 集成路径。
+        // INV-4 Memory-First 规范要求显式标记此扩展点，而非静默跳过。
+        // TODO(L0-integration): 读取 scope='project' 偏好，注入 suggestedAction 推断
 
         // ── 4. 推断 suggestedAction ───────────────────────────
         const suggestedAction = inferSuggestedAction({

@@ -65,18 +65,40 @@ CN 有一个更大的优势——**代码是工作，创作是自我表达。** 
 ```
 输入：projectId
 输出：StoryStatusSummary {
-  currentChapter: { number, title, lastSentence }
-  interruptedTask: { description, chapterRef } | null
-  activeThreads: Array<{ name, status, urgency }> // 从 KG 伏笔实体派生
-  suggestedAction: string // "继续写" | "回收伏笔" | "处理角色冲突"
+  chapterProgress: {
+    currentChapterNumber: number  // 1-based，按 sort_order 排序后的序号
+    totalChapters: number
+    currentChapterTitle: string
+    // lastSentence: string        // [Planned] 需要文档段落解析，待后续迭代
+  }
+  interruptedTask: {
+    chapterTitle: string
+    documentId: string
+    lastEditedAt: number          // unix timestamp (ms)
+  } | null
+  activeForeshadowing: Array<{
+    id: string
+    name: string
+    description: string
+    // status: string              // [Planned] KG schema 扩展后支持 status 字段
+    // urgency: number             // [Planned] 基于章节数衰减算法，待后续迭代
+  }>                              // 从 KG attributes_json.isForeshadowing=true 派生
+  suggestedAction: string         // "继续写作" | "回收伏笔（N 条待解）" | "开始第 N 章"
+  queryCostMs: number             // 性能监控，目标 ≤200ms
 }
 
 算法：
-1. 从 documents 表读取最近编辑文档
-2. 从 KG 查询 project 下所有 type=foreshadowing, status=unresolved 的实体
-3. 从 Memory Layer 0 读取用户上次中断点
-4. 基于以上数据组装摘要（不调用 LLM，纯结构化查询）
+1. 从 documents 表读取最近编辑章节（type='chapter'，按 sort_order + updated_at 排序）
+2. 从 KG 查询 attributes_json.isForeshadowing=true 且 status≠resolved 的实体
+   （注：KG schema 当前无 type='foreshadowing'，用 attributes_json 字段向前兼容）
+3. user_memory L0 集成预留（TODO）：scope='project' 偏好暂不注入，待 L0 扩展迭代
+4. 基于以上数据纯规则推断 suggestedAction（不调用 LLM）
 ```
+
+**Planned 字段（待后续迭代）**：
+- `currentChapter.lastSentence`：需要 ProseMirror 文档段落解析能力
+- `activeForeshadowing[].status`：需要 KG schema 新增 status 类型约束
+- `activeForeshadowing[].urgency`：基于章节数衰减（DECAY_CHAPTERS=10），依赖 `status` 字段
 
 **性能约束**：故事状态摘要组装 ≤ 200ms（纯 SQLite + KG 查询，禁止 LLM 调用）
 

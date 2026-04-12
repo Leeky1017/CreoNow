@@ -2865,5 +2865,34 @@ export const ipcContract = {
       }),
       response: EXPORT_PROSEMIRROR_RESULT_SCHEMA,
     },
+    "engagement:story-status": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        chapterProgress: s.object({
+          currentChapterNumber: s.number(),
+          totalChapters: s.number(),
+          currentChapterTitle: s.string(),
+        }),
+        interruptedTask: s.union(
+          s.object({
+            chapterTitle: s.string(),
+            documentId: s.string(),
+            lastEditedAt: s.number(),
+          }),
+          s.literal(null),
+        ),
+        activeForeshadowing: s.array(
+          s.object({
+            id: s.string(),
+            name: s.string(),
+            description: s.string(),
+          }),
+        ),
+        suggestedAction: s.string(),
+        queryCostMs: s.number(),
+      }),
+    },
   },
 } as const;
