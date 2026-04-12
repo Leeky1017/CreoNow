@@ -20,6 +20,7 @@ import { registerBackupIpcHandlers } from "./ipc/backup";
 import { registerJudgeIpcHandlers } from "./ipc/judge";
 import { registerKnowledgeGraphIpcHandlers } from "./ipc/knowledgeGraph";
 import { registerEmbeddingIpcHandlers } from "./ipc/embedding";
+import { registerEngagementIpcHandlers } from "./ipc/engagement";
 import { registerMemoryIpcHandlers } from "./ipc/memory";
 import { registerProjectIpcHandlers } from "./ipc/project";
 import { registerRagIpcHandlers } from "./ipc/rag";
@@ -613,6 +614,13 @@ function registerIpcHandlers(deps: {
   registerDiffIpcHandlers({
     ipcMain: guardedIpcMain,
     logger: deps.logger,
+  });
+
+  registerEngagementIpcHandlers({
+    ipcMain: guardedIpcMain,
+    db: deps.db,
+    logger: deps.logger,
+    eventBus,
   });
 
   registerRendererLogIpcHandlers({
