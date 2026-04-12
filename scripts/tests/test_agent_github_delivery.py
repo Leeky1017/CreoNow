@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import pathlib
 import sys
 import unittest
 from contextlib import redirect_stdout
@@ -130,8 +131,8 @@ class AuditGateTests(unittest.TestCase):
     def _consolidated_comment(
         *,
         head: str | None = None,
-        seat4_extra: str | None = None,
-        seat4_verdict: str = "ACCEPT",
+        seat3_extra: str | None = None,
+        seat3_verdict: str = "ACCEPT",
         reviewer_verdict: str = "ACCEPT",
     ) -> str:
         lines = [
@@ -150,11 +151,11 @@ class AuditGateTests(unittest.TestCase):
                 "",
                 "### 审计 3（GPT-5.4 xhigh）",
                 "zero findings",
-                f"FINAL-VERDICT: {seat4_verdict}",
+                f"FINAL-VERDICT: {seat3_verdict}",
             ]
         )
-        if seat4_extra:
-            lines.extend(["", seat4_extra])
+        if seat3_extra:
+            lines.extend(["", seat3_extra])
         lines.extend(["", "## 审计元信息"])
         if head is not None:
             lines.append(f"**审计 HEAD**：`{head}`")
@@ -268,7 +269,7 @@ class AuditGateTests(unittest.TestCase):
             [
                 {
                     "body": self._consolidated_comment(
-                        seat4_extra="policy quote: non-blocking / suggestion / nit 即 REJECT"
+                        seat3_extra="policy quote: non-blocking / suggestion / nit 即 REJECT"
                     ),
                     "author": "reviewer-agent",
                 },
@@ -285,7 +286,7 @@ class AuditGateTests(unittest.TestCase):
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [
                 {
-                    "body": self._consolidated_comment(seat4_verdict="REJECT"),
+                    "body": self._consolidated_comment(seat3_verdict="REJECT"),
                     "author": "reviewer-agent",
                 }
             ]
@@ -382,7 +383,7 @@ class AuditGateTests(unittest.TestCase):
             [
                 {
                     "body": self._consolidated_comment(
-                        seat4_extra="Per protocol: any finding means FINAL-VERDICT: REJECT; this round stays zero findings."
+                        seat3_extra="Per protocol: any finding means FINAL-VERDICT: REJECT; this round stays zero findings."
                     ),
                     "author": "reviewer-agent",
                 }
@@ -499,36 +500,125 @@ FINAL-VERDICT: ACCEPT
 
 
 class ReviewerTemplateGateDriftTests(unittest.TestCase):
-    """Cross-validation: a comment built from the reviewer template must pass the gate parser."""
+    """Cross-validation: gate constants must stay in sync with the actual reviewer template file on disk."""
+
+    _TEMPLATE_PATH = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / ".github"
+        / "agents"
+        / "creonow-reviewer.agent.md"
+    )
+
+    @classmethod
+    def _read_template(cls) -> str:
+        return cls._TEMPLATE_PATH.read_text(encoding="utf-8")
+
+    @classmethod
+    def _extract_template_code_block(cls) -> str:
+        """Extract the markdown code block from the reviewer template (between ```markdown and ```)."""
+        template = cls._read_template()
+        in_block = False
+        lines: list[str] = []
+        for line in template.splitlines():
+            if not in_block and line.strip().startswith("```markdown"):
+                in_block = True
+                continue
+            if in_block:
+                if line.strip() == "```":
+                    break
+                lines.append(line)
+        if not lines:
+            raise AssertionError(
+                f"No ```markdown code block found in {cls._TEMPLATE_PATH}"
+            )
+        return "\n".join(lines)
 
     @staticmethod
-    def _build_reviewer_template_comment(
+    def _build_comment_from_extracted_headers(
+        headers: list[str],
+        metadata_header: str,
         *,
         head_sha: str = "abc1234",
         reviewer_verdict: str = "ACCEPT",
     ) -> str:
-        """Build a consolidated audit comment that follows the reviewer agent template."""
+        """Build a consolidated comment using headers extracted from the actual template file."""
         seat_body = "zero findings\nFINAL-VERDICT: ACCEPT"
         lines = [
             "## 🔍 1+1+1+Duck Audit Consolidation — PR #999",
             "",
         ]
-        for header in agent_github_delivery.CONSOLIDATED_AUDIT_SECTION_HEADERS:
+        for header in headers:
             lines.extend([header, seat_body, ""])
-        lines.append(agent_github_delivery.CONSOLIDATED_AUDIT_METADATA_HEADER)
+        lines.append(metadata_header)
         lines.append(f"**审计 HEAD**：`{head_sha}`")
         lines.append(f"**FINAL-VERDICT**: {reviewer_verdict}")
         return "\n".join(lines)
 
-    def test_reviewer_template_comment_should_pass_consolidated_gate(self) -> None:
-        body = self._build_reviewer_template_comment()
+    # --- Tests that read the actual file ---
+
+    def test_template_file_exists(self) -> None:
         self.assertTrue(
-            agent_github_delivery._is_consolidated_reviewer_audit_comment(body),
-            "Comment built from reviewer template headers must pass _is_consolidated_reviewer_audit_comment()",
+            self._TEMPLATE_PATH.exists(),
+            f"Reviewer template file must exist at {self._TEMPLATE_PATH}",
         )
 
-    def test_reviewer_template_comment_should_pass_evaluate_audit_pass(self) -> None:
-        body = self._build_reviewer_template_comment(head_sha="abc1234")
+    def test_section_headers_constants_appear_in_template_file(self) -> None:
+        """Each CONSOLIDATED_AUDIT_SECTION_HEADERS constant must appear in the actual template."""
+        template = self._read_template()
+        for header in agent_github_delivery.CONSOLIDATED_AUDIT_SECTION_HEADERS:
+            self.assertIn(
+                header,
+                template,
+                f"Gate constant header {header!r} not found in {self._TEMPLATE_PATH.name}",
+            )
+
+    def test_metadata_header_constant_appears_in_template_file(self) -> None:
+        """CONSOLIDATED_AUDIT_METADATA_HEADER must appear in the actual template."""
+        template = self._read_template()
+        self.assertIn(
+            agent_github_delivery.CONSOLIDATED_AUDIT_METADATA_HEADER,
+            template,
+            f"Gate constant metadata header not found in {self._TEMPLATE_PATH.name}",
+        )
+
+    def test_comment_from_actual_template_passes_consolidated_gate(self) -> None:
+        """Build a comment using headers extracted from the real file and verify it passes the gate."""
+        code_block = self._extract_template_code_block()
+        # Extract ### headers from the code block (seat section headers)
+        extracted_headers = [
+            line for line in code_block.splitlines() if line.startswith("### ")
+        ]
+        # Extract ## headers (metadata header)
+        extracted_meta = [
+            line for line in code_block.splitlines() if line.startswith("## ") and not line.startswith("### ")
+        ]
+        # The last ## header in the block should be the metadata header
+        self.assertTrue(len(extracted_meta) >= 1, "Expected at least one ## header in template code block")
+        metadata_header = extracted_meta[-1]
+
+        body = self._build_comment_from_extracted_headers(
+            extracted_headers, metadata_header
+        )
+        self.assertTrue(
+            agent_github_delivery._is_consolidated_reviewer_audit_comment(body),
+            "Comment built from actual template file headers must pass _is_consolidated_reviewer_audit_comment()",
+        )
+
+    def test_comment_from_actual_template_passes_evaluate_audit_pass(self) -> None:
+        """Build a comment using headers extracted from the real file and verify it passes evaluation."""
+        code_block = self._extract_template_code_block()
+        extracted_headers = [
+            line for line in code_block.splitlines() if line.startswith("### ")
+        ]
+        extracted_meta = [
+            line for line in code_block.splitlines() if line.startswith("## ") and not line.startswith("### ")
+        ]
+        self.assertTrue(len(extracted_meta) >= 1)
+        metadata_header = extracted_meta[-1]
+
+        body = self._build_comment_from_extracted_headers(
+            extracted_headers, metadata_header, head_sha="abc1234"
+        )
         evaluation = agent_github_delivery.evaluate_audit_pass_comments(
             [{"body": body, "author": "reviewer-agent"}],
             trusted_reviewers=["reviewer-agent"],
@@ -538,21 +628,6 @@ class ReviewerTemplateGateDriftTests(unittest.TestCase):
         self.assertEqual(1, evaluation.matching_comments)
         self.assertEqual(1, evaluation.matching_trusted_authors)
         self.assertEqual(1, evaluation.matching_head_comments)
-
-    def test_reviewer_template_section_headers_match_gate_constants(self) -> None:
-        """Ensure the headers defined in the reviewer template exactly match the gate constants."""
-        for header in agent_github_delivery.CONSOLIDATED_AUDIT_SECTION_HEADERS:
-            body = self._build_reviewer_template_comment()
-            self.assertIn(
-                header,
-                body,
-                f"Reviewer template must contain gate header: {header}",
-            )
-        self.assertIn(
-            agent_github_delivery.CONSOLIDATED_AUDIT_METADATA_HEADER,
-            self._build_reviewer_template_comment(),
-            "Reviewer template must contain the metadata trailer header",
-        )
 
 
 if __name__ == "__main__":
