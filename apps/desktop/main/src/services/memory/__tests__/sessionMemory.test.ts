@@ -370,6 +370,55 @@ describe("SessionMemoryService.list with queryText (FTS5)", () => {
     // unicorn not in content — should not match dragon warrior
     expect(r.data.filter((e) => e.content.includes("unicorn"))).toHaveLength(0);
   });
+
+  it("handles double-quote in queryText without FTS5 parse error", () => {
+    const { service } = createService();
+    service.create({ sessionId: "s", projectId: "p", category: "note", content: 'she said "hello world"' });
+    service.create({ sessionId: "s", projectId: "p", category: "note", content: "ordinary entry" });
+
+    // An unescaped `"` would cause FTS5 to throw; escaped it should either
+    // find the matching entry or return empty — never throw.
+    const r = service.list({ sessionId: "s", queryText: '"hello' });
+    expect(r.ok).toBe(true);
+  });
+
+  it("treats FTS5 operator keywords as literals (AND, OR, NOT)", () => {
+    const { service } = createService();
+    service.create({ sessionId: "s", projectId: "p", category: "note", content: "style OR note is literal" });
+    service.create({ sessionId: "s", projectId: "p", category: "note", content: "unrelated entry" });
+
+    // Without escaping, `style OR note` activates FTS5 boolean OR and could
+    // return both entries.  With escaping it is a literal phrase search.
+    const r = service.list({ sessionId: "s", queryText: "style OR note" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Only the entry containing the literal text "style OR note" should match.
+    expect(r.data.every((e) => e.content.includes("style OR note"))).toBe(true);
+  });
+
+  it("treats wildcard * as literal without FTS5 parse error", () => {
+    const { service } = createService();
+    service.create({ sessionId: "s", projectId: "p", category: "note", content: "magic * sparkle" });
+
+    const r = service.list({ sessionId: "s", queryText: "magic *" });
+    expect(r.ok).toBe(true);
+  });
+
+  it("LIMIT is applied after session filter so results from other sessions do not consume budget", () => {
+    const { service } = createService();
+    // Insert 5 entries for session "other" and 1 for session "target"
+    for (let i = 0; i < 5; i++) {
+      service.create({ sessionId: "other", projectId: "p", category: "note", content: `dark theme variation ${i}` });
+    }
+    service.create({ sessionId: "target", projectId: "p", category: "note", content: "dark theme target" });
+
+    // With limit=3 and post-filter, "target"'s entry would be dropped if the
+    // 3 "other" entries ranked highest.  With SQL filtering it is always returned.
+    const r = service.list({ sessionId: "target", queryText: "dark", limit: 3 });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data.some((e) => e.content === "dark theme target")).toBe(true);
+  });
 });
 
 // ─── injectForContext ─────────────────────────────────────────────────────────
@@ -420,7 +469,7 @@ describe("SessionMemoryService.injectForContext", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     // Token count must not exceed 15% cap
-    expect(r.data.tokenCount).toBeLessThanOrEqual(maxAllowed + 50); // +50 for header tokens
+    expect(r.data.tokenCount).toBeLessThanOrEqual(maxAllowed + 50); // tolerance for \n separators between lines (not counted in per-line accumulation) and CJK estimation rounding
     expect(r.data.truncated).toBe(true);
   });
 

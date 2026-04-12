@@ -309,6 +309,20 @@ export function createSessionMemoryService(deps: {
 
   // ── FTS5 search helper ────────────────────────────────────────────────────
 
+  /**
+   * Escape a raw user string for FTS5 literal matching.
+   *
+   * FTS5 treats *, ", AND, OR, NOT, NEAR, ^, and parentheses as operators.
+   * Wrapping the entire input in double-quotes forces literal interpretation;
+   * internal double-quotes must be escaped by doubling them.
+   *
+   * Without this, inputs like `style OR note` would activate FTS5 boolean
+   * operators, and unmatched `"` or lone `*` would throw a parse error.
+   */
+  function escapeFts5(raw: string): string {
+    return '"' + raw.replace(/"/g, '""') + '"';
+  }
+
   function ftsSearch(args: {
     sessionId?: string;
     projectId?: string;
@@ -318,22 +332,27 @@ export function createSessionMemoryService(deps: {
     try {
       // FTS5 match via content-rowid join. The base table join restores all
       // columns (fts only stores content).
-      const rows = db.prepare<[string, number], SessionMemoryRow>(`
+      // Session/project filters are pushed into SQL to avoid LIMIT truncating
+      // results before the filter — the indexes on session_id and project_id
+      // make this efficient.
+      const rows = db.prepare<[string, string | null, string | null, string | null, string | null, number], SessionMemoryRow>(`
         SELECT sm.id, sm.session_id, sm.project_id, sm.category, sm.content,
                sm.relevance_score, sm.created_at, sm.expires_at
         FROM session_memory sm
         JOIN session_memory_fts fts ON sm.rowid = fts.rowid
         WHERE session_memory_fts MATCH ?
+          AND (? IS NULL OR sm.session_id = ?)
+          AND (? IS NULL OR sm.project_id = ?)
         ORDER BY rank
         LIMIT ?
-      `).all(args.queryText, args.limit);
+      `).all(
+        escapeFts5(args.queryText),
+        args.sessionId ?? null, args.sessionId ?? null,
+        args.projectId ?? null, args.projectId ?? null,
+        args.limit,
+      );
 
-      // Optional post-filter by session or project.
-      return rows.filter((r) => {
-        if (args.sessionId && r.session_id !== args.sessionId) return false;
-        if (args.projectId && r.project_id !== args.projectId) return false;
-        return true;
-      });
+      return rows;
     } catch (err) {
       logger.error("session_memory_fts_error", {
         message: err instanceof Error ? err.message : String(err),
