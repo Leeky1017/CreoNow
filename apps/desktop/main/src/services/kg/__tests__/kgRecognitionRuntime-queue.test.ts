@@ -12,6 +12,7 @@ import { KG_SUGGESTION_CHANNEL } from "@shared/types/kg";
 import type { KgSuggestionEvent } from "@shared/types/kg";
 import {
   createKgRecognitionRuntime,
+  createMockRecognizer,
 } from "../kgRecognitionRuntime";
 import type { ServiceResult } from "../types";
 
@@ -1338,7 +1339,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       const rt = createKgRecognitionRuntime({
         db: runtimeDb,
         logger,
-        // No recognizer → uses built-in mock
+        recognizer: createMockRecognizer(),
       });
 
       rt.enqueue({
@@ -1369,6 +1370,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       const rt = createKgRecognitionRuntime({
         db: runtimeDb,
         logger,
+        recognizer: createMockRecognizer(),
       });
 
       rt.enqueue({
@@ -1390,6 +1392,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       const rt = createKgRecognitionRuntime({
         db: runtimeDb,
         logger,
+        recognizer: createMockRecognizer(),
       });
 
       rt.enqueue({
@@ -1413,6 +1416,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       const rt = createKgRecognitionRuntime({
         db: runtimeDb,
         logger,
+        recognizer: createMockRecognizer(),
       });
 
       rt.enqueue({
@@ -1436,6 +1440,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       const rt = createKgRecognitionRuntime({
         db: runtimeDb,
         logger,
+        recognizer: createMockRecognizer(),
       });
 
       rt.enqueue({
@@ -1704,7 +1709,7 @@ describe("kgRecognitionRuntime – queue behaviour", () => {
       const rt = createKgRecognitionRuntime({
         db: runtimeDb,
         logger,
-        // Uses built-in mock recognizer
+        recognizer: createMockRecognizer(),
       });
 
       // Separate names with punctuation to avoid greedy CJK matching overlap

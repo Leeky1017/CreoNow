@@ -9,10 +9,12 @@ import {
 } from "@shared/types/kg";
 import type { IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
+import { matchEntities } from "./entityMatcher";
 import {
   createKnowledgeGraphService,
   type KnowledgeEntity,
   type KnowledgeEntityType,
+  type KnowledgeGraphService,
   type ServiceResult,
 } from "./kgService";
 
@@ -78,7 +80,7 @@ type RecognitionMetrics = {
   canceledTaskIds: string[];
 };
 
-type Recognizer = {
+export type Recognizer = {
   recognize: (args: {
     projectId: string;
     documentId: string;
@@ -398,6 +400,94 @@ const ITEM_SUFFIXES =
   /(之剑|之刃|神剑|宝剑|法杖|令牌|秘籍|宝典|圣物|神器|法宝|灵石|丹药|卷轴|古籍)$/u;
 
 /**
+ * Create an Aho-Corasick recognizer that detects real KG entity references in text.
+ *
+ * Why: replaces regex-based mock patterns with deterministic multi-pattern matching
+ * against the project's actual Knowledge Graph entities. Uses Option B from the spec:
+ * matchEntities() handles when_detected filtering; always entities are added
+ * unconditionally as candidates.
+ *
+ * @invariant INV-4 — KG+FTS5 as primary retrieval path
+ */
+export function createAhoCorasickRecognizer(deps: {
+  kgService: KnowledgeGraphService;
+}): Recognizer {
+  return {
+    recognize: async ({ projectId, contentText }) => {
+      const listRes = deps.kgService.entityList({ projectId });
+      if (!listRes.ok) {
+        return toErr(
+          "KG_RECOGNITION_UNAVAILABLE",
+          `failed to load entities: ${listRes.error.message}`,
+        );
+      }
+
+      const allEntities = listRes.data.items;
+      if (allEntities.length === 0) {
+        return { ok: true, data: { candidates: [], degraded: false } };
+      }
+
+      // Build entity lookup for mapping MatchResult.entityId → KnowledgeEntity
+      const entityById = new Map<string, KnowledgeEntity>(
+        allEntities.map((entity) => [entity.id, entity]),
+      );
+
+      // matchEntities() filters to when_detected internally (entityMatcher.ts L114).
+      // Passing all entities is safe — non-when_detected entities are skipped.
+      const matches = matchEntities(contentText, allEntities);
+
+      const candidates = new Map<string, RecognitionCandidate>();
+
+      // Aho-Corasick matches for when_detected entities
+      for (const match of matches) {
+        const entity = entityById.get(match.entityId);
+        if (!entity) {
+          continue;
+        }
+        const key = normalizeSuggestionKey({
+          name: match.matchedTerm,
+          type: entity.type,
+        });
+        if (!candidates.has(key)) {
+          candidates.set(key, {
+            name: match.matchedTerm,
+            type: entity.type,
+            evidence: { source: "pattern", matchedText: match.matchedTerm },
+          });
+        }
+      }
+
+      // Always-level entities are unconditionally added regardless of text content
+      // (Option B: don't modify entityMatcher.ts, handle always entities separately)
+      for (const entity of allEntities) {
+        if (entity.aiContextLevel !== "always") {
+          continue;
+        }
+        const key = normalizeSuggestionKey({
+          name: entity.name,
+          type: entity.type,
+        });
+        if (!candidates.has(key)) {
+          candidates.set(key, {
+            name: entity.name,
+            type: entity.type,
+            evidence: { source: "context", matchedText: entity.name },
+          });
+        }
+      }
+
+      return {
+        ok: true,
+        data: {
+          candidates: [...candidates.values()],
+          degraded: false,
+        },
+      };
+    },
+  };
+}
+
+/**
  * Create a deterministic mock recognizer for KG suggestions.
  *
  * Why: tests must avoid real LLM calls while still exercising async recognition
@@ -405,7 +495,7 @@ const ITEM_SUFFIXES =
  *
  * Enhanced with broader Chinese name pattern matching and evidence chain.
  */
-function createMockRecognizer(): Recognizer {
+export function createMockRecognizer(): Recognizer {
   return {
     recognize: async ({ contentText }) => {
       if (process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE === "1") {
@@ -706,7 +796,6 @@ export function createKgRecognitionRuntime(args: {
   recognizer?: Recognizer;
   maxConcurrency?: number;
 }): KgRecognitionRuntime {
-  const recognizer = args.recognizer ?? createMockRecognizer();
   const maxConcurrency = Math.max(1, Math.floor(args.maxConcurrency ?? 4));
 
   const queue: RecognitionTask[] = [];
@@ -720,10 +809,14 @@ export function createKgRecognitionRuntime(args: {
     completionOrder: [],
     canceledTaskIds: [],
   };
+
+  // kgService must be created before the recognizer so createAhoCorasickRecognizer
+  // can query entities from the same DB that processTask uses for deduplication.
   const kgService = createKnowledgeGraphService({
     db: args.db,
     logger: args.logger,
   });
+  const recognizer = args.recognizer ?? createAhoCorasickRecognizer({ kgService });
 
   function safeSendSuggestion(
     sender: Electron.WebContents | null,

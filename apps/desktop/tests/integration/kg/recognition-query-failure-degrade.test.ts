@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { KG_SUGGESTION_CHANNEL } from "@shared/types/kg";
+import { createMockRecognizer } from "../../../main/src/services/kg/kgRecognitionRuntime";
 import { createKnowledgeGraphIpcHarness } from "../../helpers/kg/harness";
 
 type RelevantQueryDto = {
@@ -42,7 +43,9 @@ async function waitForCondition(
   process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE = "1";
   process.env.CREONOW_KG_FORCE_RELEVANT_QUERY_FAIL = "1";
 
-  const harness = createKnowledgeGraphIpcHarness();
+  const harness = createKnowledgeGraphIpcHarness({
+    recognizer: createMockRecognizer(),
+  });
 
   try {
     const enqueueRes = await harness.invoke<{ taskId: string }>(

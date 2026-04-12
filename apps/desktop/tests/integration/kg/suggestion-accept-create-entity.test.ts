@@ -4,6 +4,7 @@ import {
   KG_SUGGESTION_CHANNEL,
   type KgSuggestionEvent,
 } from "@shared/types/kg";
+import { createMockRecognizer } from "../../../main/src/services/kg/kgRecognitionRuntime";
 import { createKnowledgeGraphIpcHarness } from "../../helpers/kg/harness";
 
 type RecognitionEnqueueDto = {
@@ -27,7 +28,9 @@ type EntityDto = {
 // KG3-R1-S2
 // should create entity via knowledge:suggestion:accept and open entity detail
 {
-  const harness = createKnowledgeGraphIpcHarness();
+  const harness = createKnowledgeGraphIpcHarness({
+    recognizer: createMockRecognizer(),
+  });
 
   try {
     const enqueueRes = await harness.invoke<RecognitionEnqueueDto>(
