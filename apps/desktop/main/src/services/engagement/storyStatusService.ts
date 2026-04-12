@@ -12,7 +12,7 @@
  *   3. user_memory 表 (L0)：用户偏好 (scope='project')
  *   4. suggestedAction：从中断点 + 未解伏笔数量推断（无 LLM）
  *
- * 缓存策略：每个 projectId 缓存 30s，文档版本戳变更触发失效。
+ * 缓存策略：每个 projectId 缓存 30s，文档/KG 版本戳任一变更触发失效。
  * 选 30s 而非更短：打开项目后用户通常在 30s 内完成阅读摘要，避免重复查询。
  */
 
@@ -95,6 +95,8 @@ type CacheEntry = {
   cachedAt: number;
   /** documents 版本戳（count + max(updated_at)），用于失效检测 */
   documentsStamp: string;
+  /** KG 版本戳（count + max(updated_at)），用于失效检测 */
+  kgStamp: string;
 };
 
 // ─── DB 行类型 ─────────────────────────────────────────────────────────────
@@ -216,13 +218,38 @@ export function createStoryStatusService(deps: {
     }
   }
 
+  function getKgStamp(projectId: string): string {
+    try {
+      const row = db
+        .prepare<[string], { entityCount: number; maxUpdatedAt: number }>(
+          `SELECT COUNT(*) AS entityCount,
+                  COALESCE(MAX(updated_at), 0) AS maxUpdatedAt
+           FROM kg_entities
+           WHERE project_id = ?`,
+        )
+        .get(projectId);
+      const entityCount = row?.entityCount ?? 0;
+      const maxUpdatedAt = row?.maxUpdatedAt ?? 0;
+      return `${entityCount}:${maxUpdatedAt}`;
+    } catch (error) {
+      logger.error("story_status_kg_stamp_query_failed", {
+        projectId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return "0:0";
+    }
+  }
+
   function isCacheValid(entry: CacheEntry, projectId: string, now: number): boolean {
     if (now - entry.cachedAt > CACHE_TTL_MS) {
       return false;
     }
-    // 文档变更失效检测：取当前 stamp 与缓存 stamp 对比
-    const currentStamp = getDocumentsStamp(projectId);
-    return currentStamp === entry.documentsStamp;
+    // 文档 + KG 变更失效检测：任一 stamp 变化都视为过期
+    const currentDocumentsStamp = getDocumentsStamp(projectId);
+    const currentKgStamp = getKgStamp(projectId);
+    return (
+      currentDocumentsStamp === entry.documentsStamp && currentKgStamp === entry.kgStamp
+    );
   }
 
   return {
@@ -300,10 +327,13 @@ export function createStoryStatusService(deps: {
           .prepare<[string], KgEntityRow>(
             `SELECT id, name, description,
                     attributes_json AS attributesJson
-             FROM kg_entities
-             WHERE project_id = ?
-              ORDER BY updated_at DESC
-              LIMIT 200`,
+              FROM kg_entities
+              WHERE project_id = ?
+                AND ai_context_level = 'when_detected'
+                AND REPLACE(REPLACE(attributes_json, ' ', ''), '\n', '') LIKE '%"isForeshadowing":true%'
+                AND REPLACE(REPLACE(attributes_json, ' ', ''), '\n', '') NOT LIKE '%"status":"resolved"%'
+               ORDER BY updated_at DESC
+               LIMIT 200`,
           )
           .all(normalizedId);
 
@@ -323,9 +353,6 @@ export function createStoryStatusService(deps: {
             name: row.name,
             description: row.description,
           });
-          if (activeForeshadowing.length >= 50) {
-            break;
-          }
         }
 
         // ── 3. 用户记忆 L0（user_memory 表）─────────────────
@@ -352,8 +379,9 @@ export function createStoryStatusService(deps: {
         };
 
         // ── 写入缓存 ──────────────────────────────────────────
-        const stamp = getDocumentsStamp(normalizedId);
-        cache.set(normalizedId, { summary, cachedAt: now, documentsStamp: stamp });
+        const documentsStamp = getDocumentsStamp(normalizedId);
+        const kgStamp = getKgStamp(normalizedId);
+        cache.set(normalizedId, { summary, cachedAt: now, documentsStamp, kgStamp });
 
         logger.info("story_status_computed", {
           projectId: normalizedId,

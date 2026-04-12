@@ -46,8 +46,13 @@ type KgEntityRow = {
   attributesJson: string;
 };
 
-type StampRow = {
+type DocumentsStampRow = {
   chapterCount?: number;
+  maxUpdatedAt: number;
+};
+
+type KgStampRow = {
+  entityCount?: number;
   maxUpdatedAt: number;
 };
 
@@ -59,7 +64,8 @@ type StampRow = {
  * kgRows:      KG 实体查询返回值
  */
 function createDbStub(args?: {
-  stampRow?: StampRow;
+  stampRow?: DocumentsStampRow;
+  kgStampRow?: KgStampRow;
   stampError?: Error;
   chapterRows?: ChapterRow[];
   chapterError?: Error;
@@ -67,6 +73,7 @@ function createDbStub(args?: {
   kgError?: Error;
 }): Database.Database {
   const stampRow = args?.stampRow ?? { chapterCount: 0, maxUpdatedAt: 0 };
+  const kgStampRow = args?.kgStampRow ?? { entityCount: 0, maxUpdatedAt: 0 };
   const stampError = args?.stampError;
   const chapterRows = args?.chapterRows ?? [];
   const chapterError = args?.chapterError;
@@ -76,11 +83,21 @@ function createDbStub(args?: {
   return {
     prepare: (sql: string) => {
       // getDocumentsStamp — MAX(updated_at)
-      if (sql.includes("MAX(updated_at)")) {
+      if (sql.includes("FROM documents") && sql.includes("MAX(updated_at)")) {
         return {
           get: (_projectId: string) => {
             if (stampError) throw stampError;
             return stampRow;
+          },
+        };
+      }
+
+      // getKgStamp — MAX(updated_at)
+      if (sql.includes("FROM kg_entities") && sql.includes("COUNT(*) AS entityCount")) {
+        return {
+          get: (_projectId: string) => {
+            if (stampError) throw stampError;
+            return kgStampRow;
           },
         };
       }
@@ -358,9 +375,14 @@ describe("storyStatusService", () => {
       let chapterCount = 1;
       const db: Database.Database = {
         prepare: (sql: string) => {
-          if (sql.includes("MAX(updated_at)")) {
+          if (sql.includes("FROM documents") && sql.includes("MAX(updated_at)")) {
             return {
               get: () => ({ maxUpdatedAt: stamp, chapterCount }),
+            };
+          }
+          if (sql.includes("FROM kg_entities") && sql.includes("COUNT(*) AS entityCount")) {
+            return {
+              get: () => ({ maxUpdatedAt: 1000, entityCount: 0 }),
             };
           }
           if (sql.includes("type = 'chapter'") && !sql.includes("MAX")) {
@@ -396,9 +418,14 @@ describe("storyStatusService", () => {
       let chapterCount = 3;
       const db: Database.Database = {
         prepare: (sql: string) => {
-          if (sql.includes("MAX(updated_at)")) {
+          if (sql.includes("FROM documents") && sql.includes("MAX(updated_at)")) {
             return {
               get: () => ({ maxUpdatedAt: stamp, chapterCount }),
+            };
+          }
+          if (sql.includes("FROM kg_entities") && sql.includes("COUNT(*) AS entityCount")) {
+            return {
+              get: () => ({ maxUpdatedAt: 1000, entityCount: 0 }),
             };
           }
           if (sql.includes("type = 'chapter'") && !sql.includes("MAX")) {
@@ -428,6 +455,45 @@ describe("storyStatusService", () => {
 
       svc.getStoryStatus({ projectId: "proj-delete" });
       const afterSecond = prepareSpy.mock.calls.length;
+      expect(afterSecond - afterFirst).toBeGreaterThan(1);
+    });
+
+    it("KG stamp 变更时缓存自动失效（文档未变）", () => {
+      const docsStamp = { maxUpdatedAt: 2000, chapterCount: 2 };
+      let kgStamp = { maxUpdatedAt: 1000, entityCount: 1 };
+      const db: Database.Database = {
+        prepare: (sql: string) => {
+          if (sql.includes("FROM documents") && sql.includes("MAX(updated_at)")) {
+            return {
+              get: () => docsStamp,
+            };
+          }
+          if (sql.includes("FROM kg_entities") && sql.includes("COUNT(*) AS entityCount")) {
+            return {
+              get: () => kgStamp,
+            };
+          }
+          if (sql.includes("type = 'chapter'") && !sql.includes("MAX")) {
+            return { all: () => [] };
+          }
+          if (sql.includes("FROM kg_entities")) {
+            return { all: () => [] };
+          }
+          return { get: () => undefined, all: () => [], run: () => ({ changes: 0 }) };
+        },
+      } as unknown as Database.Database;
+
+      const prepareSpy = vi.spyOn(db, "prepare");
+      const svc = createStoryStatusService({ db, logger: createLogger() });
+
+      svc.getStoryStatus({ projectId: "proj-kg-stamp" });
+      const afterFirst = prepareSpy.mock.calls.length;
+
+      // 仅 KG 变化，documents stamp 不变
+      kgStamp = { maxUpdatedAt: 1500, entityCount: 2 };
+      svc.getStoryStatus({ projectId: "proj-kg-stamp" });
+      const afterSecond = prepareSpy.mock.calls.length;
+
       expect(afterSecond - afterFirst).toBeGreaterThan(1);
     });
 
@@ -637,6 +703,47 @@ describe("storyStatusService", () => {
       const result = svc.getStoryStatus({ projectId: "  proj-trim  " });
 
       expect(result.ok).toBe(true);
+    });
+
+    it("foreshadowing 返回不再额外截断到 50 条", () => {
+      const kgRows: KgEntityRow[] = Array.from({ length: 80 }, (_, i) => ({
+        id: `kg-${i}`,
+        name: `伏笔-${i}`,
+        description: `desc-${i}`,
+        attributesJson: '{"isForeshadowing":true,"status":"active"}',
+      }));
+      const svc = createStoryStatusService({
+        db: createDbStub({ kgRows }),
+        logger: createLogger(),
+      });
+
+      const result = svc.getStoryStatus({ projectId: "proj-many-foreshadowing" });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.data.activeForeshadowing).toHaveLength(80);
+    });
+
+    it("KG 查询 SQL 先过滤 when_detected + foreshadowing 模式", () => {
+      const db = createDbStub();
+      const prepareSpy = vi.spyOn(db, "prepare");
+      const svc = createStoryStatusService({ db, logger: createLogger() });
+
+      svc.getStoryStatus({ projectId: "proj-sql-filter" });
+
+      const kgSql = prepareSpy.mock.calls
+        .map((call) => call[0])
+        .find((sql) =>
+          typeof sql === "string" &&
+          sql.includes("FROM kg_entities") &&
+          !sql.includes("COUNT(*) AS entityCount"),
+        );
+
+      expect(kgSql).toBeDefined();
+      expect(kgSql).toContain("ai_context_level = 'when_detected'");
+      expect(kgSql).toContain("LIKE '%\"isForeshadowing\":true%'");
+      expect(kgSql).toContain("NOT LIKE '%\"status\":\"resolved\"%'");
+      expect(kgSql).toContain("LIMIT 200");
     });
   });
 });
