@@ -127,6 +127,20 @@ describe("createSessionMemoryFetcher", () => {
     );
   });
 
+  it("falls back to DEFAULT_TOTAL_CONTEXT_BUDGET_TOKENS (6000) when both request and deps budgets are absent", async () => {
+    const injectForContext = makeInjectOk("result");
+    const fetcher = createSessionMemoryFetcher({
+      sessionMemoryService: { injectForContext },
+      sessionId: "sess-1",
+      // no fallbackTotalContextBudgetTokens
+    });
+
+    await fetcher(makeRequest());
+    expect(injectForContext).toHaveBeenCalledWith(
+      expect.objectContaining({ totalContextBudgetTokens: 6000 }),
+    );
+  });
+
   it("returns warning when injectedText is empty", async () => {
     const injectForContext = makeInjectOk("");
     const fetcher = createSessionMemoryFetcher({
