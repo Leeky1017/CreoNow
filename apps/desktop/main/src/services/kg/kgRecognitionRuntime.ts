@@ -816,6 +816,12 @@ export function createKgRecognitionRuntime(args: {
     db: args.db,
     logger: args.logger,
   });
+
+  // Architecture note (P3-01 scope): Aho-Corasick matches KNOWN entities only.
+  // processTask dedup filters these out → no new-entity suggestions in this path.
+  // This is by design per Playbook §P3-01 ("只能匹配已知实体 → ✅ 主路径").
+  // New entity discovery will be added via LLM Skill in P3-03 hook chain (kg-update
+  // hook, slot #2). Trie caching addressed in P3-02.
   const recognizer = args.recognizer ?? createAhoCorasickRecognizer({ kgService });
 
   function safeSendSuggestion(
