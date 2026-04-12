@@ -50,7 +50,8 @@ CREATE INDEX IF NOT EXISTS idx_session_memory_expiry
 CREATE VIRTUAL TABLE IF NOT EXISTS session_memory_fts USING fts5(
   content,
   content='session_memory',
-  content_rowid='rowid'
+  content_rowid='rowid',
+  tokenize='trigram'
 );
 
 CREATE TRIGGER IF NOT EXISTS session_memory_ai AFTER INSERT ON session_memory BEGIN
@@ -63,7 +64,8 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS session_memory_au AFTER UPDATE ON session_memory BEGIN
   INSERT INTO session_memory_fts(session_memory_fts, rowid, content) VALUES('delete', old.rowid, old.content);
-  INSERT INTO session_memory_fts(rowid, content) VALUES (new.rowid, new.content);
+  INSERT INTO session_memory_fts(rowid, content)
+    SELECT new.rowid, new.content WHERE new.deleted_at IS NULL;
 END;
 `;
 

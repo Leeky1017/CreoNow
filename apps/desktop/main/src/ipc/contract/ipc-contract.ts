@@ -1034,6 +1034,24 @@ const MEMORY_INJECTION_SCHEMA = s.object({
   degraded: s.boolean(),
 });
 
+const SESSION_MEMORY_CATEGORY_SCHEMA = s.union(
+  s.literal("style"),
+  s.literal("reference"),
+  s.literal("preference"),
+  s.literal("note"),
+);
+
+const SESSION_MEMORY_ITEM_SCHEMA = s.object({
+  id: s.string(),
+  sessionId: s.string(),
+  projectId: s.string(),
+  category: SESSION_MEMORY_CATEGORY_SCHEMA,
+  content: s.string(),
+  relevanceScore: s.number(),
+  createdAt: s.number(),
+  expiresAt: s.optional(s.number()),
+});
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -2815,6 +2833,55 @@ export const ipcContract = {
         confirmed: s.optional(s.boolean()),
       }),
       response: s.object({ cleared: s.literal(true) }),
+    },
+
+    // ── Session Memory (L1) ──
+
+    "memory:session:create": {
+      request: s.object({
+        sessionId: s.string(),
+        projectId: s.string(),
+        category: SESSION_MEMORY_CATEGORY_SCHEMA,
+        content: s.string(),
+        relevanceScore: s.optional(s.number()),
+        expiresAt: s.optional(s.number()),
+      }),
+      response: SESSION_MEMORY_ITEM_SCHEMA,
+    },
+    "memory:session:list": {
+      request: s.object({
+        projectId: s.string(),
+        sessionId: s.optional(s.string()),
+        category: s.optional(SESSION_MEMORY_CATEGORY_SCHEMA),
+        limit: s.optional(s.number()),
+      }),
+      response: s.object({
+        items: s.array(SESSION_MEMORY_ITEM_SCHEMA),
+        totalCount: s.number(),
+      }),
+    },
+    "memory:session:delete": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: s.object({ deleted: s.literal(true) }),
+    },
+    "memory:session:deleteexpired": {
+      request: s.object({}),
+      response: s.object({ deletedCount: s.number() }),
+    },
+    "memory:session:injection": {
+      request: s.object({
+        projectId: s.string(),
+        sessionId: s.string(),
+        contextHint: s.optional(s.string()),
+        totalContextBudget: s.number(),
+      }),
+      response: s.object({
+        items: s.array(SESSION_MEMORY_ITEM_SCHEMA),
+        totalTokens: s.number(),
+      }),
     },
     "search:fts:indexstatus": {
       request: s.object({

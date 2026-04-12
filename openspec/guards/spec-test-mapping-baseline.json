@@ -1,7 +1,7 @@
 {
-  "count": 10,
-  "explicitUnmappedCount": 10,
-  "derivedUnmappedCount": 402,
+  "count": 3,
+  "explicitUnmappedCount": 3,
+  "derivedUnmappedCount": 32,
   "derivedCoverageFloor": 0.6,
-  "updatedAt": "2026-04-11T14:50:44.834Z"
+  "updatedAt": "2026-04-12T23:06:38.261Z"
 }
