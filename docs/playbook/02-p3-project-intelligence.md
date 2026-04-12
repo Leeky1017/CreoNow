@@ -53,13 +53,14 @@ P1 退出条件全部满足：
 - **文件**：`apps/desktop/main/src/services/kg/`
 - **问题**：当前每次查询都重建 Aho-Corasick trie，1000 实体时性能不可接受
 - **修复**：
-  1. 应用启动时 / 项目切换时构建一次 trie → 缓存到内存
-  2. 实体 CRUD 操作后增量更新 trie（add/remove 单个模式），而非全量重建
+  1. 首次 `matchEntitiesCached()` 调用时惰性构建 trie → 以 `Map<projectId, CachedAutomaton>` 缓存到内存
+  2. 实体 CRUD 操作后调用 `trieCacheInvalidate(projectId)` 清除该项目缓存；下次读取时惰性重建（invalidation + lazy rebuild）
   3. 暴露 `trieCacheInvalidate()` 供测试使用
+  - **设计决策**：选择 invalidation + lazy rebuild 而非增量更新，原因是 Aho-Corasick failure link 重算为 O(total_states)，与全量重建同阶；而实体 CRUD 是低频用户操作，trie 读取是高频热路径，惰性重建的摊销开销可忽略。详见 `trieCache.ts` 头部注释。
 - **性能目标**：
   - 1000 实体 trie 全量构建：< 50ms
   - 单次文本匹配（10,000 字）：< 5ms
-  - 增量更新（add/remove 1 实体）：< 1ms
+  - cache invalidation + lazy rebuild 完整周期（1000 实体）：< 50ms
 - **测试**：benchmark 测试验证性能目标；并发安全测试（INV-2）
 - **依赖**：TASK-P3-01（需要 Aho-Corasick 匹配器先实现）
 - **规模**：M
