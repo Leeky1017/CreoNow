@@ -416,12 +416,14 @@ export function createWritingOrchestrator(
                     });
                   }
                 }
+                // INV-9: Use a distinct requestId so costTracker does not
+                // conflate compact-call costs with the outer generation costs.
                 const compactResult = await autoCompact.maybeCompact({
                   messages: convertMessagesForAutoCompact(prepared.messages),
                   auxiliaryModel: prepared.modelId,
                   requestModelId: prepared.modelId,
                   kgSnapshot,
-                  requestId,
+                  requestId: `${requestId}-compact`,
                 });
                 return {
                   ...prepared,
