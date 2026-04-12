@@ -75,10 +75,9 @@ DEFAULT_INVARIANT_CHECKLIST_LINES = (
 
 
 CONSOLIDATED_AUDIT_SECTION_HEADERS = (
-    "### 审计 1（GPT-5.4 xhigh）",
-    "### 审计 2（GPT-5.3 Codex xhigh）",
-    "### 审计 3（Claude Opus 4.6 high）",
-    "### 审计 4（Claude Sonnet 4.6 high）",
+    "### 审计 1（Claude Opus 4.6 high）",
+    "### 审计 2（Claude Sonnet 4.6 high）",
+    "### 审计 3（GPT-5.4 xhigh）",
 )
 CONSOLIDATED_AUDIT_METADATA_HEADER = "## 审计元信息"
 SEAT_FINAL_VERDICT_ACCEPT_PATTERN = re.compile(
@@ -376,20 +375,18 @@ Closes #{issue_number}
 
 <!-- 以下由审计流程自动填写，PR 作者不要修改 -->
 
-**审计模型配置：**
-- 工程：GPT-5.3 Codex (xhigh)
-- 审计 1：GPT-5.4 (xhigh)
-- 审计 2：GPT-5.3 Codex (xhigh)
-- 审计 3：Claude Opus 4.6 (high)
-- 审计 4：Claude Sonnet 4.6 (high)
+**审计模型配置（1+1+1+Duck）：**
+- 工程：Claude Opus 4.6 (high)
+- 审计 1（同模型）：Claude Opus 4.6 (high)
+- 审计 2：Claude Sonnet 4.6 (high)
+- 审计 3（Rubber Duck）：GPT-5.4 (xhigh)
 - 评论汇总：Claude Opus 4.6 (high)
 
-- [ ] 审计 1（GPT-5.4）：FINAL-VERDICT ___
-- [ ] 审计 2（GPT-5.3 Codex）：FINAL-VERDICT ___
-- [ ] 审计 3（Claude Opus 4.6）：FINAL-VERDICT ___
-- [ ] 审计 4（Claude Sonnet 4.6）：FINAL-VERDICT ___
+- [ ] 审计 1（Claude Opus 4.6）：FINAL-VERDICT ___
+- [ ] 审计 2（Claude Sonnet 4.6）：FINAL-VERDICT ___
+- [ ] 审计 3（GPT-5.4）：FINAL-VERDICT ___
 
-<!-- 4 个都 ACCEPT 才可合并 -->
+<!-- 3 路都 ACCEPT 才可合并 -->
 """.strip() + "\n"
 
 
@@ -639,7 +636,7 @@ def build_blocker_comment(
     if normalized_kind == "audit-required":
         return (
             "Auto-merge remains disabled until the Reviewer posts one consolidated "
-            "verbatim comment from a trusted reviewer account containing all four zero-findings `FINAL-VERDICT` audit reports "
+            "verbatim comment from a trusted reviewer account containing all three zero-findings `FINAL-VERDICT` audit reports "
             "with `ACCEPT`. "
             f"PR: {pr_url}"
         )

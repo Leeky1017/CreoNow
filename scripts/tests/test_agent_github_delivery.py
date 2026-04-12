@@ -77,9 +77,9 @@ class PullRequestTemplateTests(unittest.TestCase):
         self.assertIn("N/A（非前端改动）", body)
         self.assertIn("## Risk & Rollback", body)
         self.assertIn("## 审计门禁", body)
-        self.assertIn("**审计模型配置：**", body)
-        self.assertIn("- 工程：GPT-5.3 Codex (xhigh)", body)
-        self.assertIn("- [ ] 审计 4（Claude Sonnet 4.6）：FINAL-VERDICT ___", body)
+        self.assertIn("**审计模型配置（1+1+1+Duck）：**", body)
+        self.assertIn("- 工程：Claude Opus 4.6 (high)", body)
+        self.assertIn("- [ ] 审计 3（GPT-5.4）：FINAL-VERDICT ___", body)
         self.assertIn("`pytest -q scripts/tests/test_agent_github_delivery.py`", body)
 
     def test_build_pr_body_should_pass_preflight_body_validation(self) -> None:
@@ -140,19 +140,15 @@ class AuditGateTests(unittest.TestCase):
         ]
         lines.extend(
             [
-                "### 审计 1（GPT-5.4 xhigh）",
+                "### 审计 1（Claude Opus 4.6 high）",
                 "zero findings",
                 "FINAL-VERDICT: ACCEPT",
                 "",
-                "### 审计 2（GPT-5.3 Codex xhigh）",
+                "### 审计 2（Claude Sonnet 4.6 high）",
                 "zero findings",
                 "FINAL-VERDICT: ACCEPT",
                 "",
-                "### 审计 3（Claude Opus 4.6 high）",
-                "zero findings",
-                "FINAL-VERDICT: ACCEPT",
-                "",
-                "### 审计 4（Claude Sonnet 4.6 high）",
+                "### 审计 3（GPT-5.4 xhigh）",
                 "zero findings",
                 f"FINAL-VERDICT: {seat4_verdict}",
             ]
@@ -248,15 +244,11 @@ class AuditGateTests(unittest.TestCase):
                         [
                             "## 审计汇总",
                             "",
-                            "### 审计 1（GPT-5.4 xhigh）",
+                            "### 审计 1（Claude Opus 4.6 high）",
                             "zero findings",
                             "FINAL-VERDICT: ACCEPT",
                             "",
-                            "### 审计 2（GPT-5.3 Codex xhigh）",
-                            "zero findings",
-                            "FINAL-VERDICT: ACCEPT",
-                            "",
-                            "### 审计 3（Claude Opus 4.6 high）",
+                            "### 审计 2（Claude Sonnet 4.6 high）",
                             "zero findings",
                             "FINAL-VERDICT: ACCEPT",
                         ]
@@ -401,19 +393,16 @@ class AuditGateTests(unittest.TestCase):
 
     def test_audit_pass_should_ignore_reject_example_inside_fenced_code_block(self) -> None:
         body = """## 审计汇总
-### 审计 1（GPT-5.4 xhigh）
+### 审计 1（Claude Opus 4.6 high）
 zero findings
 FINAL-VERDICT: ACCEPT
-### 审计 2（GPT-5.3 Codex xhigh）
-zero findings
-FINAL-VERDICT: ACCEPT
-### 审计 3（Claude Opus 4.6 high）
+### 审计 2（Claude Sonnet 4.6 high）
 zero findings
 ```text
 FINAL-VERDICT: REJECT
 ```
 FINAL-VERDICT: ACCEPT
-### 审计 4（Claude Sonnet 4.6 high）
+### 审计 3（GPT-5.4 xhigh）
 zero findings
 FINAL-VERDICT: ACCEPT
 ## 审计元信息
@@ -429,19 +418,16 @@ FINAL-VERDICT: ACCEPT
 
     def test_audit_pass_should_fail_when_duplicate_seat_header_attempts_overwrite(self) -> None:
         body = """## 审计汇总
-### 审计 1（GPT-5.4 xhigh）
+### 审计 1（Claude Opus 4.6 high）
 zero findings
 FINAL-VERDICT: REJECT
-### 审计 1（GPT-5.4 xhigh）
+### 审计 1（Claude Opus 4.6 high）
 zero findings
 FINAL-VERDICT: ACCEPT
-### 审计 2（GPT-5.3 Codex xhigh）
+### 审计 2（Claude Sonnet 4.6 high）
 zero findings
 FINAL-VERDICT: ACCEPT
-### 审计 3（Claude Opus 4.6 high）
-zero findings
-FINAL-VERDICT: ACCEPT
-### 审计 4（Claude Sonnet 4.6 high）
+### 审计 3（GPT-5.4 xhigh）
 zero findings
 FINAL-VERDICT: ACCEPT
 **审计 HEAD**：`abc1234`
@@ -454,21 +440,18 @@ FINAL-VERDICT: ACCEPT
         )
         self.assertFalse(evaluation.audit_pass)
 
-    def test_audit_pass_should_fail_when_global_summary_tries_to_satisfy_seat4(self) -> None:
+    def test_audit_pass_should_fail_when_global_summary_tries_to_satisfy_seat3(self) -> None:
         body = """## 审计汇总
-### 审计 1（GPT-5.4 xhigh）
+### 审计 1（Claude Opus 4.6 high）
 zero findings
 FINAL-VERDICT: ACCEPT
-### 审计 2（GPT-5.3 Codex xhigh）
+### 审计 2（Claude Sonnet 4.6 high）
 zero findings
 FINAL-VERDICT: ACCEPT
-### 审计 3（Claude Opus 4.6 high）
-zero findings
-FINAL-VERDICT: ACCEPT
-### 审计 4（Claude Sonnet 4.6 high）
+### 审计 3（GPT-5.4 xhigh）
 zero findings
 ## Summary
-Seat 4 is pending.
+Seat 3 is pending.
 **FINAL-VERDICT**: ACCEPT
 **审计 HEAD**：`abc1234`
 """
@@ -481,16 +464,13 @@ Seat 4 is pending.
 
     def test_audit_pass_should_fail_when_trailing_plain_final_verdict_appears_before_metadata_section(self) -> None:
         body = """## 审计汇总
-### 审计 1（GPT-5.4 xhigh）
+### 审计 1（Claude Opus 4.6 high）
 zero findings
 FINAL-VERDICT: ACCEPT
-### 审计 2（GPT-5.3 Codex xhigh）
+### 审计 2（Claude Sonnet 4.6 high）
 zero findings
 FINAL-VERDICT: ACCEPT
-### 审计 3（Claude Opus 4.6 high）
-zero findings
-FINAL-VERDICT: ACCEPT
-### 审计 4（Claude Sonnet 4.6 high）
+### 审计 3（GPT-5.4 xhigh）
 zero findings
 FINAL-VERDICT: ACCEPT
 Summary line

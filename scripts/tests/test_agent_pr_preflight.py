@@ -161,12 +161,12 @@ class PRBodyFormatTests(unittest.TestCase):
 
     def test_validate_pr_body_format_should_accept_fullwidth_colon_labels(self) -> None:
         body = make_pr_body().replace(
-            "- [ ] 审计 1（GPT-5.4）：FINAL-VERDICT ___",
-            "- [ ] 审计 1（GPT-5.4）: FINAL-VERDICT ___",
+            "- [ ] 审计 1（Claude Opus 4.6）：FINAL-VERDICT ___",
+            "- [ ] 审计 1（Claude Opus 4.6）: FINAL-VERDICT ___",
             1,
         ).replace(
-            "- [ ] 审计 2（GPT-5.3 Codex）：FINAL-VERDICT ___",
-            "- [ ] 审计 2（GPT-5.3 Codex）: FINAL-VERDICT ___",
+            "- [ ] 审计 2（Claude Sonnet 4.6）：FINAL-VERDICT ___",
+            "- [ ] 审计 2（Claude Sonnet 4.6）: FINAL-VERDICT ___",
             1,
         )
         pr = agent_pr_preflight.PullRequest(
@@ -195,20 +195,18 @@ class PRBodyFormatTests(unittest.TestCase):
         self.assertIsNotNone(invariant_section)
         audit_gate_section = """<!-- 以下由审计流程自动填写，PR 作者不要修改 -->
 
-**审计模型配置：**
-- 工程：GPT-5.3 Codex (xhigh)
-- 审计 1：GPT-5.4 (xhigh)
-- 审计 2：GPT-5.3 Codex (xhigh)
-- 审计 3：Claude Opus 4.6 (high)
-- 审计 4：Claude Sonnet 4.6 (high)
+**审计模型配置（1+1+1+Duck）：**
+- 工程：Claude Opus 4.6 (high)
+- 审计 1（同模型）：Claude Opus 4.6 (high)
+- 审计 2：Claude Sonnet 4.6 (high)
+- 审计 3（Rubber Duck）：GPT-5.4 (xhigh)
 - 评论汇总：Claude Opus 4.6 (high)
 
-- [ ] 审计 1（GPT-5.4）：FINAL-VERDICT ___
-- [ ] 审计 2（GPT-5.3 Codex）：FINAL-VERDICT ___
-- [ ] 审计 3（Claude Opus 4.6）：FINAL-VERDICT ___
-- [ ] 审计 4（Claude Sonnet 4.6）：FINAL-VERDICT ___
+- [ ] 审计 1（Claude Opus 4.6）：FINAL-VERDICT ___
+- [ ] 审计 2（Claude Sonnet 4.6）：FINAL-VERDICT ___
+- [ ] 审计 3（GPT-5.4）：FINAL-VERDICT ___
 
-<!-- 4 个都 ACCEPT 才可合并 -->"""
+<!-- 3 路都 ACCEPT 才可合并 -->"""
         body = (
             "## Summary\n- contract validation\n\n"
             "Closes #42\n\n"
@@ -319,26 +317,26 @@ class PRBodyFormatTests(unittest.TestCase):
         pr = agent_pr_preflight.PullRequest(
             number=100,
             body=make_pr_body().replace(
-                "- [ ] 审计 4（Claude Sonnet 4.6）：FINAL-VERDICT ___",
+                "- [ ] 审计 3（GPT-5.4）：FINAL-VERDICT ___",
                 "",
                 1,
             ),
             url="https://github.com/test/test/pull/100",
         )
-        with self.assertRaisesRegex(RuntimeError, r"seat 4 FINAL-VERDICT checklist"):
+        with self.assertRaisesRegex(RuntimeError, r"seat 3 FINAL-VERDICT checklist"):
             agent_pr_preflight.validate_pr_body_format(pr, "42")
 
     def test_validate_pr_body_format_should_fail_when_audit_seat_lacks_final_verdict(self) -> None:
         pr = agent_pr_preflight.PullRequest(
             number=100,
             body=make_pr_body().replace(
-                "- [ ] 审计 3（Claude Opus 4.6）：FINAL-VERDICT ___",
-                "- [ ] 审计 3（Claude Opus 4.6）：PENDING",
+                "- [ ] 审计 2（Claude Sonnet 4.6）：FINAL-VERDICT ___",
+                "- [ ] 审计 2（Claude Sonnet 4.6）：PENDING",
                 1,
             ),
             url="https://github.com/test/test/pull/100",
         )
-        with self.assertRaisesRegex(RuntimeError, r"seat 3 FINAL-VERDICT checklist"):
+        with self.assertRaisesRegex(RuntimeError, r"seat 2 FINAL-VERDICT checklist"):
             agent_pr_preflight.validate_pr_body_format(pr, "42")
 
     def test_validate_pr_body_format_should_fail_when_invariant_checklist_is_missing(self) -> None:

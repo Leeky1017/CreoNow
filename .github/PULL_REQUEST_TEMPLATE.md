@@ -91,13 +91,15 @@ N/A
 <!-- 以下由审计流程自动填写，PR 作者不要修改 -->
 
 **审计模型配置（1+1+1+Duck）：**
-- 第一路审计：主会话 Agent
-- 第二路审计：Claude Sonnet 4.6 Subagent
-- 第三路审计：Rubber Duck（GPT-5.4）`critique this plan`
+- 工程：Claude Opus 4.6 (high)
+- 审计 1（同模型）：Claude Opus 4.6 (high)
+- 审计 2：Claude Sonnet 4.6 (high)
+- 审计 3（Rubber Duck）：GPT-5.4 (xhigh)
+- 评论汇总：Claude Opus 4.6 (high)
 
-- [ ] 审计 1（主会话 Agent）：FINAL-VERDICT ___
+- [ ] 审计 1（Claude Opus 4.6）：FINAL-VERDICT ___
 - [ ] 审计 2（Claude Sonnet 4.6）：FINAL-VERDICT ___
-- [ ] 审计 3（Rubber Duck GPT-5.4）：FINAL-VERDICT ___
+- [ ] 审计 3（GPT-5.4）：FINAL-VERDICT ___
 
 <!-- 3 路都 ACCEPT 才可合并 -->
 
