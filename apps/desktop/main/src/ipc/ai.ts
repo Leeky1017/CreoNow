@@ -52,6 +52,10 @@ import {
   type WritingEvent,
 } from "../services/skills/orchestrator";
 import {
+  createSkillOrchestrator,
+  type SkillOrchestrator,
+} from "../core/skillOrchestrator";
+import {
   createWritingToolRegistry,
   createAgenticToolRegistry,
 } from "../services/skills/writingTooling";
@@ -976,8 +980,11 @@ type AiIpcDeps = {
 type AiIpcContext = {
   deps: AiIpcDeps;
   runtimeGovernance: ReturnType<typeof resolveRuntimeGovernanceFromEnv>;
-  aiService: ReturnType<typeof createAiService>;
-  writingOrchestrator: ReturnType<typeof createWritingOrchestrator>;
+  /**
+   * INV-7: IPC 层唯一 AI 出口，禁止在 ctx 中暴露裸 aiService / writingOrchestrator。
+   * 所有写作执行 / 取消 / 反馈 / 模型列表均通过 skillOrchestrator 路由。
+   */
+  skillOrchestrator: SkillOrchestrator;
   skillServiceFactory: () => ReturnType<typeof createSkillService>;
   contextAssemblyService: ReturnType<typeof createContextLayerAssemblyService>;
   runRegistry: Map<
@@ -1711,8 +1718,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         ctx: {
           deps,
           runtimeGovernance,
-          aiService,
-          writingOrchestrator: undefined as never,
+          // prepareWritingRequest does not use skillOrchestrator;
+          // pass a dummy to satisfy the type while keeping the type boundary clean.
+          skillOrchestrator: undefined as never,
           skillServiceFactory,
           contextAssemblyService,
           runRegistry: new Map(),
@@ -1969,11 +1977,17 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     },
   });
 
+  // INV-7: 将 aiService + writingOrchestrator 包装为统一出口。
+  // IPC handler 只持有 skillOrchestrator，不直接持有 aiService / writingOrchestrator。
+  const skillOrchestrator = createSkillOrchestrator({
+    writingOrchestrator,
+    aiService,
+  });
+
   const ctx: AiIpcContext = {
     deps,
     runtimeGovernance,
-    aiService,
-    writingOrchestrator,
+    skillOrchestrator,
     skillServiceFactory,
     contextAssemblyService,
     runRegistry,
@@ -1985,11 +1999,12 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     previewLifecycleRegisteredRendererIds,
   };
 
+  // INV-6/INV-7: ai:models:list 通过 skillOrchestrator 路由，不直接调用 aiService。
   deps.ipcMain.handle(
     "ai:models:list",
     async (): Promise<IpcResponse<ModelCatalogResponse>> => {
       try {
-        const res = await aiService.listModels();
+        const res = await ctx.skillOrchestrator.listModels();
         return res.ok
           ? { ok: true, data: res.data }
           : { ok: false, error: res.error };
@@ -2484,7 +2499,7 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         ctx,
         skillId: normalizedPayload.skillId,
       });
-      const generator = ctx.writingOrchestrator.execute({
+      const generator = ctx.skillOrchestrator.execute({
         requestId: executionId,
         skillId: normalizedPayload.skillId,
         level: permissionLevel,
@@ -2641,7 +2656,8 @@ function registerAiSkillLifecycleHandlers(ctx: AiIpcContext): void {
           }
           return { ok: true, data: { canceled: true } };
         }
-        const res = ctx.aiService.cancel({
+        // INV-7: cancel 通过 skillOrchestrator 路由，不直接调用 aiService。
+        const res = ctx.skillOrchestrator.cancel({
           executionId: executionId.length > 0 ? executionId : undefined,
           runId: runIdValue.length > 0 ? runIdValue : undefined,
           ts: nowTs(),
@@ -2710,7 +2726,8 @@ function registerAiSkillLifecycleHandlers(ctx: AiIpcContext): void {
           return { ok: false, error: learning.error };
         }
 
-        const res = ctx.aiService.feedback({
+        // INV-7: feedback 通过 skillOrchestrator 路由，不直接调用 aiService。
+        const res = ctx.skillOrchestrator.recordFeedback({
           runId: payload.runId,
           action: payload.action,
           evidenceRef: payload.evidenceRef,
