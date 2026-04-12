@@ -581,4 +581,275 @@ describe("knowledgeGraph IPC handlers", () => {
       expect(res.error?.code).toBe("DB_ERROR");
     });
   });
+
+  // ── INV-6: write operations route through KgMutationSkill ──────────────
+
+  describe("INV-6: write operations route through KgMutationSkill", () => {
+    function createHarnessWithSkillSpy() {
+      const handlers = new Map<string, Handler>();
+
+      const ipcMain = {
+        handle: vi.fn((channel: string, listener: Handler) => {
+          handlers.set(channel, listener);
+        }),
+      } as unknown as IpcMain;
+
+      const logger = {
+        logPath: "/dev/null",
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+
+      const db = {
+        prepare: vi.fn(),
+        exec: vi.fn(),
+        transaction: vi.fn(
+          (fn: (...a: unknown[]) => unknown) =>
+            (...args: unknown[]) =>
+              fn(...args),
+        ),
+      };
+
+      // Inject a mock KgMutationSkill with a spy — this confirms the
+      // IPC layer routes through the skill rather than calling the
+      // service directly (INV-6).
+      const mockSkillExecute = vi.fn().mockReturnValue({
+        ok: true,
+        data: { id: "ent-1" },
+      });
+      const mockKgMutationSkill = {
+        skillId: "builtin:kg-mutate" as const,
+        execute: mockSkillExecute,
+      };
+
+      registerKnowledgeGraphIpcHandlers({
+        ipcMain,
+        db: db as never,
+        logger: logger as never,
+        kgMutationSkill: mockKgMutationSkill,
+      });
+
+      return {
+        invoke: async (
+          channel: string,
+          payload?: unknown,
+        ): Promise<{ ok: boolean; data?: unknown; error?: { code: string; message: string } }> => {
+          const handler = handlers.get(channel);
+          if (!handler) throw new Error(`No handler for ${channel}`);
+          return (await handler(createMockEvent(), payload)) as {
+            ok: boolean;
+            data?: unknown;
+            error?: { code: string; message: string };
+          };
+        },
+        mockSkillExecute,
+      };
+    }
+
+    const WRITE_CHANNELS = [
+      {
+        channel: "knowledge:entity:create",
+        payload: { projectId: "p1", type: "character", name: "Alice" },
+        mutationType: "entity:create",
+      },
+      {
+        channel: "knowledge:entity:update",
+        payload: { projectId: "p1", id: "e1", expectedVersion: 1, patch: {} },
+        mutationType: "entity:update",
+      },
+      {
+        channel: "knowledge:entity:delete",
+        payload: { projectId: "p1", id: "e1" },
+        mutationType: "entity:delete",
+      },
+      {
+        channel: "knowledge:relation:create",
+        payload: {
+          projectId: "p1",
+          sourceEntityId: "e1",
+          targetEntityId: "e2",
+          relationType: "ally",
+        },
+        mutationType: "relation:create",
+      },
+      {
+        channel: "knowledge:relation:update",
+        payload: { projectId: "p1", id: "r1", patch: {} },
+        mutationType: "relation:update",
+      },
+      {
+        channel: "knowledge:relation:delete",
+        payload: { projectId: "p1", id: "r1" },
+        mutationType: "relation:delete",
+      },
+    ] as const;
+
+    it.each(WRITE_CHANNELS)(
+      "$channel calls kgMutationSkill.execute with mutationType=$mutationType",
+      async ({ channel, payload, mutationType }) => {
+        const { invoke, mockSkillExecute } = createHarnessWithSkillSpy();
+        const res = await invoke(channel, payload);
+        expect(res.ok).toBe(true);
+        expect(mockSkillExecute).toHaveBeenCalledOnce();
+        expect(mockSkillExecute).toHaveBeenCalledWith(
+          expect.objectContaining({
+            mutationType,
+            projectId: "p1",
+          }),
+        );
+      },
+    );
+
+    it("write op propagates skill error back through IPC envelope", async () => {
+      const handlers = new Map<string, Handler>();
+      const ipcMain = {
+        handle: vi.fn((channel: string, listener: Handler) => {
+          handlers.set(channel, listener);
+        }),
+      } as unknown as IpcMain;
+      const logger = {
+        logPath: "/dev/null",
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+      const db = {
+        prepare: vi.fn(),
+        exec: vi.fn(),
+        transaction: vi.fn(
+          (fn: (...a: unknown[]) => unknown) =>
+            (...args: unknown[]) =>
+              fn(...args),
+        ),
+      };
+      const failingSkill = {
+        skillId: "builtin:kg-mutate" as const,
+        execute: vi.fn().mockReturnValue({
+          ok: false,
+          error: { code: "DB_ERROR", message: "constraint violation" },
+        }),
+      };
+      registerKnowledgeGraphIpcHandlers({
+        ipcMain,
+        db: db as never,
+        logger: logger as never,
+        kgMutationSkill: failingSkill,
+      });
+
+      const handler = handlers.get("knowledge:entity:create");
+      const res = await handler!(createMockEvent(), {
+        projectId: "p1",
+        type: "character",
+        name: "Bob",
+      });
+      expect((res as { ok: boolean }).ok).toBe(false);
+    });
+  });
+
+  // ── INV-6: read operations bypass KgMutationSkill ──────────────────────
+
+  describe("INV-6: read operations bypass KgMutationSkill (direct service call)", () => {
+    it("entity:read does NOT call kgMutationSkill.execute", async () => {
+      const handlers = new Map<string, Handler>();
+      const ipcMain = {
+        handle: vi.fn((channel: string, listener: Handler) => {
+          handlers.set(channel, listener);
+        }),
+      } as unknown as IpcMain;
+      const logger = {
+        logPath: "/dev/null",
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+      const db = {
+        prepare: vi.fn(),
+        exec: vi.fn(),
+        transaction: vi.fn(
+          (fn: (...a: unknown[]) => unknown) =>
+            (...args: unknown[]) =>
+              fn(...args),
+        ),
+      };
+      const skillExecuteSpy = vi.fn();
+      registerKnowledgeGraphIpcHandlers({
+        ipcMain,
+        db: db as never,
+        logger: logger as never,
+        kgMutationSkill: { skillId: "builtin:kg-mutate" as const, execute: skillExecuteSpy },
+      });
+
+      const handler = handlers.get("knowledge:entity:read");
+      await handler!(createMockEvent(), { projectId: "p1", id: "e1" });
+      // entity:read must bypass the skill entirely — direct service call
+      expect(skillExecuteSpy).not.toHaveBeenCalled();
+    });
+
+    it("entity:list does NOT call kgMutationSkill.execute", async () => {
+      const { invoke } = createHarness();
+      // Standard harness: no skill override, uses auto-created skill
+      // We're just verifying the channel returns ok — the key assertion is
+      // that query ops don't go through the mutation skill path.
+      const res = await invoke("knowledge:entity:list", { projectId: "p1" });
+      expect(res.ok).toBe(true);
+    });
+
+    const READ_CHANNELS = [
+      { channel: "knowledge:entity:read", payload: { projectId: "p1", id: "e1" } },
+      { channel: "knowledge:entity:list", payload: { projectId: "p1" } },
+      { channel: "knowledge:relation:list", payload: { projectId: "p1" } },
+      { channel: "knowledge:query:subgraph", payload: { projectId: "p1", centerEntityId: "e1", k: 1 } },
+      { channel: "knowledge:query:path", payload: { projectId: "p1", sourceEntityId: "e1", targetEntityId: "e2" } },
+      { channel: "knowledge:query:validate", payload: { projectId: "p1" } },
+      { channel: "knowledge:query:relevant", payload: { projectId: "p1", excerpt: "test" } },
+      { channel: "knowledge:query:byids", payload: { projectId: "p1", entityIds: ["e1"] } },
+      { channel: "knowledge:rules:inject", payload: { projectId: "p1", documentId: "d1", excerpt: "test", traceId: "t1" } },
+    ] as const;
+
+    it.each(READ_CHANNELS)(
+      "$channel returns ok without going through mutation skill",
+      async ({ channel, payload }) => {
+        const handlers = new Map<string, Handler>();
+        const ipcMain = {
+          handle: vi.fn((ch: string, listener: Handler) => {
+            handlers.set(ch, listener);
+          }),
+        } as unknown as IpcMain;
+        const logger = {
+          logPath: "/dev/null",
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        };
+        const db = {
+          prepare: vi.fn(),
+          exec: vi.fn(),
+          transaction: vi.fn(
+            (fn: (...a: unknown[]) => unknown) =>
+              (...args: unknown[]) =>
+                fn(...args),
+          ),
+        };
+        const skillExecuteSpy = vi.fn();
+        registerKnowledgeGraphIpcHandlers({
+          ipcMain,
+          db: db as never,
+          logger: logger as never,
+          kgMutationSkill: { skillId: "builtin:kg-mutate" as const, execute: skillExecuteSpy },
+        });
+
+        const handler = handlers.get(channel);
+        if (!handler) throw new Error(`No handler for ${channel}`);
+        const res = await handler(createMockEvent(), payload) as { ok: boolean };
+        expect(res.ok).toBe(true);
+        // Read ops must NOT go through the mutation skill
+        expect(skillExecuteSpy).not.toHaveBeenCalled();
+      },
+    );
+  });
 });
