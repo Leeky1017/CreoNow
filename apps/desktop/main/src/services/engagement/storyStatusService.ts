@@ -12,7 +12,7 @@
  *   3. user_memory 表 (L0)：用户偏好 (scope='project')
  *   4. suggestedAction：从中断点 + 未解伏笔数量推断（无 LLM）
  *
- * 缓存策略：每个 projectId 缓存 30s，文档变更（updatedAt）触发失效。
+ * 缓存策略：每个 projectId 缓存 30s，文档版本戳变更触发失效。
  * 选 30s 而非更短：打开项目后用户通常在 30s 内完成阅读摘要，避免重复查询。
  */
 
@@ -93,8 +93,8 @@ const CACHE_TTL_MS = 30_000;
 type CacheEntry = {
   summary: StoryStatusSummary;
   cachedAt: number;
-  /** documents 表最近 updatedAt，用于失效检测 */
-  documentsStamp: number;
+  /** documents 版本戳（count + max(updated_at)），用于失效检测 */
+  documentsStamp: string;
 };
 
 // ─── DB 行类型 ─────────────────────────────────────────────────────────────
@@ -104,6 +104,7 @@ type ChapterRow = {
   title: string;
   sortOrder: number;
   updatedAt: number;
+  status: string;
 };
 
 type KgEntityRow = {
@@ -112,6 +113,29 @@ type KgEntityRow = {
   description: string;
   attributesJson: string;
 };
+
+function isActiveForeshadowingEntity(args: {
+  attributesJson: string;
+  entityId: string;
+  logger: Logger;
+}): boolean {
+  try {
+    const parsed = JSON.parse(args.attributesJson) as unknown;
+    if (typeof parsed !== "object" || parsed === null) {
+      return false;
+    }
+    const attrs = parsed as Record<string, unknown>;
+    const isForeshadowing = attrs.isForeshadowing === true;
+    const status = typeof attrs.status === "string" ? attrs.status : null;
+    return isForeshadowing && status !== "resolved";
+  } catch (error) {
+    args.logger.error("story_status_kg_attributes_parse_failed", {
+      entityId: args.entityId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
 
 // ─── 推断 suggestedAction（无 LLM）──────────────────────────────────────────
 
@@ -170,20 +194,25 @@ export function createStoryStatusService(deps: {
   // 每个 projectId 一条缓存，Map 容量无上限（实际项目数量 <100）
   const cache = new Map<string, CacheEntry>();
 
-  function getDocumentsStamp(projectId: string): number {
+  function getDocumentsStamp(projectId: string): string {
     try {
       const row = db
-        .prepare<[string], { maxUpdatedAt: number }>(
-          "SELECT COALESCE(MAX(updated_at), 0) AS maxUpdatedAt FROM documents WHERE project_id = ? AND type = 'chapter'",
+        .prepare<[string], { chapterCount: number; maxUpdatedAt: number }>(
+          `SELECT COUNT(*) AS chapterCount,
+                  COALESCE(MAX(updated_at), 0) AS maxUpdatedAt
+           FROM documents
+           WHERE project_id = ? AND type = 'chapter'`,
         )
         .get(projectId);
-      return row?.maxUpdatedAt ?? 0;
+      const chapterCount = row?.chapterCount ?? 0;
+      const maxUpdatedAt = row?.maxUpdatedAt ?? 0;
+      return `${chapterCount}:${maxUpdatedAt}`;
     } catch (error) {
       logger.error("story_status_stamp_query_failed", {
         projectId,
         error: error instanceof Error ? error.message : String(error),
       });
-      return 0;
+      return "0:0";
     }
   }
 
@@ -219,7 +248,8 @@ export function createStoryStatusService(deps: {
         // 仅 type='chapter' 的文档；documents 表无软删除字段，按 sort_order 排序
         const chapterRows = db
           .prepare<[string], ChapterRow>(
-            `SELECT document_id AS documentId, title, sort_order AS sortOrder, updated_at AS updatedAt
+            `SELECT document_id AS documentId, title, sort_order AS sortOrder,
+                    updated_at AS updatedAt, status
              FROM documents
              WHERE project_id = ? AND type = 'chapter'
              ORDER BY sort_order ASC, updated_at DESC, document_id ASC`,
@@ -251,7 +281,8 @@ export function createStoryStatusService(deps: {
           currentChapterTitle: latestChapter?.title ?? "",
         };
 
-        const interruptedTask: InterruptedTask | null = latestChapter
+        const interruptedTask: InterruptedTask | null =
+          latestChapter && latestChapter.status !== "final"
           ? {
               chapterTitle: latestChapter.title,
               documentId: latestChapter.documentId,
@@ -271,24 +302,36 @@ export function createStoryStatusService(deps: {
                     attributes_json AS attributesJson
              FROM kg_entities
              WHERE project_id = ?
-               AND JSON_EXTRACT(attributes_json, '$.isForeshadowing') = true
-               AND (JSON_EXTRACT(attributes_json, '$.status') IS NULL
-                    OR JSON_EXTRACT(attributes_json, '$.status') != 'resolved')
-             ORDER BY updated_at DESC
-             LIMIT 50`,
+              ORDER BY updated_at DESC
+              LIMIT 200`,
           )
           .all(normalizedId);
 
-        const activeForeshadowing: ForeshadowingThread[] = kgRows.map((row) => ({
-          id: row.id,
-          name: row.name,
-          description: row.description,
-        }));
+        const activeForeshadowing: ForeshadowingThread[] = [];
+        for (const row of kgRows) {
+          if (
+            !isActiveForeshadowingEntity({
+              attributesJson: row.attributesJson,
+              entityId: row.id,
+              logger,
+            })
+          ) {
+            continue;
+          }
+          activeForeshadowing.push({
+            id: row.id,
+            name: row.name,
+            description: row.description,
+          });
+          if (activeForeshadowing.length >= 50) {
+            break;
+          }
+        }
 
         // ── 3. 用户记忆 L0（user_memory 表）─────────────────
         // 当前版本暂不读取 user_memory，预留给未来 L0 集成路径。
         // INV-4 Memory-First 规范要求显式标记此扩展点，而非静默跳过。
-        // TODO(L0-integration): 读取 scope='project' 偏好，注入 suggestedAction 推断
+        // TODO(leeky, 2025-07): 读取 scope='project' 偏好，注入 suggestedAction 推断
 
         // ── 4. 推断 suggestedAction ───────────────────────────
         const suggestedAction = inferSuggestedAction({

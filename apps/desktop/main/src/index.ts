@@ -621,6 +621,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     eventBus,
+    projectSessionBinding,
   });
 
   registerRendererLogIpcHandlers({

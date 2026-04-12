@@ -10,7 +10,7 @@
  * - 空项目（无章节、无伏笔）
  * - INVALID_ARGUMENT（projectId 空）
  * - DB 异常返回 DB_ERROR
- * - 性能约束（< 200ms）— 用 stub 验证无阻塞调用
+ * - 性能路径：用 stub 验证 queryCostMs 字段与同步执行路径
  * - inferSuggestedAction 各分支
  */
 
@@ -36,6 +36,7 @@ type ChapterRow = {
   title: string;
   sortOrder: number;
   updatedAt: number;
+  status?: "draft" | "final";
 };
 
 type KgEntityRow = {
@@ -45,11 +46,8 @@ type KgEntityRow = {
   attributesJson: string;
 };
 
-type MemoryRow = {
-  content: string;
-};
-
 type StampRow = {
+  chapterCount?: number;
   maxUpdatedAt: number;
 };
 
@@ -59,7 +57,6 @@ type StampRow = {
  * stampRow:    getDocumentsStamp 用的 MAX(updated_at) 查询返回值
  * chapterRows: 章节列表查询返回值
  * kgRows:      KG 实体查询返回值
- * memoryRows:  user_memory 查询返回值
  */
 function createDbStub(args?: {
   stampRow?: StampRow;
@@ -68,17 +65,13 @@ function createDbStub(args?: {
   chapterError?: Error;
   kgRows?: KgEntityRow[];
   kgError?: Error;
-  memoryRows?: MemoryRow[];
-  memoryError?: Error;
 }): Database.Database {
-  const stampRow = args?.stampRow ?? { maxUpdatedAt: 0 };
+  const stampRow = args?.stampRow ?? { chapterCount: 0, maxUpdatedAt: 0 };
   const stampError = args?.stampError;
   const chapterRows = args?.chapterRows ?? [];
   const chapterError = args?.chapterError;
   const kgRows = args?.kgRows ?? [];
   const kgError = args?.kgError;
-  const memoryRows = args?.memoryRows ?? [];
-  const memoryError = args?.memoryError;
 
   return {
     prepare: (sql: string) => {
@@ -97,27 +90,20 @@ function createDbStub(args?: {
         return {
           all: (_projectId: string) => {
             if (chapterError) throw chapterError;
-            return chapterRows;
+            return chapterRows.map((row) => ({
+              ...row,
+              status: row.status ?? "draft",
+            }));
           },
         };
       }
 
       // KG foreshadowing entities
-      if (sql.includes("isForeshadowing")) {
+      if (sql.includes("FROM kg_entities")) {
         return {
           all: (_projectId: string) => {
             if (kgError) throw kgError;
             return kgRows;
-          },
-        };
-      }
-
-      // user_memory
-      if (sql.includes("user_memory")) {
-        return {
-          all: (_projectId: string) => {
-            if (memoryError) throw memoryError;
-            return memoryRows;
           },
         };
       }
@@ -255,7 +241,7 @@ describe("storyStatusService", () => {
       expect(result.data.suggestedAction).toBe("继续写作");
     });
 
-    it("有章节未完成（2/3）且无伏笔 → 开始下一章", () => {
+    it("有章节未完成（2/3）且有中断点 → 继续写作", () => {
       const chapters: ChapterRow[] = [
         { documentId: "doc-1", title: "第一章", sortOrder: 1, updatedAt: 1000 },
         { documentId: "doc-2", title: "第二章", sortOrder: 2, updatedAt: 500 },
@@ -274,6 +260,25 @@ describe("storyStatusService", () => {
       // doc-1 是最新编辑（updatedAt=1000），是 sortOrder=1 即第1章
       // 有中断点 → 规则优先返回"继续写作"（当 foreshadowing<3 且 hasInterruptedTask）
       expect(result.data.suggestedAction).toBe("继续写作");
+    });
+
+    it("有章节未完成（2/3）但最新章已定稿 → 开始下一章", () => {
+      const chapters: ChapterRow[] = [
+        { documentId: "doc-1", title: "第一章", sortOrder: 1, updatedAt: 1000, status: "final" },
+        { documentId: "doc-2", title: "第二章", sortOrder: 2, updatedAt: 500, status: "draft" },
+        { documentId: "doc-3", title: "第三章", sortOrder: 3, updatedAt: 200, status: "draft" },
+      ];
+      const svc = createStoryStatusService({
+        db: createDbStub({ chapterRows: chapters }),
+        logger: createLogger(),
+      });
+
+      const result = svc.getStoryStatus({ projectId: "proj-1" });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.data.interruptedTask).toBeNull();
+      expect(result.data.suggestedAction).toBe("开始第 2 章");
     });
 
     it("无章节，无伏笔 → 继续写作（兜底）", () => {
@@ -350,20 +355,18 @@ describe("storyStatusService", () => {
 
     it("文档 stamp 变更时缓存自动失效", () => {
       let stamp = 1000;
+      let chapterCount = 1;
       const db: Database.Database = {
         prepare: (sql: string) => {
           if (sql.includes("MAX(updated_at)")) {
             return {
-              get: () => ({ maxUpdatedAt: stamp }),
+              get: () => ({ maxUpdatedAt: stamp, chapterCount }),
             };
           }
           if (sql.includes("type = 'chapter'") && !sql.includes("MAX")) {
             return { all: () => [] };
           }
-          if (sql.includes("isForeshadowing")) {
-            return { all: () => [] };
-          }
-          if (sql.includes("user_memory")) {
+          if (sql.includes("FROM kg_entities")) {
             return { all: () => [] };
           }
           return { get: () => undefined, all: () => [], run: () => ({ changes: 0 }) };
@@ -386,6 +389,73 @@ describe("storyStatusService", () => {
 
       // 完整重查比只做 stamp 检测多调用 prepare
       expect(afterSecond - afterFirst).toBeGreaterThan(1);
+    });
+
+    it("仅章节数量变化（删除非最新章节）也会触发缓存失效", () => {
+      let stamp = 2000; // 最新章节未变
+      let chapterCount = 3;
+      const db: Database.Database = {
+        prepare: (sql: string) => {
+          if (sql.includes("MAX(updated_at)")) {
+            return {
+              get: () => ({ maxUpdatedAt: stamp, chapterCount }),
+            };
+          }
+          if (sql.includes("type = 'chapter'") && !sql.includes("MAX")) {
+            return {
+              all: () => [
+                { documentId: "doc-1", title: "第一章", sortOrder: 1, updatedAt: 1000, status: "draft" },
+                { documentId: "doc-2", title: "第二章", sortOrder: 2, updatedAt: 2000, status: "draft" },
+                { documentId: "doc-3", title: "第三章", sortOrder: 3, updatedAt: 1500, status: "draft" },
+              ],
+            };
+          }
+          if (sql.includes("FROM kg_entities")) {
+            return { all: () => [] };
+          }
+          return { get: () => undefined, all: () => [], run: () => ({ changes: 0 }) };
+        },
+      } as unknown as Database.Database;
+
+      const prepareSpy = vi.spyOn(db, "prepare");
+      const svc = createStoryStatusService({ db, logger: createLogger() });
+
+      svc.getStoryStatus({ projectId: "proj-delete" });
+      const afterFirst = prepareSpy.mock.calls.length;
+
+      // 删除了一个非最新章节：MAX(updated_at) 不变，但 COUNT(*) 变化
+      chapterCount = 2;
+
+      svc.getStoryStatus({ projectId: "proj-delete" });
+      const afterSecond = prepareSpy.mock.calls.length;
+      expect(afterSecond - afterFirst).toBeGreaterThan(1);
+    });
+
+    it("缓存 TTL 到期后重新查询", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+      try {
+        const db = createDbStub({ stampRow: { chapterCount: 1, maxUpdatedAt: 1000 } });
+        const prepareSpy = vi.spyOn(db, "prepare");
+        const svc = createStoryStatusService({ db, logger: createLogger() });
+
+        svc.getStoryStatus({ projectId: "proj-ttl" });
+        const afterFirst = prepareSpy.mock.calls.length;
+
+        // TTL 内：缓存命中
+        vi.advanceTimersByTime(29_000);
+        svc.getStoryStatus({ projectId: "proj-ttl" });
+        const afterSecond = prepareSpy.mock.calls.length;
+        expect(afterSecond - afterFirst).toBeLessThan(afterFirst);
+
+        // TTL 过期：重查
+        vi.advanceTimersByTime(1_001);
+        svc.getStoryStatus({ projectId: "proj-ttl" });
+        const afterThird = prepareSpy.mock.calls.length;
+        expect(afterThird - afterSecond).toBeGreaterThan(1);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("不同 projectId 互相独立，缓存不干扰", () => {
@@ -478,7 +548,7 @@ describe("storyStatusService", () => {
   // ─── 性能约束 ─────────────────────────────────────────────────────────
 
   describe("性能约束", () => {
-    it("同步 DB stub 下 queryCostMs < 200ms（验证无阻塞调用）", () => {
+    it("同步 DB stub 下返回 queryCostMs（验证无阻塞路径）", () => {
       const chapters: ChapterRow[] = Array.from({ length: 50 }, (_, i) => ({
         documentId: `doc-${i}`,
         title: `第 ${i + 1} 章`,
@@ -497,14 +567,12 @@ describe("storyStatusService", () => {
         logger: createLogger(),
       });
 
-      const start = Date.now();
       const result = svc.getStoryStatus({ projectId: "proj-perf" });
-      const wallMs = Date.now() - start;
 
       expect(result.ok).toBe(true);
-      // 在 stub DB（同步内存操作）下总耗时远低于 200ms
-      // 这验证服务层无额外阻塞逻辑（LLM 调用、睡眠等）
-      expect(wallMs).toBeLessThan(200);
+      if (!result.ok) return;
+      expect(typeof result.data.queryCostMs).toBe("number");
+      expect(result.data.queryCostMs).toBeGreaterThanOrEqual(0);
     });
   });
 

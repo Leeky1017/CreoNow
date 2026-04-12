@@ -20,15 +20,22 @@ import {
   createStoryStatusService,
   type StoryStatusSummary,
 } from "../services/engagement/storyStatusService";
-import { isRecord, notReady } from "./helpers";
+import { createProjectAccessHandler, isRecord, notReady } from "./helpers";
 import type { EventBusLike } from "./helpers";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 export function registerEngagementIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
   eventBus?: EventBusLike;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
+  const handleWithProjectAccess = createProjectAccessHandler({
+    ipcMain: deps.ipcMain,
+    projectSessionBinding: deps.projectSessionBinding,
+  });
+
   // 惰性创建 service（db 可能在 app ready 后才就绪）
   let svc: ReturnType<typeof createStoryStatusService> | null = null;
 
@@ -52,12 +59,22 @@ export function registerEngagementIpcHandlers(deps: {
             }
           },
         );
+        deps.eventBus.on(
+          "document:deleted",
+          (payload: Record<string, unknown>) => {
+            const projectId =
+              typeof payload.projectId === "string" ? payload.projectId : null;
+            if (projectId && svc) {
+              svc.invalidateCache(projectId);
+            }
+          },
+        );
       }
     }
     return svc;
   }
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "engagement:storystatus:get",
     async (
       _e,
