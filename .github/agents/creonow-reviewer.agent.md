@@ -37,17 +37,17 @@ target: "vscode"
 ```markdown
 ## 🔍 1+1+1+Duck Audit Consolidation — PR #<number>
 
-**审计 HEAD**：<commit-sha>
-
-### Audit Report 1 — Claude Opus 4.6 (high) — 同模型审计
+### 审计 1（Claude Opus 4.6 high）
 <原文粘贴>
 
-### Audit Report 2 — Claude Sonnet 4.6 (high)
+### 审计 2（Claude Sonnet 4.6 high）
 <原文粘贴>
 
-### Audit Report 3 — GPT-5.4 (xhigh) — Rubber Duck
+### 审计 3（GPT-5.4 xhigh）
 <原文粘贴>
 
+## 审计元信息
+**审计 HEAD**：`<commit-sha>`
 **FINAL-VERDICT**: ACCEPT / REJECT
 ```
 

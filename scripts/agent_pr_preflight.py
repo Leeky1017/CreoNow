@@ -36,6 +36,9 @@ NA_VALUE_PATTERN = re.compile(r"(?i)^(?:-\s*\[[xX]\]\s*)?N/A(?:（[^）]+）|\([
 EMPTY_BULLET_PATTERN = re.compile(r"^-\s*$")
 EMPTY_CHECKBOX_PATTERN = re.compile(r"^-\s*\[[ xX]\]\s*$")
 EMPTY_LABEL_PATTERN = re.compile(r"^-\s*[^:：]+[:：]\s*$")
+# 1+1+1+Duck concrete configuration.
+# Seat 1 role is "same model as main session" (AGENTS.md §九);
+# current main session model is Claude Opus 4.6.
 AUDIT_GATE_MODEL_LINES = (
     "- 工程：Claude Opus 4.6 (high)",
     "- 审计 1（同模型）：Claude Opus 4.6 (high)",

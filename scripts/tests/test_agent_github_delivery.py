@@ -498,5 +498,62 @@ FINAL-VERDICT: ACCEPT
         self.assertIn("https://github.com/Leeky1017/CreoNow/pull/1006", body)
 
 
+class ReviewerTemplateGateDriftTests(unittest.TestCase):
+    """Cross-validation: a comment built from the reviewer template must pass the gate parser."""
+
+    @staticmethod
+    def _build_reviewer_template_comment(
+        *,
+        head_sha: str = "abc1234",
+        reviewer_verdict: str = "ACCEPT",
+    ) -> str:
+        """Build a consolidated audit comment that follows the reviewer agent template."""
+        seat_body = "zero findings\nFINAL-VERDICT: ACCEPT"
+        lines = [
+            "## 🔍 1+1+1+Duck Audit Consolidation — PR #999",
+            "",
+        ]
+        for header in agent_github_delivery.CONSOLIDATED_AUDIT_SECTION_HEADERS:
+            lines.extend([header, seat_body, ""])
+        lines.append(agent_github_delivery.CONSOLIDATED_AUDIT_METADATA_HEADER)
+        lines.append(f"**审计 HEAD**：`{head_sha}`")
+        lines.append(f"**FINAL-VERDICT**: {reviewer_verdict}")
+        return "\n".join(lines)
+
+    def test_reviewer_template_comment_should_pass_consolidated_gate(self) -> None:
+        body = self._build_reviewer_template_comment()
+        self.assertTrue(
+            agent_github_delivery._is_consolidated_reviewer_audit_comment(body),
+            "Comment built from reviewer template headers must pass _is_consolidated_reviewer_audit_comment()",
+        )
+
+    def test_reviewer_template_comment_should_pass_evaluate_audit_pass(self) -> None:
+        body = self._build_reviewer_template_comment(head_sha="abc1234")
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [{"body": body, "author": "reviewer-agent"}],
+            trusted_reviewers=["reviewer-agent"],
+            expected_head_sha="abc1234567890",
+        )
+        self.assertTrue(evaluation.audit_pass)
+        self.assertEqual(1, evaluation.matching_comments)
+        self.assertEqual(1, evaluation.matching_trusted_authors)
+        self.assertEqual(1, evaluation.matching_head_comments)
+
+    def test_reviewer_template_section_headers_match_gate_constants(self) -> None:
+        """Ensure the headers defined in the reviewer template exactly match the gate constants."""
+        for header in agent_github_delivery.CONSOLIDATED_AUDIT_SECTION_HEADERS:
+            body = self._build_reviewer_template_comment()
+            self.assertIn(
+                header,
+                body,
+                f"Reviewer template must contain gate header: {header}",
+            )
+        self.assertIn(
+            agent_github_delivery.CONSOLIDATED_AUDIT_METADATA_HEADER,
+            self._build_reviewer_template_comment(),
+            "Reviewer template must contain the metadata trailer header",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
