@@ -76,6 +76,7 @@ import { createVersionWorkflowService } from "../services/documents/versionServi
 import { editorSchema } from "../services/editor/prosemirrorSchema";
 import type { CostTracker } from "../services/ai/costTracker";
 import {
+  type NarrativeKnowledgeSnapshot,
   createAutoCompact,
   createCompactConfig,
   createNarrativeCompact,
@@ -261,20 +262,9 @@ type ChatClearResponse = {
   removed: number;
 };
 
-type AutoCompactSnapshot = {
-  entities: string[];
-  relations: string[];
-  characterSettings: string[];
-  unresolvedPlotPoints: string[];
-  toneMarkers?: string[];
-  narrativePOV?: string;
-  foreshadowingClues?: string[];
-  timelineMarkers?: string[];
-  userConstraints?: string[];
-};
-
 const SESSION_HISTORY_MESSAGE_LIMIT = 200;
 const KG_SNAPSHOT_LIST_LIMIT = 500;
+const CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL = "context:compact:circuit-breaker";
 
 function resolvePrepareWritingTokenBudget(): number {
   return parseChatHistoryTokenBudget(process.env);
@@ -492,8 +482,8 @@ export function getAutoCompactSnapshot(args: {
   request: {
     projectId?: string;
   };
-}): AutoCompactSnapshot {
-  const emptySnapshot: AutoCompactSnapshot = {
+}): NarrativeKnowledgeSnapshot {
+  const emptySnapshot: NarrativeKnowledgeSnapshot = {
     entities: [],
     relations: [],
     characterSettings: [],
@@ -591,11 +581,13 @@ export function getAutoCompactSnapshot(args: {
       return [...attrTimeline, ...stateTimeline];
     }),
   );
+  const unresolvedPlotPointSet = new Set(dedupe(unresolvedPlotPoints));
   const foreshadowingClues = dedupe(
-    [
-      ...unresolvedPlotPoints,
-      ...relations.filter((relation) => /(伏笔|线索|悬念|未揭示|未解)/.test(relation)),
-    ],
+    relations.filter(
+      (relation) =>
+        !unresolvedPlotPointSet.has(relation) &&
+        /(伏笔|线索|悬念|未揭示|未解)/.test(relation),
+    ),
   );
 
   return {
@@ -1178,6 +1170,14 @@ type AiIpcDeps = {
   secretStorage?: SecretStorageAdapter;
   projectSessionBinding?: ProjectSessionBindingRegistry;
   costTracker?: CostTracker;
+  onAutoCompactCircuitBreakerStateChange?: (payload: {
+    channel: typeof CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL;
+    open: boolean;
+    consecutiveFailures: number;
+    openedAt: number | null;
+    cooldownMs: number;
+    reason: "threshold-reached" | "half-open-probe-failed" | "half-open-probe-succeeded" | "manual-reset";
+  }) => void;
 };
 
 type AiIpcContext = {
@@ -1731,12 +1731,15 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
 
         const narrativeCompact = createNarrativeCompact({
           invokeSkillSummary: async (request) => {
-            const { skillId, modelId, input } = request;
-            // summaryMaxTokens is enforced in narrativeCompact prompt instructions
-            // because runSkill does not expose an output maxTokens parameter.
+            const { skillId, modelId, input, summaryMaxTokens } = request;
+            const summaryBoundedInput = input.includes("tokens")
+              ? input
+              : `${input}\n\n请将摘要控制在约 ${summaryMaxTokens} tokens 以内。`;
+            // TODO(@leeky 2025-07): Forward summaryMaxTokens via a dedicated
+            // maxOutputTokens field once aiService.runSkill exposes that option.
             const result = await aiService.runSkill({
               skillId,
-              input,
+              input: summaryBoundedInput,
               mode: "ask",
               model: modelId,
               stream: false,
@@ -1776,6 +1779,17 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             return latestConfig;
           },
           narrativeCompact,
+          onCircuitBreakerStateChange: (state) => {
+            // Renderer status-bar handler is tracked as a follow-up task.
+            deps.onAutoCompactCircuitBreakerStateChange?.({
+              channel: CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL,
+              open: state.open,
+              consecutiveFailures: state.consecutiveFailures,
+              openedAt: state.openedAt,
+              cooldownMs: state.cooldownMs,
+              reason: state.reason,
+            });
+          },
           logger: {
             warn: (event, data) => deps.logger.info(event, data),
           },

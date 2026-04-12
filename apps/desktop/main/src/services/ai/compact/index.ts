@@ -22,6 +22,7 @@ export {
 export {
   createNarrativeCompact,
   type CompactMessage,
+  type CompactMessageRole,
   type NarrativeKnowledgeSnapshot,
   type NarrativeCompactDeps,
   type NarrativeCompactRequest,

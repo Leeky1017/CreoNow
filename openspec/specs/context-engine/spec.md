@@ -734,6 +734,8 @@ interface CompressionEngine {
    * 2. micro-compression: 对单条长消息做段内缩减（去冗余、精简表达）
    * 3. narrative-summarization: 使用 LLM 生成叙事感知摘要（最高质量但最慢）
    *
+   * > **实现阶段说明**：当前版本仅实现第三层（叙事压缩）。前两层（历史精简、微压缩）列入 P4-04 AutoCompact v2 路线图。
+   *
    * @param request 压缩请求
    * @returns 压缩结果
    * @throws CompressionError(COMPRESSION_CIRCUIT_OPEN) 熔断器打开时

@@ -8,6 +8,8 @@
 
 import type { ResolvedModelConfig } from "../modelConfig";
 
+export const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
+
 // Safe fallback matching the most common modern context window (GPT-4o class, 128K);
 // used when neither primary nor auxiliary model appears in MODEL_CONTEXT_WINDOWS.
 const FALLBACK_CONTEXT_BUDGET = 128_000;

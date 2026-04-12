@@ -30,6 +30,11 @@ import type { StreamChunk, ToolCallInfo } from "../ai/streaming";
 import type { CostTracker } from "../ai/costTracker";
 import type { ToolUseHandler } from "./toolUseHandler";
 import type {
+  CompactMessage,
+  CompactMessageRole,
+  NarrativeKnowledgeSnapshot,
+} from "../ai/compact";
+import type {
   DiffPreview,
   PermissionGate,
   PermissionLevel,
@@ -133,27 +138,6 @@ interface PreparedRequest {
 
 type OrchestratorTokenUsage = AiTokenUsage;
 
-type AutoCompactMessageRole = "system" | "user" | "assistant" | "tool";
-
-type AutoCompactMessage = {
-  id: string;
-  role: AutoCompactMessageRole;
-  content: string;
-  compactable?: boolean;
-};
-
-type AutoCompactSnapshot = {
-  entities: string[];
-  relations: string[];
-  characterSettings: string[];
-  unresolvedPlotPoints: string[];
-  toneMarkers?: string[];
-  narrativePOV?: string;
-  foreshadowingClues?: string[];
-  timelineMarkers?: string[];
-  userConstraints?: string[];
-};
-
 type GeneratedTextResult = {
   fullText: string;
   usage: OrchestratorTokenUsage;
@@ -216,16 +200,16 @@ export interface OrchestratorConfig {
   }>;
   autoCompact?: {
     maybeCompact: (args: {
-      messages: AutoCompactMessage[];
+      messages: CompactMessage[];
       auxiliaryModel?: string;
       requestModelId?: string;
-      kgSnapshot: AutoCompactSnapshot;
+      kgSnapshot: NarrativeKnowledgeSnapshot;
       requestId?: string;
-    }) => Promise<{ messages: AutoCompactMessage[]; totalTokensAfter: number }>;
+    }) => Promise<{ messages: CompactMessage[]; totalTokensAfter: number }>;
   };
   getAutoCompactSnapshot?: (args: {
     request: Pick<WritingRequest, "projectId" | "documentId" | "requestId">;
-  }) => Promise<AutoCompactSnapshot>;
+  }) => Promise<NarrativeKnowledgeSnapshot>;
   logger?: {
     warn: (event: string, data?: Record<string, unknown>) => void;
   };
@@ -305,7 +289,7 @@ export function createWritingOrchestrator(
     return { original, modified: fullText, changeType: "replace" };
   }
 
-  function normalizeAutoCompactRole(role: string): AutoCompactMessageRole {
+  function normalizeAutoCompactRole(role: string): CompactMessageRole {
     if (role === "system" || role === "assistant" || role === "tool") {
       return role;
     }
@@ -314,7 +298,7 @@ export function createWritingOrchestrator(
 
   function convertMessagesForAutoCompact(
     messages: Array<{ role: string; content: string }>,
-  ): AutoCompactMessage[] {
+  ): CompactMessage[] {
     const hasWritingDirective = (content: string): boolean =>
       /(第一人称|第三人称|语气|文风|风格|口吻|时态|不要|必须|请务必|写作约束|叙述视角|POV|pov)/i.test(
         content,
@@ -344,7 +328,7 @@ export function createWritingOrchestrator(
   }
 
   function convertMessagesFromAutoCompact(
-    messages: AutoCompactMessage[],
+    messages: CompactMessage[],
   ): Array<{ role: string; content: string }> {
     return messages.map((message) => ({
       role: message.role,
@@ -418,7 +402,7 @@ export function createWritingOrchestrator(
         const preparedWithCompaction = autoCompact
             ? await (async (): Promise<PreparedRequest> => {
               try {
-                let kgSnapshot: AutoCompactSnapshot = {
+                let kgSnapshot: NarrativeKnowledgeSnapshot = {
                   entities: [],
                   relations: [],
                   characterSettings: [],

@@ -455,6 +455,23 @@ function registerIpcHandlers(deps: {
     secretStorage,
     projectSessionBinding,
     costTracker,
+    onAutoCompactCircuitBreakerStateChange: (payload) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          win.webContents.send(payload.channel, {
+            open: payload.open,
+            consecutiveFailures: payload.consecutiveFailures,
+            openedAt: payload.openedAt,
+            cooldownMs: payload.cooldownMs,
+            reason: payload.reason,
+          });
+        } catch (error) {
+          deps.logger.error("context_compact_circuit_breaker_notify_failed", {
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    },
   });
 
   registerAiProxyIpcHandlers({

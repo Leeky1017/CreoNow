@@ -4,7 +4,10 @@ import {
   createAutoCompact,
   estimateConversationTokens,
 } from "../autoCompact";
-import { createCompactConfig } from "../compactConfig";
+import {
+  CIRCUIT_BREAKER_COOLDOWN_MS,
+  createCompactConfig,
+} from "../compactConfig";
 import {
   createNarrativeCompact,
   type CompactMessage,
@@ -421,6 +424,235 @@ describe("AutoCompact / NarrativeCompact", () => {
       "auto_compact_failed",
       expect.objectContaining({
         reason: "narrative_compact_error",
+      }),
+    );
+  });
+
+  it("allows one half-open probe after cooldown and closes breaker on probe success", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-01-01T00:00:00.000Z"));
+    try {
+      const messages = makeMessages();
+      const compactedMessages: CompactMessage[] = [
+        { id: "sys", role: "system", content: "系统提示", compactable: false },
+        { id: "summary", role: "assistant", content: "压缩摘要", compactable: false },
+      ];
+      const narrativeCompact = {
+        compact: vi
+          .fn()
+          .mockRejectedValueOnce(new Error("llm unavailable-1"))
+          .mockRejectedValueOnce(new Error("llm unavailable-2"))
+          .mockRejectedValueOnce(new Error("llm unavailable-3"))
+          .mockResolvedValueOnce({ compactedMessages }),
+      };
+      const onCircuitBreakerStateChange = vi.fn();
+      const autoCompact = createAutoCompact({
+        config: {
+          minTokenThreshold: 10,
+          triggerThresholdPercent: 0.2,
+          preserveRecentRounds: 1,
+          maxConsecutiveFailures: 3,
+          contextBudget: 200,
+          summaryMaxTokens: 120,
+        },
+        narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
+        onCircuitBreakerStateChange,
+      });
+
+      await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+      await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+      await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+      const blocked = await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+      expect(blocked.reason).toBe("circuit-open");
+
+      vi.advanceTimersByTime(CIRCUIT_BREAKER_COOLDOWN_MS + 1);
+      const probe = await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+
+      expect(probe.reason).toBe("compacted");
+      expect(autoCompact.getConsecutiveFailures()).toBe(0);
+      expect(narrativeCompact.compact).toHaveBeenCalledTimes(4);
+      expect(onCircuitBreakerStateChange).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          open: true,
+          reason: "threshold-reached",
+        }),
+      );
+      expect(onCircuitBreakerStateChange).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          open: false,
+          reason: "half-open-probe-succeeded",
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("re-opens breaker when the half-open probe fails", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-01-01T00:00:00.000Z"));
+    try {
+      const messages = makeMessages();
+      const narrativeCompact = {
+        compact: vi.fn().mockRejectedValue(new Error("llm unavailable")),
+      };
+      const onCircuitBreakerStateChange = vi.fn();
+      const autoCompact = createAutoCompact({
+        config: {
+          minTokenThreshold: 10,
+          triggerThresholdPercent: 0.2,
+          preserveRecentRounds: 1,
+          maxConsecutiveFailures: 3,
+          contextBudget: 200,
+          summaryMaxTokens: 120,
+        },
+        narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
+        onCircuitBreakerStateChange,
+      });
+
+      await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+      await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+      await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+      vi.advanceTimersByTime(CIRCUIT_BREAKER_COOLDOWN_MS + 1);
+
+      const probeFailure = await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+      expect(probeFailure.reason).toBe("compact-failed");
+
+      const afterProbeFailure = await autoCompact.maybeCompact({
+        messages,
+        auxiliaryModel: "gpt-4o-mini",
+        kgSnapshot: makeKg(),
+      });
+      expect(afterProbeFailure.reason).toBe("circuit-open");
+      expect(onCircuitBreakerStateChange).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          open: true,
+          reason: "threshold-reached",
+        }),
+      );
+      expect(onCircuitBreakerStateChange).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          open: true,
+          reason: "half-open-probe-failed",
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("resetCircuitBreaker closes breaker and allows subsequent compaction attempts", async () => {
+    const messages = makeMessages();
+    const compactedMessages: CompactMessage[] = [
+      { id: "sys", role: "system", content: "系统提示", compactable: false },
+      { id: "summary", role: "assistant", content: "压缩摘要", compactable: false },
+    ];
+    const narrativeCompact = {
+      compact: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("llm unavailable-1"))
+        .mockRejectedValueOnce(new Error("llm unavailable-2"))
+        .mockRejectedValueOnce(new Error("llm unavailable-3"))
+        .mockResolvedValueOnce({ compactedMessages }),
+    };
+    const onCircuitBreakerStateChange = vi.fn();
+    const autoCompact = createAutoCompact({
+      config: {
+        minTokenThreshold: 10,
+        triggerThresholdPercent: 0.2,
+        preserveRecentRounds: 1,
+        maxConsecutiveFailures: 3,
+        contextBudget: 200,
+        summaryMaxTokens: 120,
+      },
+      narrativeCompact: narrativeCompact as ReturnType<typeof createNarrativeCompact>,
+      onCircuitBreakerStateChange,
+    });
+
+    await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+    await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+    await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+    const blocked = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+    expect(blocked.reason).toBe("circuit-open");
+
+    autoCompact.resetCircuitBreaker();
+    expect(autoCompact.getConsecutiveFailures()).toBe(0);
+
+    const afterReset = await autoCompact.maybeCompact({
+      messages,
+      auxiliaryModel: "gpt-4o-mini",
+      kgSnapshot: makeKg(),
+    });
+    expect(afterReset.reason).toBe("compacted");
+    expect(narrativeCompact.compact).toHaveBeenCalledTimes(4);
+    expect(onCircuitBreakerStateChange).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        open: true,
+        reason: "threshold-reached",
+      }),
+    );
+    expect(onCircuitBreakerStateChange).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        open: false,
+        reason: "manual-reset",
       }),
     );
   });

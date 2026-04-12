@@ -11,7 +11,10 @@ import { randomUUID } from "node:crypto";
 import { estimateTokens } from "@shared/tokenBudget";
 
 import type { CompactConfig } from "./compactConfig";
-import { resolveKnownContextWindow } from "./compactConfig";
+import {
+  CIRCUIT_BREAKER_COOLDOWN_MS,
+  resolveKnownContextWindow,
+} from "./compactConfig";
 import type {
   CompactMessage,
   NarrativeKnowledgeSnapshot,
@@ -47,6 +50,7 @@ export interface AutoCompactService {
     requestId?: string;
   }) => Promise<AutoCompactResult>;
   getConsecutiveFailures: () => number;
+  resetCircuitBreaker: () => void;
 }
 
 export function estimateConversationTokens(
@@ -62,11 +66,21 @@ export function createAutoCompact(args: {
   config?: CompactConfig;
   getConfig?: () => CompactConfig;
   narrativeCompact: NarrativeCompactService;
+  now?: () => number;
+  onCircuitBreakerStateChange?: (payload: {
+    open: boolean;
+    consecutiveFailures: number;
+    openedAt: number | null;
+    cooldownMs: number;
+    reason: "threshold-reached" | "half-open-probe-failed" | "half-open-probe-succeeded" | "manual-reset";
+  }) => void;
   logger?: {
     warn: (event: string, data?: Record<string, unknown>) => void;
   };
 }): AutoCompactService {
   let consecutiveFailures = 0;
+  let lastOpenedAt: number | null = null;
+  const now = args.now ?? Date.now;
   const resolveConfig = (): CompactConfig => {
     if (args.getConfig) {
       return args.getConfig();
@@ -75,6 +89,45 @@ export function createAutoCompact(args: {
       return args.config;
     }
     throw new Error("AutoCompact requires config or getConfig");
+  };
+
+  const emitCircuitBreakerStateChange = (payload: {
+    open: boolean;
+    reason: "threshold-reached" | "half-open-probe-failed" | "half-open-probe-succeeded" | "manual-reset";
+  }): void => {
+    args.onCircuitBreakerStateChange?.({
+      open: payload.open,
+      consecutiveFailures,
+      openedAt: lastOpenedAt,
+      cooldownMs: CIRCUIT_BREAKER_COOLDOWN_MS,
+      reason: payload.reason,
+    });
+  };
+
+  const openCircuitBreaker = (reason: "threshold-reached" | "half-open-probe-failed"): void => {
+    const openedAt = now();
+    const alreadyOpen = lastOpenedAt !== null;
+    lastOpenedAt = openedAt;
+    if (!alreadyOpen || reason === "half-open-probe-failed") {
+      emitCircuitBreakerStateChange({
+        open: true,
+        reason,
+      });
+    }
+  };
+
+  const closeCircuitBreaker = (
+    reason: "half-open-probe-succeeded" | "manual-reset",
+  ): void => {
+    const wasOpen = lastOpenedAt !== null;
+    consecutiveFailures = 0;
+    lastOpenedAt = null;
+    if (wasOpen) {
+      emitCircuitBreakerStateChange({
+        open: false,
+        reason,
+      });
+    }
   };
 
   function isSameMessages(
@@ -141,7 +194,16 @@ export function createAutoCompact(args: {
       };
     }
 
-    if (consecutiveFailures >= config.maxConsecutiveFailures) {
+    const breakerOpen = consecutiveFailures >= config.maxConsecutiveFailures;
+    if (breakerOpen && lastOpenedAt === null) {
+      openCircuitBreaker("threshold-reached");
+    }
+    const cooldownElapsed =
+      breakerOpen &&
+      lastOpenedAt !== null &&
+      now() - lastOpenedAt >= CIRCUIT_BREAKER_COOLDOWN_MS;
+    const halfOpenProbe = breakerOpen && cooldownElapsed;
+    if (breakerOpen && !halfOpenProbe) {
       return {
         messages: input.messages,
         compacted: false,
@@ -166,7 +228,11 @@ export function createAutoCompact(args: {
       });
       const totalTokensAfter = estimateConversationTokens(compacted.compactedMessages);
       if (isSameMessages(compacted.compactedMessages, input.messages)) {
-        consecutiveFailures = 0;
+        if (halfOpenProbe) {
+          closeCircuitBreaker("half-open-probe-succeeded");
+        } else {
+          consecutiveFailures = 0;
+        }
         return {
           messages: input.messages,
           compacted: false,
@@ -177,7 +243,11 @@ export function createAutoCompact(args: {
         };
       }
       if (totalTokensAfter >= totalTokensBefore) {
-        consecutiveFailures = 0;
+        if (halfOpenProbe) {
+          closeCircuitBreaker("half-open-probe-succeeded");
+        } else {
+          consecutiveFailures = 0;
+        }
         return {
           messages: input.messages,
           compacted: false,
@@ -190,6 +260,11 @@ export function createAutoCompact(args: {
       if (totalTokensAfter > thresholdTokens) {
         // Spec circuit-breaker rule: compaction that still exceeds target budget counts as one failure.
         consecutiveFailures += 1;
+        if (halfOpenProbe) {
+          openCircuitBreaker("half-open-probe-failed");
+        } else if (consecutiveFailures >= config.maxConsecutiveFailures) {
+          openCircuitBreaker("threshold-reached");
+        }
         args.logger?.warn("auto_compact_insufficient", {
           totalTokensBefore,
           totalTokensAfter,
@@ -207,7 +282,11 @@ export function createAutoCompact(args: {
           reason: "compacted-insufficient",
         };
       }
-      consecutiveFailures = 0;
+      if (halfOpenProbe) {
+        closeCircuitBreaker("half-open-probe-succeeded");
+      } else {
+        consecutiveFailures = 0;
+      }
       return {
         messages: compacted.compactedMessages,
         compacted: true,
@@ -218,6 +297,11 @@ export function createAutoCompact(args: {
       };
     } catch (error) {
       consecutiveFailures += 1;
+      if (halfOpenProbe) {
+        openCircuitBreaker("half-open-probe-failed");
+      } else if (consecutiveFailures >= config.maxConsecutiveFailures) {
+        openCircuitBreaker("threshold-reached");
+      }
       args.logger?.warn("auto_compact_failed", {
         reason: "narrative_compact_error",
         consecutiveFailures,
@@ -236,8 +320,13 @@ export function createAutoCompact(args: {
     }
   }
 
+  function resetCircuitBreaker(): void {
+    closeCircuitBreaker("manual-reset");
+  }
+
   return {
     maybeCompact,
     getConsecutiveFailures: () => consecutiveFailures,
+    resetCircuitBreaker,
   };
 }

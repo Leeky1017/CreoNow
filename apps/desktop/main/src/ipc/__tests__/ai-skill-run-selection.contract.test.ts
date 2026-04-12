@@ -461,10 +461,7 @@ describe("ai:skill:run selection contract", () => {
       unresolvedPlotPoints: ["林远: 三天后揭示真相"],
       toneMarkers: ["冷峻"],
       narrativePOV: "第一人称",
-      foreshadowingClues: [
-        "林远: 三天后揭示真相",
-        "林远 -> 白塔: 守护 (白塔钟声来源未揭示)",
-      ],
+      foreshadowingClues: ["林远 -> 白塔: 守护 (白塔钟声来源未揭示)"],
       timelineMarkers: ["入夜", "三天后揭示真相"],
       userConstraints: [],
     });
