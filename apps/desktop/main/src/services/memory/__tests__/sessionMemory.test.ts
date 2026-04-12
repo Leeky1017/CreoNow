@@ -8,7 +8,7 @@
  *  - Time-decay relevance scoring
  *  - injectForContext: 15% budget cap enforcement (INV-3 CJK-aware)
  *  - Expired entry filtering (in-band + purgeExpired)
- *  - Error paths (NOT_FOUND, INVALID_PARAMS, DB_ERROR)
+ *  - Error paths (NOT_FOUND, INVALID_ARGUMENT, DB_ERROR)
  *  - decayScore formula contract (unit-testable export)
  */
 
@@ -129,7 +129,7 @@ describe("SessionMemoryService.create", () => {
     expect(r.data.expiresAt).toBe(expires);
   });
 
-  it("returns INVALID_PARAMS when sessionId is empty", () => {
+  it("returns INVALID_ARGUMENT when sessionId is empty", () => {
     const { service } = createService();
     const r = service.create({ sessionId: "", projectId: "p", category: "note", content: "x" });
     expect(r.ok).toBe(false);
@@ -137,7 +137,7 @@ describe("SessionMemoryService.create", () => {
     expect(r.error.code).toBe("INVALID_ARGUMENT");
   });
 
-  it("returns INVALID_PARAMS when content is empty", () => {
+  it("returns INVALID_ARGUMENT when content is empty", () => {
     const { service } = createService();
     const r = service.create({ sessionId: "s", projectId: "p", category: "style", content: "  " });
     expect(r.ok).toBe(false);
@@ -328,7 +328,7 @@ describe("SessionMemoryService.list", () => {
     expect(b.data[0]?.projectId).toBe("proj-B");
   });
 
-  it("returns INVALID_PARAMS when neither sessionId nor projectId given", () => {
+  it("returns INVALID_ARGUMENT when neither sessionId nor projectId given", () => {
     const { service } = createService();
     const r = service.list({});
     expect(r.ok).toBe(false);
@@ -612,7 +612,7 @@ describe("SessionMemoryService.injectForContext", () => {
     expect(r.data.truncated).toBe(false);
   });
 
-  it("returns INVALID_PARAMS when sessionId is missing", () => {
+  it("returns INVALID_ARGUMENT when sessionId is missing", () => {
     const { service } = createService();
     const r = service.injectForContext({
       sessionId: "",
@@ -624,7 +624,7 @@ describe("SessionMemoryService.injectForContext", () => {
     expect(r.error.code).toBe("INVALID_ARGUMENT");
   });
 
-  it("returns INVALID_PARAMS for invalid totalContextBudgetTokens", () => {
+  it("returns INVALID_ARGUMENT for invalid totalContextBudgetTokens", () => {
     const { service } = createService();
     const r = service.injectForContext({
       sessionId: "s",
@@ -693,7 +693,7 @@ describe("SessionMemoryService.purgeExpired", () => {
     expect(contents).toEqual(["active", "no-expiry"]);
   });
 
-  it("returns INVALID_PARAMS when projectId is empty", () => {
+  it("returns INVALID_ARGUMENT when projectId is empty", () => {
     const { service } = createService();
     const r = service.purgeExpired("");
     expect(r.ok).toBe(false);
