@@ -60,6 +60,7 @@ type CachedEntityPatternSet = {
 
 type TrieState = {
   nodes: AutomatonNode[];
+  freeIndices: number[];
   entityOrderById: Map<string, number>;
   entitiesById: Map<string, CachedEntityPatternSet>;
 };
@@ -177,6 +178,7 @@ class TrieCache {
 
     const created: TrieState = {
       nodes: [createNode()],
+      freeIndices: [],
       entityOrderById: new Map(),
       entitiesById: new Map(),
     };
@@ -244,7 +246,7 @@ class TrieCache {
     entityPatternSet: CachedEntityPatternSet,
   ): void {
     for (const term of entityPatternSet.terms) {
-      addPattern(state.nodes, {
+      addPattern(state, {
         entityId: entityPatternSet.entityId,
         matchedTerm: term,
         length: term.length,
@@ -257,7 +259,7 @@ class TrieCache {
     entityPatternSet: CachedEntityPatternSet,
   ): void {
     for (const term of entityPatternSet.terms) {
-      removePattern(state.nodes, {
+      removePattern(state, {
         entityId: entityPatternSet.entityId,
         matchedTerm: term,
       });
@@ -310,23 +312,22 @@ export function trieCacheInvalidate(cacheKey?: string): void {
   sharedTrieCache.invalidate(cacheKey);
 }
 
-function addPattern(nodes: AutomatonNode[], output: PatternOutput): void {
-  let state = 0;
+function addPattern(state: TrieState, output: PatternOutput): void {
+  let currentState = 0;
   for (let index = 0; index < output.matchedTerm.length; index += 1) {
     const character = output.matchedTerm[index]!;
-    const next = nodes[state].transitions.get(character);
+    const next = state.nodes[currentState].transitions.get(character);
     if (next !== undefined) {
-      state = next;
+      currentState = next;
       continue;
     }
 
-    const created = nodes.length;
-    nodes[state].transitions.set(character, created);
-    nodes.push(createNode());
-    state = created;
+    const created = allocateNodeIndex(state);
+    state.nodes[currentState].transitions.set(character, created);
+    currentState = created;
   }
   if (
-    nodes[state].directOutputs.some(
+    state.nodes[currentState].directOutputs.some(
       (existing) =>
         existing.entityId === output.entityId &&
         existing.matchedTerm === output.matchedTerm,
@@ -334,28 +335,30 @@ function addPattern(nodes: AutomatonNode[], output: PatternOutput): void {
   ) {
     return;
   }
-  nodes[state].directOutputs.push(output);
+  state.nodes[currentState].directOutputs.push(output);
 }
 
 function removePattern(
-  nodes: AutomatonNode[],
+  state: TrieState,
   args: { entityId: string; matchedTerm: string },
 ): void {
   // Walk down recording the path so we can prune orphaned nodes afterwards.
   const path: { parentIndex: number; character: string; childIndex: number }[] =
     [];
-  let state = 0;
+  let currentState = 0;
   for (let index = 0; index < args.matchedTerm.length; index += 1) {
     const character = args.matchedTerm[index]!;
-    const next = nodes[state].transitions.get(character);
+    const next = state.nodes[currentState].transitions.get(character);
     if (next === undefined) {
       return;
     }
-    path.push({ parentIndex: state, character, childIndex: next });
-    state = next;
+    path.push({ parentIndex: currentState, character, childIndex: next });
+    currentState = next;
   }
 
-  nodes[state].directOutputs = nodes[state].directOutputs.filter(
+  state.nodes[currentState].directOutputs = state.nodes[
+    currentState
+  ].directOutputs.filter(
     (output) =>
       !(
         output.entityId === args.entityId &&
@@ -368,23 +371,24 @@ function removePattern(
   // writing sessions with frequent entity CRUD.
   for (let i = path.length - 1; i >= 0; i -= 1) {
     const { parentIndex, character, childIndex } = path[i]!;
-    const child = nodes[childIndex];
+    const child = state.nodes[childIndex];
     if (child.directOutputs.length > 0 || child.transitions.size > 0) {
       break;
     }
-    nodes[parentIndex].transitions.delete(character);
+    state.nodes[parentIndex].transitions.delete(character);
+    recycleNodeIndex(state, childIndex);
   }
 }
 
 function rebuildFailureLinks(nodes: AutomatonNode[]): void {
-  for (const node of nodes) {
-    node.fail = 0;
-    node.outputs = node.directOutputs.slice();
-  }
-
+  const visited = new Set<number>([0]);
+  nodes[0].fail = 0;
+  nodes[0].outputs = nodes[0].directOutputs.slice();
   const queue: number[] = [];
   for (const nextState of nodes[0].transitions.values()) {
     nodes[nextState].fail = 0;
+    nodes[nextState].outputs = nodes[nextState].directOutputs.slice();
+    visited.add(nextState);
     queue.push(nextState);
   }
 
@@ -392,7 +396,11 @@ function rebuildFailureLinks(nodes: AutomatonNode[]): void {
     const state = queue[queueIndex]!;
 
     for (const [character, nextState] of nodes[state].transitions.entries()) {
-      queue.push(nextState);
+      if (!visited.has(nextState)) {
+        nodes[nextState].outputs = nodes[nextState].directOutputs.slice();
+        visited.add(nextState);
+        queue.push(nextState);
+      }
 
       let failureState = nodes[state].fail;
       while (
@@ -413,6 +421,24 @@ function rebuildFailureLinks(nodes: AutomatonNode[]): void {
       }
     }
   }
+}
+
+function allocateNodeIndex(state: TrieState): number {
+  const recycled = state.freeIndices.pop();
+  if (recycled !== undefined) {
+    state.nodes[recycled] = createNode();
+    return recycled;
+  }
+  state.nodes.push(createNode());
+  return state.nodes.length - 1;
+}
+
+function recycleNodeIndex(state: TrieState, index: number): void {
+  if (index === 0) {
+    return;
+  }
+  state.nodes[index] = createNode();
+  state.freeIndices.push(index);
 }
 
 function runMatch(args: {
