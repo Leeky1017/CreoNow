@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { createMockRecognizer } from "../../../main/src/services/kg/kgRecognitionRuntime";
 import { createKnowledgeGraphIpcHarness } from "../../helpers/kg/harness";
 
 type EnqueueDto = {
@@ -24,7 +25,9 @@ type RecognitionStatsDto = {
   const prevDelayMs = process.env.CREONOW_KG_RECOGNITION_MOCK_DELAY_MS;
   process.env.CREONOW_KG_RECOGNITION_MOCK_DELAY_MS = "50";
 
-  const harness = createKnowledgeGraphIpcHarness();
+  const harness = createKnowledgeGraphIpcHarness({
+    recognizer: createMockRecognizer(),
+  });
 
   try {
     const tasks: EnqueueDto[] = [];

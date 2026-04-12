@@ -4,6 +4,7 @@ import {
   KG_SUGGESTION_CHANNEL,
   type KgSuggestionEvent,
 } from "@shared/types/kg";
+import { createMockRecognizer } from "../../../main/src/services/kg/kgRecognitionRuntime";
 import { createKnowledgeGraphIpcHarness } from "../../helpers/kg/harness";
 
 type RecognitionEnqueueDto = {
@@ -15,7 +16,9 @@ type RecognitionEnqueueDto = {
 // KG3-R1-S3
 // should suppress repeated suggestion in same session after dismiss
 {
-  const harness = createKnowledgeGraphIpcHarness();
+  const harness = createKnowledgeGraphIpcHarness({
+    recognizer: createMockRecognizer(),
+  });
 
   try {
     const firstEnqueue = await harness.invoke<RecognitionEnqueueDto>(

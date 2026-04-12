@@ -5,6 +5,7 @@ import {
   KG_SUGGESTION_CHANNEL,
   type KgSuggestionEvent,
 } from "@shared/types/kg";
+import { createMockRecognizer } from "../../../main/src/services/kg/kgRecognitionRuntime";
 import { createKnowledgeGraphIpcHarness } from "../../helpers/kg/harness";
 
 type RecognitionEnqueueDto = {
@@ -16,7 +17,9 @@ type RecognitionEnqueueDto = {
 // KG3-R1-S1
 // should trigger background recognition after autosave without blocking editor input
 {
-  const harness = createKnowledgeGraphIpcHarness();
+  const harness = createKnowledgeGraphIpcHarness({
+    recognizer: createMockRecognizer(),
+  });
 
   try {
     const startedAt = performance.now();

@@ -4,6 +4,10 @@ import Database from "better-sqlite3";
 import type { IpcMain } from "electron";
 
 import { registerKnowledgeGraphIpcHandlers } from "../../../main/src/ipc/knowledgeGraph";
+import {
+  createKgRecognitionRuntime,
+  type Recognizer,
+} from "../../../main/src/services/kg/kgRecognitionRuntime";
 import type { Logger } from "../../../main/src/logging/logger";
 
 export type KgIpcResult<T> =
@@ -188,10 +192,16 @@ async function waitForPushCount(args: {
 
 /**
  * Create a ready-to-use KG test harness.
+ *
+ * @param args.recognizer — optional custom recognizer. If provided, a
+ * KgRecognitionRuntime is built with this recognizer and injected into the IPC
+ * handlers. This lets existing tests keep the mock recognizer while new
+ * integration tests can use `createAhoCorasickRecognizer`.
  */
 export function createKnowledgeGraphIpcHarness(args?: {
   projectId?: string;
   rendererId?: number;
+  recognizer?: Recognizer;
 }): {
   db: Database.Database;
   projectId: string;
@@ -223,10 +233,21 @@ export function createKnowledgeGraphIpcHarness(args?: {
     error: [],
   };
 
+  // Build a runtime with the provided recognizer if present, so the IPC
+  // handlers use it instead of the default Aho-Corasick recognizer.
+  const recognitionRuntime = args?.recognizer
+    ? createKgRecognitionRuntime({
+        db,
+        logger: createLogger(logs),
+        recognizer: args.recognizer,
+      })
+    : undefined;
+
   registerKnowledgeGraphIpcHandlers({
     ipcMain: ipcMain as unknown as IpcMain,
     db,
     logger: createLogger(logs),
+    recognitionRuntime,
   });
 
   return {
