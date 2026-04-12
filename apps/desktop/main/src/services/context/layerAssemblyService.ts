@@ -73,7 +73,11 @@ export type ContextLayerAssemblyDeps = {
   characterListService?: Pick<CharacterListService, "injectCharactersIntoContext">;
   synopsisStore?: Pick<SynopsisStore, "listRecentByProject">;
   episodicMemoryService?: Pick<EpisodicMemoryService, "listSemanticMemory">;
-  matchEntities?: (text: string, entities: MatchableEntity[]) => MatchResult[];
+  matchEntities?: (
+    text: string,
+    entities: MatchableEntity[],
+    options?: { cacheKey?: string },
+  ) => MatchResult[];
   logger?: Pick<Logger, "info" | "error"> & {
     warn?: (event: string, data?: Record<string, unknown>) => void;
   };

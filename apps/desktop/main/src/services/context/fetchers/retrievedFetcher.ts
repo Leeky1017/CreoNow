@@ -13,7 +13,11 @@ const ENTITY_MATCH_FAILED_WARNING = "ENTITY_MATCH_FAILED: 实体匹配异常";
 
 export type RetrievedFetcherDeps = {
   kgService: Pick<KnowledgeGraphService, "entityList">;
-  matchEntities: (text: string, entities: MatchableEntity[]) => MatchResult[];
+  matchEntities: (
+    text: string,
+    entities: MatchableEntity[],
+    options?: { cacheKey?: string },
+  ) => MatchResult[];
   logger?: Pick<Logger, "info" | "error"> & {
     warn?: (event: string, data?: Record<string, unknown>) => void;
   };
@@ -119,7 +123,9 @@ export function createRetrievedFetcher(
 
     let matches: MatchResult[];
     try {
-      matches = deps.matchEntities(inputText, matchableEntities);
+      matches = deps.matchEntities(inputText, matchableEntities, {
+        cacheKey: request.projectId,
+      });
     } catch (error) {
       reportDegradation({
         reason: "entity_match_throw",

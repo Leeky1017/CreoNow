@@ -22,8 +22,222 @@ type PatternOutput = {
 type AutomatonNode = {
   transitions: Map<string, number>;
   fail: number;
+  directOutputs: PatternOutput[];
   outputs: PatternOutput[];
 };
+
+type MatchEntitiesOptions = {
+  cacheKey?: string;
+};
+
+type CachedEntityPatternSet = {
+  entityId: string;
+  terms: string[];
+};
+
+type TrieState = {
+  nodes: AutomatonNode[];
+  entityOrderById: Map<string, number>;
+  entitiesById: Map<string, CachedEntityPatternSet>;
+};
+
+const DEFAULT_TRIE_CACHE_KEY = "__default__";
+
+/**
+ * Trie cache for Aho-Corasick matcher.
+ *
+ * @why Keep automaton in-memory per project scope to avoid rebuilding on each
+ * query and support incremental entity CRUD updates.
+ * @invariant INV-2 — updates are applied synchronously per cache key so reads
+ * always observe a complete trie snapshot.
+ */
+export class TrieCache {
+  private readonly stateByKey = new Map<string, TrieState>();
+
+  match(args: {
+    text: string;
+    entities: MatchableEntity[];
+    cacheKey?: string;
+  }): MatchResult[] {
+    if (args.text.length === 0 || args.entities.length === 0) {
+      return [];
+    }
+
+    const key = args.cacheKey ?? DEFAULT_TRIE_CACHE_KEY;
+    const state = this.getOrCreateState(key);
+    this.syncEntities(state, args.entities);
+    if (state.nodes.length === 1) {
+      return [];
+    }
+
+    return runMatch({
+      text: args.text,
+      nodes: state.nodes,
+      entityOrderById: state.entityOrderById,
+    });
+  }
+
+  prime(args: { cacheKey: string; entities: MatchableEntity[] }): void {
+    const state = this.getOrCreateState(args.cacheKey);
+    this.syncEntities(state, args.entities);
+  }
+
+  upsert(args: { cacheKey: string; entity: MatchableEntity }): void {
+    const state = this.getOrCreateState(args.cacheKey);
+    const next = toCachedEntityPatternSet(args.entity);
+    const previous = state.entitiesById.get(args.entity.id);
+
+    if (!next) {
+      if (previous) {
+        this.removeEntityPatterns(state, previous);
+        state.entitiesById.delete(args.entity.id);
+        rebuildFailureLinks(state.nodes);
+      }
+      return;
+    }
+
+    if (!previous) {
+      this.addEntityPatterns(state, next);
+      state.entitiesById.set(next.entityId, next);
+      if (!state.entityOrderById.has(next.entityId)) {
+        state.entityOrderById.set(next.entityId, state.entityOrderById.size);
+      }
+      rebuildFailureLinks(state.nodes);
+      return;
+    }
+
+    if (sameTerms(previous.terms, next.terms)) {
+      return;
+    }
+
+    this.removeEntityPatterns(state, previous);
+    this.addEntityPatterns(state, next);
+    state.entitiesById.set(next.entityId, next);
+    rebuildFailureLinks(state.nodes);
+  }
+
+  remove(args: { cacheKey: string; entityId: string }): void {
+    const state = this.stateByKey.get(args.cacheKey);
+    if (!state) {
+      return;
+    }
+
+    const previous = state.entitiesById.get(args.entityId);
+    if (!previous) {
+      return;
+    }
+
+    this.removeEntityPatterns(state, previous);
+    state.entitiesById.delete(args.entityId);
+    state.entityOrderById = rebuildEntityOrder(state.entitiesById);
+    rebuildFailureLinks(state.nodes);
+  }
+
+  invalidate(cacheKey?: string): void {
+    if (cacheKey) {
+      this.stateByKey.delete(cacheKey);
+      return;
+    }
+    this.stateByKey.clear();
+  }
+
+  private getOrCreateState(cacheKey: string): TrieState {
+    const existing = this.stateByKey.get(cacheKey);
+    if (existing) {
+      return existing;
+    }
+
+    const created: TrieState = {
+      nodes: [createNode()],
+      entityOrderById: new Map(),
+      entitiesById: new Map(),
+    };
+    this.stateByKey.set(cacheKey, created);
+    return created;
+  }
+
+  private syncEntities(state: TrieState, entities: MatchableEntity[]): void {
+    const nextById = new Map<string, CachedEntityPatternSet>();
+    const order: string[] = [];
+
+    for (const entity of entities) {
+      const normalized = toCachedEntityPatternSet(entity);
+      if (!normalized) {
+        continue;
+      }
+      const existing = nextById.get(normalized.entityId);
+      if (existing) {
+        existing.terms = mergeTerms(existing.terms, normalized.terms);
+        continue;
+      }
+      nextById.set(normalized.entityId, normalized);
+      order.push(normalized.entityId);
+    }
+
+    let mutated = false;
+
+    for (const [entityId, existing] of state.entitiesById.entries()) {
+      if (nextById.has(entityId)) {
+        continue;
+      }
+      this.removeEntityPatterns(state, existing);
+      mutated = true;
+    }
+
+    for (const [entityId, next] of nextById.entries()) {
+      const existing = state.entitiesById.get(entityId);
+      if (!existing) {
+        this.addEntityPatterns(state, next);
+        mutated = true;
+        continue;
+      }
+
+      if (sameTerms(existing.terms, next.terms)) {
+        continue;
+      }
+
+      this.removeEntityPatterns(state, existing);
+      this.addEntityPatterns(state, next);
+      mutated = true;
+    }
+
+    state.entitiesById = nextById;
+    state.entityOrderById = new Map(
+      order.map((entityId, index) => [entityId, index]),
+    );
+
+    if (mutated) {
+      rebuildFailureLinks(state.nodes);
+    }
+  }
+
+  private addEntityPatterns(
+    state: TrieState,
+    entityPatternSet: CachedEntityPatternSet,
+  ): void {
+    for (const term of entityPatternSet.terms) {
+      addPattern(state.nodes, {
+        entityId: entityPatternSet.entityId,
+        matchedTerm: term,
+        length: term.length,
+      });
+    }
+  }
+
+  private removeEntityPatterns(
+    state: TrieState,
+    entityPatternSet: CachedEntityPatternSet,
+  ): void {
+    for (const term of entityPatternSet.terms) {
+      removePattern(state.nodes, {
+        entityId: entityPatternSet.entityId,
+        matchedTerm: term,
+      });
+    }
+  }
+}
+
+const sharedTrieCache = new TrieCache();
 
 /**
  * Match detected entity references from raw text for Retrieved-layer injection.
@@ -34,34 +248,152 @@ type AutomatonNode = {
 export function matchEntities(
   text: string,
   entities: MatchableEntity[],
+  options?: MatchEntitiesOptions,
 ): MatchResult[] {
-  if (text.length === 0 || entities.length === 0) {
-    return [];
-  }
+  return sharedTrieCache.match({
+    text,
+    entities,
+    cacheKey: options?.cacheKey,
+  });
+}
 
-  const { nodes, entityOrderById } = buildAutomaton(entities);
-  if (nodes.length === 1) {
-    return [];
-  }
+export function trieCachePrime(args: {
+  cacheKey: string;
+  entities: MatchableEntity[];
+}): void {
+  sharedTrieCache.prime(args);
+}
 
-  const bestMatchesByEntityId = new Map<string, MatchResult>();
+export function trieCacheUpsertEntity(args: {
+  cacheKey: string;
+  entity: MatchableEntity;
+}): void {
+  sharedTrieCache.upsert(args);
+}
+
+export function trieCacheRemoveEntity(args: {
+  cacheKey: string;
+  entityId: string;
+}): void {
+  sharedTrieCache.remove(args);
+}
+
+export function trieCacheInvalidate(cacheKey?: string): void {
+  sharedTrieCache.invalidate(cacheKey);
+}
+
+function addPattern(nodes: AutomatonNode[], output: PatternOutput): void {
   let state = 0;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index]!;
-
-    while (state !== 0 && !nodes[state].transitions.has(character)) {
-      state = nodes[state].fail;
-    }
-
-    const transitionedState = nodes[state].transitions.get(character);
-    state = transitionedState === undefined ? 0 : transitionedState;
-
-    if (nodes[state].outputs.length === 0) {
+  for (let index = 0; index < output.matchedTerm.length; index += 1) {
+    const character = output.matchedTerm[index]!;
+    const next = nodes[state].transitions.get(character);
+    if (next !== undefined) {
+      state = next;
       continue;
     }
 
-    for (const output of nodes[state].outputs) {
+    const created = nodes.length;
+    nodes[state].transitions.set(character, created);
+    nodes.push(createNode());
+    state = created;
+  }
+  if (
+    nodes[state].directOutputs.some(
+      (existing) =>
+        existing.entityId === output.entityId &&
+        existing.matchedTerm === output.matchedTerm,
+    )
+  ) {
+    return;
+  }
+  nodes[state].directOutputs.push(output);
+}
+
+function removePattern(
+  nodes: AutomatonNode[],
+  args: { entityId: string; matchedTerm: string },
+): void {
+  let state = 0;
+  for (let index = 0; index < args.matchedTerm.length; index += 1) {
+    const character = args.matchedTerm[index]!;
+    const next = nodes[state].transitions.get(character);
+    if (next === undefined) {
+      return;
+    }
+    state = next;
+  }
+
+  nodes[state].directOutputs = nodes[state].directOutputs.filter(
+    (output) =>
+      !(
+        output.entityId === args.entityId &&
+        output.matchedTerm === args.matchedTerm
+      ),
+  );
+}
+
+function rebuildFailureLinks(nodes: AutomatonNode[]): void {
+  for (const node of nodes) {
+    node.fail = 0;
+    node.outputs = node.directOutputs.slice();
+  }
+
+  const queue: number[] = [];
+  for (const nextState of nodes[0].transitions.values()) {
+    nodes[nextState].fail = 0;
+    queue.push(nextState);
+  }
+
+  for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+    const state = queue[queueIndex]!;
+
+    for (const [character, nextState] of nodes[state].transitions.entries()) {
+      queue.push(nextState);
+
+      let failureState = nodes[state].fail;
+      while (
+        failureState !== 0 &&
+        !nodes[failureState].transitions.has(character)
+      ) {
+        failureState = nodes[failureState].fail;
+      }
+
+      const fallback = nodes[failureState].transitions.get(character);
+      nodes[nextState].fail = fallback === undefined ? 0 : fallback;
+
+      if (nodes[nodes[nextState].fail].outputs.length > 0) {
+        const merged = nodes[nextState].outputs.concat(
+          nodes[nodes[nextState].fail].outputs,
+        );
+        nodes[nextState].outputs = dedupeOutputs(merged);
+      }
+    }
+  }
+}
+
+function runMatch(args: {
+  text: string;
+  nodes: AutomatonNode[];
+  entityOrderById: Map<string, number>;
+}): MatchResult[] {
+  const bestMatchesByEntityId = new Map<string, MatchResult>();
+  let state = 0;
+
+  for (let index = 0; index < args.text.length; index += 1) {
+    const character = args.text[index]!;
+
+    while (state !== 0 && !args.nodes[state].transitions.has(character)) {
+      state = args.nodes[state].fail;
+    }
+
+    const transitionedState = args.nodes[state].transitions.get(character);
+    state = transitionedState === undefined ? 0 : transitionedState;
+
+    if (args.nodes[state].outputs.length === 0) {
+      continue;
+    }
+
+    for (const output of args.nodes[state].outputs) {
       const position = index - output.length + 1;
       const existing = bestMatchesByEntityId.get(output.entityId);
 
@@ -90,109 +422,93 @@ export function matchEntities(
       return right.matchedTerm.length - left.matchedTerm.length;
     }
     return (
-      (entityOrderById.get(left.entityId) ?? Number.MAX_SAFE_INTEGER) -
-      (entityOrderById.get(right.entityId) ?? Number.MAX_SAFE_INTEGER)
+      (args.entityOrderById.get(left.entityId) ?? Number.MAX_SAFE_INTEGER) -
+      (args.entityOrderById.get(right.entityId) ?? Number.MAX_SAFE_INTEGER)
     );
   });
 }
 
-function buildAutomaton(entities: MatchableEntity[]): {
-  nodes: AutomatonNode[];
-  entityOrderById: Map<string, number>;
-} {
-  const nodes: AutomatonNode[] = [
-    {
-      transitions: new Map<string, number>(),
-      fail: 0,
-      outputs: [],
-    },
-  ];
+function toCachedEntityPatternSet(
+  entity: MatchableEntity,
+): CachedEntityPatternSet | null {
+  if (entity.aiContextLevel !== "when_detected") {
+    return null;
+  }
 
-  const entityOrderById = new Map<string, number>();
-  const seenTermsByEntityId = new Map<string, Set<string>>();
-  for (const entity of entities) {
-    if (entity.aiContextLevel !== "when_detected") {
+  const terms: string[] = [];
+  const seen = new Set<string>();
+  for (const candidate of [entity.name, ...entity.aliases]) {
+    const normalized = candidate.trim();
+    if (normalized.length === 0 || seen.has(normalized)) {
       continue;
     }
-    if (!entityOrderById.has(entity.id)) {
-      entityOrderById.set(entity.id, entityOrderById.size);
-    }
-
-    let seenTerms = seenTermsByEntityId.get(entity.id);
-    if (!seenTerms) {
-      seenTerms = new Set<string>();
-      seenTermsByEntityId.set(entity.id, seenTerms);
-    }
-
-    const candidates = [entity.name, ...entity.aliases];
-    for (const candidate of candidates) {
-      if (candidate.trim().length === 0 || seenTerms.has(candidate)) {
-        continue;
-      }
-      seenTerms.add(candidate);
-      addPattern(nodes, {
-        entityId: entity.id,
-        matchedTerm: candidate,
-        length: candidate.length,
-      });
-    }
+    seen.add(normalized);
+    terms.push(normalized);
   }
 
-  buildFailureLinks(nodes);
-  return { nodes, entityOrderById };
+  if (terms.length === 0) {
+    return null;
+  }
+
+  return {
+    entityId: entity.id,
+    terms,
+  };
 }
 
-function addPattern(nodes: AutomatonNode[], output: PatternOutput): void {
-  let state = 0;
-  for (let index = 0; index < output.matchedTerm.length; index += 1) {
-    const character = output.matchedTerm[index]!;
-    const next = nodes[state].transitions.get(character);
-    if (next !== undefined) {
-      state = next;
+function dedupeOutputs(outputs: PatternOutput[]): PatternOutput[] {
+  const deduped: PatternOutput[] = [];
+  const seen = new Set<string>();
+  for (const output of outputs) {
+    const key = `${output.entityId}::${output.matchedTerm}`;
+    if (seen.has(key)) {
       continue;
     }
-
-    const created = nodes.length;
-    nodes[state].transitions.set(character, created);
-    nodes.push({
-      transitions: new Map<string, number>(),
-      fail: 0,
-      outputs: [],
-    });
-    state = created;
+    seen.add(key);
+    deduped.push(output);
   }
-  nodes[state].outputs.push(output);
+  return deduped;
 }
 
-function buildFailureLinks(nodes: AutomatonNode[]): void {
-  const queue: number[] = [];
-  for (const nextState of nodes[0].transitions.values()) {
-    nodes[nextState].fail = 0;
-    queue.push(nextState);
+function sameTerms(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
   }
-
-  for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
-    const state = queue[queueIndex]!;
-
-    for (const [character, nextState] of nodes[state].transitions.entries()) {
-      queue.push(nextState);
-
-      let failureState = nodes[state].fail;
-      while (
-        failureState !== 0 &&
-        !nodes[failureState].transitions.has(character)
-      ) {
-        failureState = nodes[failureState].fail;
-      }
-
-      const fallback = nodes[failureState].transitions.get(character);
-      nodes[nextState].fail = fallback === undefined ? 0 : fallback;
-
-      if (nodes[nodes[nextState].fail].outputs.length > 0) {
-        nodes[nextState].outputs = nodes[nextState].outputs.concat(
-          nodes[nodes[nextState].fail].outputs,
-        );
-      }
+  const leftSet = new Set(left);
+  for (const term of right) {
+    if (!leftSet.has(term)) {
+      return false;
     }
   }
+  return true;
+}
+
+function mergeTerms(left: string[], right: string[]): string[] {
+  const merged = [...left];
+  const seen = new Set(left);
+  for (const term of right) {
+    if (seen.has(term)) {
+      continue;
+    }
+    seen.add(term);
+    merged.push(term);
+  }
+  return merged;
+}
+
+function rebuildEntityOrder(
+  entitiesById: Map<string, CachedEntityPatternSet>,
+): Map<string, number> {
+  return new Map(
+    Array.from(entitiesById.keys()).map((entityId, index) => [entityId, index]),
+  );
+}
+
+function createNode(): AutomatonNode {
+  return {
+    transitions: new Map<string, number>(),
+    fail: 0,
+    directOutputs: [],
+    outputs: [],
+  };
 }

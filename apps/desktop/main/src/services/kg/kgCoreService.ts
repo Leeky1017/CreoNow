@@ -6,6 +6,10 @@ import { z } from "zod";
 import type { Logger } from "../../logging/logger";
 import { resolveRuntimeGovernanceFromEnv } from "../../config/runtimeGovernance";
 import {
+  trieCacheRemoveEntity,
+  trieCacheUpsertEntity,
+} from "./entityMatcher";
+import {
   AI_CONTEXT_LEVELS,
   type AiContextLevel,
   type Err,
@@ -1144,7 +1148,18 @@ function createEntityOps(
           return ipcError("DB_ERROR", "Failed to load created entity");
         }
 
-        return { ok: true, data: rowToEntity(row, args.logger) };
+        const createdEntity = rowToEntity(row, args.logger);
+        trieCacheUpsertEntity({
+          cacheKey: normalizedProjectId,
+          entity: {
+            id: createdEntity.id,
+            name: createdEntity.name,
+            aliases: createdEntity.aliases,
+            aiContextLevel: createdEntity.aiContextLevel,
+          },
+        });
+
+        return { ok: true, data: createdEntity };
       } catch (error) {
         args.logger.error("kg_entity_create_failed", {
           code: "DB_ERROR",
@@ -1294,6 +1309,11 @@ function createEntityOps(
             .run(normalizedProjectId, normalizedId);
         })();
 
+        trieCacheRemoveEntity({
+          cacheKey: normalizedProjectId,
+          entityId: normalizedId,
+        });
+
         return { ok: true, data: { deleted: true, deletedRelationCount } };
       } catch (error) {
         args.logger.error("kg_entity_delete_failed", {
@@ -1430,7 +1450,18 @@ function createEntityUpdateOps(
           return ipcError("DB_ERROR", "Failed to load updated entity");
         }
 
-        return { ok: true, data: rowToEntity(row, args.logger) };
+        const updatedEntity = rowToEntity(row, args.logger);
+        trieCacheUpsertEntity({
+          cacheKey: normalizedProjectId,
+          entity: {
+            id: updatedEntity.id,
+            name: updatedEntity.name,
+            aliases: updatedEntity.aliases,
+            aiContextLevel: updatedEntity.aiContextLevel,
+          },
+        });
+
+        return { ok: true, data: updatedEntity };
       } catch (error) {
         args.logger.error("kg_entity_update_failed", {
           code: "DB_ERROR",

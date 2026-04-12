@@ -3,6 +3,8 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
+import { trieCachePrime, type MatchableEntity } from "../services/kg/entityMatcher";
+import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { createProjectService } from "../services/projects/projectService";
 import type { ProjectLifecycle } from "../services/projects/projectLifecycle";
 import {
@@ -32,6 +34,39 @@ type ProjectHandlerDeps = {
   projectLifecycle?: ProjectLifecycle;
   eventBus?: EventBusLike;
 };
+
+function primeTrieCacheForProject(args: {
+  db: Database.Database;
+  logger: Logger;
+  projectId: string;
+}): void {
+  try {
+    const kgService = createKnowledgeGraphService({
+      db: args.db,
+      logger: args.logger,
+    });
+    const listed = kgService.entityList({
+      projectId: args.projectId,
+      filter: { aiContextLevel: "when_detected" },
+    });
+    if (!listed.ok) {
+      return;
+    }
+
+    const entities: MatchableEntity[] = listed.data.items.map((entity) => ({
+      id: entity.id,
+      name: entity.name,
+      aliases: entity.aliases,
+      aiContextLevel: entity.aiContextLevel,
+    }));
+    trieCachePrime({
+      cacheKey: args.projectId,
+      entities,
+    });
+  } catch {
+    // Best effort warmup only: project switch/getCurrent must not fail due cache.
+  }
+}
 
 function registerProjectCrudHandlers(deps: ProjectHandlerDeps): void {
   deps.ipcMain.handle(
@@ -260,6 +295,11 @@ function registerProjectSessionAndLifecycleHandlers(
       });
       const res = svc.getCurrent();
       if (res.ok) {
+        primeTrieCacheForProject({
+          db: deps.db,
+          logger: deps.logger,
+          projectId: res.data.projectId,
+        });
         deps.projectSessionBinding?.bind({
           webContentsId: event.sender.id,
           projectId: res.data.projectId,
@@ -290,6 +330,11 @@ function registerProjectSessionAndLifecycleHandlers(
       });
       const res = svc.setCurrent({ projectId: payload.projectId });
       if (res.ok) {
+        primeTrieCacheForProject({
+          db: deps.db,
+          logger: deps.logger,
+          projectId: res.data.projectId,
+        });
         deps.projectSessionBinding?.bind({
           webContentsId: event.sender.id,
           projectId: res.data.projectId,
@@ -355,6 +400,11 @@ function registerProjectSessionAndLifecycleHandlers(
             traceId,
           });
       if (res.ok) {
+        primeTrieCacheForProject({
+          db: deps.db,
+          logger: deps.logger,
+          projectId: res.data.currentProjectId,
+        });
         deps.projectSessionBinding?.bind({
           webContentsId: event.sender.id,
           projectId: res.data.currentProjectId,

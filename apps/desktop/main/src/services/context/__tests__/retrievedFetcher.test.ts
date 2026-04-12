@@ -78,7 +78,7 @@ describe("createRetrievedFetcher", () => {
         aliases: ["小雨"],
         aiContextLevel: "when_detected",
       },
-    ]);
+    ], { cacheKey: "proj-retrieved-fetcher" });
     expect(result.chunks).toHaveLength(1);
     expect(result.chunks[0]?.source).toBe("codex:detected:e1");
     expect(result.chunks[0]?.content).toContain("林小雨");
