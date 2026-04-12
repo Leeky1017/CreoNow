@@ -267,8 +267,13 @@ type ChatClearResponse = {
 
 const SESSION_HISTORY_MESSAGE_LIMIT = 200;
 const KG_SNAPSHOT_LIST_LIMIT = 500;
+const NARRATIVE_SUMMARY_TOKEN_LIMIT_PREFIX = `${NARRATIVE_SUMMARY_TOKEN_LIMIT_MARKER}:`;
 function buildSummaryTokenLimitInstruction(summaryMaxTokens: number): string {
   return `${NARRATIVE_SUMMARY_TOKEN_LIMIT_MARKER}:${summaryMaxTokens} 请将摘要控制在约 ${summaryMaxTokens} tokens 以内。`;
+}
+
+export function containsNarrativeSummaryTokenLimitMarker(input: string): boolean {
+  return input.includes(NARRATIVE_SUMMARY_TOKEN_LIMIT_PREFIX);
 }
 
 function resolvePrepareWritingTokenBudget(): number {
@@ -1738,7 +1743,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           invokeSkillSummary: async (request) => {
             const { skillId, modelId, input, summaryMaxTokens } = request;
             const summaryTokenLimitInstruction = buildSummaryTokenLimitInstruction(summaryMaxTokens);
-            const summaryBoundedInput = input.includes(summaryTokenLimitInstruction)
+            const summaryBoundedInput = containsNarrativeSummaryTokenLimitMarker(input)
               ? input
               : `${input}\n\n${summaryTokenLimitInstruction}`;
             // TODO(@leeky 2025-07): Forward summaryMaxTokens via a dedicated

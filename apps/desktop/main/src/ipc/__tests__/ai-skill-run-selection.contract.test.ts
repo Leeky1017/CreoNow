@@ -65,7 +65,11 @@ vi.mock("../../services/stats/statsService", () => ({
   })),
 }));
 
-import { prepareWritingRequest, registerAiIpcHandlers } from "../ai";
+import {
+  containsNarrativeSummaryTokenLimitMarker,
+  prepareWritingRequest,
+  registerAiIpcHandlers,
+} from "../ai";
 
 type Handler = (event: { sender: { id: number; send: (channel: string, payload: unknown) => void } }, payload: unknown) => Promise<unknown>;
 
@@ -78,6 +82,22 @@ function createLogger() {
 }
 
 describe("ai:skill:run selection contract", () => {
+  it("detects narrative summary token limit marker by deterministic prefix only", () => {
+    expect(
+      containsNarrativeSummaryTokenLimitMarker(
+        "history\n[NARRATIVE_SUMMARY_TOKEN_LIMIT]:220 任意后缀文案",
+      ),
+    ).toBe(true);
+  });
+
+  it("returns false when marker prefix is absent", () => {
+    expect(
+      containsNarrativeSummaryTokenLimitMarker(
+        "history\n请将摘要控制在约 220 tokens 以内。",
+      ),
+    ).toBe(false);
+  });
+
   it("escapes selection prompt delimiters on the first-round ai.ts assembly path", async () => {
     const prepared = await prepareWritingRequest({
       ctx: {
