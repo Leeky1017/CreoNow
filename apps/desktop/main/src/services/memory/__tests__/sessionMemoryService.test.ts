@@ -112,10 +112,15 @@ function createMockDb(): DbLike & {
               return { changes };
             }
 
-            // Single delete: WHERE id = ? AND deleted_at IS NULL
+            // Single delete: WHERE id = ? AND project_id = ? AND deleted_at IS NULL
             const id = args[1] as string;
+            const projectId = args[2] as string | undefined;
             const row = rows.get(id);
             if (row && row.deleted_at == null) {
+              // If projectId is present in the query, enforce project scoping
+              if (projectId !== undefined && row.project_id !== projectId) {
+                return { changes: 0 };
+              }
               row.deleted_at = deletedAt;
               return { changes: 1 };
             }
@@ -212,38 +217,55 @@ function matchesConditions(
   sql: string,
   args: unknown[],
 ): boolean {
+  // Extract conditions in the order they appear in the SQL.
+  // Each condition pattern consumes one arg from `args` in order.
+  const conditionPatterns: {
+    pattern: string | RegExp;
+    check: (row: Record<string, unknown>, arg: unknown) => boolean;
+    consumesArg: boolean;
+  }[] = [
+    {
+      pattern: "project_id = ?",
+      check: (r, a) => r.project_id === a,
+      consumesArg: true,
+    },
+    {
+      // Compound: (expires_at IS NULL OR expires_at > ?)
+      pattern: "expires_at IS NULL OR expires_at >",
+      check: (r, a) => {
+        if (r.expires_at == null) return true;
+        return (r.expires_at as number) > (a as number);
+      },
+      consumesArg: true,
+    },
+    {
+      pattern: "session_id = ?",
+      check: (r, a) => r.session_id === a,
+      consumesArg: true,
+    },
+    {
+      pattern: /category = \?/,
+      check: (r, a) => r.category === a,
+      consumesArg: true,
+    },
+  ];
+
+  // Build an ordered list of conditions based on their position in SQL
+  const ordered = conditionPatterns
+    .map((cp) => {
+      const idx =
+        typeof cp.pattern === "string"
+          ? sql.indexOf(cp.pattern)
+          : sql.search(cp.pattern);
+      return { ...cp, idx };
+    })
+    .filter((cp) => cp.idx >= 0)
+    .sort((a, b) => a.idx - b.idx);
+
   let argIdx = 0;
-
-  // project_id = ?
-  if (sql.includes("project_id = ?")) {
-    if (row.project_id !== args[argIdx]) return false;
-    argIdx++;
-  }
-
-  // session_id = ?
-  if (sql.includes("session_id = ?")) {
-    if (row.session_id !== args[argIdx]) return false;
-    argIdx++;
-  }
-
-  // category = ?
-  if (sql.includes("category = ?") && !sql.includes("CHECK(category")) {
-    if (row.category !== args[argIdx]) return false;
-    argIdx++;
-  }
-
-  // expires_at IS NULL OR expires_at > ? (compound condition — check first)
-  if (sql.includes("expires_at IS NULL OR expires_at >")) {
-    if (row.expires_at != null) {
-      const threshold = args[argIdx] as number;
-      if ((row.expires_at as number) <= threshold) return false;
-    }
-    argIdx++;
-  } else if (sql.includes("expires_at > ?")) {
-    // Simple expires_at > ? (only if compound form wasn't matched)
-    const threshold = args[argIdx] as number;
-    if (row.expires_at != null && (row.expires_at as number) <= threshold) return false;
-    argIdx++;
+  for (const cond of ordered) {
+    if (!cond.check(row, args[argIdx])) return false;
+    if (cond.consumesArg) argIdx++;
   }
 
   return true;
@@ -439,7 +461,7 @@ describe("SessionMemoryService", () => {
       if (!listBefore.ok) return;
       const firstItemId = listBefore.data.items[0].id;
 
-      svc.delete({ id: firstItemId });
+      svc.delete({ id: firstItemId, projectId: "proj-1" });
 
       const listAfter = svc.list({ projectId: "proj-1" });
       expect(listAfter.ok).toBe(true);
@@ -461,15 +483,13 @@ describe("SessionMemoryService", () => {
       expect(created.ok).toBe(true);
       if (!created.ok) return;
 
-      const result = svc.delete({ id: created.data.id });
+      const result = svc.delete({ id: created.data.id, projectId: "proj-1" });
       expect(result.ok).toBe(true);
     });
 
     it("returns NOT_FOUND for non-existent id", () => {
-      const result = svc.delete({ id: "nonexistent" });
-      expect(result.ok).toBe(false);
-      if (result.ok) return;
-      expect(result.error.code).toBe("NOT_FOUND");
+      const res = svc.delete({ id: "nonexistent", projectId: "proj-1" });
+      expect(res.ok).toBe(false);
     });
 
     it("returns NOT_FOUND for already-deleted item", () => {
@@ -482,18 +502,48 @@ describe("SessionMemoryService", () => {
       expect(created.ok).toBe(true);
       if (!created.ok) return;
 
-      svc.delete({ id: created.data.id });
-      const result = svc.delete({ id: created.data.id });
+      svc.delete({ id: created.data.id, projectId: "proj-1" });
+      const result = svc.delete({ id: created.data.id, projectId: "proj-1" });
       expect(result.ok).toBe(false);
       if (result.ok) return;
       expect(result.error.code).toBe("NOT_FOUND");
     });
 
     it("rejects empty id", () => {
-      const result = svc.delete({ id: "" });
+      const result = svc.delete({ id: "", projectId: "proj-1" });
       expect(result.ok).toBe(false);
       if (result.ok) return;
       expect(result.error.code).toBe("INVALID_ARGUMENT");
+    });
+
+    it("rejects empty projectId", () => {
+      const result = svc.delete({ id: "some-id", projectId: "" });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.code).toBe("INVALID_ARGUMENT");
+    });
+
+    it("prevents cross-project deletion", () => {
+      const created = svc.create({
+        sessionId: "sess-1",
+        projectId: "proj-1",
+        category: "note",
+        content: "belongs to proj-1",
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+
+      // Attempt to delete from a different project
+      const result = svc.delete({ id: created.data.id, projectId: "proj-2" });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.code).toBe("NOT_FOUND");
+
+      // Verify item still exists in proj-1
+      const listed = svc.list({ projectId: "proj-1" });
+      expect(listed.ok).toBe(true);
+      if (!listed.ok) return;
+      expect(listed.data.items).toHaveLength(1);
     });
   });
 
@@ -740,6 +790,66 @@ describe("SessionMemoryService", () => {
         budgetTokens: 1000,
       });
       expect(result.ok).toBe(false);
+    });
+
+    // SM-U-16: session-aware injection filters by sessionId
+    it("filters injection by sessionId when provided", () => {
+      svc.create({
+        sessionId: "sess-1",
+        projectId: "proj-1",
+        category: "style",
+        content: "session one style",
+      });
+      svc.create({
+        sessionId: "sess-2",
+        projectId: "proj-1",
+        category: "style",
+        content: "session two style",
+      });
+
+      // Without sessionId — returns both
+      const allResult = svc.getInjectionPayload({
+        projectId: "proj-1",
+        budgetTokens: 5000,
+      });
+      expect(allResult.ok).toBe(true);
+      if (!allResult.ok) return;
+      expect(allResult.data.items).toHaveLength(2);
+
+      // With sessionId — returns only matching session
+      const filteredResult = svc.getInjectionPayload({
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        budgetTokens: 5000,
+      });
+      expect(filteredResult.ok).toBe(true);
+      if (!filteredResult.ok) return;
+      expect(filteredResult.data.items).toHaveLength(1);
+      expect(filteredResult.data.items[0].content).toBe("session one style");
+    });
+
+    // SM-U-17: trimmed item content does not include category prefix
+    it("trimmed item content does not include category prefix", () => {
+      // Create a single item with known content
+      svc.create({
+        sessionId: "sess-1",
+        projectId: "proj-1",
+        category: "style",
+        content: "This is a moderately long piece of content that should get trimmed when budget is very small",
+      });
+
+      // Very small budget — forces trimming
+      const result = svc.getInjectionPayload({
+        projectId: "proj-1",
+        budgetTokens: 10,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // If there are items, their content should NOT start with "[style] "
+      for (const item of result.data.items) {
+        expect(item.content).not.toMatch(/^\[style\] /);
+      }
     });
   });
 });

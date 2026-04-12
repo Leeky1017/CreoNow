@@ -31,8 +31,9 @@ CREATE INDEX IF NOT EXISTS idx_session_memory_expiry
   ON session_memory(expires_at) WHERE deleted_at IS NULL AND expires_at IS NOT NULL;
 
 -- FTS5 external-content table for keyword-boosted relevance scoring.
--- content='' (contentless) — we store content in the main table and only need
--- FTS5 for MATCH scoring; avoids doubling storage.
+-- content='session_memory' (external-content mode) — FTS5 references the source
+-- table for content retrieval; sync triggers keep the index up to date.
+-- Avoids doubling storage compared to a standalone FTS5 table.
 CREATE VIRTUAL TABLE IF NOT EXISTS session_memory_fts USING fts5(
   content,
   content='session_memory',

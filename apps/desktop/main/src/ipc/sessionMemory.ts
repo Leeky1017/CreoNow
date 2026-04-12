@@ -56,6 +56,7 @@ type DeletePayload = {
 
 type InjectionPayload = {
   projectId: string;
+  sessionId?: string;
   contextHint?: string;
   budgetTokens: number;
 };
@@ -230,7 +231,7 @@ export function registerSessionMemoryIpcHandlers(deps: {
       }
 
       try {
-        const res = svc.delete({ id: payload.id });
+        const res = svc.delete({ id: payload.id, projectId: payload.projectId });
         if (res.ok) {
           return { ok: true, data: { deleted: true } };
         }
@@ -302,6 +303,7 @@ export function registerSessionMemoryIpcHandlers(deps: {
       try {
         const res = svc.getInjectionPayload({
           projectId: payload.projectId,
+          sessionId: payload.sessionId,
           contextHint: payload.contextHint,
           budgetTokens: payload.budgetTokens,
         });

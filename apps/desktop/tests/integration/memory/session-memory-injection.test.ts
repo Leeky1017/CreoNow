@@ -143,7 +143,7 @@ describe("Session Memory Integration", () => {
     assert.equal(listed.data.items[0].content, "第一人称叙事");
 
     // Delete
-    const deleted = svc.delete({ id: created.data.id });
+    const deleted = svc.delete({ id: created.data.id, projectId: "proj-1" });
     assert.ok(deleted.ok);
 
     // List after delete — should be empty
@@ -340,7 +340,7 @@ describe("Session Memory Integration", () => {
     });
 
     // Delete first item
-    svc.delete({ id: created.data.id });
+    svc.delete({ id: created.data.id, projectId: "proj-1" });
 
     const result = svc.getInjectionPayload({
       projectId: "proj-1",

@@ -45,6 +45,7 @@ export interface SessionMemoryListArgs {
 
 export interface SessionMemoryInjectionArgs {
   projectId: string;
+  sessionId?: string;
   contextHint?: string;
   budgetTokens: number;
 }
@@ -52,7 +53,7 @@ export interface SessionMemoryInjectionArgs {
 export interface SessionMemoryService {
   create(args: SessionMemoryCreateArgs): ServiceResult<SessionMemoryItem>;
   list(args: SessionMemoryListArgs): ServiceResult<{ items: SessionMemoryItem[]; totalCount: number }>;
-  delete(args: { id: string }): ServiceResult<void>;
+  delete(args: { id: string; projectId: string }): ServiceResult<void>;
   deleteExpired(): ServiceResult<{ deletedCount: number }>;
   getInjectionPayload(args: SessionMemoryInjectionArgs): ServiceResult<{ items: SessionMemoryItem[]; totalTokens: number }>;
 }
@@ -88,8 +89,9 @@ const HALF_LIFE_MS = 24 * 60 * 60 * 1000; // 86_400_000
 const FTS5_MATCH_BONUS = 0.5;
 
 // L1 injection cap: 15% of total context budget (per spec).
-// Caller passes budgetTokens already capped, but we enforce defensively.
-// Exported for testing.
+// The service receives an already-capped budgetTokens from the caller
+// (SkillOrchestrator computes: totalBudget * L1_BUDGET_CAP_RATIO).
+// Exported so callers can compute the cap consistently.
 export const L1_BUDGET_CAP_RATIO = 0.15;
 
 // Maximum content length per item (characters).
@@ -246,16 +248,21 @@ export function createSessionMemoryService(deps: { db: DbLike }): SessionMemoryS
       });
     },
 
-    delete(args: { id: string }): ServiceResult<void> {
+    delete(args: { id: string; projectId: string }): ServiceResult<void> {
       if (!args.id || args.id.trim().length === 0) {
         return ipcError("INVALID_ARGUMENT", "id must not be empty");
       }
 
+      if (!args.projectId || args.projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId must not be empty");
+      }
+
       // Soft-delete: set deleted_at timestamp instead of removing the row,
       // so FTS5 triggers fire correctly and we maintain an audit trail.
+      // projectId scoping prevents cross-project deletion.
       const result = db.prepare(
-        "UPDATE session_memory SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
-      ).run(Date.now(), args.id);
+        "UPDATE session_memory SET deleted_at = ? WHERE id = ? AND project_id = ? AND deleted_at IS NULL",
+      ).run(Date.now(), args.id, args.projectId);
 
       if (result.changes === 0) {
         return ipcError("NOT_FOUND", "session memory item not found");
@@ -282,21 +289,33 @@ export function createSessionMemoryService(deps: { db: DbLike }): SessionMemoryS
         return ipcOk({ items: [], totalTokens: 0 });
       }
 
-      // Defensive cap: never exceed L1_BUDGET_CAP_RATIO of the stated budget.
-      // The caller should already apply 15%, but we clamp just in case.
+      // budgetTokens is expected to be pre-capped by the caller at 15% of total
+      // context budget (L1_BUDGET_CAP_RATIO). This service trusts the passed value.
       const maxTokens = args.budgetTokens;
 
       const now = Date.now();
 
-      // Step 1: Fetch all active (non-deleted, non-expired) items for this project.
+      // Step 1: Fetch active (non-deleted, non-expired) items for this project.
+      // When sessionId is provided, filter to that session only (per-session injection).
       // Note: explicit `rowid` is needed because TEXT PK tables don't alias rowid
       // in SELECT *.
+      const conditions = [
+        "project_id = ?",
+        "deleted_at IS NULL",
+        "(expires_at IS NULL OR expires_at > ?)",
+      ];
+      const params: unknown[] = [args.projectId, now];
+
+      if (args.sessionId) {
+        conditions.push("session_id = ?");
+        params.push(args.sessionId);
+      }
+
       const rows = db.prepare(
         `SELECT *, rowid FROM session_memory
-         WHERE project_id = ? AND deleted_at IS NULL
-           AND (expires_at IS NULL OR expires_at > ?)
+         WHERE ${conditions.join(" AND ")}
          ORDER BY created_at DESC`,
-      ).all(args.projectId, now);
+      ).all(...params);
 
       if (rows.length === 0) {
         return ipcOk({ items: [] as SessionMemoryItem[], totalTokens: 0 });
@@ -361,17 +380,22 @@ export function createSessionMemoryService(deps: { db: DbLike }): SessionMemoryS
         );
 
         if (totalTokens + itemTokens > maxTokens) {
-          // Try trimming the last item to fill remaining budget
+          // Try trimming the last item's content to fill remaining budget.
+          // We trim only the content portion and re-estimate with the prefix
+          // to keep SessionMemoryItem.content clean (no category prefix baked in).
           const remaining = maxTokens - totalTokens;
-          if (remaining > 0 && itemTokens > 0) {
-            const trimmed = trimUtf8ToTokenBudget(
-              `[${item.category}] ${item.content}`,
-              remaining,
+          const prefix = `[${item.category}] `;
+          const prefixTokens = estimateTokens(prefix);
+          const contentBudget = remaining - prefixTokens;
+
+          if (contentBudget > 0) {
+            const trimmedContent = trimUtf8ToTokenBudget(
+              item.content,
+              contentBudget,
             );
-            if (trimmed.length > 0) {
-              const trimmedTokens = estimateTokens(trimmed);
-              // Create a trimmed copy
-              selected.push({ ...item, content: trimmed });
+            if (trimmedContent.length > 0) {
+              const trimmedTokens = estimateTokens(prefix + trimmedContent);
+              selected.push({ ...item, content: trimmedContent });
               totalTokens += trimmedTokens;
             }
           }
