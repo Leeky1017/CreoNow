@@ -69,6 +69,8 @@ type TrieState = {
   freeIndices: number[];
   entityOrderById: Map<string, number>;
   entitiesById: Map<string, CachedEntityPatternSet>;
+  dirty: boolean;
+  lastSyncedEntitiesRef: MatchableEntity[] | null;
 };
 
 const DEFAULT_TRIE_CACHE_KEY = "__default__";
@@ -100,9 +102,16 @@ class TrieCache {
 
     const key = args.cacheKey ?? DEFAULT_TRIE_CACHE_KEY;
     const state = this.getOrCreateState(key);
-    this.syncEntities(state, args.entities);
+    if (state.lastSyncedEntitiesRef !== args.entities) {
+      this.syncEntities(state, args.entities);
+      state.lastSyncedEntitiesRef = args.entities;
+    }
     if (state.nodes.length === 1) {
       return EMPTY_MATCH_RESULTS;
+    }
+    if (state.dirty) {
+      rebuildFailureLinks(state.nodes);
+      state.dirty = false;
     }
 
     return runMatch({
@@ -115,6 +124,11 @@ class TrieCache {
   prime(args: { cacheKey: string; entities: MatchableEntity[] }): void {
     const state = this.getOrCreateState(args.cacheKey);
     this.syncEntities(state, args.entities);
+    if (state.dirty) {
+      rebuildFailureLinks(state.nodes);
+      state.dirty = false;
+    }
+    state.lastSyncedEntitiesRef = args.entities;
   }
 
   upsert(args: { cacheKey: string; entity: MatchableEntity }): void {
@@ -127,7 +141,8 @@ class TrieCache {
         this.removeEntityPatterns(state, previous);
         state.entitiesById.delete(args.entity.id);
         state.entityOrderById = rebuildEntityOrder(state.entitiesById);
-        rebuildFailureLinks(state.nodes);
+        state.dirty = true;
+        state.lastSyncedEntitiesRef = null;
       }
       return;
     }
@@ -138,7 +153,8 @@ class TrieCache {
       if (!state.entityOrderById.has(next.entityId)) {
         state.entityOrderById.set(next.entityId, state.entityOrderById.size);
       }
-      rebuildFailureLinks(state.nodes);
+      state.dirty = true;
+      state.lastSyncedEntitiesRef = null;
       return;
     }
 
@@ -149,7 +165,8 @@ class TrieCache {
     this.removeEntityPatterns(state, previous);
     this.addEntityPatterns(state, next);
     state.entitiesById.set(next.entityId, next);
-    rebuildFailureLinks(state.nodes);
+    state.dirty = true;
+    state.lastSyncedEntitiesRef = null;
   }
 
   remove(args: { cacheKey: string; entityId: string }): void {
@@ -166,7 +183,8 @@ class TrieCache {
     this.removeEntityPatterns(state, previous);
     state.entitiesById.delete(args.entityId);
     state.entityOrderById = rebuildEntityOrder(state.entitiesById);
-    rebuildFailureLinks(state.nodes);
+    state.dirty = true;
+    state.lastSyncedEntitiesRef = null;
   }
 
   invalidate(cacheKey?: string): void {
@@ -200,6 +218,8 @@ class TrieCache {
       freeIndices: [],
       entityOrderById: new Map(),
       entitiesById: new Map(),
+      dirty: false,
+      lastSyncedEntitiesRef: null,
     };
     this.stateByKey.set(cacheKey, created);
     return created;
@@ -256,7 +276,7 @@ class TrieCache {
     );
 
     if (mutated) {
-      rebuildFailureLinks(state.nodes);
+      state.dirty = true;
     }
   }
 

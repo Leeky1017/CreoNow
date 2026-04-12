@@ -11,6 +11,14 @@ import {
   type MatchableEntity,
 } from "../entityMatcher";
 
+function isCoverageInstrumentationRun(): boolean {
+  return (
+    process.argv.includes("--coverage") ||
+    process.env.VITEST_COVERAGE === "true" ||
+    "__coverage__" in globalThis
+  );
+}
+
 function createEntity(args: {
   id: string;
   name: string;
@@ -68,7 +76,8 @@ describe("trieCache", () => {
     const matchStart = performance.now();
     const result = matchEntities(text, entities, { cacheKey });
     const matchDuration = performance.now() - matchStart;
-    expect(matchDuration).toBeLessThan(5);
+    const matchBudgetMs = isCoverageInstrumentationRun() ? 15 : 5;
+    expect(matchDuration).toBeLessThan(matchBudgetMs);
     expect(result.length).toBe(2);
     const ids = result.map((r) => r.entityId).sort();
     expect(ids).toEqual(["e-1", "e-999"]);
