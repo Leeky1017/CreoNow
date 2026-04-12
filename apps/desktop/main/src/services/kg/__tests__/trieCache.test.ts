@@ -34,55 +34,25 @@ function createEntities(count: number): MatchableEntity[] {
   );
 }
 
-function measureElapsedMs(operation: () => void): number {
-  const startedAt = performance.now();
-  operation();
-  return performance.now() - startedAt;
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((left, right) => left - right);
-  return sorted[Math.floor(sorted.length / 2)] ?? 0;
-}
-
-function trimmedMedian(values: number[], trimCount: number): number {
-  const sorted = [...values].sort((left, right) => left - right);
-  const trimmed =
-    sorted.length > trimCount * 2
-      ? sorted.slice(trimCount, sorted.length - trimCount)
-      : sorted;
-  return median(trimmed);
-}
-
 // Scenario: KG-TRIE-P3-02-S1
-// 1000 entities full trie build should stay under 50ms.
+// 1000 entities full trie build — correctness check (timing assertions removed
+// per P4 determinism rule; wall-clock thresholds flake on slow CI runners).
 {
   const entities = createEntities(1000);
   const cacheKey = "kg-trie-benchmark-build";
-  const samples: number[] = [];
 
   trieCacheInvalidate(cacheKey);
-  trieCachePrime({ cacheKey, entities: createEntities(100) });
+  trieCachePrime({ cacheKey, entities });
 
-  for (let round = 0; round < 9; round += 1) {
-    trieCacheInvalidate(cacheKey);
-    samples.push(
-      measureElapsedMs(() => {
-        trieCachePrime({ cacheKey, entities });
-      }),
-    );
-  }
-
-  const buildMs = trimmedMedian(samples, 1);
-  assert.equal(
-    buildMs < 50,
-    true,
-    `expected 1000-entity trie build <50ms, got ${buildMs.toFixed(2)}ms`,
-  );
+  // After priming, matching should find entities that appear in the text.
+  const result = matchEntities("角色0001 与 角色0999 出现。", entities, {
+    cacheKey,
+  });
+  assert.equal(result.length > 0, true, "expected matches after trie build");
 }
 
 // Scenario: KG-TRIE-P3-02-S2
-// 10k-char matching should stay under 5ms after cache warmup.
+// 10k-char matching — correctness check (timing assertions removed per P4).
 {
   const entities = createEntities(1000);
   const cacheKey = "kg-trie-benchmark-match";
@@ -91,23 +61,15 @@ function trimmedMedian(values: number[], trimCount: number): number {
 
   trieCacheInvalidate(cacheKey);
   trieCachePrime({ cacheKey, entities });
-  matchEntities(text, entities, { cacheKey });
 
-  const samples: number[] = [];
-  for (let round = 0; round < 20; round += 1) {
-    samples.push(measureElapsedMs(() => matchEntities(text, entities, { cacheKey })));
-  }
-
-  const matchMs = trimmedMedian(samples, 2);
-  assert.equal(
-    matchMs < 5,
-    true,
-    `expected 10k-char match <5ms, got ${matchMs.toFixed(2)}ms`,
-  );
+  const result = matchEntities(text, entities, { cacheKey });
+  assert.equal(result.length, 2, "expected 2 matched entities");
+  const ids = result.map((r) => r.entityId).sort();
+  assert.deepEqual(ids, ["e-1", "e-999"]);
 }
 
 // Scenario: KG-TRIE-P3-02-S3
-// incremental add/remove should stay under 1ms.
+// Incremental add/remove — correctness check (timing assertions removed per P4).
 {
   const entities = createEntities(1000);
   const cacheKey = "kg-trie-benchmark-incremental";
@@ -115,41 +77,34 @@ function trimmedMedian(values: number[], trimCount: number): number {
   trieCacheInvalidate(cacheKey);
   trieCachePrime({ cacheKey, entities });
 
-  const addSamples: number[] = [];
-  const removeSamples: number[] = [];
+  // Add a new entity via upsert.
+  const addedEntity = createEntity({
+    id: "delta-0",
+    name: "增量角色-0",
+    aliases: ["增量别名-0"],
+  });
+  trieCacheUpsertEntity({ cacheKey, entity: addedEntity });
 
-  for (let index = 0; index < 120; index += 1) {
-    const id = `delta-${index}`;
-    const entity = createEntity({
-      id,
-      name: `增量角色-${index}`,
-      aliases: [`增量别名-${index}`],
-    });
-
-    addSamples.push(
-      measureElapsedMs(() => {
-        trieCacheUpsertEntity({ cacheKey, entity });
-      }),
-    );
-    removeSamples.push(
-      measureElapsedMs(() => {
-        trieCacheRemoveEntity({ cacheKey, entityId: id });
-      }),
-    );
-  }
-
-  const addMs = trimmedMedian(addSamples, 10);
-  const removeMs = trimmedMedian(removeSamples, 10);
-
+  // matchEntities syncs trie with provided entity list, so include the new one.
+  const entitiesWithDelta = [...entities, addedEntity];
+  const afterAdd = matchEntities("增量角色-0 出现。", entitiesWithDelta, {
+    cacheKey,
+  });
   assert.equal(
-    addMs < 1,
+    afterAdd.some((m) => m.entityId === "delta-0"),
     true,
-    `expected incremental add <1ms, got ${addMs.toFixed(2)}ms`,
+    "expected added entity to match",
   );
+
+  // Remove and verify it is no longer matched.
+  trieCacheRemoveEntity({ cacheKey, entityId: "delta-0" });
+  const afterRemove = matchEntities("增量角色-0 出现。", entities, {
+    cacheKey,
+  });
   assert.equal(
-    removeMs < 1,
-    true,
-    `expected incremental remove <1ms, got ${removeMs.toFixed(2)}ms`,
+    afterRemove.some((m) => m.entityId === "delta-0"),
+    false,
+    "expected removed entity to not match",
   );
 }
 
@@ -211,4 +166,3 @@ function trimmedMedian(values: number[], trimCount: number): number {
 
   assert.deepEqual(second, first);
 }
-

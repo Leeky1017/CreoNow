@@ -3,7 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
-import { trieCachePrime, type MatchableEntity } from "../services/kg/entityMatcher";
+import { trieCacheInvalidate, trieCachePrime, type MatchableEntity } from "../services/kg/entityMatcher";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { createProjectService } from "../services/projects/projectService";
 import type { ProjectLifecycle } from "../services/projects/projectLifecycle";
@@ -63,8 +63,10 @@ function primeTrieCacheForProject(args: {
       cacheKey: args.projectId,
       entities,
     });
-  } catch {
+  } catch (error) {
     // Best effort warmup only: project switch/getCurrent must not fail due cache.
+    // INV-10: errors must still be logged, never silently swallowed (§七).
+    args.logger.info("trie_cache_warmup_failed", { projectId: args.projectId, error: String(error) });
   }
 }
 
@@ -434,6 +436,9 @@ function registerProjectSessionAndLifecycleHandlers(
         logger: deps.logger,
       });
       const res = svc.delete({ projectId: payload.projectId });
+      if (res.ok) {
+        trieCacheInvalidate(payload.projectId);
+      }
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };

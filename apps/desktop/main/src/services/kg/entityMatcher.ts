@@ -1,3 +1,26 @@
+/**
+ * @module entityMatcher
+ * ## Responsibilities
+ * Aho-Corasick trie-based entity matching for Retrieved-layer context injection.
+ * Maintains a per-project in-memory trie cache to avoid full rebuilds on every
+ * context assembly pass.  Exposes deterministic, synchronous pattern matching
+ * plus incremental CRUD helpers (prime / upsert / remove / invalidate).
+ *
+ * ## Boundary (what this module does NOT do)
+ * - Does NOT persist trie state — it is a pure in-memory acceleration layer.
+ * - Does NOT call LLM or modify documents (INV-6 boundary).
+ * - Does NOT handle token estimation or context budget (see context/ layer).
+ *
+ * ## Dependency direction
+ * Allowed: kgService types (import type only).
+ * Forbidden: ipc/, renderer/, db/ (accessed via service callers).
+ *
+ * ## Invariants
+ * - INV-2: updates are synchronous per cache key — reads always observe a
+ *   complete trie snapshot.
+ * - INV-4: KG + FTS5 remain the primary retrieval path; this module accelerates
+ *   the entity-detection step within that path.
+ */
 import type { AiContextLevel } from "./kgService";
 
 export type MatchableEntity = {
@@ -42,7 +65,11 @@ type TrieState = {
 };
 
 const DEFAULT_TRIE_CACHE_KEY = "__default__";
-const EMPTY_MATCH_RESULTS: MatchResult[] = [];
+
+// Frozen to prevent accidental mutation by callers (.push() would corrupt a shared singleton).
+const EMPTY_MATCH_RESULTS: MatchResult[] = Object.freeze(
+  [] as MatchResult[],
+) as MatchResult[];
 
 /**
  * Trie cache for Aho-Corasick matcher.
@@ -52,7 +79,7 @@ const EMPTY_MATCH_RESULTS: MatchResult[] = [];
  * @invariant INV-2 — updates are applied synchronously per cache key so reads
  * always observe a complete trie snapshot.
  */
-export class TrieCache {
+class TrieCache {
   private readonly stateByKey = new Map<string, TrieState>();
 
   match(args: {
@@ -314,6 +341,9 @@ function removePattern(
   nodes: AutomatonNode[],
   args: { entityId: string; matchedTerm: string },
 ): void {
+  // Walk down recording the path so we can prune orphaned nodes afterwards.
+  const path: { parentIndex: number; character: string; childIndex: number }[] =
+    [];
   let state = 0;
   for (let index = 0; index < args.matchedTerm.length; index += 1) {
     const character = args.matchedTerm[index]!;
@@ -321,6 +351,7 @@ function removePattern(
     if (next === undefined) {
       return;
     }
+    path.push({ parentIndex: state, character, childIndex: next });
     state = next;
   }
 
@@ -331,6 +362,18 @@ function removePattern(
         output.matchedTerm === args.matchedTerm
       ),
   );
+
+  // Walk back up and prune nodes that have become orphaned (no directOutputs
+  // AND no remaining transitions).  This prevents memory leaks during long
+  // writing sessions with frequent entity CRUD.
+  for (let i = path.length - 1; i >= 0; i -= 1) {
+    const { parentIndex, character, childIndex } = path[i]!;
+    const child = nodes[childIndex];
+    if (child.directOutputs.length > 0 || child.transitions.size > 0) {
+      break;
+    }
+    nodes[parentIndex].transitions.delete(character);
+  }
 }
 
 function rebuildFailureLinks(nodes: AutomatonNode[]): void {
