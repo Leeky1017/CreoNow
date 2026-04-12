@@ -8,7 +8,6 @@ import type { IpcMain } from "electron";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { registerAiIpcHandlers } from "../../main/src/ipc/ai";
-import { registerVersionIpcHandlers } from "../../main/src/ipc/version";
 import type { Logger } from "../../main/src/logging/logger";
 import * as skillOrchestratorModule from "../../main/src/core/skillOrchestrator";
 import { createDocumentService } from "../../main/src/services/documents/documentService";
@@ -116,11 +115,6 @@ function createHarness(args: { env: NodeJS.ProcessEnv }) {
     ),
     logger: createLogger(),
     env: args.env,
-  });
-  registerVersionIpcHandlers({
-    ipcMain,
-    db,
-    logger: createLogger(),
   });
 
   return {
@@ -424,6 +418,47 @@ describe("E2E IPC path: ai:skill:run -> SkillOrchestrator -> write-back", () => 
     }
     const reasons = readSnapshotReasons(harness.db, documentId);
     expect(reasons).toEqual(["manual-save"]);
+  });
+
+  it("invalid argument path: ai:skill:run rejects missing projectId with actionable validation context", async () => {
+    const harness = createHarness({
+      env: {
+        ...process.env,
+        CREONOW_E2E: "1",
+        CREONOW_E2E_AI_MODE: "success",
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_MODEL: "gpt-5.2",
+      },
+    });
+    opened.push(harness.db);
+    const { documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "origin",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      error?: { code: string; message: string };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "origin",
+      mode: "ask",
+      model: "gpt-5.2",
+      agenticLoop: true,
+      context: { documentId },
+      selection: {
+        from: 1,
+        to: 7,
+        text: "origin",
+        selectionTextHash: computeSelectionTextHash("origin"),
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(false);
+    expect(run.error?.code).toBe("INVALID_ARGUMENT");
+    expect(run.error?.message).toContain("projectId");
   });
 
   it("abort path: ai:skill:cancel interrupts pending preview before write-back", async () => {
