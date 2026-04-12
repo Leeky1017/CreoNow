@@ -45,9 +45,10 @@ export interface SessionMemoryListArgs {
 
 export interface SessionMemoryInjectionArgs {
   projectId: string;
-  sessionId?: string;
+  sessionId: string;
   contextHint?: string;
-  budgetTokens: number;
+  /** Total context budget in tokens. Service enforces L1_BUDGET_CAP_RATIO (15%) internally. */
+  totalContextBudget: number;
 }
 
 export interface SessionMemoryService {
@@ -88,10 +89,9 @@ const HALF_LIFE_MS = 24 * 60 * 60 * 1000; // 86_400_000
 // moderate-age high-score items, but not so large it overwhelms explicit scores.
 const FTS5_MATCH_BONUS = 0.5;
 
-// L1 injection cap: 15% of total context budget (per spec).
-// The service receives an already-capped budgetTokens from the caller
-// (SkillOrchestrator computes: totalBudget * L1_BUDGET_CAP_RATIO).
-// Exported so callers can compute the cap consistently.
+// L1 injection cap: 15% of total context budget (per spec P3-04).
+// The service enforces this cap: maxTokens = floor(totalContextBudget * L1_BUDGET_CAP_RATIO).
+// Exported so callers can also reference the ratio for display / logging.
 export const L1_BUDGET_CAP_RATIO = 0.15;
 
 // Maximum content length per item (characters).
@@ -285,37 +285,32 @@ export function createSessionMemoryService(deps: { db: DbLike }): SessionMemoryS
         return ipcError("INVALID_ARGUMENT", "projectId must not be empty");
       }
 
-      if (!Number.isFinite(args.budgetTokens) || args.budgetTokens <= 0) {
+      if (!args.sessionId || args.sessionId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "sessionId must not be empty");
+      }
+
+      if (!Number.isFinite(args.totalContextBudget) || args.totalContextBudget <= 0) {
         return ipcOk({ items: [], totalTokens: 0 });
       }
 
-      // budgetTokens is expected to be pre-capped by the caller at 15% of total
-      // context budget (L1_BUDGET_CAP_RATIO). This service trusts the passed value.
-      const maxTokens = args.budgetTokens;
+      // Enforce L1 budget cap: never exceed 15% of total context budget (spec P3-04).
+      const maxTokens = Math.floor(args.totalContextBudget * L1_BUDGET_CAP_RATIO);
+      if (maxTokens <= 0) {
+        return ipcOk({ items: [], totalTokens: 0 });
+      }
 
       const now = Date.now();
 
-      // Step 1: Fetch active (non-deleted, non-expired) items for this project.
-      // When sessionId is provided, filter to that session only (per-session injection).
+      // Step 1: Fetch active (non-deleted, non-expired) items for this session.
       // Note: explicit `rowid` is needed because TEXT PK tables don't alias rowid
       // in SELECT *.
-      const conditions = [
-        "project_id = ?",
-        "deleted_at IS NULL",
-        "(expires_at IS NULL OR expires_at > ?)",
-      ];
-      const params: unknown[] = [args.projectId, now];
-
-      if (args.sessionId) {
-        conditions.push("session_id = ?");
-        params.push(args.sessionId);
-      }
-
       const rows = db.prepare(
         `SELECT *, rowid FROM session_memory
-         WHERE ${conditions.join(" AND ")}
+         WHERE project_id = ? AND deleted_at IS NULL
+           AND (expires_at IS NULL OR expires_at > ?)
+           AND session_id = ?
          ORDER BY created_at DESC`,
-      ).all(...params);
+      ).all(args.projectId, now, args.sessionId);
 
       if (rows.length === 0) {
         return ipcOk({ items: [] as SessionMemoryItem[], totalTokens: 0 });

@@ -56,9 +56,9 @@ type DeletePayload = {
 
 type InjectionPayload = {
   projectId: string;
-  sessionId?: string;
+  sessionId: string;
   contextHint?: string;
-  budgetTokens: number;
+  totalContextBudget: number;
 };
 
 const VALID_CATEGORIES = new Set<string>(["style", "reference", "preference", "note"]);
@@ -305,7 +305,7 @@ export function registerSessionMemoryIpcHandlers(deps: {
           projectId: payload.projectId,
           sessionId: payload.sessionId,
           contextHint: payload.contextHint,
-          budgetTokens: payload.budgetTokens,
+          totalContextBudget: payload.totalContextBudget,
         });
 
         if (res.ok) {

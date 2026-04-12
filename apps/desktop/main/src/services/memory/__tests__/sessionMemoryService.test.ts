@@ -590,7 +590,7 @@ describe("SessionMemoryService", () => {
   // SM-U-9 ~ SM-U-14
   describe("getInjectionPayload()", () => {
     // SM-U-9
-    it("respects budgetTokens cap", () => {
+    it("respects totalContextBudget cap (enforces 15%)", () => {
       // Create several items
       for (let i = 0; i < 20; i++) {
         svc.create({
@@ -601,14 +601,17 @@ describe("SessionMemoryService", () => {
         });
       }
 
+      // totalContextBudget = 500 → maxTokens = floor(500 * 0.15) = 75
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "proj-1",
-        budgetTokens: 50,
+        totalContextBudget: 500,
       });
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.data.totalTokens).toBeLessThanOrEqual(50);
+      // Service enforces 15% cap: effective budget is floor(500 * 0.15) = 75
+      expect(result.data.totalTokens).toBeLessThanOrEqual(75);
       // Should have fewer than all 20 items
       expect(result.data.items.length).toBeLessThan(20);
     });
@@ -646,8 +649,9 @@ describe("SessionMemoryService", () => {
       db._ftsRows.set(olderRow.rowid, olderRow.content);
 
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "proj-1",
-        budgetTokens: 1000,
+        totalContextBudget: 1000,
       });
 
       expect(result.ok).toBe(true);
@@ -678,9 +682,10 @@ describe("SessionMemoryService", () => {
       });
 
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "proj-1",
         contextHint: "林黛玉",
-        budgetTokens: 1000,
+        totalContextBudget: 1000,
       });
 
       expect(result.ok).toBe(true);
@@ -701,8 +706,9 @@ describe("SessionMemoryService", () => {
       });
 
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "proj-1",
-        budgetTokens: 5000,
+        totalContextBudget: 5000,
       });
 
       expect(result.ok).toBe(true);
@@ -717,8 +723,9 @@ describe("SessionMemoryService", () => {
     // SM-U-13
     it("empty project returns empty payload", () => {
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "proj-nonexistent",
-        budgetTokens: 1000,
+        totalContextBudget: 1000,
       });
 
       expect(result.ok).toBe(true);
@@ -737,8 +744,9 @@ describe("SessionMemoryService", () => {
       });
 
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "proj-1",
-        budgetTokens: 0,
+        totalContextBudget: 0,
       });
 
       expect(result.ok).toBe(true);
@@ -748,8 +756,9 @@ describe("SessionMemoryService", () => {
 
     it("negative budget returns empty payload", () => {
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "proj-1",
-        budgetTokens: -100,
+        totalContextBudget: -100,
       });
 
       expect(result.ok).toBe(true);
@@ -774,8 +783,9 @@ describe("SessionMemoryService", () => {
       });
 
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "proj-1",
-        budgetTokens: 5000,
+        totalContextBudget: 5000,
       });
 
       expect(result.ok).toBe(true);
@@ -786,14 +796,15 @@ describe("SessionMemoryService", () => {
 
     it("rejects empty projectId", () => {
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "",
-        budgetTokens: 1000,
+        totalContextBudget: 1000,
       });
       expect(result.ok).toBe(false);
     });
 
-    // SM-U-16: session-aware injection filters by sessionId
-    it("filters injection by sessionId when provided", () => {
+    // SM-U-16: session-aware injection filters by sessionId (required)
+    it("filters injection by sessionId — only returns matching session items", () => {
       svc.create({
         sessionId: "sess-1",
         projectId: "proj-1",
@@ -807,25 +818,37 @@ describe("SessionMemoryService", () => {
         content: "session two style",
       });
 
-      // Without sessionId — returns both
-      const allResult = svc.getInjectionPayload({
-        projectId: "proj-1",
-        budgetTokens: 5000,
-      });
-      expect(allResult.ok).toBe(true);
-      if (!allResult.ok) return;
-      expect(allResult.data.items).toHaveLength(2);
-
-      // With sessionId — returns only matching session
-      const filteredResult = svc.getInjectionPayload({
-        projectId: "proj-1",
+      // sessionId = "sess-1" — returns only sess-1 items
+      const sess1Result = svc.getInjectionPayload({
         sessionId: "sess-1",
-        budgetTokens: 5000,
+        projectId: "proj-1",
+        totalContextBudget: 5000,
       });
-      expect(filteredResult.ok).toBe(true);
-      if (!filteredResult.ok) return;
-      expect(filteredResult.data.items).toHaveLength(1);
-      expect(filteredResult.data.items[0].content).toBe("session one style");
+      expect(sess1Result.ok).toBe(true);
+      if (!sess1Result.ok) return;
+      expect(sess1Result.data.items).toHaveLength(1);
+      expect(sess1Result.data.items[0].content).toBe("session one style");
+
+      // sessionId = "sess-2" — returns only sess-2 items
+      const sess2Result = svc.getInjectionPayload({
+        sessionId: "sess-2",
+        projectId: "proj-1",
+        totalContextBudget: 5000,
+      });
+      expect(sess2Result.ok).toBe(true);
+      if (!sess2Result.ok) return;
+      expect(sess2Result.data.items).toHaveLength(1);
+      expect(sess2Result.data.items[0].content).toBe("session two style");
+    });
+
+    // SM-U-18: rejects empty sessionId
+    it("rejects empty sessionId", () => {
+      const result = svc.getInjectionPayload({
+        sessionId: "",
+        projectId: "proj-1",
+        totalContextBudget: 1000,
+      });
+      expect(result.ok).toBe(false);
     });
 
     // SM-U-17: trimmed item content does not include category prefix
@@ -838,10 +861,11 @@ describe("SessionMemoryService", () => {
         content: "This is a moderately long piece of content that should get trimmed when budget is very small",
       });
 
-      // Very small budget — forces trimming
+      // Small total budget — 15% of 100 = 15 tokens, forces trimming
       const result = svc.getInjectionPayload({
+        sessionId: "sess-1",
         projectId: "proj-1",
-        budgetTokens: 10,
+        totalContextBudget: 100,
       });
 
       expect(result.ok).toBe(true);

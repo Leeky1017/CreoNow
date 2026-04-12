@@ -200,15 +200,17 @@ describe("Session Memory Integration", () => {
       });
     }
 
-    // Budget of 50 tokens — should not fit all 10 items
+    // Budget of 500 total tokens → 15% = 75 effective tokens — should not fit all 10 items
     // Each item: "[style] 这是第N条记忆内容..." ≈ ~40+ tokens
     const result = svc.getInjectionPayload({
+      sessionId: "sess-1",
       projectId: "proj-1",
-      budgetTokens: 50,
+      totalContextBudget: 500,
     });
 
     assert.ok(result.ok);
-    assert.ok(result.data.totalTokens <= 50, `Total tokens ${result.data.totalTokens} exceeded budget 50`);
+    // Service enforces 15% cap: effective budget = floor(500 * 0.15) = 75
+    assert.ok(result.data.totalTokens <= 75, `Total tokens ${result.data.totalTokens} exceeded cap 75`);
     assert.ok(result.data.items.length < 10, `Got ${result.data.items.length} items, expected fewer than 10`);
   });
 
@@ -233,8 +235,9 @@ describe("Session Memory Integration", () => {
     });
 
     const result = svc.getInjectionPayload({
+      sessionId: "sess-1",
       projectId: "proj-1",
-      budgetTokens: 5000,
+      totalContextBudget: 5000,
     });
 
     assert.ok(result.ok);
@@ -306,9 +309,10 @@ describe("Session Memory Integration", () => {
     });
 
     const result = svc.getInjectionPayload({
+      sessionId: "sess-1",
       projectId: "proj-1",
       contextHint: "Wang Xifeng",
-      budgetTokens: 5000,
+      totalContextBudget: 5000,
     });
 
     assert.ok(result.ok);
@@ -343,8 +347,9 @@ describe("Session Memory Integration", () => {
     svc.delete({ id: created.data.id, projectId: "proj-1" });
 
     const result = svc.getInjectionPayload({
+      sessionId: "sess-1",
       projectId: "proj-1",
-      budgetTokens: 5000,
+      totalContextBudget: 5000,
     });
 
     assert.ok(result.ok);
