@@ -35,9 +35,19 @@ export function resolveKnownContextWindow(modelId: string): number | null {
     return null;
   }
 
-  for (const [knownModelId, windowSize] of Object.entries(MODEL_CONTEXT_WINDOWS)) {
-    if (normalized === knownModelId || normalized.startsWith(`${knownModelId}-`)) {
-      return windowSize;
+  // Exact match first — avoids "gpt-4o" shadowing "gpt-4o-mini" via prefix.
+  const exact = MODEL_CONTEXT_WINDOWS[normalized];
+  if (exact !== undefined) {
+    return exact;
+  }
+
+  // Prefix match sorted by descending key length so longer keys win.
+  const sortedKeys = Object.keys(MODEL_CONTEXT_WINDOWS).sort(
+    (a, b) => b.length - a.length,
+  );
+  for (const knownModelId of sortedKeys) {
+    if (normalized.startsWith(`${knownModelId}-`)) {
+      return MODEL_CONTEXT_WINDOWS[knownModelId]!;
     }
   }
 
