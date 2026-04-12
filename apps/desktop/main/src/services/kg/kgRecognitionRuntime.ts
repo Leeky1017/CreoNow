@@ -9,7 +9,7 @@ import {
 } from "@shared/types/kg";
 import type { IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
-import { matchEntities } from "./entityMatcher";
+import { matchEntitiesCached } from "./entityMatcher";
 import {
   createKnowledgeGraphService,
   type KnowledgeEntity,
@@ -432,9 +432,10 @@ export function createAhoCorasickRecognizer(deps: {
         allEntities.map((entity) => [entity.id, entity]),
       );
 
-      // matchEntities() filters to when_detected internally (entityMatcher.ts L114).
+      // matchEntitiesCached() uses project-scoped trie cache (trieCache.ts).
+      // Filters to when_detected internally (entityMatcher.ts L114).
       // Passing all entities is safe — non-when_detected entities are skipped.
-      const matches = matchEntities(contentText, allEntities);
+      const matches = matchEntitiesCached(contentText, allEntities, projectId);
 
       const candidates = new Map<string, RecognitionCandidate>();
 
