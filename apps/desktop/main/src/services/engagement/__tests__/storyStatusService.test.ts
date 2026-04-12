@@ -202,7 +202,7 @@ describe("storyStatusService", () => {
       expect(result.data.activeForeshadowing[1].id).toBe("kg-2");
     });
 
-    it("包含 queryCostMs 字段", () => {
+    it("Scenario: summary query cost stays within budget", () => {
       const svc = createStoryStatusService({
         db: createDbStub(),
         logger: createLogger(),
@@ -370,7 +370,7 @@ describe("storyStatusService", () => {
       expect(afterSecond - afterFirst).toBeGreaterThan(0);
     });
 
-    it("文档 stamp 变更时缓存自动失效", () => {
+    it("Scenario: stamp changed invalidates cache immediately", () => {
       let stamp = 1000;
       let chapterCount = 1;
       const db: Database.Database = {

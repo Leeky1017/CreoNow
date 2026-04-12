@@ -72,10 +72,7 @@ export function registerEngagementIpcHandlers(deps: {
         };
       }
 
-      const service = getService();
-      if (!service) {
-        return notReady<StoryStatusSummary>();
-      }
+      const service = getService()!;
 
       const result = service.getStoryStatus({ projectId });
       return result.ok

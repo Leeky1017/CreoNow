@@ -10,7 +10,7 @@
 | --- | --- |
 | IPC | `apps/desktop/main/src/ipc/engagement.ts` |
 | Service | `apps/desktop/main/src/services/engagement/storyStatusService.ts` |
-| Shared Contract | `packages/shared/types/ipc/engagement.ts` |
+| Shared Contract | `apps/desktop/main/src/ipc/contract/ipc-contract.ts` |
 
 ## Requirements
 
@@ -30,6 +30,9 @@
   - `INVALID_ARGUMENT`（参数不合法）
   - `DB_ERROR`（数据库未就绪或查询失败）
   - `FORBIDDEN`（project binding 校验失败）
+- `interruptedTask` 为 `null` 的条件：
+  - 项目下不存在任何 `type='chapter'` 文档
+  - 最近编辑章节的 `status === "final"`
 
 #### Scenario: valid request returns summary
 
@@ -46,13 +49,15 @@
 
 1. TTL 固定 30 秒（`CACHE_TTL_MS = 30_000`）。
 2. 命中缓存前必须执行双 stamp 校验（documents + kg_entities）：
-   - 任一来源最新 `updated_at` 变化即视为缓存失效。
+   - documents stamp 使用 `${chapterCount}:${maxUpdatedAt}`（`COUNT(*) + MAX(updated_at)`）。
+   - kg_entities stamp 使用 `${entityCount}:${maxUpdatedAt}`（`COUNT(*) + MAX(updated_at)`）。
+   - 任一来源 stamp 变化即视为缓存失效（包括仅增删导致 `COUNT(*)` 变化但 `MAX(updated_at)` 不变的场景）。
 3. stamp 校验失败或 TTL 过期后，必须重算摘要并覆盖缓存。
 
 #### Scenario: stamp changed invalidates cache immediately
 
 - **假设** 未超过 30 秒 TTL
-- **当** documents 或 kg_entities 的最新 `updated_at` 发生变化
+- **当** documents 或 kg_entities 的 stamp（`COUNT(*) + MAX(updated_at)`）发生变化
 - **则** 本次请求不得复用旧缓存，必须重算并返回新摘要
 
 ---

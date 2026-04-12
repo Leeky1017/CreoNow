@@ -79,7 +79,7 @@ export type StoryStatusService = {
 
   /**
    * 显式失效指定 projectId 的缓存。
-   * 应在 documents 表更新后调用（IPC handler 负责触发）。
+   * 由检测到文档/KG 数据变化的调用方按需触发；IPC handler 不会自动调用。
    */
   invalidateCache: (projectId: string) => void;
 };
