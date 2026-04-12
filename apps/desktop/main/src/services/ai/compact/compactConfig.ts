@@ -8,6 +8,8 @@
 
 import type { ResolvedModelConfig } from "../modelConfig";
 
+// Safe fallback matching the most common modern context window (GPT-4o class, 128K);
+// used when neither primary nor auxiliary model appears in MODEL_CONTEXT_WINDOWS.
 const FALLBACK_CONTEXT_BUDGET = 128_000;
 const MODEL_CONTEXT_WINDOWS: Readonly<Record<string, number>> = {
   "gpt-4o": 128_000,
