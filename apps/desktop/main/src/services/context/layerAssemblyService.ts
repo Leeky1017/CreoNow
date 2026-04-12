@@ -4,10 +4,12 @@ import type { KnowledgeGraphService } from "../kg/kgService";
 import type { MemoryService } from "../memory/memoryService";
 import type { EpisodicMemoryService } from "../memory/episodicMemoryService";
 import type { SimpleMemoryService } from "../memory/simpleMemoryService";
+import type { SessionMemoryService } from "../memory/sessionMemory";
 import type { ProjectStyleConfig } from "../project/projectManager";
 import type { CharacterListService } from "../skills/characterListService";
 import { createRulesFetcher } from "./fetchers/rulesFetcher";
 import { createMemoryInjectionFetcher } from "./fetchers/memoryInjectionFetcher";
+import { createSessionMemoryFetcher } from "./fetchers/sessionMemoryFetcher";
 import { createProjectStyleFetcher } from "./fetchers/projectStyleFetcher";
 import { createCharacterContextFetcher } from "./fetchers/characterContextFetcher";
 import type { SynopsisStore } from "./synopsisStore";
@@ -67,6 +69,10 @@ export type ContextLayerAssemblyDeps = {
   kgService?: Pick<KnowledgeGraphService, "entityList">;
   memoryService?: Pick<MemoryService, "previewInjection">;
   simpleMemoryService?: Pick<SimpleMemoryService, "inject">;
+  /** L1 session-aware memory (INV-4). Optional — degrades gracefully when absent. */
+  sessionMemoryService?: Pick<SessionMemoryService, "injectForContext">;
+  /** Active session ID for L1 memory lookup. Must be wired alongside sessionMemoryService. */
+  activeSessionId?: string;
   projectService?: {
     getStyleConfig: (projectId: string) => Promise<ProjectStyleResult<ProjectStyleConfig>>;
   };
@@ -1314,6 +1320,8 @@ function defaultFetchers(
     | "kgService"
     | "memoryService"
     | "simpleMemoryService"
+    | "sessionMemoryService"
+    | "activeSessionId"
     | "projectService"
     | "characterListService"
     | "synopsisStore"
@@ -1345,6 +1353,20 @@ function defaultFetchers(
     settingsSubFetchers.push(
       createMemoryInjectionFetcher({
         simpleMemoryService: deps.simpleMemoryService,
+        logger: deps.logger,
+        degradationCounter,
+        degradationEscalationThreshold: deps.degradationEscalationThreshold,
+      }),
+    );
+  }
+
+  // L1 session-aware memory injection (INV-4: FTS5 keyword matching, no extra vector store).
+  // Injected after L0 (simpleMemoryService) so that always-inject core takes priority.
+  if (deps?.sessionMemoryService) {
+    settingsSubFetchers.push(
+      createSessionMemoryFetcher({
+        sessionMemoryService: deps.sessionMemoryService,
+        sessionId: deps.activeSessionId,
         logger: deps.logger,
         degradationCounter,
         degradationEscalationThreshold: deps.degradationEscalationThreshold,
@@ -1445,6 +1467,8 @@ export function createContextLayerAssemblyService(
       kgService: deps?.kgService,
       memoryService: deps?.memoryService,
       simpleMemoryService: deps?.simpleMemoryService,
+      sessionMemoryService: deps?.sessionMemoryService,
+      activeSessionId: deps?.activeSessionId,
       projectService: deps?.projectService,
       characterListService: deps?.characterListService,
       synopsisStore: deps?.synopsisStore,
