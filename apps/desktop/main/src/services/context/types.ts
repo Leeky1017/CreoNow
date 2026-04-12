@@ -28,6 +28,13 @@ export type ContextAssembleRequest = {
    * (returns empty chunks).
    */
   sessionId?: string;
+  /**
+   * Effective total context budget used by layer fetchers.
+   *
+   * Optional input from callers; when omitted the assembly service fills this
+   * with the active budget profile total before invoking fetchers.
+   */
+  totalContextBudgetTokens?: number;
   conversationMessages?: Array<{
     role: "system" | "user" | "assistant" | "tool";
     content: string;

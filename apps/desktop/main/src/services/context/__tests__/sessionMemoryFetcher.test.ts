@@ -99,6 +99,34 @@ describe("createSessionMemoryFetcher", () => {
     );
   });
 
+  it("uses request totalContextBudgetTokens when provided", async () => {
+    const injectForContext = makeInjectOk("result");
+    const fetcher = createSessionMemoryFetcher({
+      sessionMemoryService: { injectForContext },
+      sessionId: "sess-1",
+      fallbackTotalContextBudgetTokens: 9000,
+    });
+
+    await fetcher(makeRequest({ totalContextBudgetTokens: 2000 }));
+    expect(injectForContext).toHaveBeenCalledWith(
+      expect.objectContaining({ totalContextBudgetTokens: 2000 }),
+    );
+  });
+
+  it("uses fetcher fallback totalContextBudgetTokens when request budget is absent", async () => {
+    const injectForContext = makeInjectOk("result");
+    const fetcher = createSessionMemoryFetcher({
+      sessionMemoryService: { injectForContext },
+      sessionId: "sess-1",
+      fallbackTotalContextBudgetTokens: 7500,
+    });
+
+    await fetcher(makeRequest());
+    expect(injectForContext).toHaveBeenCalledWith(
+      expect.objectContaining({ totalContextBudgetTokens: 7500 }),
+    );
+  });
+
   it("returns warning when injectedText is empty", async () => {
     const injectForContext = makeInjectOk("");
     const fetcher = createSessionMemoryFetcher({

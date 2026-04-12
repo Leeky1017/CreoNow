@@ -1037,9 +1037,10 @@ export function runGate(
       ? 1
       : (derivedMappings.length - derivedUnmapped.length) / derivedMappings.length;
   const derivedCoverageFloor =
-    scopePlan.baselineMode === "primary"
+    baseline.derivedCoverageFloor ??
+    (scopePlan.baselineMode === "primary"
       ? DERIVED_COVERAGE_THRESHOLD
-      : baseline.derivedCoverageFloor ?? DEFAULT_DERIVED_COVERAGE_FLOOR;
+      : DEFAULT_DERIVED_COVERAGE_FLOOR);
   const derivedQualityRegressed =
     derivedMappings.length > 0 && derivedCoverage < derivedCoverageFloor;
   const derivedUnmappedOverLimit = derivedUnmapped.length > derivedBaselineLimit;
@@ -1104,7 +1105,12 @@ if (
       );
       process.exit(1);
     }
-    writeBaseline(result.explicitUnmapped.length, result.derivedUnmapped.length);
+    writeBaseline(
+      result.explicitUnmapped.length,
+      result.derivedUnmapped.length,
+      ".",
+      result.derivedCoverage,
+    );
     console.log(
       `[${GATE_NAME}] Baseline updated: explicit unmapped ${result.explicitUnmapped.length}, derived unmapped ${result.derivedUnmapped.length}`,
     );

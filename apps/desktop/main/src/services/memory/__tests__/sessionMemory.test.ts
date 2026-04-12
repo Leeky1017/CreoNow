@@ -480,6 +480,69 @@ describe("SessionMemoryService.list with queryText (FTS5)", () => {
     if (r.ok) return;
     expect(r.error.code).toBe("INVALID_ARGUMENT");
   });
+
+  it("applies time-decay tie-break for equally-ranked FTS matches", () => {
+    const { service, db } = createService();
+    const content = "shared rank marker";
+    const older = service.create({
+      sessionId: "s",
+      projectId: "p",
+      category: "note",
+      content,
+      relevanceScore: 0.8,
+    });
+    const newer = service.create({
+      sessionId: "s",
+      projectId: "p",
+      category: "note",
+      content,
+      relevanceScore: 0.8,
+    });
+    expect(older.ok).toBe(true);
+    expect(newer.ok).toBe(true);
+    if (!older.ok || !newer.ok) return;
+
+    db.prepare("UPDATE session_memory SET created_at = ? WHERE id = ?").run(
+      new Date(Date.now() - 3 * DECAY_HALF_LIFE_SECONDS * 1000).toISOString(),
+      older.data.id,
+    );
+    db.prepare("UPDATE session_memory SET created_at = ? WHERE id = ?").run(
+      new Date().toISOString(),
+      newer.data.id,
+    );
+
+    const r = service.list({ sessionId: "s", queryText: content, limit: 10 });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data).toHaveLength(2);
+    expect(r.data[0]?.id).toBe(newer.data.id);
+    expect(r.data[1]?.id).toBe(older.data.id);
+  });
+});
+
+describe("createSessionMemoryService schema bootstrap", () => {
+  it("rethrows schema bootstrap failures (no silent catch-and-continue)", () => {
+    const logger = createLogger();
+    const exec = vi.fn(() => {
+      throw new Error("schema bootstrap failed");
+    });
+    const prepare = vi.fn();
+    const fakeDb = {
+      exec,
+      prepare,
+    } as unknown as Database.Database;
+
+    expect(() => createSessionMemoryService({ db: fakeDb, logger })).toThrow(
+      "schema bootstrap failed",
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      "session_memory_schema_bootstrap",
+      expect.objectContaining({
+        message: "schema bootstrap failed",
+      }),
+    );
+    expect(prepare).not.toHaveBeenCalled();
+  });
 });
 
 // ─── injectForContext ─────────────────────────────────────────────────────────

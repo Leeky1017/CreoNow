@@ -62,10 +62,19 @@ export function registerContextIpcHandlers(deps: {
       : undefined;
   const sessionMemoryService =
     deps.db !== null
-      ? createSessionMemoryService({
-          db: deps.db,
-          logger: deps.logger,
-        })
+      ? (() => {
+          try {
+            return createSessionMemoryService({
+              db: deps.db,
+              logger: deps.logger,
+            });
+          } catch (err) {
+            deps.logger.error("session_memory_service_init_failed", {
+              message: err instanceof Error ? err.message : String(err),
+            });
+            return undefined;
+          }
+        })()
       : undefined;
   const contextAssemblyService =
     deps.contextAssemblyService ??

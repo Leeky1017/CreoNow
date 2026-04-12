@@ -1219,24 +1219,30 @@ async function buildContextSnapshot(args: {
   tokenCount: number;
   stablePrefixHash: string;
 }> {
+  const requestWithBudget: ContextAssembleRequest = {
+    ...args.request,
+    totalContextBudgetTokens:
+      args.request.totalContextBudgetTokens ?? args.budgetProfile.totalBudgetTokens,
+  };
+
   const rules = await fetchLayerWithDegrade({
     layer: "rules",
-    request: args.request,
+    request: requestWithBudget,
     fetcher: args.fetchers.rules,
   });
   const settings = await fetchLayerWithDegrade({
     layer: "settings",
-    request: args.request,
+    request: requestWithBudget,
     fetcher: args.fetchers.settings,
   });
   const retrieved = await fetchLayerWithDegrade({
     layer: "retrieved",
-    request: args.request,
+    request: requestWithBudget,
     fetcher: args.fetchers.retrieved,
   });
   const immediate = await fetchLayerWithDegrade({
     layer: "immediate",
-    request: args.request,
+    request: requestWithBudget,
     fetcher: args.fetchers.immediate,
   });
 
@@ -1258,7 +1264,7 @@ async function buildContextSnapshot(args: {
 
   const compressionEngine = createDeterministicCompressionEngine();
   const compressed = await buildCompressedHistoryDetail({
-    request: args.request,
+    request: requestWithBudget,
     rules: toPublicLayerDetail(budgetApplied.layers.rules),
     immediate: toPublicLayerDetail(budgetApplied.layers.immediate),
     maxBudget: args.budgetProfile.totalBudgetTokens,

@@ -109,6 +109,7 @@ type SessionMemoryRow = {
   relevance_score: number;
   created_at: string;
   expires_at: string | null;
+  fts_rank?: number;
 };
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -248,6 +249,7 @@ export function createSessionMemoryService(deps: {
     logger.error("session_memory_schema_bootstrap", {
       message: err instanceof Error ? err.message : String(err),
     });
+    throw err;
   }
 
   // ── Prepared statements (lazy init to avoid schema-not-ready race) ─────────
@@ -361,13 +363,14 @@ export function createSessionMemoryService(deps: {
       // make this efficient.
       const rows = db.prepare<[string, string | null, string | null, string | null, string | null, number], SessionMemoryRow>(`
         SELECT sm.id, sm.session_id, sm.project_id, sm.category, sm.content,
-               sm.relevance_score, sm.created_at, sm.expires_at
+               sm.relevance_score, sm.created_at, sm.expires_at,
+               rank AS fts_rank
         FROM session_memory sm
         JOIN session_memory_fts fts ON sm.rowid = fts.rowid
         WHERE session_memory_fts MATCH ?
           AND (? IS NULL OR sm.session_id = ?)
           AND (? IS NULL OR sm.project_id = ?)
-        ORDER BY rank
+        ORDER BY fts_rank
         LIMIT ?
       `).all(
         escapeFts5(args.queryText),
@@ -496,11 +499,13 @@ export function createSessionMemoryService(deps: {
 
   function list(args: SessionMemoryQueryArgs): ServiceResult<SessionMemoryEntry[]> {
     const limit = Math.max(1, Math.min(MAX_ENTRIES_PER_QUERY, args.limit ?? MAX_ENTRIES_PER_QUERY));
+    const hasQueryText =
+      typeof args.queryText === "string" && args.queryText.trim().length > 0;
 
     try {
       let rows: SessionMemoryRow[];
 
-      if (args.queryText && args.queryText.trim().length > 0) {
+      if (hasQueryText) {
         // FTS5 path: keyword matching (INV-4 compliant).
         // Scope guard: at least one of sessionId/projectId must be provided to
         // prevent cross-session/cross-project data leakage (F2 audit finding).
@@ -510,7 +515,7 @@ export function createSessionMemoryService(deps: {
         const ftsResult = ftsSearch({
           sessionId: args.sessionId,
           projectId: args.projectId,
-          queryText: args.queryText.trim(),
+          queryText: args.queryText!.trim(),
           limit,
         });
         // Propagate FTS errors (INV-10: errors must not lose context)
@@ -540,20 +545,35 @@ export function createSessionMemoryService(deps: {
       }
 
       // Filter expired entries at read time (belt-and-suspenders alongside purgeExpired)
-      const entries = rows
-        .map(rowToEntry)
-        .filter((e) => !isExpired(e));
+      const rankedEntries = rows
+        .map((row) => ({
+          entry: rowToEntry(row),
+          ftsRank: row.fts_rank,
+        }))
+        .filter(({ entry }) => !isExpired(entry));
 
-      // Apply time-decay sort when not using FTS5 (FTS5 already orders by rank)
-      if (!args.queryText) {
-        entries.sort((a, b) => {
-          const scoreA = decayScore(a.relevanceScore, a.createdAt);
-          const scoreB = decayScore(b.relevanceScore, b.createdAt);
+      if (hasQueryText) {
+        // FTS relevance remains primary; time decay is a secondary tiebreaker
+        // to satisfy spec-level "指数时间衰减" ordering requirements.
+        rankedEntries.sort((a, b) => {
+          const rankA = Number.isFinite(a.ftsRank) ? (a.ftsRank as number) : Number.POSITIVE_INFINITY;
+          const rankB = Number.isFinite(b.ftsRank) ? (b.ftsRank as number) : Number.POSITIVE_INFINITY;
+          if (rankA !== rankB) {
+            return rankA - rankB;
+          }
+          const scoreA = decayScore(a.entry.relevanceScore, a.entry.createdAt);
+          const scoreB = decayScore(b.entry.relevanceScore, b.entry.createdAt);
+          return scoreB - scoreA;
+        });
+      } else {
+        rankedEntries.sort((a, b) => {
+          const scoreA = decayScore(a.entry.relevanceScore, a.entry.createdAt);
+          const scoreB = decayScore(b.entry.relevanceScore, b.entry.createdAt);
           return scoreB - scoreA;
         });
       }
 
-      return { ok: true, data: entries };
+      return { ok: true, data: rankedEntries.map(({ entry }) => entry) };
     } catch (err) {
       logger.error("session_memory_list_failed", {
         message: err instanceof Error ? err.message : String(err),

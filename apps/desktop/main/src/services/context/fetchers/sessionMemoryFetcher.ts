@@ -23,6 +23,7 @@ const SESSION_MEMORY_UNAVAILABLE_WARNING =
   "SESSION_MEMORY_UNAVAILABLE: L1 会话记忆未注入";
 const SESSION_MEMORY_EMPTY_WARNING =
   "SESSION_MEMORY_EMPTY: 无可用会话记忆";
+const DEFAULT_TOTAL_CONTEXT_BUDGET_TOKENS = 6000;
 
 export type SessionMemoryFetcherDeps = {
   sessionMemoryService: Pick<SessionMemoryService, "injectForContext">;
@@ -32,22 +33,26 @@ export type SessionMemoryFetcherDeps = {
   degradationCounter?: DegradationCounter;
   degradationEscalationThreshold?: number;
   /**
-   * Current session ID. Required for L1 lookup — callers must wire the active
-   * session through here. When absent the fetcher returns empty chunks.
+   * Default session ID used when request.sessionId is absent. When both are
+   * missing the fetcher returns empty chunks.
    *
-   * Why: the ContextAssembleRequest does not carry a sessionId yet (it operates
-   * on projectId + documentId). Until sessionId is propagated through IPC this
-   * dep provides the wiring point with zero API surface change.
+   * Why: some call sites may not thread chat session IDs into every assembly
+   * request yet; this preserves backward compatibility.
    */
   sessionId?: string;
+  /**
+   * Fallback total context budget when request does not provide one.
+   * Default: 6000 tokens.
+   */
+  fallbackTotalContextBudgetTokens?: number;
 };
 
 /**
  * Create a ContextLayerFetcher that injects L1 session memory into the context.
  *
- * The total context budget is read from the request's conversational token count
- * when available, otherwise falls back to a safe default of 6000 tokens. The
- * SessionMemoryService enforces the 15% cap internally.
+ * The total context budget comes from request.totalContextBudgetTokens when
+ * available; otherwise falls back to deps.fallbackTotalContextBudgetTokens (or
+ * 6000 by default). SessionMemoryService enforces the 15% cap internally.
  */
 export function createSessionMemoryFetcher(
   deps: SessionMemoryFetcherDeps,
@@ -99,13 +104,14 @@ export function createSessionMemoryFetcher(
     }
 
     try {
-      // Estimate total budget for cap calculation.
-      // Known limitation: ContextAssembleRequest currently has no total-budget
-      // field. We therefore use a fixed 6000-token assumption. This can
-      // over-estimate the 15% cap on smaller context windows (<6000) and
-      // under-estimate on larger windows; wire real budget through request when
-      // available.
-      const totalBudget = 6000;
+      const totalBudgetFromRequest = request.totalContextBudgetTokens;
+      const totalBudget =
+        typeof totalBudgetFromRequest === "number" &&
+        Number.isFinite(totalBudgetFromRequest) &&
+        totalBudgetFromRequest > 0
+          ? totalBudgetFromRequest
+          : deps.fallbackTotalContextBudgetTokens ??
+            DEFAULT_TOTAL_CONTEXT_BUDGET_TOKENS;
 
       const result = await deps.sessionMemoryService.injectForContext({
         sessionId,
