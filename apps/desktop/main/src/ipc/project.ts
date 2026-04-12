@@ -70,7 +70,7 @@ function primeTrieCacheForProject(args: {
   } catch (error) {
     // Best effort warmup only: project switch/getCurrent must not fail due cache.
     // INV-10: errors must still be logged, never silently swallowed (§七).
-    args.logger.info("trie_cache_warmup_failed", { projectId: args.projectId, error: String(error) });
+    args.logger.error("trie_cache_warmup_failed", { projectId: args.projectId, error: String(error) });
   }
 }
 

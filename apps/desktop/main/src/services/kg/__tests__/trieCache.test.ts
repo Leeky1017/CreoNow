@@ -38,11 +38,14 @@ function createEntities(count: number): MatchableEntity[] {
 describe("trieCache", () => {
   it("KG-TRIE-P3-02-S1: deterministic benchmark with realistic-scale dataset", () => {
     // Deterministic benchmark: exercises full pipeline with realistic-scale data
-    const entities = createEntities(500);
+    const entities = createEntities(1000);
     const cacheKey = "kg-trie-benchmark-build";
 
     trieCacheInvalidate(cacheKey);
+    const buildStart = performance.now();
     trieCachePrime({ cacheKey, entities });
+    const buildDuration = performance.now() - buildStart;
+    expect(buildDuration).toBeLessThan(150);
 
     const result = matchEntities("角色0001 与 角色0499 出现。", entities, {
       cacheKey,
@@ -62,7 +65,10 @@ describe("trieCache", () => {
     trieCacheInvalidate(cacheKey);
     trieCachePrime({ cacheKey, entities });
 
+    const matchStart = performance.now();
     const result = matchEntities(text, entities, { cacheKey });
+    const matchDuration = performance.now() - matchStart;
+    expect(matchDuration).toBeLessThan(15);
     expect(result.length).toBe(2);
     const ids = result.map((r) => r.entityId).sort();
     expect(ids).toEqual(["e-1", "e-999"]);
@@ -93,6 +99,19 @@ describe("trieCache", () => {
       cacheKey,
     });
     expect(afterRemove.some((m) => m.entityId === "delta-0")).toBe(false);
+
+    const benchmarkRounds = 20;
+    const incrementalStart = performance.now();
+    for (let index = 0; index < benchmarkRounds; index += 1) {
+      const benchmarkEntityId = `delta-benchmark-${index}`;
+      trieCacheUpsertEntity({
+        cacheKey,
+        entity: createEntity({ id: benchmarkEntityId, name: `增量角色-基准-${index}` }),
+      });
+      trieCacheRemoveEntity({ cacheKey, entityId: benchmarkEntityId });
+    }
+    const incrementalDurationPerOp = (performance.now() - incrementalStart) / (benchmarkRounds * 2);
+    expect(incrementalDurationPerOp).toBeLessThan(3);
   });
 
   it("KG-TRIE-P3-02-S4: keeps state valid under async interleave", async () => {
