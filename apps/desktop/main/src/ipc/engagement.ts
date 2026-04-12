@@ -6,9 +6,9 @@
  * ## 依赖方向：IPC → Service Layer（INV-7 当前允许直调 Service）
  * ## 关键不变量：INV-4（无 LLM），INV-9（无 AI 成本）
  *
- * 文档变更失效：
- *   documents:* 写操作后，调用方负责触发 invalidateCache(projectId)。
- *   当前在同一 handler 文件中通过事件总线监听（EventBusLike）实现。
+ * 缓存失效机制：
+ *   StoryStatusService 使用 30s TTL + 文档/KG 双时间戳校验自动失效（stamp-based）。
+ *   本 handler 不维护额外事件订阅，避免监听器与事件源漂移。
  */
 
 import type { IpcMain } from "electron";
@@ -21,14 +21,12 @@ import {
   type StoryStatusSummary,
 } from "../services/engagement/storyStatusService";
 import { createProjectAccessHandler, isRecord, notReady } from "./helpers";
-import type { EventBusLike } from "./helpers";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 export function registerEngagementIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
-  eventBus?: EventBusLike;
   projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
   const handleWithProjectAccess = createProjectAccessHandler({
@@ -45,31 +43,6 @@ export function registerEngagementIpcHandlers(deps: {
     }
     if (!svc) {
       svc = createStoryStatusService({ db: deps.db, logger: deps.logger });
-
-      // 监听文档变更事件，触发缓存失效
-      // Why: 文档更新时摘要可能过期，直接失效保证下次调用拿到新数据（<30s 内）
-      if (deps.eventBus) {
-        deps.eventBus.on(
-          "document:updated",
-          (payload: Record<string, unknown>) => {
-            const projectId =
-              typeof payload.projectId === "string" ? payload.projectId : null;
-            if (projectId && svc) {
-              svc.invalidateCache(projectId);
-            }
-          },
-        );
-        deps.eventBus.on(
-          "document:deleted",
-          (payload: Record<string, unknown>) => {
-            const projectId =
-              typeof payload.projectId === "string" ? payload.projectId : null;
-            if (projectId && svc) {
-              svc.invalidateCache(projectId);
-            }
-          },
-        );
-      }
     }
     return svc;
   }

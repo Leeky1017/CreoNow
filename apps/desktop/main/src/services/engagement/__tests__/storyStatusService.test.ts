@@ -724,7 +724,7 @@ describe("storyStatusService", () => {
       expect(result.data.activeForeshadowing).toHaveLength(80);
     });
 
-    it("KG 查询 SQL 先过滤 when_detected + foreshadowing 模式", () => {
+    it("KG 查询 SQL 仅按 foreshadowing attributes 模式过滤", () => {
       const db = createDbStub();
       const prepareSpy = vi.spyOn(db, "prepare");
       const svc = createStoryStatusService({ db, logger: createLogger() });
@@ -740,7 +740,6 @@ describe("storyStatusService", () => {
         );
 
       expect(kgSql).toBeDefined();
-      expect(kgSql).toContain("ai_context_level = 'when_detected'");
       expect(kgSql).toContain("LIKE '%\"isForeshadowing\":true%'");
       expect(kgSql).toContain("NOT LIKE '%\"status\":\"resolved\"%'");
       expect(kgSql).toContain("LIMIT 200");

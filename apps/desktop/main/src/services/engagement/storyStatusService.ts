@@ -329,7 +329,6 @@ export function createStoryStatusService(deps: {
                     attributes_json AS attributesJson
               FROM kg_entities
               WHERE project_id = ?
-                AND ai_context_level = 'when_detected'
                 AND REPLACE(REPLACE(attributes_json, ' ', ''), '\n', '') LIKE '%"isForeshadowing":true%'
                 AND REPLACE(REPLACE(attributes_json, ' ', ''), '\n', '') NOT LIKE '%"status":"resolved"%'
                ORDER BY updated_at DESC
