@@ -9,7 +9,7 @@ import {
 } from "@shared/types/kg";
 import type { IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
-import { matchEntities } from "./entityMatcher";
+import { matchEntitiesCached } from "./entityMatcher";
 import {
   createKnowledgeGraphService,
   type KnowledgeEntity,
@@ -404,8 +404,8 @@ const ITEM_SUFFIXES =
  *
  * Why: replaces regex-based mock patterns with deterministic multi-pattern matching
  * against the project's actual Knowledge Graph entities. Uses Option B from the spec:
- * matchEntities() handles when_detected filtering; always entities are added
- * unconditionally as candidates.
+ * matchEntitiesCached() handles when_detected filtering via the project-scoped trie
+ * cache; always entities are added unconditionally as candidates.
  *
  * @invariant INV-4 — KG+FTS5 as primary retrieval path
  */
@@ -432,9 +432,10 @@ export function createAhoCorasickRecognizer(deps: {
         allEntities.map((entity) => [entity.id, entity]),
       );
 
-      // matchEntities() filters to when_detected internally (entityMatcher.ts L114).
+      // matchEntitiesCached() uses project-scoped trie cache (trieCache.ts).
+      // Filters to when_detected internally (entityMatcher.ts buildAutomaton()).
       // Passing all entities is safe — non-when_detected entities are skipped.
-      const matches = matchEntities(contentText, allEntities);
+      const matches = matchEntitiesCached(contentText, allEntities, projectId);
 
       const candidates = new Map<string, RecognitionCandidate>();
 

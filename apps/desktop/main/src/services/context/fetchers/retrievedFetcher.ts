@@ -13,6 +13,9 @@ const ENTITY_MATCH_FAILED_WARNING = "ENTITY_MATCH_FAILED: 实体匹配异常";
 
 export type RetrievedFetcherDeps = {
   kgService: Pick<KnowledgeGraphService, "entityList">;
+  // TODO(#128): Migrate to matchEntitiesCached() once projectId is threaded
+  // through the RetrievedFetcher call-site. Currently uses the uncached 2-arg
+  // signature because the fetcher interface doesn't carry projectId.
   matchEntities: (text: string, entities: MatchableEntity[]) => MatchResult[];
   logger?: Pick<Logger, "info" | "error"> & {
     warn?: (event: string, data?: Record<string, unknown>) => void;
@@ -119,6 +122,8 @@ export function createRetrievedFetcher(
 
     let matches: MatchResult[];
     try {
+      // TODO(#128): Use matchEntitiesCached() here once projectId is available
+      // in the fetcher context — see RetrievedFetcherDeps type comment.
       matches = deps.matchEntities(inputText, matchableEntities);
     } catch (error) {
       reportDegradation({
