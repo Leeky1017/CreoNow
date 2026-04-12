@@ -62,27 +62,19 @@ const SEMANTIC_ALIAS_MAP: Record<string, string> = {
 
 const LOADED_DBS = new WeakSet<Database.Database>();
 
-function readSetting(args: {
-  db: Database.Database;
-  key: string;
-  logger: Logger;
-}): unknown | null {
+function readSetting(db: Database.Database, key: string): unknown | null {
   try {
-    const row = args.db
+    const row = db
       .prepare<
         [string, string],
         { valueJson: string }
       >("SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?")
-      .get(SETTINGS_SCOPE, args.key);
+      .get(SETTINGS_SCOPE, key);
     if (!row) {
       return null;
     }
     return JSON.parse(row.valueJson) as unknown;
-  } catch (error) {
-    args.logger.error("user_memory_vec_setting_parse_failed", {
-      key: args.key,
-      message: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
     return null;
   }
 }
@@ -122,19 +114,13 @@ function resolveLoadablePath(): ServiceResult<string> {
  * Why: the DB bootstrap may have already loaded the extension; double-loading can
  * fail on some platforms/builds and would incorrectly force deterministic fallback.
  */
-function isSqliteVecLoaded(args: {
-  db: Database.Database;
-  logger: Logger;
-}): boolean {
+function isSqliteVecLoaded(db: Database.Database): boolean {
   try {
-    const row = args.db
+    const row = db
       .prepare<[], { version: string }>("SELECT vec_version() as version")
       .get();
     return typeof row?.version === "string" && row.version.length > 0;
-  } catch (error) {
-    args.logger.info("sqlite_vec_probe_failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
     return false;
   }
 }
@@ -147,7 +133,7 @@ function ensureSqliteVecLoaded(args: {
     return { ok: true, data: true };
   }
 
-  if (isSqliteVecLoaded({ db: args.db, logger: args.logger })) {
+  if (isSqliteVecLoaded(args.db)) {
     LOADED_DBS.add(args.db);
     return { ok: true, data: true };
   }
@@ -180,11 +166,7 @@ function ensureSchema(args: {
     return loaded;
   }
 
-  const stored = readSetting({
-    db: args.db,
-    key: DIMENSION_KEY,
-    logger: args.logger,
-  });
+  const stored = readSetting(args.db, DIMENSION_KEY);
   if (typeof stored === "number" && Number.isFinite(stored) && stored > 0) {
     if (stored !== args.dimension) {
       return ipcError("CONFLICT", "user_memory_vec dimension mismatch", {

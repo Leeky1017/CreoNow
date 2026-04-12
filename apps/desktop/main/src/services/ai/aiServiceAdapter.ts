@@ -4,7 +4,6 @@
  * 包装底层 AI 服务，提供 streamChat / estimateTokens / abort 接口
  */
 
-import type { AiCompletionResult } from "@shared/types/ai";
 import { estimateTokens } from "../context/tokenEstimation";
 import type { StreamChunk } from "./streaming";
 
@@ -12,7 +11,7 @@ export type { StreamChunk };
 
 interface StreamOptions {
   signal?: AbortSignal;
-  onComplete: (result: AiCompletionResult) => void;
+  onComplete: (result: { content: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number }; wasRetried: boolean }) => void;
   onError: (error: { kind: string; message: string; retryCount: number; partialContent?: string }) => void;
   onApiCallStarted?: () => void;
 }

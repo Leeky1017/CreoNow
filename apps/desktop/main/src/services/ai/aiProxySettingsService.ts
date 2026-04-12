@@ -83,27 +83,19 @@ const KEY_ANTH_BYOK_API_KEY =
 const ENCRYPTED_SECRET_PREFIX = "__safe_storage_v1__:";
 type SettingsRow = { valueJson: string };
 
-function readSetting(args: {
-  db: Database.Database;
-  key: string;
-  logger: Logger;
-}): unknown | null {
-  const row = args.db
+function readSetting(db: Database.Database, key: string): unknown | null {
+  const row = db
     .prepare<
       [string, string],
       SettingsRow
     >("SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?")
-    .get(SETTINGS_SCOPE, args.key);
+    .get(SETTINGS_SCOPE, key);
   if (!row) {
     return null;
   }
   try {
     return JSON.parse(row.valueJson) as unknown;
-  } catch (error) {
-    args.logger.error("ai_proxy_settings_parse_failed", {
-      key: args.key,
-      message: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
     return null;
   }
 }
@@ -134,7 +126,6 @@ function normalizeBaseUrl(raw: unknown): string | null {
     }
     return trimmed;
   } catch {
-    // Invalid URL should be treated as "unset" to keep startup deterministic.
     return null;
   }
 }
@@ -238,7 +229,6 @@ function validatePatchedApiKeys(args: {
 function encryptApiKey(args: {
   value: string | null;
   secretStorage?: SecretStorageAdapter;
-  logger: Logger;
 }): ServiceResult<string | null> {
   if (args.value === null) {
     return { ok: true, data: null };
@@ -257,10 +247,7 @@ function encryptApiKey(args: {
       ok: true,
       data: `${ENCRYPTED_SECRET_PREFIX}${encrypted.toString("base64")}`,
     };
-  } catch (error) {
-    args.logger.error("ai_proxy_settings_secret_encrypt_failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
     return ipcError("INTERNAL", "Failed to encrypt API key");
   }
 }
@@ -400,44 +387,16 @@ function readRawSettings(args: {
   logger: Logger;
   secretStorage?: SecretStorageAdapter;
 }): AiProxySettingsRaw {
-  const enabled = readSetting({ db: args.db, key: KEY_ENABLED, logger: args.logger });
-  const baseUrl = readSetting({ db: args.db, key: KEY_BASE_URL, logger: args.logger });
-  const apiKey = readSetting({ db: args.db, key: KEY_API_KEY, logger: args.logger });
-  const providerMode = readSetting({
-    db: args.db,
-    key: KEY_PROVIDER_MODE,
-    logger: args.logger,
-  });
-  const openAiCompatibleBaseUrl = readSetting({
-    db: args.db,
-    key: KEY_OA_COMPAT_BASE_URL,
-    logger: args.logger,
-  });
-  const openAiCompatibleApiKey = readSetting({
-    db: args.db,
-    key: KEY_OA_COMPAT_API_KEY,
-    logger: args.logger,
-  });
-  const openAiByokBaseUrl = readSetting({
-    db: args.db,
-    key: KEY_OA_BYOK_BASE_URL,
-    logger: args.logger,
-  });
-  const openAiByokApiKey = readSetting({
-    db: args.db,
-    key: KEY_OA_BYOK_API_KEY,
-    logger: args.logger,
-  });
-  const anthropicByokBaseUrl = readSetting({
-    db: args.db,
-    key: KEY_ANTH_BYOK_BASE_URL,
-    logger: args.logger,
-  });
-  const anthropicByokApiKey = readSetting({
-    db: args.db,
-    key: KEY_ANTH_BYOK_API_KEY,
-    logger: args.logger,
-  });
+  const enabled = readSetting(args.db, KEY_ENABLED);
+  const baseUrl = readSetting(args.db, KEY_BASE_URL);
+  const apiKey = readSetting(args.db, KEY_API_KEY);
+  const providerMode = readSetting(args.db, KEY_PROVIDER_MODE);
+  const openAiCompatibleBaseUrl = readSetting(args.db, KEY_OA_COMPAT_BASE_URL);
+  const openAiCompatibleApiKey = readSetting(args.db, KEY_OA_COMPAT_API_KEY);
+  const openAiByokBaseUrl = readSetting(args.db, KEY_OA_BYOK_BASE_URL);
+  const openAiByokApiKey = readSetting(args.db, KEY_OA_BYOK_API_KEY);
+  const anthropicByokBaseUrl = readSetting(args.db, KEY_ANTH_BYOK_BASE_URL);
+  const anthropicByokApiKey = readSetting(args.db, KEY_ANTH_BYOK_API_KEY);
 
   return normalizeProxySettings({
     enabled: enabled === true,
@@ -745,7 +704,6 @@ export function createAiProxySettingsService(deps: {
     const encryptedOpenAiCompatibleKey = encryptApiKey({
       value: next.openAiCompatible.apiKey,
       secretStorage: deps.secretStorage,
-      logger: deps.logger,
     });
     if (!encryptedOpenAiCompatibleKey.ok) {
       return encryptedOpenAiCompatibleKey;
@@ -754,7 +712,6 @@ export function createAiProxySettingsService(deps: {
     const encryptedOpenAiByokKey = encryptApiKey({
       value: next.openAiByok.apiKey,
       secretStorage: deps.secretStorage,
-      logger: deps.logger,
     });
     if (!encryptedOpenAiByokKey.ok) {
       return encryptedOpenAiByokKey;
@@ -763,7 +720,6 @@ export function createAiProxySettingsService(deps: {
     const encryptedAnthropicByokKey = encryptApiKey({
       value: next.anthropicByok.apiKey,
       secretStorage: deps.secretStorage,
-      logger: deps.logger,
     });
     if (!encryptedAnthropicByokKey.ok) {
       return encryptedAnthropicByokKey;

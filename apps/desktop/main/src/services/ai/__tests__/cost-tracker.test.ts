@@ -915,26 +915,6 @@ describe("CostTracker — 费用追踪", () => {
       expect(cost.inputTokens).toBeGreaterThanOrEqual(0);
       expect(cost.outputTokens).toBeGreaterThanOrEqual(0);
     });
-
-    it("cachedTokens 超出 promptTokens 或为负数时会被 clamp", () => {
-      const overflow = tracker.recordUsage(
-        { promptTokens: 10, completionTokens: 2 },
-        "claude-sonnet-4-20250514",
-        "req-cached-overflow",
-        "polish",
-        999,
-      );
-      const negative = tracker.recordUsage(
-        { promptTokens: 10, completionTokens: 2 },
-        "claude-sonnet-4-20250514",
-        "req-cached-negative",
-        "polish",
-        -5,
-      );
-
-      expect(overflow.cachedTokens).toBe(10);
-      expect(negative.cachedTokens).toBe(0);
-    });
   });
 
   // ── CostRecordedEvent / BudgetExceededEvent ───────────────────

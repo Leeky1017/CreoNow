@@ -297,12 +297,9 @@ function validateAndNormalizeAttributes(args: {
   return { ok: true, data: normalized };
 }
 
-function parseAttributes(args: {
-  attributesJson: string;
-  logger?: Logger;
-}): Record<string, string> {
+function parseAttributes(attributesJson: string): Record<string, string> {
   try {
-    const parsed = JSON.parse(args.attributesJson) as unknown;
+    const parsed = JSON.parse(attributesJson) as unknown;
     if (!isRecord(parsed)) {
       return {};
     }
@@ -314,38 +311,20 @@ function parseAttributes(args: {
       }
     }
     return normalized;
-  } catch (error) {
-    if (args.logger) {
-      args.logger.error("kg_entity_attributes_parse_failed", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    } else {
-      console.error("kg_entity_attributes_parse_failed", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+  } catch {
     return {};
   }
 }
 
-function parseAliases(args: { aliasesJson: string; logger?: Logger }): string[] {
+function parseAliases(aliasesJson: string): string[] {
   try {
-    const parsed = JSON.parse(args.aliasesJson) as unknown;
+    const parsed = JSON.parse(aliasesJson) as unknown;
     const normalized = ALIASES_SCHEMA.safeParse(parsed);
     if (!normalized.success) {
       return [];
     }
     return normalized.data;
-  } catch (error) {
-    if (args.logger) {
-      args.logger.error("kg_entity_aliases_parse_failed", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    } else {
-      console.error("kg_entity_aliases_parse_failed", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+  } catch {
     return [];
   }
 }
@@ -412,7 +391,7 @@ function selectRelationById(
     .get(id);
 }
 
-function rowToEntity(row: EntityRow, logger?: Logger): KnowledgeEntity {
+function rowToEntity(row: EntityRow): KnowledgeEntity {
   const normalizedAiContextLevel =
     normalizeAiContextLevel(row.aiContextLevel) ?? DEFAULT_AI_CONTEXT_LEVEL;
   return {
@@ -421,13 +400,10 @@ function rowToEntity(row: EntityRow, logger?: Logger): KnowledgeEntity {
     type: row.type,
     name: row.name,
     description: row.description,
-    attributes: parseAttributes({
-      attributesJson: row.attributesJson,
-      logger,
-    }),
+    attributes: parseAttributes(row.attributesJson),
     lastSeenState: row.lastSeenState ?? undefined,
     aiContextLevel: normalizedAiContextLevel,
-    aliases: parseAliases({ aliasesJson: row.aliasesJson, logger }),
+    aliases: parseAliases(row.aliasesJson),
     version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -562,7 +538,6 @@ function ensureRelationTypeRegistered(
 function listProjectEntities(
   db: Database.Database,
   projectId: string,
-  logger?: Logger,
   filter?: {
     aiContextLevel?: AiContextLevel;
   },
@@ -589,7 +564,7 @@ function listProjectEntities(
       `SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, last_seen_state as lastSeenState, ai_context_level as aiContextLevel, aliases as aliasesJson, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities ${whereSql} ORDER BY updated_at DESC, id ASC${paginationSql}`,
     )
     .all(...params) as EntityRow[];
-  return rows.map((row) => rowToEntity(row, logger));
+  return rows.map(rowToEntity);
 }
 
 function listProjectRelations(
@@ -1144,7 +1119,7 @@ function createEntityOps(
           return ipcError("DB_ERROR", "Failed to load created entity");
         }
 
-        return { ok: true, data: rowToEntity(row, args.logger) };
+        return { ok: true, data: rowToEntity(row) };
       } catch (error) {
         args.logger.error("kg_entity_create_failed", {
           code: "DB_ERROR",
@@ -1177,7 +1152,7 @@ function createEntityOps(
           return ipcError("NOT_FOUND", "Entity not found");
         }
 
-        return { ok: true, data: rowToEntity(row, args.logger) };
+        return { ok: true, data: rowToEntity(row) };
       } catch (error) {
         args.logger.error("kg_entity_read_failed", {
           code: "DB_ERROR",
@@ -1234,7 +1209,6 @@ function createEntityOps(
             items: listProjectEntities(
               args.db,
               normalizedProjectId,
-              args.logger,
               {
                 aiContextLevel: normalizedFilterAiContextLevel,
               },
@@ -1362,7 +1336,7 @@ function createEntityUpdateOps(
           return ipcError("KG_ENTITY_CONFLICT", "entity version conflict", {
             expectedVersion,
             latestVersion: existing.version,
-            latestSnapshot: rowToEntity(existing, args.logger),
+            latestSnapshot: rowToEntity(existing),
           });
         }
 
@@ -1430,7 +1404,7 @@ function createEntityUpdateOps(
           return ipcError("DB_ERROR", "Failed to load updated entity");
         }
 
-        return { ok: true, data: rowToEntity(row, args.logger) };
+        return { ok: true, data: rowToEntity(row) };
       } catch (error) {
         args.logger.error("kg_entity_update_failed", {
           code: "DB_ERROR",
@@ -1852,7 +1826,7 @@ function createQueryGraphOps(
           reachableEntityIds,
         ).filter((entry) => entry.projectId === normalizedProjectId);
         const entityById = new Map(
-          selectedEntityRows.map((entry) => [entry.id, rowToEntity(entry.row, args.logger)]),
+          selectedEntityRows.map((entry) => [entry.id, rowToEntity(entry.row)]),
         );
         const selectedEntities = reachableEntityIds
           .map((entityId) => entityById.get(entityId))
@@ -2012,7 +1986,7 @@ function createQueryGraphOps(
         const orderedItems = normalizedEntityIds
           .map((id) => {
             const row = rowById.get(id);
-            return row ? rowToEntity(row, args.logger) : null;
+            return row ? rowToEntity(row) : null;
           })
           .filter((entity): entity is KnowledgeEntity => entity !== null);
 
@@ -2246,15 +2220,11 @@ function createQueryTextOps(
           candidateEntities = normalizedEntityIds
             .map((id) => {
               const row = rowById.get(id);
-              return row ? rowToEntity(row, args.logger) : null;
+              return row ? rowToEntity(row) : null;
             })
             .filter((entity): entity is KnowledgeEntity => entity !== null);
         } else {
-          candidateEntities = listProjectEntities(
-            args.db,
-            normalizedProjectId,
-            args.logger,
-          );
+          candidateEntities = listProjectEntities(args.db, normalizedProjectId);
         }
 
         if (normalizedExcerpt.length === 0) {
@@ -2390,7 +2360,6 @@ function createQueryTextOps(
         for (const entity of listProjectEntities(
           args.db,
           normalizedProjectId,
-          args.logger,
         )) {
           entityNameById.set(entity.id, entity.name);
         }

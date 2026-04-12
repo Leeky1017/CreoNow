@@ -7,7 +7,6 @@
  */
 
 import type Database from "better-sqlite3";
-import type { AiCompletionResult } from "@shared/types/ai";
 
 import type { Logger } from "../../logging/logger";
 import { estimateTokens as estimateTokenCount } from "../context/tokenEstimation";
@@ -27,7 +26,7 @@ import type { StreamChunk } from "./streaming";
 
 type StreamChatOptions = {
   signal: AbortSignal;
-  onComplete: (result: AiCompletionResult) => void;
+  onComplete: (r: unknown) => void;
   onError: (e: unknown) => void;
   onApiCallStarted?: () => void;
   skillId?: string;
@@ -348,7 +347,6 @@ export function createAiServiceBridge(args: {
           totalTokens:
             streamResult.data.usage.promptTokens +
             streamResult.data.usage.completionTokens,
-          cachedTokens: streamResult.data.usage.cachedTokens,
         },
         ...(streamResult.data.persistenceError
           ? { persistenceError: streamResult.data.persistenceError }

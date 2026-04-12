@@ -48,7 +48,6 @@ function resolveDevServerOrigin(env: NodeJS.ProcessEnv): string | null {
   try {
     return new URL(raw).origin;
   } catch {
-    // Invalid env config should fail-closed and never widen IPC origin allowlist.
     return null;
   }
 }
@@ -68,7 +67,6 @@ function isOriginAllowed(args: {
   try {
     parsed = new URL(args.senderOrigin);
   } catch {
-    // Unparseable renderer URL is treated as untrusted origin.
     return false;
   }
 

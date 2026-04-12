@@ -92,7 +92,6 @@ async function fileExistsAsync(absPath: string): Promise<boolean> {
     await fsPromises.access(absPath);
     return true;
   } catch {
-    // Missing/unreadable file should behave as "not exists" for idempotent bootstrap.
     return false;
   }
 }

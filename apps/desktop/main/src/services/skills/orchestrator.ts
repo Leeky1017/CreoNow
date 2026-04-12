@@ -1,30 +1,13 @@
 /**
- * @module WritingOrchestrator — 9-stage writing pipeline
+ * WritingOrchestrator — 9 阶段写作管线
  *
- * ## Pipeline stages
  * intent-resolved → context-assembled → model-selected → ai-chunk* →
  * ai-done → permission-requested → permission-granted/denied →
  * write-back-done → hooks-done
  *
- * ## Responsibility
- * This module is the ONLY code path that writes AI output to documents.
- * Stage 6 enforces Permission Gate (INV-1), Stage 7 executes the write-back
- * via the `documentWrite` tool (registered in writingTooling.ts).
- *
- * ## What this module does NOT do
- * - Does not resolve which skill to run (IPC layer does that)
- * - Does not send events to the renderer (IPC layer drains the generator)
- *
- * ## Key invariants
- * - INV-1: pre-write snapshot → permission gate → documentWrite → confirmCommit
- * - INV-2: documentWrite has isConcurrencySafe=false (serial only)
- * - INV-6: all capabilities are Skills; write-back uses registered tool
- * - INV-8: Stage 8 post-writing hooks run after write-back
- *
  * 权限门禁、120s 权限超时、Post-Writing Hooks、任务状态机
  */
 
-import type { AiCompletionResult, AiTokenUsage } from "@shared/types/ai";
 import type { ToolRegistry } from "./toolRegistry";
 import type { StreamChunk, ToolCallInfo } from "../ai/streaming";
 import type { CostTracker } from "../ai/costTracker";
@@ -113,7 +96,7 @@ interface AIService {
     messages: Array<{ role: string; content: string }>,
     options: {
       signal: AbortSignal;
-      onComplete: (result: Partial<AiCompletionResult> & { usage?: Partial<AiTokenUsage> }) => void;
+      onComplete: (r: unknown) => void;
       onError: (e: unknown) => void;
       onApiCallStarted?: () => void;
       skillId?: string;
@@ -131,11 +114,9 @@ interface PreparedRequest {
   modelId: string;
 }
 
-type OrchestratorTokenUsage = AiTokenUsage;
-
 type GeneratedTextResult = {
   fullText: string;
-  usage: OrchestratorTokenUsage;
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number };
   /** P2: finish reason from the AI */
   finishReason?: "stop" | "tool_use" | null;
   /** P2: tool calls requested by the AI */
@@ -187,7 +168,7 @@ export interface OrchestratorConfig {
     messages?: Array<{ role: string; content: string; toolCallId?: string }>;
   }) => Promise<{
     fullText: string;
-    usage: OrchestratorTokenUsage;
+    usage: { promptTokens: number; completionTokens: number; totalTokens: number };
     /** P2: finish reason from the AI (null = streaming, stop = done, tool_use = wants tools) */
     finishReason?: "stop" | "tool_use" | null;
     /** P2: tool calls requested by the AI when finishReason === 'tool_use' */
@@ -362,12 +343,14 @@ export function createWritingOrchestrator(
 
         let totalPromptTokens = 0;
         let totalCompletionTokens = 0;
-        let totalCachedTokens = 0;
         const pendingCostEvents: WritingEvent[] = [];
-        const recordUsage = (usage: OrchestratorTokenUsage): void => {
+        const recordUsage = (usage: {
+          promptTokens: number;
+          completionTokens: number;
+          totalTokens: number;
+        }): void => {
           totalPromptTokens += usage.promptTokens;
           totalCompletionTokens += usage.completionTokens;
-          totalCachedTokens += Math.max(0, usage.cachedTokens ?? 0);
 
           if (!config.costTracker) {
             return;
@@ -378,7 +361,6 @@ export function createWritingOrchestrator(
             prepared.modelId,
             requestId,
             normalizeSkillId(request.skillId),
-            usage.cachedTokens,
           );
           const summary = config.costTracker.getSessionCost();
           const budgetAlert = config.costTracker.checkBudget() ?? undefined;
@@ -411,7 +393,6 @@ export function createWritingOrchestrator(
         let lastFinishReason: "stop" | "tool_use" | null = null;
         let lastToolCalls: ToolCallInfo[] = [];
         let lastPromptTokens = tokenCount;
-        let lastCachedTokens = 0;
         let apiCallStarted = false;
 
         while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
@@ -473,7 +454,6 @@ export function createWritingOrchestrator(
                       promptTokens: lastPromptTokens,
                       completionTokens: lastTokens,
                       totalTokens: lastPromptTokens + lastTokens,
-                      cachedTokens: lastCachedTokens,
                     });
                   }
                   taskStates.set(requestId, "killed");
@@ -514,7 +494,6 @@ export function createWritingOrchestrator(
               fullText = generatedResult.fullText;
               lastPromptTokens = generatedResult.usage.promptTokens;
               lastTokens = generatedResult.usage.completionTokens;
-              lastCachedTokens = generatedResult.usage.cachedTokens ?? 0;
               lastFinishReason = generatedResult.finishReason ?? null;
               lastToolCalls = generatedResult.toolCalls ?? [];
             } else if (hasStreamChat) {
@@ -523,20 +502,7 @@ export function createWritingOrchestrator(
                 prepared.messages,
                 {
                   signal: abortController.signal,
-                  onComplete: (result) => {
-                    const completedUsage = result.usage;
-                    if (completedUsage) {
-                      if (typeof completedUsage.promptTokens === "number" && Number.isFinite(completedUsage.promptTokens)) {
-                        lastPromptTokens = Math.max(lastPromptTokens, Math.max(0, completedUsage.promptTokens));
-                      }
-                      if (typeof completedUsage.completionTokens === "number" && Number.isFinite(completedUsage.completionTokens)) {
-                        lastTokens = Math.max(lastTokens, Math.max(0, completedUsage.completionTokens));
-                      }
-                      if (typeof completedUsage.cachedTokens === "number" && Number.isFinite(completedUsage.cachedTokens)) {
-                        lastCachedTokens = Math.max(0, completedUsage.cachedTokens);
-                      }
-                    }
-                  },
+                  onComplete: () => {},
                   onError: () => {},
                   onApiCallStarted: () => {
                     apiCallStarted = true;
@@ -554,7 +520,6 @@ export function createWritingOrchestrator(
                       promptTokens: lastPromptTokens,
                       completionTokens: lastTokens,
                       totalTokens: lastPromptTokens + lastTokens,
-                      cachedTokens: lastCachedTokens,
                     });
                   }
                   taskStates.set(requestId, "killed");
@@ -573,6 +538,7 @@ export function createWritingOrchestrator(
                 });
               }
               lastFinishReason = streamFinishReason;
+              lastPromptTokens = tokenCount;
             } else {
               throw new Error("No AI execution path available");
             }
@@ -591,7 +557,6 @@ export function createWritingOrchestrator(
                   promptTokens: lastPromptTokens,
                   completionTokens: lastTokens,
                   totalTokens: lastPromptTokens + lastTokens,
-                  cachedTokens: lastCachedTokens,
                 });
               }
               taskStates.set(requestId, "killed");
@@ -605,7 +570,6 @@ export function createWritingOrchestrator(
                   promptTokens: lastPromptTokens,
                   completionTokens: lastTokens,
                   totalTokens: lastPromptTokens + lastTokens,
-                  cachedTokens: lastCachedTokens,
                 });
               }
               const partialContent =
@@ -664,7 +628,6 @@ export function createWritingOrchestrator(
             promptTokens: lastPromptTokens,
             completionTokens: lastTokens,
             totalTokens: lastPromptTokens + lastTokens,
-            cachedTokens: lastCachedTokens,
           });
         }
 
@@ -821,7 +784,6 @@ export function createWritingOrchestrator(
             fullText = nextResult.fullText || roundFullText;
             lastPromptTokens = nextResult.usage.promptTokens;
             lastTokens = nextResult.usage.completionTokens;
-            lastCachedTokens = nextResult.usage.cachedTokens ?? 0;
             lastFinishReason = nextResult.finishReason ?? null;
             lastToolCalls = nextResult.toolCalls ?? [];
 
@@ -830,7 +792,6 @@ export function createWritingOrchestrator(
                 promptTokens: lastPromptTokens,
                 completionTokens: lastTokens,
                 totalTokens: lastPromptTokens + lastTokens,
-                cachedTokens: lastCachedTokens,
               });
             }
 
@@ -871,7 +832,6 @@ export function createWritingOrchestrator(
             promptTokens: totalPromptTokens,
             completionTokens: totalCompletionTokens,
             totalTokens: totalPromptTokens + totalCompletionTokens,
-            ...(totalCachedTokens > 0 ? { cachedTokens: totalCachedTokens } : {}),
           },
         });
         for (const costEvent of pendingCostEvents) {
@@ -966,11 +926,7 @@ export function createWritingOrchestrator(
           return null;
         };
 
-        // Stage 6: Permission gate (SINGLE AUTHORITY — INV-1)
-        // This is the ONLY enforcement point for permission policy.
-        // The IPC layer resolves the raw permission level from the skill
-        // manifest but does NOT override or enforce it — that is our job.
-        // auto-allow is intentionally escalated to preview-confirm for write-back operations.
+        // Stage 6: Permission gate
         const evalResult = config.permissionGate.evaluate
           ? await config.permissionGate.evaluate(request)
           : { level: "preview-confirm", granted: false };
@@ -1054,16 +1010,6 @@ export function createWritingOrchestrator(
           return;
         }
 
-        // ── Stage 7: Write-back (CANONICAL PATH — INV-1) ──────────────────
-        // This is the ONLY location in the entire codebase that executes
-        // AI-generated content write-back to a document.  The sequence is:
-        //   1. Pre-write snapshot (above) — ensures rollback is possible
-        //   2. Permission gate (Stage 6)  — user must approve the write
-        //   3. documentWrite tool (below) — performs the actual DB save
-        //   4. confirmCommit              — finalises the version record
-        //
-        // No other module (IPC layer, renderer, etc.) may perform document
-        // writes on behalf of AI output.  See Issue #109 for context.
         const writeTool = config.toolRegistry.get("documentWrite");
         if (!writeTool) {
           yield makeFailureEvent({

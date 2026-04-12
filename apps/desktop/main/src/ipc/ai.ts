@@ -11,8 +11,6 @@ import {
   SKILL_STREAM_DONE_CHANNEL,
   SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
-  type AiCompletionResult,
-  type AiTokenUsage,
 } from "@shared/types/ai";
 import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
@@ -51,10 +49,6 @@ import {
   AGENTIC_MAX_ROUNDS,
   type WritingEvent,
 } from "../services/skills/orchestrator";
-import {
-  createSkillOrchestrator,
-  type SkillOrchestrator,
-} from "../core/skillOrchestrator";
 import {
   createWritingToolRegistry,
   createAgenticToolRegistry,
@@ -142,7 +136,6 @@ function isBridgeUnsupportedProviderError(error: unknown): boolean {
 type SkillRunUsage = {
   promptTokens: number;
   completionTokens: number;
-  cachedTokens?: number;
   sessionTotalTokens: number;
   estimatedCostUsd?: number;
 };
@@ -284,7 +277,6 @@ const AI_CANDIDATE_COUNT_MAX = 5;
 type ModelPricing = {
   promptPer1kTokens: number;
   completionPer1kTokens: number;
-  cachedInputPricePer1kTokens?: number;
 };
 
 /**
@@ -726,7 +718,6 @@ function emitOrchestratorDone(args: {
           model: args.model,
           promptTokens: args.usage?.promptTokens ?? 0,
           completionTokens: args.usage?.completionTokens ?? 0,
-          cachedTokens: args.usage?.cachedTokens ?? 0,
         },
         traceId: args.traceId,
         ...(args.error ? { error: args.error } : {}),
@@ -817,32 +808,23 @@ function parseModelPricingMap(
       const record = value as Record<string, unknown>;
       const prompt = record.promptPer1kTokens;
       const completion = record.completionPer1kTokens;
-      const cachedInput = record.cachedInputPricePer1kTokens;
       if (
         typeof prompt !== "number" ||
         !Number.isFinite(prompt) ||
         prompt < 0 ||
         typeof completion !== "number" ||
         !Number.isFinite(completion) ||
-        completion < 0 ||
-        (cachedInput !== undefined &&
-          (typeof cachedInput !== "number" ||
-            !Number.isFinite(cachedInput) ||
-            cachedInput < 0))
+        completion < 0
       ) {
         continue;
       }
       map.set(model, {
         promptPer1kTokens: prompt,
         completionPer1kTokens: completion,
-        ...(typeof cachedInput === "number"
-          ? { cachedInputPricePer1kTokens: cachedInput }
-          : {}),
       });
     }
     return map;
   } catch {
-    // Invalid pricing JSON must degrade to empty map instead of breaking chat startup.
     return new Map();
   }
 }
@@ -980,11 +962,8 @@ type AiIpcDeps = {
 type AiIpcContext = {
   deps: AiIpcDeps;
   runtimeGovernance: ReturnType<typeof resolveRuntimeGovernanceFromEnv>;
-  /**
-   * INV-7: IPC 层唯一 AI 出口，禁止在 ctx 中暴露裸 aiService / writingOrchestrator。
-   * 所有写作执行 / 取消 / 反馈 / 模型列表均通过 skillOrchestrator 路由。
-   */
-  skillOrchestrator: SkillOrchestrator;
+  aiService: ReturnType<typeof createAiService>;
+  writingOrchestrator: ReturnType<typeof createWritingOrchestrator>;
   skillServiceFactory: () => ReturnType<typeof createSkillService>;
   contextAssemblyService: ReturnType<typeof createContextLayerAssemblyService>;
   runRegistry: Map<
@@ -1018,7 +997,6 @@ type PendingPreviewSession = {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
-    cachedTokens?: number;
   };
   usageSummary?: SkillRunUsage;
   completion: Promise<IpcResponse<SkillRunConfirmResponse>>;
@@ -1151,30 +1129,22 @@ function resolveUsageContextKey(context?: SkillRunPayload["context"]): string {
   return "global";
 }
 
-export function buildSkillRunUsage(args: {
+function buildSkillRunUsage(args: {
   modelPricingByModel: Map<string, ModelPricing>;
   model: string;
   promptTokens: number;
   completionTokens: number;
-  cachedTokens?: number;
   sessionTotalTokens: number;
 }): SkillRunUsage {
   const promptTokens = Math.max(0, args.promptTokens);
   const completionTokens = Math.max(0, args.completionTokens);
-  const cachedTokens = Math.min(
-    promptTokens,
-    Math.max(0, args.cachedTokens ?? 0),
-  );
-  const nonCachedPromptTokens = Math.max(0, promptTokens - cachedTokens);
   const pricing = args.modelPricingByModel.get(args.model.trim());
   const estimatedCostUsd =
     pricing === undefined
       ? undefined
       : Number(
           (
-            (nonCachedPromptTokens / 1000) * pricing.promptPer1kTokens +
-            (cachedTokens / 1000) *
-              (pricing.cachedInputPricePer1kTokens ?? pricing.promptPer1kTokens) +
+            (promptTokens / 1000) * pricing.promptPer1kTokens +
             (completionTokens / 1000) * pricing.completionPer1kTokens
           ).toFixed(6),
         );
@@ -1182,7 +1152,6 @@ export function buildSkillRunUsage(args: {
   return {
     promptTokens,
     completionTokens,
-    ...(cachedTokens > 0 ? { cachedTokens } : {}),
     sessionTotalTokens: Math.max(0, args.sessionTotalTokens),
     ...(typeof estimatedCostUsd === "number" ? { estimatedCostUsd } : {}),
   };
@@ -1195,7 +1164,6 @@ function recordSkillRunUsage(
     context?: SkillRunPayload["context"];
     promptTokens: number;
     completionTokens: number;
-    cachedTokens?: number;
   },
 ): SkillRunUsage {
   const key = resolveUsageContextKey(args.context);
@@ -1209,7 +1177,6 @@ function recordSkillRunUsage(
     model: args.model,
     promptTokens: args.promptTokens,
     completionTokens: args.completionTokens,
-    cachedTokens: args.cachedTokens,
     sessionTotalTokens: nextTotal,
   });
 }
@@ -1470,45 +1437,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       logger: deps.logger,
     });
   };
-  if (deps.db) {
-    const startupSkillService = skillServiceFactory();
-    const listed = startupSkillService.list({ includeDisabled: true });
-    if (!listed.ok) {
-      deps.logger.error("skill_registry_warmup_failed", {
-        code: listed.error.code,
-        message: listed.error.message,
-      });
-    } else {
-      const requiredBuiltinSkillIds = [
-        "builtin:polish",
-        "builtin:chat",
-        "builtin:continue",
-      ] as const;
-      for (const skillId of requiredBuiltinSkillIds) {
-        const resolved = startupSkillService.resolveForRun({ id: skillId });
-        if (!resolved.ok) {
-          deps.logger.error("builtin_skill_missing_on_startup", {
-            skillId,
-            code: resolved.error.code,
-            message: resolved.error.message,
-          });
-          continue;
-        }
-        if (!resolved.data.enabled) {
-          deps.logger.info("builtin_skill_disabled_on_startup", {
-            skillId,
-          });
-        }
-        if (!resolved.data.skill.valid) {
-          deps.logger.error("builtin_skill_invalid_on_startup", {
-            skillId,
-            code: resolved.data.skill.error_code ?? "INVALID_ARGUMENT",
-            message: resolved.data.skill.error_message ?? "Skill manifest is invalid",
-          });
-        }
-      }
-    }
-  }
   const writingOrchestrator = createWritingOrchestrator({
     aiService: (() => {
       const legacyActiveAbortControllers = new Set<AbortController>();
@@ -1517,9 +1445,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           messages: Array<{ role: string; content: string }>,
           options: {
             signal: AbortSignal;
-            onComplete: (result: {
-              usage?: Partial<AiTokenUsage>;
-            } & Partial<AiCompletionResult>) => void;
+            onComplete: (r: unknown) => void;
             onError: (e: unknown) => void;
             onApiCallStarted?: () => void;
             skillId?: string;
@@ -1600,7 +1526,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
                 promptTokens: 0,
                 completionTokens,
                 totalTokens: completionTokens,
-                cachedTokens: 0,
               },
               wasRetried: false,
             });
@@ -1644,9 +1569,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           messages: Array<{ role: string; content: string }>,
           options: {
             signal: AbortSignal;
-            onComplete: (result: {
-              usage?: Partial<AiTokenUsage>;
-            } & Partial<AiCompletionResult>) => void;
+            onComplete: (r: unknown) => void;
             onError: (e: unknown) => void;
             onApiCallStarted?: () => void;
             skillId?: string;
@@ -1718,9 +1641,8 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         ctx: {
           deps,
           runtimeGovernance,
-          // prepareWritingRequest does not use skillOrchestrator;
-          // pass a dummy to satisfy the type while keeping the type boundary clean.
-          skillOrchestrator: undefined as never,
+          aiService,
+          writingOrchestrator: undefined as never,
           skillServiceFactory,
           contextAssemblyService,
           runRegistry: new Map(),
@@ -1770,12 +1692,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       messages,
     }) => {
       let outputText = "";
-      let usage: {
-        promptTokens: number;
-        completionTokens: number;
-        totalTokens: number;
-        cachedTokens?: number;
-      } = {
+      let usage = {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
@@ -1803,11 +1720,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         terminal: string;
         error?: { message?: string; code?: string };
         result?: {
-          metadata: {
-            promptTokens: number;
-            completionTokens: number;
-            cachedTokens?: number;
-          };
+          metadata: { promptTokens: number; completionTokens: number };
         };
         finishReason?: "stop" | "tool_use";
         toolCalls?: Array<{
@@ -1835,7 +1748,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               estimateTokens(resolveWritingRequestInput(request))) +
             (event.result?.metadata.completionTokens ??
               estimateTokens(event.outputText)),
-          cachedTokens: event.result?.metadata.cachedTokens ?? 0,
         };
         // F1: capture finishReason and toolCalls from the done event
         if (event.finishReason !== undefined) {
@@ -1977,17 +1889,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     },
   });
 
-  // INV-7: 将 aiService + writingOrchestrator 包装为统一出口。
-  // IPC handler 只持有 skillOrchestrator，不直接持有 aiService / writingOrchestrator。
-  const skillOrchestrator = createSkillOrchestrator({
-    writingOrchestrator,
-    aiService,
-  });
-
   const ctx: AiIpcContext = {
     deps,
     runtimeGovernance,
-    skillOrchestrator,
+    aiService,
+    writingOrchestrator,
     skillServiceFactory,
     contextAssemblyService,
     runRegistry,
@@ -1999,12 +1905,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     previewLifecycleRegisteredRendererIds,
   };
 
-  // INV-6/INV-7: ai:models:list 通过 skillOrchestrator 路由，不直接调用 aiService。
   deps.ipcMain.handle(
     "ai:models:list",
     async (): Promise<IpcResponse<ModelCatalogResponse>> => {
       try {
-        const res = await ctx.skillOrchestrator.listModels();
+        const res = await aiService.listModels();
         return res.ok
           ? { ok: true, data: res.data }
           : { ok: false, error: res.error };
@@ -2040,7 +1945,6 @@ async function drainPreviewUntilPause(args: {
         promptTokens: number;
         completionTokens: number;
         totalTokens: number;
-        cachedTokens?: number;
       }
     | undefined;
   let versionId: string | undefined;
@@ -2054,7 +1958,6 @@ async function drainPreviewUntilPause(args: {
             context: args.payload.context,
             promptTokens: usage.promptTokens,
             completionTokens: usage.completionTokens,
-            cachedTokens: usage.cachedTokens,
           })
         : undefined;
       emitOrchestratorDone({
@@ -2106,7 +2009,6 @@ async function drainPreviewUntilPause(args: {
         promptTokens: number;
         completionTokens: number;
         totalTokens: number;
-        cachedTokens?: number;
       };
       continue;
     }
@@ -2118,10 +2020,9 @@ async function drainPreviewUntilPause(args: {
             context: args.payload.context,
             promptTokens: usage.promptTokens,
             completionTokens: usage.completionTokens,
-            cachedTokens: usage.cachedTokens,
           })
         : undefined;
-      const session: PendingPreviewSession = {
+      const session = {
         executionId: args.executionId,
         runId: args.runId,
         traceId: args.traceId,
@@ -2131,14 +2032,7 @@ async function drainPreviewUntilPause(args: {
         outputText,
         usage,
         usageSummary,
-        completion: Promise.resolve({
-          ok: false,
-          error: {
-            code: "INTERNAL",
-            message: "AI skill confirmation pending initialization",
-          },
-        }),
-      };
+      } as PendingPreviewSession;
       session.completion = Promise.resolve()
         .then(() =>
           continuePreviewSession({
@@ -2174,11 +2068,6 @@ async function drainPreviewUntilPause(args: {
       };
     }
 
-    // ── Write-back event consumption (READ-ONLY) ────────────────────
-    // IPC captures the versionId from the orchestrator's write-back-done
-    // event purely for the skill-run response payload.  The actual
-    // document write happened in orchestrator.ts Stage 7; IPC performs
-    // NO document writes itself.  See Issue #109.
     if (event.type === "write-back-done") {
       versionId =
         typeof event.versionId === "string" ? event.versionId : undefined;
@@ -2269,7 +2158,6 @@ async function continuePreviewSession(args: {
               context: args.session.payload.context,
               promptTokens: args.session.usage.promptTokens,
               completionTokens: args.session.usage.completionTokens,
-              cachedTokens: args.session.usage.cachedTokens,
             })
           : undefined);
       emitOrchestratorDone({
@@ -2297,7 +2185,6 @@ async function continuePreviewSession(args: {
     }
 
     const event = next.value;
-    // Read-only: capture versionId for the response — see comment above.
     if (event.type === "write-back-done") {
       versionId =
         typeof event.versionId === "string" ? event.versionId : versionId;
@@ -2492,17 +2379,17 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         ctx,
         sender: e.sender,
       });
-      // IPC layer resolves the declared permission level from the skill manifest
-      // but does NOT enforce policy — the orchestrator's Stage 6 is the single
-      // authority that evaluates + enforces permission (INV-1).
       const permissionLevel = resolveSkillPermissionLevel({
         ctx,
         skillId: normalizedPayload.skillId,
       });
-      const generator = ctx.skillOrchestrator.execute({
+      const generator = ctx.writingOrchestrator.execute({
         requestId: executionId,
         skillId: normalizedPayload.skillId,
-        level: permissionLevel,
+        level:
+          permissionLevel === "auto-allow"
+            ? "preview-confirm"
+            : permissionLevel,
         input: {
           selectedText:
             normalizedPayload.selection?.text ?? normalizedPayload.input,
@@ -2656,8 +2543,7 @@ function registerAiSkillLifecycleHandlers(ctx: AiIpcContext): void {
           }
           return { ok: true, data: { canceled: true } };
         }
-        // INV-7: cancel 通过 skillOrchestrator 路由，不直接调用 aiService。
-        const res = ctx.skillOrchestrator.cancel({
+        const res = ctx.aiService.cancel({
           executionId: executionId.length > 0 ? executionId : undefined,
           runId: runIdValue.length > 0 ? runIdValue : undefined,
           ts: nowTs(),
@@ -2726,8 +2612,7 @@ function registerAiSkillLifecycleHandlers(ctx: AiIpcContext): void {
           return { ok: false, error: learning.error };
         }
 
-        // INV-7: feedback 通过 skillOrchestrator 路由，不直接调用 aiService。
-        const res = ctx.skillOrchestrator.recordFeedback({
+        const res = ctx.aiService.feedback({
           runId: payload.runId,
           action: payload.action,
           evidenceRef: payload.evidenceRef,

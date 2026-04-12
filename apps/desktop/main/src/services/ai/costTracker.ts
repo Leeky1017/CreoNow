@@ -60,14 +60,14 @@ export interface BudgetAlert {
   timestamp: number;
 }
 
-interface CostTokenUsage {
+interface TokenUsage {
   promptTokens: number;
   completionTokens: number;
 }
 
 export interface CostTracker {
   recordUsage(
-    usage: CostTokenUsage,
+    usage: TokenUsage,
     modelId: string,
     requestId: string,
     skillId: string,
@@ -159,7 +159,7 @@ export function createCostTracker(config: CostTrackerConfig): CostTracker {
 
     const safeInput = Math.max(0, inputTokens);
     const safeOutput = Math.max(0, outputTokens);
-    const safeCached = Math.min(safeInput, Math.max(0, cachedTokens ?? 0));
+    const safeCached = Math.max(0, cachedTokens ?? 0);
 
     let inputCost: number;
     if (safeCached > 0 && pricing.cachedInputPricePer1K !== undefined) {
@@ -186,7 +186,7 @@ export function createCostTracker(config: CostTrackerConfig): CostTracker {
 
   const tracker: CostTracker = {
     recordUsage(
-      usage: CostTokenUsage,
+      usage: TokenUsage,
       modelId: string,
       requestId: string,
       skillId: string,
@@ -199,10 +199,7 @@ export function createCostTracker(config: CostTrackerConfig): CostTracker {
           modelId,
           inputTokens: Math.max(0, usage.promptTokens),
           outputTokens: Math.max(0, usage.completionTokens),
-          cachedTokens: Math.min(
-            Math.max(0, usage.promptTokens),
-            Math.max(0, cachedTokens ?? 0),
-          ),
+          cachedTokens: cachedTokens ?? 0,
           cost: 0,
           skillId,
           timestamp: Date.now(),
@@ -212,7 +209,7 @@ export function createCostTracker(config: CostTrackerConfig): CostTracker {
 
       const safeInput = Math.max(0, usage.promptTokens);
       const safeOutput = Math.max(0, usage.completionTokens);
-      const safeCachedParam = Math.min(safeInput, Math.max(0, cachedTokens ?? 0));
+      const safeCachedParam = cachedTokens ?? 0;
 
       const { cost, warning } = computeCost(safeInput, safeOutput, modelId, safeCachedParam);
 
