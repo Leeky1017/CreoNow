@@ -273,6 +273,11 @@ export const IPC_CHANNELS = [
   "memory:semantic:distill",
   "memory:semantic:list",
   "memory:semantic:update",
+  "memory:session:create",
+  "memory:session:delete",
+  "memory:session:deleteexpired",
+  "memory:session:injection",
+  "memory:session:list",
   "memory:settings:get",
   "memory:settings:update",
   "memory:simple:clearproject",
@@ -2915,6 +2920,83 @@ export type IpcChannelSpec = {
         userModified: boolean;
         version: 1;
       };
+    };
+  };
+  "memory:session:create": {
+    request: {
+      category: "style" | "reference" | "preference" | "note";
+      content: string;
+      expiresAt?: number;
+      projectId: string;
+      relevanceScore?: number;
+      sessionId: string;
+    };
+    response: {
+      category: "style" | "reference" | "preference" | "note";
+      content: string;
+      createdAt: number;
+      expiresAt?: number;
+      id: string;
+      projectId: string;
+      relevanceScore: number;
+      sessionId: string;
+    };
+  };
+  "memory:session:delete": {
+    request: {
+      id: string;
+      projectId: string;
+    };
+    response: {
+      deleted: true;
+    };
+  };
+  "memory:session:deleteexpired": {
+    request: Record<string, never>;
+    response: {
+      deletedCount: number;
+    };
+  };
+  "memory:session:injection": {
+    request: {
+      contextHint?: string;
+      projectId: string;
+      sessionId: string;
+      totalContextBudget: number;
+    };
+    response: {
+      items: Array<{
+        category: "style" | "reference" | "preference" | "note";
+        content: string;
+        createdAt: number;
+        expiresAt?: number;
+        id: string;
+        projectId: string;
+        relevanceScore: number;
+        sessionId: string;
+      }>;
+      totalTokens: number;
+    };
+  };
+  "memory:session:list": {
+    request: {
+      category?: "style" | "reference" | "preference" | "note";
+      limit?: number;
+      projectId: string;
+      sessionId?: string;
+    };
+    response: {
+      items: Array<{
+        category: "style" | "reference" | "preference" | "note";
+        content: string;
+        createdAt: number;
+        expiresAt?: number;
+        id: string;
+        projectId: string;
+        relevanceScore: number;
+        sessionId: string;
+      }>;
+      totalCount: number;
     };
   };
   "memory:settings:get": {
