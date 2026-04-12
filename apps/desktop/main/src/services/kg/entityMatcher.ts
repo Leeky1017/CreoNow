@@ -42,6 +42,7 @@ type TrieState = {
 };
 
 const DEFAULT_TRIE_CACHE_KEY = "__default__";
+const EMPTY_MATCH_RESULTS: MatchResult[] = [];
 
 /**
  * Trie cache for Aho-Corasick matcher.
@@ -60,14 +61,14 @@ export class TrieCache {
     cacheKey?: string;
   }): MatchResult[] {
     if (args.text.length === 0 || args.entities.length === 0) {
-      return [];
+      return EMPTY_MATCH_RESULTS;
     }
 
     const key = args.cacheKey ?? DEFAULT_TRIE_CACHE_KEY;
     const state = this.getOrCreateState(key);
     this.syncEntities(state, args.entities);
     if (state.nodes.length === 1) {
-      return [];
+      return EMPTY_MATCH_RESULTS;
     }
 
     return runMatch({
