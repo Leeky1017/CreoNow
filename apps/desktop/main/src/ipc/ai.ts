@@ -6,12 +6,14 @@ import { Node as ProseMirrorNode } from "prosemirror-model";
 import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
 import { nowTs } from "@shared/timeUtils";
 import {
+  CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL,
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
   SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
   type AiCompletionResult,
+  type ContextCompactCircuitBreakerReason,
   type AiTokenUsage,
 } from "@shared/types/ai";
 import type { Logger } from "../logging/logger";
@@ -80,6 +82,7 @@ import {
   createAutoCompact,
   createCompactConfig,
   createNarrativeCompact,
+  NARRATIVE_SUMMARY_TOKEN_LIMIT_MARKER,
 } from "../services/ai/compact";
 import { buildLLMMessages } from "../services/ai/buildLLMMessages";
 import { parseChatHistoryTokenBudget } from "../services/ai/runtimeConfig";
@@ -264,7 +267,9 @@ type ChatClearResponse = {
 
 const SESSION_HISTORY_MESSAGE_LIMIT = 200;
 const KG_SNAPSHOT_LIST_LIMIT = 500;
-const CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL = "context:compact:circuit-breaker";
+function buildSummaryTokenLimitInstruction(summaryMaxTokens: number): string {
+  return `${NARRATIVE_SUMMARY_TOKEN_LIMIT_MARKER}:${summaryMaxTokens} 请将摘要控制在约 ${summaryMaxTokens} tokens 以内。`;
+}
 
 function resolvePrepareWritingTokenBudget(): number {
   return parseChatHistoryTokenBudget(process.env);
@@ -1176,7 +1181,7 @@ type AiIpcDeps = {
     consecutiveFailures: number;
     openedAt: number | null;
     cooldownMs: number;
-    reason: "threshold-reached" | "half-open-probe-failed" | "half-open-probe-succeeded" | "manual-reset";
+    reason: ContextCompactCircuitBreakerReason;
   }) => void;
 };
 
@@ -1732,9 +1737,10 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         const narrativeCompact = createNarrativeCompact({
           invokeSkillSummary: async (request) => {
             const { skillId, modelId, input, summaryMaxTokens } = request;
-            const summaryBoundedInput = input.includes("tokens")
+            const summaryTokenLimitInstruction = buildSummaryTokenLimitInstruction(summaryMaxTokens);
+            const summaryBoundedInput = input.includes(summaryTokenLimitInstruction)
               ? input
-              : `${input}\n\n请将摘要控制在约 ${summaryMaxTokens} tokens 以内。`;
+              : `${input}\n\n${summaryTokenLimitInstruction}`;
             // TODO(@leeky 2025-07): Forward summaryMaxTokens via a dedicated
             // maxOutputTokens field once aiService.runSkill exposes that option.
             const result = await aiService.runSkill({

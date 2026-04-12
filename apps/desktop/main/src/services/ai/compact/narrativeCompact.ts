@@ -73,6 +73,7 @@ export interface NarrativeCompactResult {
 
 const NARRATIVE_COMPACT_SKILL_ID = "builtin:summarize";
 const NARRATIVE_COMPACT_SKILL_USAGE_ID = "builtin:narrative-compact";
+export const NARRATIVE_SUMMARY_TOKEN_LIMIT_MARKER = "[NARRATIVE_SUMMARY_TOKEN_LIMIT]";
 
 function toMessageText(messages: readonly CompactMessage[]): string {
   return messages
@@ -122,6 +123,8 @@ function buildNarrativeCompactPrompt(args: {
   return [
     "You are compressing fiction-writing conversation history.",
     "Return a compact narrative summary in Chinese.",
+    "Output must be flowing narrative prose paragraph(s).",
+    "Do NOT use markdown headings, section labels, bullet lists, numbered lists, or tables.",
     "MUST preserve:",
     "1) All KG entities and relations by exact name.",
     "2) Character settings and world settings.",
@@ -130,24 +133,7 @@ function buildNarrativeCompactPrompt(args: {
     "5) Foreshadowing clues and suspense threads.",
     "6) Timeline markers and sequence constraints.",
     "7) Explicit user writing constraints (style/voice/perspective instructions).",
-    "Output format:",
-    "## Narrative Summary",
-    "- key events",
-    "## KG Entities",
-    "- exact names",
-    "## KG Relations",
-    "- exact relations",
-    "## Character & World Settings",
-    "- preserved settings",
-    "## Unresolved Plot Points",
-    "- unresolved points",
-    "## Tone & POV",
-    "- tone markers and POV",
-    "## Foreshadowing & Timeline",
-    "- clues and timeline markers",
-    "## User Constraints",
-    "- explicit writing constraints",
-    `请将摘要控制在约 ${args.summaryMaxTokens} tokens 以内。`,
+    `${NARRATIVE_SUMMARY_TOKEN_LIMIT_MARKER}:${args.summaryMaxTokens} 请将摘要控制在约 ${args.summaryMaxTokens} tokens 以内。`,
     "",
     `[KG_ENTITIES] ${args.kgSnapshot.entities.join(" | ")}`,
     `[KG_RELATIONS] ${args.kgSnapshot.relations.join(" | ")}`,
@@ -211,39 +197,37 @@ function appendMissingNarrativeAnchors(args: {
     return args.summary;
   }
 
-  const suffixLines = [
-    "",
-    "## Preservation Addendum",
+  const preservationClauses = [
     missingEntities.length > 0
-      ? `- KG entities: ${missingEntities.join("、")}`
+      ? `需要明确提及的 KG 实体有：${missingEntities.join("、")}`
       : undefined,
     missingRelations.length > 0
-      ? `- KG relations: ${missingRelations.join("、")}`
+      ? `需要明确提及的 KG 关系有：${missingRelations.join("、")}`
       : undefined,
     missingSettings.length > 0
-      ? `- Character/World settings: ${missingSettings.join("、")}`
+      ? `需要明确提及的角色/世界设定有：${missingSettings.join("、")}`
       : undefined,
     missingPlotPoints.length > 0
-      ? `- Unresolved plot points: ${missingPlotPoints.join("、")}`
+      ? `需要明确提及的未解情节有：${missingPlotPoints.join("、")}`
       : undefined,
     missingToneMarkers.length > 0
-      ? `- Tone markers: ${missingToneMarkers.join("、")}`
+      ? `需要保留的语气标记有：${missingToneMarkers.join("、")}`
       : undefined,
     missingNarrativePOV.length > 0
-      ? `- Narrative POV: ${missingNarrativePOV.join("、")}`
+      ? `需要保留的叙事视角有：${missingNarrativePOV.join("、")}`
       : undefined,
     missingForeshadowing.length > 0
-      ? `- Foreshadowing clues: ${missingForeshadowing.join("、")}`
+      ? `需要保留的伏笔线索有：${missingForeshadowing.join("、")}`
       : undefined,
     missingTimelineMarkers.length > 0
-      ? `- Timeline markers: ${missingTimelineMarkers.join("、")}`
+      ? `需要保留的时间线标记有：${missingTimelineMarkers.join("、")}`
       : undefined,
     missingUserConstraints.length > 0
-      ? `- User constraints: ${missingUserConstraints.join("、")}`
+      ? `需要保留的用户写作约束有：${missingUserConstraints.join("、")}`
       : undefined,
   ].filter((line): line is string => line !== undefined);
 
-  return `${args.summary.trim()}\n${suffixLines.join("\n")}`.trim();
+  return `${args.summary.trim()}\n\n补充保真说明：${preservationClauses.join("；")}。`.trim();
 }
 
 function dedupeById(messages: ReadonlyArray<CompactMessage>): CompactMessage[] {

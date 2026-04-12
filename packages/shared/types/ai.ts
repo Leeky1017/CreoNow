@@ -5,6 +5,8 @@ export const SKILL_STREAM_DONE_CHANNEL = "skill:stream:done" as const;
 export const SKILL_QUEUE_STATUS_CHANNEL = "skill:queue:status" as const;
 /** P2: Agentic Loop tool-use event channel */
 export const SKILL_TOOL_USE_CHANNEL = "skill:tool-use" as const;
+/** P2: AutoCompact circuit-breaker status push channel */
+export const CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL = "context:compact:circuit-breaker" as const;
 
 export type AiStreamTerminal = "completed" | "cancelled" | "error";
 
@@ -127,3 +129,17 @@ export type SkillToolUseEvent =
   | SkillToolUseStartedEvent
   | SkillToolUseCompletedEvent
   | SkillToolUseFailedEvent;
+
+export type ContextCompactCircuitBreakerReason =
+  | "threshold-reached"
+  | "half-open-probe-failed"
+  | "half-open-probe-succeeded"
+  | "manual-reset";
+
+export type ContextCompactCircuitBreakerEvent = {
+  open: boolean;
+  consecutiveFailures: number;
+  openedAt: number | null;
+  cooldownMs: number;
+  reason: ContextCompactCircuitBreakerReason;
+};

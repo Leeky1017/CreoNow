@@ -1,11 +1,13 @@
 import { ipcRenderer } from "electron";
 
 import {
+  CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL,
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
   SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
+  type ContextCompactCircuitBreakerEvent,
   type SkillToolUseEvent,
 } from "@shared/types/ai";
 import {
@@ -153,6 +155,25 @@ function isCostAlertEvent(x: unknown): x is CostAlertEvent {
   );
 }
 
+function isContextCompactCircuitBreakerEvent(
+  x: unknown,
+): x is ContextCompactCircuitBreakerEvent {
+  if (!isRecord(x)) {
+    return false;
+  }
+
+  return (
+    typeof x.open === "boolean" &&
+    typeof x.consecutiveFailures === "number" &&
+    (x.openedAt === null || typeof x.openedAt === "number") &&
+    typeof x.cooldownMs === "number" &&
+    (x.reason === "threshold-reached"
+      || x.reason === "half-open-probe-failed"
+      || x.reason === "half-open-probe-succeeded"
+      || x.reason === "manual-reset")
+  );
+}
+
 
 export type AiStreamBridgeApi = {
   registerAiStreamConsumer: () => IpcResponse<{ subscriptionId: string }>;
@@ -246,6 +267,23 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
       }),
     );
   };
+  const onContextCompactCircuitBreaker = (_evt: unknown, payload: unknown) => {
+    if (subscriptions.count() === 0) {
+      return;
+    }
+    if (!isContextCompactCircuitBreakerEvent(payload)) {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<ContextCompactCircuitBreakerEvent>(
+        CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL,
+        {
+          detail: payload,
+        },
+      ),
+    );
+  };
 
   ipcRenderer.on(SKILL_STREAM_CHUNK_CHANNEL, onSkillStreamChunk);
   ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, onSkillStreamDone);
@@ -253,6 +291,10 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
   ipcRenderer.on(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
   ipcRenderer.on(JUDGE_RESULT_CHANNEL, onJudgeResult);
   ipcRenderer.on(COST_ALERT_CHANNEL, onCostAlert);
+  ipcRenderer.on(
+    CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL,
+    onContextCompactCircuitBreaker,
+  );
 
   return {
     registerAiStreamConsumer: () => subscriptions.register(),
@@ -272,6 +314,10 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
       ipcRenderer.removeListener(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
       ipcRenderer.removeListener(JUDGE_RESULT_CHANNEL, onJudgeResult);
       ipcRenderer.removeListener(COST_ALERT_CHANNEL, onCostAlert);
+      ipcRenderer.removeListener(
+        CONTEXT_COMPACT_CIRCUIT_BREAKER_CHANNEL,
+        onContextCompactCircuitBreaker,
+      );
     },
   };
 }

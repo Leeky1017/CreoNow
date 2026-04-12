@@ -29,4 +29,5 @@ export {
   type NarrativeCompactResult,
   type SkillSummaryInvocation,
   type SkillSummaryResult,
+  NARRATIVE_SUMMARY_TOKEN_LIMIT_MARKER,
 } from "./narrativeCompact";

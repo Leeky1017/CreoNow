@@ -160,6 +160,14 @@ export function createAutoCompact(args: {
     requestId?: string;
   }): Promise<AutoCompactResult> {
     const config = resolveConfig();
+    const recordFailure = (): void => {
+      consecutiveFailures += 1;
+      if (halfOpenProbe) {
+        openCircuitBreaker("half-open-probe-failed");
+      } else if (consecutiveFailures >= config.maxConsecutiveFailures) {
+        openCircuitBreaker("threshold-reached");
+      }
+    };
     const totalTokensBefore = estimateConversationTokens(input.messages);
     const requestModelBudget = input.requestModelId
       ? resolveKnownContextWindow(input.requestModelId)
@@ -228,11 +236,7 @@ export function createAutoCompact(args: {
       });
       const totalTokensAfter = estimateConversationTokens(compacted.compactedMessages);
       if (isSameMessages(compacted.compactedMessages, input.messages)) {
-        if (halfOpenProbe) {
-          closeCircuitBreaker("half-open-probe-succeeded");
-        } else {
-          consecutiveFailures = 0;
-        }
+        recordFailure();
         return {
           messages: input.messages,
           compacted: false,
@@ -243,11 +247,7 @@ export function createAutoCompact(args: {
         };
       }
       if (totalTokensAfter >= totalTokensBefore) {
-        if (halfOpenProbe) {
-          closeCircuitBreaker("half-open-probe-succeeded");
-        } else {
-          consecutiveFailures = 0;
-        }
+        recordFailure();
         return {
           messages: input.messages,
           compacted: false,
@@ -259,12 +259,7 @@ export function createAutoCompact(args: {
       }
       if (totalTokensAfter > thresholdTokens) {
         // Spec circuit-breaker rule: compaction that still exceeds target budget counts as one failure.
-        consecutiveFailures += 1;
-        if (halfOpenProbe) {
-          openCircuitBreaker("half-open-probe-failed");
-        } else if (consecutiveFailures >= config.maxConsecutiveFailures) {
-          openCircuitBreaker("threshold-reached");
-        }
+        recordFailure();
         args.logger?.warn("auto_compact_insufficient", {
           totalTokensBefore,
           totalTokensAfter,
@@ -296,12 +291,7 @@ export function createAutoCompact(args: {
         reason: "compacted",
       };
     } catch (error) {
-      consecutiveFailures += 1;
-      if (halfOpenProbe) {
-        openCircuitBreaker("half-open-probe-failed");
-      } else if (consecutiveFailures >= config.maxConsecutiveFailures) {
-        openCircuitBreaker("threshold-reached");
-      }
+      recordFailure();
       args.logger?.warn("auto_compact_failed", {
         reason: "narrative_compact_error",
         consecutiveFailures,
