@@ -413,6 +413,13 @@ describe("WritingOrchestrator", () => {
       expect(autoCompact.maybeCompact).toHaveBeenCalledWith(
         expect.objectContaining({
           requestModelId: "gpt-4o-mini",
+          requestId: "req-001-compact",
+          messages: [
+            expect.objectContaining({
+              role: "user",
+              compactable: false,
+            }),
+          ],
           kgSnapshot: {
             entities: ["林远", "白塔"],
             relations: ["林远 -> 白塔: 守护"],
@@ -466,11 +473,17 @@ describe("WritingOrchestrator", () => {
       expect(autoCompact.maybeCompact).toHaveBeenCalledWith(
         expect.objectContaining({
           requestModelId: "gpt-4o-mini",
+          requestId: "req-001-compact",
           kgSnapshot: {
             entities: [],
             relations: [],
             characterSettings: [],
             unresolvedPlotPoints: [],
+            toneMarkers: [],
+            narrativePOV: undefined,
+            foreshadowingClues: [],
+            timelineMarkers: [],
+            userConstraints: [],
           },
         }),
       );

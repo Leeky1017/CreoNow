@@ -80,6 +80,9 @@ import {
   createCompactConfig,
   createNarrativeCompact,
 } from "../services/ai/compact";
+import { buildLLMMessages } from "../services/ai/buildLLMMessages";
+import { parseChatHistoryTokenBudget } from "../services/ai/runtimeConfig";
+import type { KnowledgeGraphService } from "../services/kg/types";
 
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
@@ -257,6 +260,25 @@ type ChatClearResponse = {
   cleared: true;
   removed: number;
 };
+
+type AutoCompactSnapshot = {
+  entities: string[];
+  relations: string[];
+  characterSettings: string[];
+  unresolvedPlotPoints: string[];
+  toneMarkers?: string[];
+  narrativePOV?: string;
+  foreshadowingClues?: string[];
+  timelineMarkers?: string[];
+  userConstraints?: string[];
+};
+
+const SESSION_HISTORY_MESSAGE_LIMIT = 200;
+const KG_SNAPSHOT_LIST_LIMIT = 500;
+
+function resolvePrepareWritingTokenBudget(): number {
+  return parseChatHistoryTokenBudget(process.env);
+}
 
 type ChatSession = {
   sessionId: string;
@@ -444,7 +466,12 @@ function loadSessionHistoryMessages(args: {
       [string, string],
       { role: "user" | "assistant" | string; content: string }
     >(
-      "SELECT role, content FROM chat_messages WHERE project_id = ? AND session_id = ? ORDER BY timestamp ASC",
+      // Safety cap: bound history fan-in at source so restored sessions never grow unbounded.
+      `SELECT role, content
+       FROM chat_messages
+       WHERE project_id = ? AND session_id = ?
+       ORDER BY timestamp ASC
+       LIMIT ${SESSION_HISTORY_MESSAGE_LIMIT}`,
     )
     .all(args.projectId, args.sessionId);
   return rows
@@ -458,6 +485,130 @@ function loadSessionHistoryMessages(args: {
       role: row.role,
       content: row.content,
     }));
+}
+
+export function getAutoCompactSnapshot(args: {
+  kgServiceForContext: Pick<KnowledgeGraphService, "entityList" | "relationList"> | null;
+  request: {
+    projectId?: string;
+  };
+}): AutoCompactSnapshot {
+  const emptySnapshot: AutoCompactSnapshot = {
+    entities: [],
+    relations: [],
+    characterSettings: [],
+    unresolvedPlotPoints: [],
+    toneMarkers: [],
+    narrativePOV: undefined,
+    foreshadowingClues: [],
+    timelineMarkers: [],
+    // Planned work: persist explicit user writing constraints into KG/context rules
+    // so compaction can pin them structurally instead of relying on prompt guidance.
+    userConstraints: [],
+  };
+  const projectId = args.request.projectId?.trim() ?? "";
+  if (!args.kgServiceForContext || projectId.length === 0) {
+    return emptySnapshot;
+  }
+  const dedupe = (values: string[]): string[] =>
+    [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
+
+  const entityResult = args.kgServiceForContext.entityList({
+    projectId,
+    limit: KG_SNAPSHOT_LIST_LIMIT, // Snapshot safety cap keeps compaction context bounded.
+    offset: 0,
+  });
+  if (!entityResult.ok) {
+    throw new Error(entityResult.error.message);
+  }
+  const relationResult = args.kgServiceForContext.relationList({
+    projectId,
+    limit: KG_SNAPSHOT_LIST_LIMIT, // Mirror entity cap to avoid relation payload blow-up.
+    offset: 0,
+  });
+  if (!relationResult.ok) {
+    throw new Error(relationResult.error.message);
+  }
+
+  const entities = entityResult.data.items;
+  const entityNameById = new Map(entities.map((entity) => [entity.id, entity.name]));
+  const relations = relationResult.data.items.map((relation) => {
+    const sourceName =
+      entityNameById.get(relation.sourceEntityId) ?? relation.sourceEntityId;
+    const targetName =
+      entityNameById.get(relation.targetEntityId) ?? relation.targetEntityId;
+    const base = `${sourceName} -> ${targetName}: ${relation.relationType}`;
+    return relation.description.trim().length > 0
+      ? `${base} (${relation.description})`
+      : base;
+  });
+  const characterSettings = entities
+    .filter((entity) => entity.type === "character")
+    .map((entity) => {
+      const attrs = Object.entries(entity.attributes)
+        .map(([key, value]) => `${key}=${value}`)
+        .join("；");
+      const details = [entity.description, attrs].filter((part) => part.length > 0);
+      return details.length > 0 ? `${entity.name}: ${details.join("；")}` : entity.name;
+    });
+  const unresolvedPlotPoints = entities
+    .filter((entity) => entity.lastSeenState && entity.lastSeenState.trim().length > 0)
+    .map((entity) => `${entity.name}: ${entity.lastSeenState?.trim() ?? ""}`);
+
+  const toneAttributeKeys = ["tone", "mood", "atmosphere", "voice", "style"] as const;
+  const povAttributeKeys = [
+    "pov",
+    "pointOfView",
+    "narrativePOV",
+    "perspective",
+    "narrator",
+  ] as const;
+  const timelineAttributeKeys = ["timeline", "time", "era", "phase", "stage"] as const;
+  const toneMarkers = dedupe(
+    entities.flatMap((entity) =>
+      toneAttributeKeys
+        .map((key) => entity.attributes[key]?.trim() ?? "")
+        .filter((value) => value.length > 0),
+    ),
+  );
+  const narrativePOV =
+    dedupe(
+      entities.flatMap((entity) =>
+        povAttributeKeys
+          .map((key) => entity.attributes[key]?.trim() ?? "")
+          .filter((value) => value.length > 0),
+      ),
+    )[0] ?? undefined;
+  const timelineMarkers = dedupe(
+    entities.flatMap((entity) => {
+      const attrTimeline = timelineAttributeKeys
+        .map((key) => entity.attributes[key]?.trim() ?? "")
+        .filter((value) => value.length > 0);
+      const stateTimeline =
+        entity.lastSeenState && /(后|前|夜|晨|午|黄昏|黎明|次日|翌日|当晚|清晨|黄昏)/.test(entity.lastSeenState)
+          ? [entity.lastSeenState.trim()]
+          : [];
+      return [...attrTimeline, ...stateTimeline];
+    }),
+  );
+  const foreshadowingClues = dedupe(
+    [
+      ...unresolvedPlotPoints,
+      ...relations.filter((relation) => /(伏笔|线索|悬念|未揭示|未解)/.test(relation)),
+    ],
+  );
+
+  return {
+    entities: dedupe(entities.map((entity) => entity.name)),
+    relations: dedupe(relations),
+    characterSettings: dedupe(characterSettings),
+    unresolvedPlotPoints: dedupe(unresolvedPlotPoints),
+    toneMarkers,
+    narrativePOV,
+    foreshadowingClues,
+    timelineMarkers,
+    userConstraints: [],
+  };
 }
 
 export async function prepareWritingRequest(args: {
@@ -612,21 +763,18 @@ export async function prepareWritingRequest(args: {
     !latestHistoryMessage ||
     latestHistoryMessage.role !== "user" ||
     latestHistoryMessage.content !== userPrompt;
-  const messages = [
-    {
-      role: "system",
-      content: [systemPrompt, contextPrompt].filter(Boolean).join("\n\n"),
-    },
-    ...historyMessages,
-    ...(includeCurrentUserPrompt
-      ? [
-          {
-            role: "user" as const,
-            content: userPrompt,
-          },
-        ]
-      : []),
-  ];
+  const historyForBudget = includeCurrentUserPrompt
+    ? historyMessages
+    : historyMessages.slice(0, -1);
+  const messages = buildLLMMessages({
+    systemPrompt: [systemPrompt, contextPrompt].filter(Boolean).join("\n\n"),
+    history: historyForBudget,
+    currentUserMessage: userPrompt,
+    maxTokenBudget: resolvePrepareWritingTokenBudget(),
+  }).map((message) => ({
+    role: message.role,
+    content: message.content,
+  }));
 
   const tokenCount = estimateTokens(
     messages.map((message) => message.content).join("\n\n"),
@@ -1895,69 +2043,12 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       return prepared.data;
     },
     getAutoCompactSnapshot: async ({ request }) => {
-      const emptySnapshot = {
-        entities: [],
-        relations: [],
-        characterSettings: [],
-        unresolvedPlotPoints: [],
-      };
-      const projectId = request.projectId?.trim() ?? "";
-      if (!kgServiceForContext || projectId.length === 0) {
-        return emptySnapshot;
-      }
-
-      const entityResult = kgServiceForContext.entityList({
-        projectId,
-        limit: 500, // Snapshot safety cap: most novel projects stay well below 500 entities; bounds prompt size for AutoCompact context.
-        offset: 0,
+      return getAutoCompactSnapshot({
+        kgServiceForContext: kgServiceForContext ?? null,
+        request: {
+          projectId: request.projectId,
+        },
       });
-      if (!entityResult.ok) {
-        throw new Error(entityResult.error.message);
-      }
-      const relationResult = kgServiceForContext.relationList({
-        projectId,
-        limit: 500, // Snapshot safety cap mirrors entity limit to avoid oversized relation payloads in compaction prompts.
-        offset: 0,
-      });
-      if (!relationResult.ok) {
-        throw new Error(relationResult.error.message);
-      }
-
-      const entities = entityResult.data.items;
-      const entityNameById = new Map(entities.map((entity) => [entity.id, entity.name]));
-      const dedupe = (values: string[]): string[] =>
-        [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
-      const relations = relationResult.data.items.map((relation) => {
-        const sourceName =
-          entityNameById.get(relation.sourceEntityId) ?? relation.sourceEntityId;
-        const targetName =
-          entityNameById.get(relation.targetEntityId) ?? relation.targetEntityId;
-        const base = `${sourceName} -> ${targetName}: ${relation.relationType}`;
-        return relation.description.trim().length > 0
-          ? `${base} (${relation.description})`
-          : base;
-      });
-      const characterSettings = entities
-        .filter((entity) => entity.type === "character")
-        .map((entity) => {
-          const attrs = Object.entries(entity.attributes)
-            .map(([key, value]) => `${key}=${value}`)
-            .join("；");
-          const details = [entity.description, attrs].filter((part) => part.length > 0);
-          return details.length > 0
-            ? `${entity.name}: ${details.join("；")}`
-            : entity.name;
-        });
-      const unresolvedPlotPoints = entities
-        .filter((entity) => entity.lastSeenState && entity.lastSeenState.trim().length > 0)
-        .map((entity) => `${entity.name}: ${entity.lastSeenState?.trim() ?? ""}`);
-
-      return {
-        entities: dedupe(entities.map((entity) => entity.name)),
-        relations: dedupe(relations),
-        characterSettings: dedupe(characterSettings),
-        unresolvedPlotPoints: dedupe(unresolvedPlotPoints),
-      };
     },
     generateText: async ({
       request,

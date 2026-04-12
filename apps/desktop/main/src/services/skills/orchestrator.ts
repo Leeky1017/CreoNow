@@ -147,6 +147,11 @@ type AutoCompactSnapshot = {
   relations: string[];
   characterSettings: string[];
   unresolvedPlotPoints: string[];
+  toneMarkers?: string[];
+  narrativePOV?: string;
+  foreshadowingClues?: string[];
+  timelineMarkers?: string[];
+  userConstraints?: string[];
 };
 
 type GeneratedTextResult = {
@@ -310,12 +315,32 @@ export function createWritingOrchestrator(
   function convertMessagesForAutoCompact(
     messages: Array<{ role: string; content: string }>,
   ): AutoCompactMessage[] {
-    return messages.map((message, index) => ({
-      id: `prepared-${index}`,
-      role: normalizeAutoCompactRole(message.role),
-      content: message.content,
-      compactable: message.role === "system" ? false : undefined,
-    }));
+    const hasWritingDirective = (content: string): boolean =>
+      /(第一人称|第三人称|语气|文风|风格|口吻|时态|不要|必须|请务必|写作约束|叙述视角|POV|pov)/i.test(
+        content,
+      );
+
+    let firstUserMessagePinned = false;
+    return messages.map((message, index) => {
+      const isSystem = message.role === "system";
+      const isUser = message.role === "user";
+      let compactable: boolean | undefined;
+      if (isSystem) {
+        compactable = false;
+      } else if (isUser) {
+        const shouldPinAsSetup = !firstUserMessagePinned;
+        firstUserMessagePinned = true;
+        compactable = shouldPinAsSetup || hasWritingDirective(message.content)
+          ? false
+          : undefined;
+      }
+      return {
+        id: `prepared-${index}`,
+        role: normalizeAutoCompactRole(message.role),
+        content: message.content,
+        compactable,
+      };
+    });
   }
 
   function convertMessagesFromAutoCompact(
@@ -398,6 +423,11 @@ export function createWritingOrchestrator(
                   relations: [],
                   characterSettings: [],
                   unresolvedPlotPoints: [],
+                  toneMarkers: [],
+                  narrativePOV: undefined,
+                  foreshadowingClues: [],
+                  timelineMarkers: [],
+                  userConstraints: [],
                 };
                 if (config.getAutoCompactSnapshot) {
                   try {

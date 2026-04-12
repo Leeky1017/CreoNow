@@ -259,6 +259,11 @@ describe("AutoCompact / NarrativeCompact", () => {
         input: expect.stringContaining("请将摘要控制在约 300 tokens 以内。"),
       }),
     );
+    const prompt = invokeSkillSummary.mock.calls[0]?.[0]?.input ?? "";
+    expect(prompt).toContain("Narrative tone markers and current POV");
+    expect(prompt).toContain("Foreshadowing clues and suspense threads");
+    expect(prompt).toContain("Timeline markers and sequence constraints");
+    expect(prompt).toContain("Explicit user writing constraints");
   });
 
   it("preserves compactable:false messages", async () => {

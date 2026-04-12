@@ -26,6 +26,11 @@ export interface NarrativeKnowledgeSnapshot {
   relations: string[];
   characterSettings: string[];
   unresolvedPlotPoints: string[];
+  toneMarkers?: string[];
+  narrativePOV?: string;
+  foreshadowingClues?: string[];
+  timelineMarkers?: string[];
+  userConstraints?: string[];
 }
 
 export interface SkillSummaryInvocation {
@@ -121,6 +126,10 @@ function buildNarrativeCompactPrompt(args: {
     "1) All KG entities and relations by exact name.",
     "2) Character settings and world settings.",
     "3) Unresolved plot points and pending clues.",
+    "4) Narrative tone markers and current POV (point of view).",
+    "5) Foreshadowing clues and suspense threads.",
+    "6) Timeline markers and sequence constraints.",
+    "7) Explicit user writing constraints (style/voice/perspective instructions).",
     "Output format:",
     "## Narrative Summary",
     "- key events",
@@ -132,12 +141,23 @@ function buildNarrativeCompactPrompt(args: {
     "- preserved settings",
     "## Unresolved Plot Points",
     "- unresolved points",
+    "## Tone & POV",
+    "- tone markers and POV",
+    "## Foreshadowing & Timeline",
+    "- clues and timeline markers",
+    "## User Constraints",
+    "- explicit writing constraints",
     `请将摘要控制在约 ${args.summaryMaxTokens} tokens 以内。`,
     "",
     `[KG_ENTITIES] ${args.kgSnapshot.entities.join(" | ")}`,
     `[KG_RELATIONS] ${args.kgSnapshot.relations.join(" | ")}`,
     `[CHARACTER_SETTINGS] ${args.kgSnapshot.characterSettings.join(" | ")}`,
     `[UNRESOLVED_PLOT_POINTS] ${args.kgSnapshot.unresolvedPlotPoints.join(" | ")}`,
+    `[TONE_MARKERS] ${(args.kgSnapshot.toneMarkers ?? []).join(" | ")}`,
+    `[NARRATIVE_POV] ${args.kgSnapshot.narrativePOV ?? ""}`,
+    `[FORESHADOWING_CLUES] ${(args.kgSnapshot.foreshadowingClues ?? []).join(" | ")}`,
+    `[TIMELINE_MARKERS] ${(args.kgSnapshot.timelineMarkers ?? []).join(" | ")}`,
+    `[USER_CONSTRAINTS] ${(args.kgSnapshot.userConstraints ?? []).join(" | ")}`,
     "",
     "[HISTORY]",
     historyText,
@@ -160,12 +180,33 @@ function appendMissingNarrativeAnchors(args: {
   const missingPlotPoints = args.kgSnapshot.unresolvedPlotPoints.filter(
     (plotPoint) => !args.summary.includes(plotPoint),
   );
+  const missingToneMarkers = (args.kgSnapshot.toneMarkers ?? []).filter(
+    (tone) => !args.summary.includes(tone),
+  );
+  const missingNarrativePOV =
+    args.kgSnapshot.narrativePOV && !args.summary.includes(args.kgSnapshot.narrativePOV)
+      ? [args.kgSnapshot.narrativePOV]
+      : [];
+  const missingForeshadowing = (args.kgSnapshot.foreshadowingClues ?? []).filter(
+    (clue) => !args.summary.includes(clue),
+  );
+  const missingTimelineMarkers = (args.kgSnapshot.timelineMarkers ?? []).filter(
+    (marker) => !args.summary.includes(marker),
+  );
+  const missingUserConstraints = (args.kgSnapshot.userConstraints ?? []).filter(
+    (constraint) => !args.summary.includes(constraint),
+  );
 
   if (
     missingEntities.length === 0 &&
     missingRelations.length === 0 &&
     missingSettings.length === 0 &&
-    missingPlotPoints.length === 0
+    missingPlotPoints.length === 0 &&
+    missingToneMarkers.length === 0 &&
+    missingNarrativePOV.length === 0 &&
+    missingForeshadowing.length === 0 &&
+    missingTimelineMarkers.length === 0 &&
+    missingUserConstraints.length === 0
   ) {
     return args.summary;
   }
@@ -184,6 +225,21 @@ function appendMissingNarrativeAnchors(args: {
       : undefined,
     missingPlotPoints.length > 0
       ? `- Unresolved plot points: ${missingPlotPoints.join("、")}`
+      : undefined,
+    missingToneMarkers.length > 0
+      ? `- Tone markers: ${missingToneMarkers.join("、")}`
+      : undefined,
+    missingNarrativePOV.length > 0
+      ? `- Narrative POV: ${missingNarrativePOV.join("、")}`
+      : undefined,
+    missingForeshadowing.length > 0
+      ? `- Foreshadowing clues: ${missingForeshadowing.join("、")}`
+      : undefined,
+    missingTimelineMarkers.length > 0
+      ? `- Timeline markers: ${missingTimelineMarkers.join("、")}`
+      : undefined,
+    missingUserConstraints.length > 0
+      ? `- User constraints: ${missingUserConstraints.join("、")}`
       : undefined,
   ].filter((line): line is string => line !== undefined);
 
