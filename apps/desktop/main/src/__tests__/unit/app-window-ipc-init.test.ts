@@ -163,6 +163,7 @@ vi.mock("../../ipc/diff", () => ({ registerDiffIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/window", () => ({ registerWindowIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/rendererLog", () => ({ registerRendererLogIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/simpleMemory", () => ({ registerSimpleMemoryIpcHandlers: vi.fn() }));
+vi.mock("../../ipc/sessionMemory", () => ({ registerSessionMemoryIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/projectSessionBinding", () => ({
   createProjectSessionBindingRegistry: vi.fn(() => ({ clear: vi.fn() })),
 }));
