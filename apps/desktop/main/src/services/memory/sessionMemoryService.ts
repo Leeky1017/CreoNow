@@ -133,7 +133,7 @@ function rowToItem(row: Record<string, unknown>): SessionMemoryItem {
  *
  * @why INV-4 L1 spec requires recency-weighted injection. Exponential decay
  * with 24h half-life means yesterday's items score 0.5×, two days ago 0.25×.
- * Formula: adjustedScore = relevanceScore × exp(−timeDelta / halfLifeMs)
+ * Formula: adjustedScore = relevanceScore × 2^(−timeDelta / halfLifeMs)
  */
 function applyTimeDecay(relevanceScore: number, createdAt: number, now: number): number {
   const timeDelta = Math.max(0, now - createdAt);
@@ -364,7 +364,7 @@ export function createSessionMemoryService(deps: { db: DbLike }): SessionMemoryS
         return b.item.createdAt - a.item.createdAt;
       });
 
-      // Step 5: Greedily select top items up to budgetTokens.
+      // Step 5: Greedily select top items up to maxTokens (L1 budget cap).
       // INV-3: use CJK-aware estimateTokens for each item.
       const selected: SessionMemoryItem[] = [];
       let totalTokens = 0;

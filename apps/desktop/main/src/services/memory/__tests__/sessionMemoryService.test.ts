@@ -10,7 +10,7 @@
  *   SM-U-6:  delete() — soft-delete sets deleted_at, subsequent list excludes it
  *   SM-U-7:  delete() — non-existent ID returns NOT_FOUND
  *   SM-U-8:  deleteExpired() — marks expired items, leaves non-expired
- *   SM-U-9:  getInjectionPayload() — respects budgetTokens cap
+ *   SM-U-9:  getInjectionPayload() — respects totalContextBudget cap (15%)
  *   SM-U-10: getInjectionPayload() — time decay lowers older items' scores
  *   SM-U-11: getInjectionPayload() — FTS5 contextHint boosts matching items
  *   SM-U-12: getInjectionPayload() — CJK content estimated correctly (INV-3)

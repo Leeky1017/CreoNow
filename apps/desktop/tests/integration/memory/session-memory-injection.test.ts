@@ -356,4 +356,74 @@ describe("Session Memory Integration", () => {
     assert.equal(result.data.items.length, 1);
     assert.equal(result.data.items[0].content, "活跃的风格");
   });
+
+  // SM-INT-9 — Regression: soft-deleted items must NOT appear in FTS keyword boost
+  it("soft-deleted items excluded from FTS keyword boost", () => {
+    const svc = createSessionMemoryService({ db });
+
+    const created = svc.create({
+      sessionId: "sess-1",
+      projectId: "proj-1",
+      category: "style",
+      content: "deleted keyword target",
+    });
+    assert.ok(created.ok);
+
+    svc.create({
+      sessionId: "sess-1",
+      projectId: "proj-1",
+      category: "note",
+      content: "active item without keyword",
+    });
+
+    // Soft-delete the first item
+    svc.delete({ id: created.data.id, projectId: "proj-1" });
+
+    // FTS MATCH for "deleted" should NOT boost the soft-deleted item back into results
+    const result = svc.getInjectionPayload({
+      sessionId: "sess-1",
+      projectId: "proj-1",
+      totalContextBudget: 5000,
+      contextHint: "deleted keyword",
+    });
+
+    assert.ok(result.ok);
+    assert.equal(result.data.items.length, 1, "Soft-deleted item must not appear");
+    assert.equal(result.data.items[0].content, "active item without keyword");
+  });
+
+  // SM-INT-10 — Regression: CJK substring matching via FTS5 trigram tokenizer
+  it("CJK contextHint boosts matching items via trigram FTS", () => {
+    const svc = createSessionMemoryService({ db });
+
+    svc.create({
+      sessionId: "sess-1",
+      projectId: "proj-1",
+      category: "reference",
+      content: "林黛玉是贾宝玉的表妹，性格多愁善感",
+    });
+
+    svc.create({
+      sessionId: "sess-1",
+      projectId: "proj-1",
+      category: "reference",
+      content: "刘姥姥进大观园的故事",
+    });
+
+    // contextHint with CJK characters should match via trigram tokenizer
+    const result = svc.getInjectionPayload({
+      sessionId: "sess-1",
+      projectId: "proj-1",
+      totalContextBudget: 5000,
+      contextHint: "林黛玉",
+    });
+
+    assert.ok(result.ok);
+    assert.equal(result.data.items.length, 2);
+    // The item mentioning 林黛玉 should be boosted to first position
+    assert.ok(
+      result.data.items[0].content.includes("林黛玉"),
+      `Expected 林黛玉 item first, got: ${result.data.items[0].content}`,
+    );
+  });
 });

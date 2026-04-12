@@ -34,10 +34,16 @@ CREATE INDEX IF NOT EXISTS idx_session_memory_expiry
 -- content='session_memory' (external-content mode) — FTS5 references the source
 -- table for content retrieval; sync triggers keep the index up to date.
 -- Avoids doubling storage compared to a standalone FTS5 table.
+-- tokenize='trigram' enables CJK substring matching (INV-3): the default
+-- unicode61 tokenizer does not segment Chinese characters, so MATCH queries
+-- like "林黛玉" would fail against content like "林黛玉是贾宝玉的表妹".
+-- Trigram indexing trades a slightly larger index for correct CJK recall —
+-- acceptable for session memory tables which remain small (dozens of rows).
 CREATE VIRTUAL TABLE IF NOT EXISTS session_memory_fts USING fts5(
   content,
   content='session_memory',
-  content_rowid='rowid'
+  content_rowid='rowid',
+  tokenize='trigram'
 );
 
 -- Triggers to keep FTS5 index in sync with session_memory writes.
@@ -53,5 +59,8 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS session_memory_au AFTER UPDATE ON session_memory BEGIN
   INSERT INTO session_memory_fts(session_memory_fts, rowid, content) VALUES('delete', old.rowid, old.content);
-  INSERT INTO session_memory_fts(rowid, content) VALUES (new.rowid, new.content);
+  -- Only re-insert into FTS if the row is still active (not soft-deleted).
+  -- Soft-delete sets deleted_at, so FTS should no longer index the content.
+  INSERT INTO session_memory_fts(rowid, content)
+    SELECT new.rowid, new.content WHERE new.deleted_at IS NULL;
 END;
