@@ -2865,7 +2865,7 @@ export const ipcContract = {
       }),
       response: EXPORT_PROSEMIRROR_RESULT_SCHEMA,
     },
-    "engagement:story-status": {
+    "engagement:storystatus:get": {
       request: s.object({
         projectId: s.string(),
       }),

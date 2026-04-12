@@ -68,6 +68,7 @@ const DOMAIN_REGISTRY: Readonly<Record<string, string>> = {
   version: "Version Control",
   backup: "Document Management",
   cost: "AI Service",
+  engagement: "Engagement Engine",
 };
 const RESOURCE_ACTION_SEGMENT_PATTERN = /^[a-z][a-z0-9]*$/;
 const VALID_SCHEMA_KINDS = new Set([

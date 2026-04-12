@@ -1,5 +1,5 @@
 /**
- * IPC handler: engagement:story-status
+ * IPC handler: engagement:storystatus:get
  *
  * ## 职责：将 StoryStatusService 暴露给 Renderer 进程
  * ## 不做什么：不含业务逻辑，仅转发；不直调 DB（通过 Service）
@@ -58,7 +58,7 @@ export function registerEngagementIpcHandlers(deps: {
   }
 
   deps.ipcMain.handle(
-    "engagement:story-status",
+    "engagement:storystatus:get",
     async (
       _e,
       payload: unknown,

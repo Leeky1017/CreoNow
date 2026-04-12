@@ -217,6 +217,7 @@ export const IPC_CHANNELS = [
   "embedding:index:reindex",
   "embedding:semantic:search",
   "embedding:text:generate",
+  "engagement:storystatus:get",
   "export:document:docx",
   "export:document:markdown",
   "export:document:pdf",
@@ -1316,6 +1317,30 @@ export type IpcChannelSpec = {
     response: {
       dimension: number;
       vectors: Array<Array<number>>;
+    };
+  };
+  "engagement:storystatus:get": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      activeForeshadowing: Array<{
+        description: string;
+        id: string;
+        name: string;
+      }>;
+      chapterProgress: {
+        currentChapterNumber: number;
+        currentChapterTitle: string;
+        totalChapters: number;
+      };
+      interruptedTask: {
+        chapterTitle: string;
+        documentId: string;
+        lastEditedAt: number;
+      } | null;
+      queryCostMs: number;
+      suggestedAction: string;
     };
   };
   "export:document:docx": {
