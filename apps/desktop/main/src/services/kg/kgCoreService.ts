@@ -169,6 +169,22 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function runTrieCacheMutation(args: {
+  logger: Logger;
+  event: "trie_cache_upsert_failed" | "trie_cache_remove_failed";
+  projectId: string;
+  mutate: () => void;
+}): void {
+  try {
+    args.mutate();
+  } catch (error) {
+    args.logger.info(args.event, {
+      projectId: args.projectId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 function normalizeText(value: string): string {
   return value.trim();
 }
@@ -1149,13 +1165,20 @@ function createEntityOps(
         }
 
         const createdEntity = rowToEntity(row, args.logger);
-        trieCacheUpsertEntity({
-          cacheKey: normalizedProjectId,
-          entity: {
-            id: createdEntity.id,
-            name: createdEntity.name,
-            aliases: createdEntity.aliases,
-            aiContextLevel: createdEntity.aiContextLevel,
+        runTrieCacheMutation({
+          logger: args.logger,
+          event: "trie_cache_upsert_failed",
+          projectId: normalizedProjectId,
+          mutate: () => {
+            trieCacheUpsertEntity({
+              cacheKey: normalizedProjectId,
+              entity: {
+                id: createdEntity.id,
+                name: createdEntity.name,
+                aliases: createdEntity.aliases,
+                aiContextLevel: createdEntity.aiContextLevel,
+              },
+            });
           },
         });
 
@@ -1309,9 +1332,16 @@ function createEntityOps(
             .run(normalizedProjectId, normalizedId);
         })();
 
-        trieCacheRemoveEntity({
-          cacheKey: normalizedProjectId,
-          entityId: normalizedId,
+        runTrieCacheMutation({
+          logger: args.logger,
+          event: "trie_cache_remove_failed",
+          projectId: normalizedProjectId,
+          mutate: () => {
+            trieCacheRemoveEntity({
+              cacheKey: normalizedProjectId,
+              entityId: normalizedId,
+            });
+          },
         });
 
         return { ok: true, data: { deleted: true, deletedRelationCount } };
@@ -1451,13 +1481,20 @@ function createEntityUpdateOps(
         }
 
         const updatedEntity = rowToEntity(row, args.logger);
-        trieCacheUpsertEntity({
-          cacheKey: normalizedProjectId,
-          entity: {
-            id: updatedEntity.id,
-            name: updatedEntity.name,
-            aliases: updatedEntity.aliases,
-            aiContextLevel: updatedEntity.aiContextLevel,
+        runTrieCacheMutation({
+          logger: args.logger,
+          event: "trie_cache_upsert_failed",
+          projectId: normalizedProjectId,
+          mutate: () => {
+            trieCacheUpsertEntity({
+              cacheKey: normalizedProjectId,
+              entity: {
+                id: updatedEntity.id,
+                name: updatedEntity.name,
+                aliases: updatedEntity.aliases,
+                aiContextLevel: updatedEntity.aiContextLevel,
+              },
+            });
           },
         });
 

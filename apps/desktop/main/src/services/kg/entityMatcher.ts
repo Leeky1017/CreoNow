@@ -36,6 +36,12 @@ export type MatchResult = {
   position: number;
 };
 
+export type TrieCacheDebugSnapshot = {
+  entityOrderIds: string[];
+  entityIds: string[];
+  freeIndicesCount: number;
+};
+
 type PatternOutput = {
   entityId: string;
   matchedTerm: string;
@@ -120,6 +126,7 @@ class TrieCache {
       if (previous) {
         this.removeEntityPatterns(state, previous);
         state.entitiesById.delete(args.entity.id);
+        state.entityOrderById = rebuildEntityOrder(state.entitiesById);
         rebuildFailureLinks(state.nodes);
       }
       return;
@@ -168,6 +175,18 @@ class TrieCache {
       return;
     }
     this.stateByKey.clear();
+  }
+
+  debugSnapshot(cacheKey: string): TrieCacheDebugSnapshot | null {
+    const state = this.stateByKey.get(cacheKey);
+    if (!state) {
+      return null;
+    }
+    return {
+      entityOrderIds: Array.from(state.entityOrderById.keys()),
+      entityIds: Array.from(state.entitiesById.keys()),
+      freeIndicesCount: state.freeIndices.length,
+    };
   }
 
   private getOrCreateState(cacheKey: string): TrieState {
@@ -310,6 +329,13 @@ export function trieCacheRemoveEntity(args: {
 
 export function trieCacheInvalidate(cacheKey?: string): void {
   sharedTrieCache.invalidate(cacheKey);
+}
+
+/** Test-only cache snapshot helper for deterministic branch assertions. */
+export function trieCacheDebugSnapshot(
+  cacheKey: string,
+): TrieCacheDebugSnapshot | null {
+  return sharedTrieCache.debugSnapshot(cacheKey);
 }
 
 function addPattern(state: TrieState, output: PatternOutput): void {

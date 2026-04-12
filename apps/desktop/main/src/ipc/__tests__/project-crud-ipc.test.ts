@@ -74,6 +74,10 @@ const mocks = vi.hoisted(() => {
       ok: true,
       data: { currentProjectId: "proj-2", switchedAt: new Date().toISOString() },
     }),
+    entityListMock: vi.fn().mockReturnValue({
+      ok: true,
+      data: { items: [] },
+    }),
   };
 });
 
@@ -107,6 +111,11 @@ vi.mock("../../services/project/projectManager", async (importOriginal) => {
     })),
   };
 });
+vi.mock("../../services/kg/kgService", () => ({
+  createKnowledgeGraphService: vi.fn(() => ({
+    entityList: mocks.entityListMock,
+  })),
+}));
 
 const { registerProjectIpcHandlers } = await import("../project");
 
@@ -328,6 +337,27 @@ describe("project:project:getcurrent", () => {
       webContentsId: 1,
       projectId: "proj-1",
     });
+  });
+
+  it("trie 预热 entityList 失败时记录错误日志", async () => {
+    mocks.entityListMock.mockReturnValueOnce({
+      ok: false,
+      error: { code: "DB_ERROR", message: "list failed" },
+    });
+    const harness = createHarness();
+
+    const res = await harness.invoke<{ projectId: string }>(
+      "project:project:getcurrent",
+    );
+
+    expect(res.ok).toBe(true);
+    expect(harness.logger.error).toHaveBeenCalledWith(
+      "trie_cache_prime_entity_list_failed",
+      {
+        projectId: "proj-1",
+        error: { code: "DB_ERROR", message: "list failed" },
+      },
+    );
   });
 });
 

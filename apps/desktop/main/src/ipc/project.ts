@@ -50,6 +50,10 @@ function primeTrieCacheForProject(args: {
       filter: { aiContextLevel: "when_detected" },
     });
     if (!listed.ok) {
+      args.logger.error("trie_cache_prime_entity_list_failed", {
+        projectId: args.projectId,
+        error: listed.error,
+      });
       return;
     }
 

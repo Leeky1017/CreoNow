@@ -9,6 +9,7 @@ import {
 } from "vitest";
 
 import { createKnowledgeGraphCoreService } from "../kgCoreService";
+import * as entityMatcher from "../entityMatcher";
 import type { KnowledgeGraphService } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -375,6 +376,33 @@ describe("kgCoreService — Entity CRUD（实体增删改查）", () => {
       expect(logger.error).toHaveBeenCalled();
     });
 
+    it("trie cache 更新失败不应回滚成功的 DB 创建结果", () => {
+      const row = makeEntityRow();
+      db.prepare
+        .mockReturnValueOnce(projectExistsStmt())
+        .mockReturnValueOnce(countStmt(0))
+        .mockReturnValueOnce(dupCheckMissStmt())
+        .mockReturnValueOnce(insertStmt())
+        .mockReturnValueOnce(selectEntityStmt(row));
+      vi.spyOn(entityMatcher, "trieCacheUpsertEntity").mockImplementation(
+        () => {
+          throw new Error("cache broken");
+        },
+      );
+
+      const result = svc.entityCreate({
+        projectId: PROJECT_ID,
+        type: "character",
+        name: "Alice",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(logger.info).toHaveBeenCalledWith("trie_cache_upsert_failed", {
+        projectId: PROJECT_ID,
+        error: "cache broken",
+      });
+    });
+
     it("name 边界：刚好 256 字符应通过", () => {
       const row = makeEntityRow({ name: "a".repeat(256) });
       db.prepare
@@ -453,6 +481,35 @@ describe("kgCoreService — Entity CRUD（实体增删改查）", () => {
       if (!result.ok) {
         expect(result.error.code).toBe("NOT_FOUND");
       }
+    });
+
+    it("trie cache 更新失败不应将成功更新实体误报为失败", () => {
+      const existingRow = makeEntityRow({ version: 1 });
+      const updatedRow = makeEntityRow({ version: 2, name: "Alice Updated" });
+      db.prepare
+        .mockReturnValueOnce(projectExistsStmt())
+        .mockReturnValueOnce(selectEntityStmt(existingRow))
+        .mockReturnValueOnce(dupCheckMissStmt())
+        .mockReturnValueOnce(insertStmt())
+        .mockReturnValueOnce(selectEntityStmt(updatedRow));
+      vi.spyOn(entityMatcher, "trieCacheUpsertEntity").mockImplementation(
+        () => {
+          throw new Error("cache broken");
+        },
+      );
+
+      const result = svc.entityUpdate({
+        projectId: PROJECT_ID,
+        id: ENTITY_ID,
+        expectedVersion: 1,
+        patch: { name: "Alice Updated" },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(logger.info).toHaveBeenCalledWith("trie_cache_upsert_failed", {
+        projectId: PROJECT_ID,
+        error: "cache broken",
+      });
     });
   });
 
@@ -704,6 +761,34 @@ describe("kgCoreService — Entity CRUD（实体增删改查）", () => {
       if (!result.ok) {
         expect(result.error.code).toBe("INVALID_ARGUMENT");
       }
+    });
+
+    it("trie cache 删除失败不应将成功删除实体误报为失败", () => {
+      const row = makeEntityRow();
+      const deleteRelationsStmt = createMockStatement({
+        run: vi.fn().mockReturnValue({ changes: 1 }),
+      });
+      const deleteEntityStmt = createMockStatement({
+        run: vi.fn().mockReturnValue({ changes: 1 }),
+      });
+      db.prepare
+        .mockReturnValueOnce(projectExistsStmt())
+        .mockReturnValueOnce(selectEntityStmt(row))
+        .mockReturnValueOnce(deleteRelationsStmt)
+        .mockReturnValueOnce(deleteEntityStmt);
+      vi.spyOn(entityMatcher, "trieCacheRemoveEntity").mockImplementation(
+        () => {
+          throw new Error("cache broken");
+        },
+      );
+
+      const result = svc.entityDelete({ projectId: PROJECT_ID, id: ENTITY_ID });
+
+      expect(result.ok).toBe(true);
+      expect(logger.info).toHaveBeenCalledWith("trie_cache_remove_failed", {
+        projectId: PROJECT_ID,
+        error: "cache broken",
+      });
     });
   });
 });
