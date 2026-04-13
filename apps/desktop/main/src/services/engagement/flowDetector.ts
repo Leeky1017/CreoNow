@@ -35,6 +35,9 @@ export interface FlowDetector {
   /**
    * Get current flow state. O(1) amortized — must be < 200ms.
    * @param now - Injectable timestamp for deterministic testing (INV P4).
+   *   Controls keystroke filtering only: keystrokes after `now` are ignored.
+   *   Blur/focus state is always evaluated as-is (not time-traveled), because
+   *   window events have no injectable timestamp in production.
    */
   getFlowState(now?: number): FlowState;
   /** Reset all state (for testing or project switch). */
@@ -48,6 +51,8 @@ export interface FlowDetectorConfig {
   deepFlowThresholdMs?: number;
   /**
    * Max gap between keystrokes to still count as "continuous typing".
+   * A gap strictly less than this value is continuous; a gap equal to or
+   * greater than this value breaks the chain.
    * Default: 15s.
    * @why engagement-engine.md §机制8 defines IN_FLOW as "停顿 < 15 秒".
    * Gaps >= 15s break the continuous chain. The spec separately defines
@@ -159,7 +164,9 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
     const latest = keystrokes[latestIdx];
 
     // If the latest keystroke is too old, no active run.
-    if (now - latest > maxGap) {
+    // @why `>=` not `>`: spec says IN_FLOW requires "停顿 < 15 秒",
+    // so a gap of exactly maxGap is NOT continuous.
+    if (now - latest >= maxGap) {
       return null;
     }
 
@@ -176,7 +183,7 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
     let continuousStart = latest;
     for (let i = latestIdx - 1; i >= 0; i--) {
       const gap = keystrokes[i + 1] - keystrokes[i];
-      if (gap > maxGap) {
+      if (gap >= maxGap) {
         break;
       }
       // Don't walk past a blur boundary — blur is a hard chain break.
@@ -253,8 +260,9 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
       return NO_FLOW;
     }
 
-    // If gap since last keystroke exceeds maxGap, continuous run is broken.
-    if (currentTime - latest > maxGap) {
+    // If gap since last keystroke reaches maxGap, continuous run is broken.
+    // @why `>=` not `>`: spec "停顿 < 15 秒" → gap of exactly 15s is NOT continuous.
+    if (currentTime - latest >= maxGap) {
       return NO_FLOW;
     }
 

@@ -1,20 +1,13 @@
 /**
  * flowDetector unit tests — 心流状态检测器
  *
- * Coverage targets (13 cases):
- *   1.  Initial state is no-flow
- *   2.  Sporadic keystrokes (gap > 30s) don't trigger flow
- *   3.  5 min continuous typing → light flow
- *   4.  15 min continuous typing → deep flow
- *   5.  Window blur breaks flow immediately
- *   6.  Window focus alone doesn't restore flow (need keystrokes)
- *   7.  60s timeout exits flow
- *   8.  Flow duration is calculated correctly
- *   9.  Reset clears all state
- *   10. Custom config thresholds work
- *   11. Edge: exactly at threshold boundary
- *   12. Edge: rapid-fire keystrokes (stress test)
- *   13. Memory: keystroke buffer doesn't grow unbounded
+ * 24 tests covering:
+ *   - Core state machine: initial, sporadic (gap > 15s), light/deep flow
+ *   - Window events: blur breaks flow, focus alone doesn't restore
+ *   - Timing: exit timeout, duration accuracy, gap boundary (>= maxGap)
+ *   - Config: custom thresholds, keystroke buffer pruning
+ *   - Edge cases: monotonic timestamps, future keystrokes, blur-before-input,
+ *     blur boundary on latest keystroke, exact maxGap boundary
  */
 
 import { describe, it, expect } from "vitest";
@@ -357,7 +350,7 @@ describe("flowDetector", () => {
       expect(state.intensity).toBe("light");
     });
 
-    it("breaks flow on gap exactly at maxKeystrokeGap boundary", () => {
+    it("breaks flow when gap equals maxKeystrokeGap exactly", () => {
       const fd = createFlowDetector({
         lightFlowThresholdMs: 100,
         deepFlowThresholdMs: 200,
@@ -366,14 +359,35 @@ describe("flowDetector", () => {
       });
       const base = 10_000;
 
-      // Two keystrokes with exactly maxGap+1 apart (51ms > 50ms)
+      // Two keystrokes with gap == maxGap (50ms)
+      // Spec: "停顿 < 15 秒" → gap >= maxGap breaks chain
       fd.recordKeystroke(base);
-      fd.recordKeystroke(base + 51);
+      fd.recordKeystroke(base + 50);
 
-      // Continuous chain is only 0ms (single keystroke at base+51)
-      // which is < lightThreshold (100ms)
-      const state = fd.getFlowState(base + 51);
+      // Chain is broken: second keystroke starts a new chain of length 0
+      const state = fd.getFlowState(base + 50);
       expect(state.isInFlow).toBe(false);
+    });
+
+    it("maintains flow when gap is one less than maxKeystrokeGap", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 100,
+        deepFlowThresholdMs: 200,
+        maxKeystrokeGapMs: 50,
+        flowExitTimeoutMs: 80,
+      });
+      const base = 10_000;
+
+      // Build chain: base, base+49, base+98 (gaps of 49ms < 50ms maxGap)
+      fd.recordKeystroke(base);
+      fd.recordKeystroke(base + 49);
+      fd.recordKeystroke(base + 98);
+      fd.recordKeystroke(base + 147);
+
+      // Duration = 147ms > lightThreshold (100ms)
+      const state = fd.getFlowState(base + 147);
+      expect(state.isInFlow).toBe(true);
+      expect(state.duration).toBe(147);
     });
   });
 
