@@ -154,10 +154,31 @@ function readVersionId(data: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-interface PostWritingHook {
+/**
+ * Context passed to each post-writing hook in Stage 8.
+ *
+ * @invariant INV-8 — every hook receives the same immutable snapshot;
+ *   hooks must not mutate these fields.
+ */
+export interface PostWritingHookContext {
+  requestId: string;
+  documentId: string;
+  projectId?: string;
+  sessionId?: string;
+  fullText: string;
+}
+
+export interface PostWritingHook {
   name: string;
   enabled?: boolean;
-  execute(context: unknown): Promise<void>;
+  /**
+   * Lower number = higher priority, runs first. Default 100.
+   * @why INV-8 spec requires priority-ordered execution and supports
+   *   dynamic hook addition — without explicit priority, insertion order
+   *   is fragile when hooks are added at runtime.
+   */
+  priority?: number;
+  execute(context: PostWritingHookContext): Promise<void>;
 }
 
 export interface OrchestratorConfig {
@@ -1122,12 +1143,23 @@ export function createWritingOrchestrator(
 
         yield makeEvent("write-back-done", requestId, { versionId });
 
-        // Stage 8: Post-writing hooks
+        // Stage 8: Post-writing hooks (INV-8)
+        // Sort by priority (lower = runs first); default priority 100.
+        const sortedHooks = [...config.postWritingHooks].sort(
+          (a, b) => (a.priority ?? 100) - (b.priority ?? 100),
+        );
+        const hookContext: PostWritingHookContext = {
+          requestId,
+          documentId: request.documentId,
+          projectId: request.projectId,
+          sessionId: request.sessionId,
+          fullText,
+        };
         const executedHooks: string[] = [];
-        for (const hook of config.postWritingHooks) {
+        for (const hook of sortedHooks) {
           if (hook.enabled === false) continue;
           try {
-            await hook.execute({ requestId, documentId: request.documentId, fullText });
+            await hook.execute(hookContext);
             executedHooks.push(hook.name);
           } catch {
             executedHooks.push(hook.name);

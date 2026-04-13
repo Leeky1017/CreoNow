@@ -1700,12 +1700,14 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     postWritingHooks: [
       {
         name: "cost-tracking",
+        priority: 10,
         async execute() {
           deps.costTracker?.checkBudget();
         },
       },
       {
         name: "auto-save-version",
+        priority: 20,
         async execute() {
           return;
         },
