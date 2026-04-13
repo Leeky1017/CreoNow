@@ -6,7 +6,7 @@
  * on entity type matches production (migration 002 extended the allowlist
  * to include 'inspiration' and 'foreshadowing').
  *
- * Coverage targets (51 tests):
+ * Coverage targets (54 tests):
  *   1-2.   Empty state: listUnused, getDecayStats
  *   3.     capture() creates entity with correct fields
  *   4.     capture() returns InspirationItem
@@ -49,6 +49,9 @@
  *  41-49.  Additional edge cases
  *  50.     archiveStale: boundary — exactly 14d NOT archived
  *  51.     archiveStale: boundary — 14d + 1ms archived
+ *  52.     markUsed() on archived item returns false
+ *  53.     ≥14d unswept items classified as archived tier
+ *  54.     Migration 002 FK preservation under PRAGMA foreign_keys = ON
  */
 
 import Database from "better-sqlite3";
@@ -562,19 +565,21 @@ describe("QuickCaptureService", () => {
       expect(items[0].decayTier).toBe("fading");
     });
 
-    it("exactly 14 days = archived tier (spec: >14d = auto-archive)", () => {
+    it("exactly 14 days = archived tier (spec: >=14d excluded from listUnused)", () => {
       insertInspiration(sqliteDb, {
         id: "insp-14d",
         created_at: NOW - 14 * DAY_MS,
       });
 
       createService();
+      // >=14d items are excluded from listUnused per spec:
+      // "14天阈值：自动归档（不再首页提示）"
       const items = svc.listUnused(PROJECT_ID);
+      expect(items).toHaveLength(0);
 
-      // 14d item is still in listUnused (not archived in DB yet)
-      expect(items[0].decayDays).toBe(14);
-      // classifyDecayTier returns "archived" for >= 14d per spec
-      expect(items[0].decayTier).toBe("archived");
+      // But getDecayStats still classifies them correctly as 'archived'
+      const stats = svc.getDecayStats(PROJECT_ID);
+      expect(stats.archived).toBe(1);
     });
   });
 
@@ -588,10 +593,14 @@ describe("QuickCaptureService", () => {
       });
 
       createService();
+      // >=14d items are excluded from listUnused per spec
       const items = svc.listUnused(PROJECT_ID);
+      expect(items).toHaveLength(0);
 
-      expect(items[0].decayDays).toBe(120);
-      expect(items[0].decayTier).toBe("archived");
+      // But getDecayStats still reflects the item as 'archived'
+      const stats = svc.getDecayStats(PROJECT_ID);
+      expect(stats.archived).toBe(1);
+      expect(stats.total).toBe(1);
     });
 
     it("archiveStale sweeps 100+ day old items", () => {
@@ -958,11 +967,12 @@ describe("QuickCaptureService", () => {
       });
 
       createService();
+      // >=14d items are excluded from listUnused per spec:
+      // "14天阈值：自动归档（不再首页提示）"
       const items = svc.listUnused(PROJECT_ID);
-      expect(items).toHaveLength(1);
-      expect(items[0].decayTier).toBe("archived");
+      expect(items).toHaveLength(0);
 
-      // Stats should also classify it as archived
+      // Stats should classify it as archived even without archiveStale() run
       const stats = svc.getDecayStats(PROJECT_ID);
       expect(stats.archived).toBe(1);
       expect(stats.fading).toBe(0);

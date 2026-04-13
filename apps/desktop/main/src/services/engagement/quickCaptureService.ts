@@ -94,6 +94,7 @@ const SQL_LIST_UNUSED = `
     AND type = 'inspiration'
     AND json_extract(attributes_json, '$.archived') IS NOT 1
     AND json_extract(attributes_json, '$.usedInChapter') IS NULL
+    AND created_at > ?
   ORDER BY created_at ASC
 `;
 
@@ -341,9 +342,11 @@ export function createQuickCaptureService(
         return cached.data;
       }
 
-      // Fresh query
+      // Fresh query — exclude items older than 14 days per spec:
+      // "14天阈值：自动归档（不再首页提示）" (engagement-engine.md §机制11).
       const now = nowMs();
-      const rows = stmtListUnused.all(projectId) as Array<
+      const cutoffIso = new Date(now - FADING_MAX_DAYS * DAY_MS).toISOString();
+      const rows = stmtListUnused.all(projectId, cutoffIso) as Array<
         Record<string, unknown>
       >;
       const items = rows.map((r) => toItem(r, now));
