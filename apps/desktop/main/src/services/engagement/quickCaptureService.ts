@@ -114,6 +114,8 @@ const SQL_ALL_INSPIRATIONS = `
  *
  * @why json_set preserves all other attributes while adding usedInChapter.
  *   Condition prevents double-marking (idempotent from caller's perspective).
+ *   Guards against archived items — once archived, an inspiration cannot be
+ *   marked as used (archive is a terminal state for unused items).
  */
 const SQL_MARK_USED = `
   UPDATE kg_entities
@@ -123,6 +125,7 @@ const SQL_MARK_USED = `
     AND project_id = ?
     AND type = 'inspiration'
     AND json_extract(attributes_json, '$.usedInChapter') IS NULL
+    AND json_extract(attributes_json, '$.archived') IS NOT 1
 `;
 
 /**
@@ -225,10 +228,9 @@ export function createQuickCaptureService(
     if (decayDays < FRESH_MAX_DAYS) return "fresh";
     if (decayDays < REMINDER_MAX_DAYS) return "reminder";
     if (decayDays < FADING_MAX_DAYS) return "fading";
-    // >= 14 days but not yet archived (hasn't been swept) — classify as fading
-    // until archiveStale() runs. This avoids UI confusion where an item shows
-    // "archived" tier but isn't actually archived in DB yet.
-    return "fading";
+    // >= 14 days: spec says >14d = auto-archive tier. Return 'archived' even
+    // if archiveStale() hasn't swept yet, so stats/UI reflect true age.
+    return "archived";
   }
 
   function toItem(
@@ -446,9 +448,11 @@ export function createQuickCaptureService(
             case "fading":
               fading++;
               break;
-            default:
-              // Should not happen for non-archived items, but defensive.
-              fading++;
+            case "archived":
+              // >= 14d but not yet DB-archived (sweep hasn't run).
+              // Spec says >14d = archived tier regardless of DB flag.
+              archived++;
+              break;
           }
         }
       }

@@ -72,9 +72,9 @@ const URGENCY_DECAY_DAYS = 30;
  * @why attributes_json.resolved is a boolean flag toggled by resolve().
  *   IS NOT 1 covers both NULL (never resolved) and explicit 0.
  *
- * @risk Foreshadowing type is not yet in the kg_entities CHECK constraint
- *   (migration 0013: character/location/event/item/faction only). Until the
- *   constraint is extended, this query returns [] — graceful degradation.
+ * @note 'foreshadowing' type was added to the kg_entities CHECK constraint by
+ *   migration 002 (kg_entity_type_extension). Prior to that migration, this
+ *   query would return [] — graceful degradation.
  */
 const SQL_LIST_ACTIVE = `
   SELECT id, name, description, attributes_json, created_at
@@ -126,8 +126,9 @@ export interface ForeshadowingTrackerDeps {
  *
  * @invariant INV-4: all data comes from SQLite structured queries; zero LLM calls.
  * @invariant INV-6: this is NOT a Skill — it's a structured data query service.
- * @risk If foreshadowing entity type is not yet added to the kg_entities CHECK
- *   constraint, listActive() returns [] — graceful degradation.
+ * @note 'foreshadowing' type was added to the kg_entities CHECK constraint by
+ *   migration 002 (kg_entity_type_extension). Prior to that migration,
+ *   listActive() would return [] — graceful degradation.
  */
 export function createForeshadowingTracker(
   deps: ForeshadowingTrackerDeps,

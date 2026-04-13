@@ -4,6 +4,15 @@ export type Ok<T> = { ok: true; data: T };
 export type Err = { ok: false; error: IpcError };
 export type ServiceResult<T> = Ok<T> | Err;
 
+/**
+ * @deviation 'inspiration' and 'foreshadowing' entities use structured JSON
+ *   attributes (e.g. relatedEntities: string[], archived: number) that are NOT
+ *   compatible with kgCoreService's Record<string, string> attribute model.
+ *   These entity types must be accessed exclusively through their dedicated
+ *   services (quickCaptureService, foreshadowingTracker). Do NOT use generic
+ *   kgCoreService CRUD for these types — parseAttributes() drops non-string
+ *   values, causing silent data loss.
+ */
 export const KNOWLEDGE_ENTITY_TYPES = [
   "character",
   "location",

@@ -54,6 +54,7 @@
 import Database from "better-sqlite3";
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
 
+import { kgEntityTypeExtensionMigration } from "../../../db/migrations/002_kg_entity_type_extension";
 import {
   createQuickCaptureService,
   type QuickCaptureService,
@@ -561,7 +562,7 @@ describe("QuickCaptureService", () => {
       expect(items[0].decayTier).toBe("fading");
     });
 
-    it("exactly 14 days = fading (not yet archived by DB, just tier)", () => {
+    it("exactly 14 days = archived tier (spec: >14d = auto-archive)", () => {
       insertInspiration(sqliteDb, {
         id: "insp-14d",
         created_at: NOW - 14 * DAY_MS,
@@ -572,8 +573,8 @@ describe("QuickCaptureService", () => {
 
       // 14d item is still in listUnused (not archived in DB yet)
       expect(items[0].decayDays).toBe(14);
-      // classifyDecayTier returns "fading" for >= 14d non-archived items
-      expect(items[0].decayTier).toBe("fading");
+      // classifyDecayTier returns "archived" for >= 14d per spec
+      expect(items[0].decayTier).toBe("archived");
     });
   });
 
@@ -590,7 +591,7 @@ describe("QuickCaptureService", () => {
       const items = svc.listUnused(PROJECT_ID);
 
       expect(items[0].decayDays).toBe(120);
-      expect(items[0].decayTier).toBe("fading");
+      expect(items[0].decayTier).toBe("archived");
     });
 
     it("archiveStale sweeps 100+ day old items", () => {
@@ -934,6 +935,149 @@ describe("QuickCaptureService", () => {
       // Should still return the item — relatedEntities falls back to []
       expect(items).toHaveLength(1);
       expect(items[0].relatedEntities).toEqual([]);
+    });
+
+    it("markUsed returns false for archived item", () => {
+      // Archived items are terminal — cannot be marked as used.
+      insertInspiration(sqliteDb, {
+        id: "insp-archived",
+        attributes_json: JSON.stringify({ relatedEntities: [], archived: 1 }),
+      });
+
+      createService();
+      const result = svc.markUsed(PROJECT_ID, "insp-archived", "ch-1");
+      expect(result).toBe(false);
+    });
+
+    it("classifyDecayTier returns 'archived' for >= 14d unswept item", () => {
+      // Item is 15 days old but archiveStale() hasn't run — should still show
+      // as 'archived' tier per spec (>14d = auto-archive).
+      insertInspiration(sqliteDb, {
+        id: "insp-overdue",
+        created_at: NOW - 15 * DAY_MS,
+      });
+
+      createService();
+      const items = svc.listUnused(PROJECT_ID);
+      expect(items).toHaveLength(1);
+      expect(items[0].decayTier).toBe("archived");
+
+      // Stats should also classify it as archived
+      const stats = svc.getDecayStats(PROJECT_ID);
+      expect(stats.archived).toBe(1);
+      expect(stats.fading).toBe(0);
+    });
+
+    it("migration 002 preserves kg_relations with FK enforcement", () => {
+      // Simulates production conditions: PRAGMA foreign_keys = ON,
+      // kg_relations referencing kg_entities. Migration 002's safe
+      // save-and-restore approach must not lose relation data.
+      const migDb = new Database(":memory:");
+      migDb.pragma("foreign_keys = ON");
+
+      // Create projects table (FK target for kg_entities)
+      migDb.exec(`
+        CREATE TABLE projects (
+          project_id TEXT PRIMARY KEY
+        );
+        INSERT INTO projects (project_id) VALUES ('proj-1');
+      `);
+
+      // Create kg_entities with OLD CHECK (pre-migration-002)
+      migDb.exec(`
+        CREATE TABLE kg_entities (
+          id               TEXT PRIMARY KEY,
+          project_id       TEXT NOT NULL,
+          type             TEXT NOT NULL CHECK (type IN ('character','location','event','item','faction')),
+          name             TEXT NOT NULL,
+          description      TEXT NOT NULL DEFAULT '',
+          attributes_json  TEXT NOT NULL DEFAULT '{}',
+          version          INTEGER NOT NULL DEFAULT 1,
+          created_at       TEXT NOT NULL,
+          updated_at       TEXT NOT NULL,
+          ai_context_level TEXT NOT NULL DEFAULT 'when_detected',
+          aliases          TEXT NOT NULL DEFAULT '[]',
+          last_seen_state  TEXT,
+          FOREIGN KEY (project_id) REFERENCES projects (project_id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE kg_relations (
+          id             TEXT PRIMARY KEY,
+          project_id     TEXT NOT NULL,
+          source_id      TEXT NOT NULL,
+          target_id      TEXT NOT NULL,
+          type           TEXT NOT NULL,
+          attributes_json TEXT NOT NULL DEFAULT '{}',
+          created_at     TEXT NOT NULL,
+          updated_at     TEXT NOT NULL,
+          FOREIGN KEY (source_id) REFERENCES kg_entities (id) ON DELETE CASCADE,
+          FOREIGN KEY (target_id) REFERENCES kg_entities (id) ON DELETE CASCADE
+        );
+      `);
+
+      // Insert test data
+      const isoNow = new Date(NOW).toISOString();
+      migDb
+        .prepare(
+          `INSERT INTO kg_entities (id, project_id, type, name, created_at, updated_at)
+           VALUES (?, ?, 'character', 'Hero', ?, ?)`,
+        )
+        .run("ent-1", "proj-1", isoNow, isoNow);
+      migDb
+        .prepare(
+          `INSERT INTO kg_entities (id, project_id, type, name, created_at, updated_at)
+           VALUES (?, ?, 'location', 'Castle', ?, ?)`,
+        )
+        .run("ent-2", "proj-1", isoNow, isoNow);
+      migDb
+        .prepare(
+          `INSERT INTO kg_relations (id, project_id, source_id, target_id, type, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'located_at', ?, ?)`,
+        )
+        .run("rel-1", "proj-1", "ent-1", "ent-2", isoNow, isoNow);
+
+      // Verify relation exists before migration
+      const relsBefore = migDb
+        .prepare("SELECT COUNT(*) as cnt FROM kg_relations")
+        .get() as { cnt: number };
+      expect(relsBefore.cnt).toBe(1);
+
+      // Run migration 002 inside a transaction (simulating migrator.ts behavior)
+      migDb.transaction(() => {
+        kgEntityTypeExtensionMigration.up(migDb);
+      })();
+
+      // Verify kg_relations survived the migration
+      const relsAfter = migDb
+        .prepare("SELECT COUNT(*) as cnt FROM kg_relations")
+        .get() as { cnt: number };
+      expect(relsAfter.cnt).toBe(1);
+
+      // Verify entities survived
+      const entsAfter = migDb
+        .prepare("SELECT COUNT(*) as cnt FROM kg_entities")
+        .get() as { cnt: number };
+      expect(entsAfter.cnt).toBe(2);
+
+      // Verify new types are accepted
+      migDb
+        .prepare(
+          `INSERT INTO kg_entities (id, project_id, type, name, created_at, updated_at)
+           VALUES (?, 'proj-1', 'inspiration', 'test', ?, ?)`,
+        )
+        .run("ent-3", isoNow, isoNow);
+
+      // Verify old invalid type is still rejected
+      expect(() =>
+        migDb
+          .prepare(
+            `INSERT INTO kg_entities (id, project_id, type, name, created_at, updated_at)
+             VALUES (?, 'proj-1', 'invalid', 'test', ?, ?)`,
+          )
+          .run("ent-4", isoNow, isoNow),
+      ).toThrow();
+
+      migDb.close();
     });
   });
 });
