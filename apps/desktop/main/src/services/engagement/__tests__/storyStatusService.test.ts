@@ -671,25 +671,23 @@ describe("StoryStatusService", () => {
 
   describe("SQL correctness design documentation", () => {
     it("chapter progress query filters document_versions to content-edit reasons", () => {
-      // Duck R2 F1: document_versions includes metadata-only snapshots
-      // (status-change, pre-rollback, rollback, branch-merge). The SQL must
-      // exclude them so that only actual content edits drive recency.
+      // Duck R2 F1 + R3 refinement: use an allowlist of content-changing reasons.
+      // rollback and branch-merge are real content mutations (documentCoreService.ts).
+      // Only status-change and pre-rollback are metadata-only.
       setup({ chapterRow: makeChapterRow() });
 
       service.getStatus(PROJECT_ID);
 
-      // The SQL string is validated at prepare-time; verify it contains the
-      // NOT IN clause that excludes metadata-only snapshot reasons.
       const prepareCalls = (db.prepare as Mock).mock.calls;
       const chapterSql = prepareCalls.find((c: string[]) =>
         c[0].includes("document_versions"),
       );
       expect(chapterSql).toBeDefined();
-      expect(chapterSql![0]).toContain("reason NOT IN");
-      expect(chapterSql![0]).toContain("status-change");
-      expect(chapterSql![0]).toContain("pre-rollback");
+      expect(chapterSql![0]).toContain("reason IN");
+      expect(chapterSql![0]).toContain("autosave");
       expect(chapterSql![0]).toContain("rollback");
       expect(chapterSql![0]).toContain("branch-merge");
+      expect(chapterSql![0]).toContain("manual-save");
     });
 
     it("L0 memory query prefers project scope over global", () => {

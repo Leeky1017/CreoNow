@@ -85,9 +85,11 @@ const RECENT_EDIT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
  *
  * F3: Uses LEFT JOIN with document_versions to derive the last *content* edit
  *   timestamp. documents.updated_at can be bumped by metadata changes (reorders,
- *   status changes). The subquery filters to content-edit reasons only (excludes
- *   status-change, pre-rollback, rollback, branch-merge) so that metadata-only
- *   snapshots don't affect recency ordering.
+ *   status changes). The subquery uses an allowlist of content-changing reasons
+ *   (autosave, pre-write, ai-accept, ai-partial-accept, manual-save, rollback,
+ *   branch-merge) so that metadata-only snapshots (status-change, pre-rollback)
+ *   don't affect recency ordering. Note: rollback and branch-merge are real
+ *   content mutations (they update documents.content_*) — see documentCoreService.
  *   Falls back to documents.updated_at when no version history exists.
  *
  * F4: Uses ROW_NUMBER() OVER (ORDER BY sort_order ASC) to compute 1-based
@@ -113,7 +115,7 @@ const SQL_CHAPTER_PROGRESS = `
   LEFT JOIN (
     SELECT document_id, MAX(created_at) AS last_content_at
     FROM document_versions
-    WHERE reason NOT IN ('status-change', 'pre-rollback', 'rollback', 'branch-merge')
+    WHERE reason IN ('autosave', 'pre-write', 'ai-accept', 'ai-partial-accept', 'manual-save', 'rollback', 'branch-merge')
     GROUP BY document_id
   ) lv ON lv.document_id = d.document_id
   WHERE d.project_id = ? AND d.type = 'chapter'
