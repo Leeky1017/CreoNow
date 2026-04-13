@@ -3457,26 +3457,28 @@ describe("WorkbenchApp", () => {
     render(<WorkbenchApp />);
     await screen.findByRole("heading", { name: "第一章" });
 
-    // Collapse sidebar so we can verify the async callback doesn't un-collapse it.
-    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
-    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
-
-    // Re-expand sidebar so the "新建文档" button is visible.
-    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
-    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
-
     // Trigger async createDocument (the promise is still pending).
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "新建文档" }));
       await Promise.resolve();
     });
 
+    // Move layout to a NON-default state that differs from what the handler
+    // would set (activeLeftPanel="files", sidebarCollapsed=false). This ensures
+    // the assertion is meaningful — if the zen guard were absent, the handler
+    // would overwrite these values back to the defaults and the test would fail.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" }); // collapse sidebar
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
+
+    // Switch to settings panel (away from "files").
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe("settings");
+
     // Enter zen mode while the async operation is in-flight.
     fireEvent.keyDown(window, { key: "Z", shiftKey: true });
     expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
 
-    // Record sidebar state before resolution — zen does NOT modify sidebarCollapsed,
-    // only hides elements visually.
+    // Record non-default sidebar state before resolution.
     const sidebarStateBefore = window.localStorage.getItem("creonow.layout.sidebarCollapsed");
     const activeLeftBefore = window.localStorage.getItem("creonow.layout.activeLeftPanel");
 
@@ -3489,7 +3491,9 @@ describe("WorkbenchApp", () => {
     });
 
     // Layout state must be unchanged — the async callback must NOT call
-    // setActiveLeftPanel or setSidebarCollapsed while zen mode is active.
+    // setActiveLeftPanel("files") or setSidebarCollapsed(false) while zen is active.
+    // Because we set sidebar to collapsed + settings panel, any unguarded
+    // mutation would change these values — making this test fail.
     expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe(sidebarStateBefore);
     expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe(activeLeftBefore);
   });
@@ -3544,6 +3548,15 @@ describe("WorkbenchApp", () => {
       fireEvent.click(screen.getByText("第二章"));
       await Promise.resolve();
     });
+
+    // Move layout to a NON-default state that differs from what handleOpenDocument
+    // would set (activeLeftPanel="files", sidebarCollapsed=false). Without the zen
+    // guard, the handler would overwrite these values — making the test fail.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" }); // collapse sidebar
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe("settings");
 
     // Enter zen mode while the openDocument IPC is in-flight.
     fireEvent.keyDown(window, { key: "Z", shiftKey: true });
