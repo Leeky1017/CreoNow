@@ -302,6 +302,84 @@ describe("kgMutationSkill", () => {
       expect(result.ok).toBe(true);
       expect(kgService.entityUpdate).toHaveBeenCalledOnce();
     });
+
+    it("rejects update of existing inspiration entity (runtime type guard)", () => {
+      vi.mocked(kgService.entityRead).mockReturnValueOnce({
+        ok: true,
+        data: {
+          id: "e1",
+          projectId: "p1",
+          type: "inspiration",
+          name: "Quick idea",
+          description: "",
+          attributes: {},
+          aiContextLevel: "when_detected",
+          aliases: [],
+          version: 1,
+          createdAt: "2025-01-01T00:00:00Z",
+          updatedAt: "2025-01-01T00:00:00Z",
+        },
+      });
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { name: "Updated name" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rejects update of existing foreshadowing entity (runtime type guard)", () => {
+      vi.mocked(kgService.entityRead).mockReturnValueOnce({
+        ok: true,
+        data: {
+          id: "e2",
+          projectId: "p1",
+          type: "foreshadowing",
+          name: "Chekhov's gun",
+          description: "",
+          attributes: {},
+          aiContextLevel: "when_detected",
+          aliases: [],
+          version: 1,
+          createdAt: "2025-01-01T00:00:00Z",
+          updatedAt: "2025-01-01T00:00:00Z",
+        },
+      });
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e2",
+          expectedVersion: 1,
+          patch: { attributes: { resolved: "true" } },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("allows update of existing character entity (runtime type guard passes)", () => {
+      // Default mock returns type: 'character' — should pass through
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { name: "Bob" },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      expect(kgService.entityRead).toHaveBeenCalledOnce();
+      expect(kgService.entityUpdate).toHaveBeenCalledOnce();
+    });
   });
 
   // ── entity:delete ──

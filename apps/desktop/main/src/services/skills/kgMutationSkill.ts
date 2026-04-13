@@ -207,10 +207,27 @@ export function createKgMutationSkill(deps: {
         return kgService.entityCreate(
           fullPayload as Parameters<typeof kgService.entityCreate>[0],
         ) as ServiceResult<T>;
-      case "entity:update":
+      case "entity:update": {
+        // Runtime guard: reject if the existing entity is a dedicated-service type.
+        // Dedicated entities (inspiration, foreshadowing) store structured JSON
+        // attributes (arrays, booleans) that would be corrupted by generic CRUD's
+        // Record<string, string> model. This complements the static patch.type
+        // check in validateMutation.
+        const entityId = (fullPayload as Record<string, unknown>)["id"] as string;
+        const existing = kgService.entityRead({
+          projectId: request.projectId,
+          id: entityId,
+        });
+        if (existing.ok && DEDICATED_SERVICE_ONLY_TYPES.has(existing.data.type)) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            `Type '${existing.data.type}' must be managed through its dedicated service, not generic KG CRUD`,
+          ) as ServiceResult<T>;
+        }
         return kgService.entityUpdate(
           fullPayload as Parameters<typeof kgService.entityUpdate>[0],
         ) as ServiceResult<T>;
+      }
       case "entity:delete":
         return kgService.entityDelete(
           fullPayload as Parameters<typeof kgService.entityDelete>[0],
