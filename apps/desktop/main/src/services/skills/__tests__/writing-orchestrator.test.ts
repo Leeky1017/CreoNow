@@ -457,6 +457,7 @@ describe("WritingOrchestrator", () => {
 
       expect(hooksEvent).toBeDefined();
       expect(hooksEvent!.executed).toContain("auto-save-version");
+      expect(hooksEvent!.failed).toEqual([]);
     });
 
     it("每个事件都包含 timestamp 且单调递增", async () => {
@@ -1568,6 +1569,13 @@ describe("WritingOrchestrator", () => {
       // Pipeline should still complete even if hook fails
       expect(types).toContain("hooks-done");
       expect(types).not.toContain("error");
+
+      // Failed hook should appear in the failed array, not executed
+      const hooksEvent = events.find((e) => e.type === "hooks-done") as
+        | (WritingEvent & { type: "hooks-done" })
+        | undefined;
+      expect(hooksEvent!.failed).toContain("failing-hook");
+      expect(hooksEvent!.executed).not.toContain("failing-hook");
       orch.dispose();
     });
 

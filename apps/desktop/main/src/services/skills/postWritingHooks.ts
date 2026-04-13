@@ -279,6 +279,10 @@ export interface QualityCheckHookDeps {
  * Create a post-writing hook that runs the consistency-check Skill
  * against new text vs KG state.
  *
+ * The skill call is fire-and-forget: the hook's execute() returns immediately
+ * after launching the async skill. Result logging happens in .then()/.catch().
+ * This avoids blocking Stage 8 on an LLM call.
+ *
  * @invariant INV-8 — independently try-catch'd; failure does not propagate.
  * @invariant INV-6 — quality check goes through the unified Skill system.
  * @why Automatic consistency validation catches contradictions before the
@@ -295,33 +299,40 @@ export function createQualityCheckHook(
         return;
       }
 
-      const result = await deps.skillExecutor.executeSkill(
-        "consistency-check",
-        {
+      // Fire-and-forget: don't await — avoids blocking Stage 8 on an LLM call.
+      void deps.skillExecutor
+        .executeSkill("consistency-check", {
           projectId: ctx.projectId,
           documentId: ctx.documentId,
           documentContent: ctx.fullText,
-        },
-      );
-
-      if (result.success) {
-        const data = result.data as
-          | { passed?: boolean; issues?: unknown[] }
-          | undefined;
-        deps.logger.info("quality-check:completed", {
-          projectId: ctx.projectId,
-          documentId: ctx.documentId,
-          passed: data?.passed ?? true,
-          issueCount: data?.issues?.length ?? 0,
+        })
+        .then((result) => {
+          if (result.success) {
+            const data = result.data as
+              | { passed?: boolean; issues?: unknown[] }
+              | undefined;
+            deps.logger.info("quality-check:completed", {
+              projectId: ctx.projectId,
+              documentId: ctx.documentId,
+              passed: data?.passed ?? true,
+              issueCount: data?.issues?.length ?? 0,
+            });
+          } else {
+            deps.logger.error("quality-check:skill-failed", {
+              projectId: ctx.projectId,
+              documentId: ctx.documentId,
+              code: result.error?.code,
+              message: result.error?.message,
+            });
+          }
+        })
+        .catch((err: unknown) => {
+          deps.logger.error("quality-check:fire-and-forget-failed", {
+            projectId: ctx.projectId,
+            documentId: ctx.documentId,
+            error: String(err),
+          });
         });
-      } else {
-        deps.logger.error("quality-check:skill-failed", {
-          projectId: ctx.projectId,
-          documentId: ctx.documentId,
-          code: result.error?.code,
-          message: result.error?.message,
-        });
-      }
     },
   };
 }

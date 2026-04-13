@@ -74,6 +74,9 @@ import { createDocumentCoreService } from "../services/documents/documentCoreSer
 import { createVersionWorkflowService } from "../services/documents/versionService";
 import { editorSchema } from "../services/editor/prosemirrorSchema";
 import type { CostTracker } from "../services/ai/costTracker";
+import { buildPostWritingHookChain } from "../services/skills/postWritingHooks";
+import { matchEntitiesCached } from "../services/kg/entityMatcher";
+import { createSessionMemoryService } from "../services/memory/sessionMemoryService";
 
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
@@ -1712,9 +1715,56 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           return;
         },
       },
+      // INV-8: Wire the 3 post-writing hooks from the hook chain factory.
+      // Dependencies that are not yet fully available (P3SkillExecutor) get
+      // safe stubs — the hooks are registered and called, and will become
+      // fully functional once the downstream services mature.
+      ...buildPostWritingHookChain({
+        kgUpdate: {
+          scanEntities: matchEntitiesCached,
+          kgService: kgServiceForContext ?? {
+            entityList: () => ({
+              ok: false as const,
+              error: { code: "INTERNAL" as const, message: "Database not available" },
+            }),
+            entityUpdate: () => ({
+              ok: false as const,
+              error: { code: "INTERNAL" as const, message: "Database not available" },
+            }),
+          },
+          logger: deps.logger,
+        },
+        memoryExtract: {
+          sessionMemory: deps.db
+            ? createSessionMemoryService({ db: deps.db })
+            : {
+                create: () => ({
+                  ok: false as const,
+                  error: { code: "INTERNAL" as const, message: "Database not available" },
+                }),
+              },
+          logger: deps.logger,
+        },
+        qualityCheck: {
+          // P3SkillExecutor is not yet wired in this scope — provide a no-op
+          // stub that returns a graceful failure. The quality-check hook is
+          // fire-and-forget so this won't block Stage 8.
+          skillExecutor: {
+            executeSkill: async () => ({
+              success: false,
+              error: {
+                code: "NOT_WIRED" as const,
+                message: "P3SkillExecutor not yet available in IPC scope",
+              },
+            }),
+          },
+          logger: deps.logger,
+        },
+      }),
     ],
     defaultTimeoutMs: 30_000,
     costTracker: deps.costTracker,
+    logger: deps.logger,
     prepareRequest: async (request) => {
       const prepared = await prepareWritingRequest({
         ctx: {

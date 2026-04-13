@@ -394,19 +394,22 @@ describe("createMemoryExtractHook", () => {
 // ─── Quality Check Hook ─────────────────────────────────────────────
 
 describe("createQualityCheckHook", () => {
+  // Helper: flush microtask queue so fire-and-forget .then()/.catch() resolve
+  const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
+
   it("has correct name and priority", () => {
     const hook = createQualityCheckHook(makeQualityCheckDeps());
     expect(hook.name).toBe("quality-check");
     expect(hook.priority).toBe(QUALITY_CHECK_PRIORITY);
   });
 
-  it("calls consistency-check skill with correct args", async () => {
+  it("calls consistency-check skill with correct args (fire-and-forget)", async () => {
     const deps = makeQualityCheckDeps();
     const hook = createQualityCheckHook(deps);
     const ctx = makeContext();
 
     await hook.execute(ctx);
-
+    // executeSkill is called immediately (fire-and-forget)
     expect(deps.skillExecutor.executeSkill).toHaveBeenCalledWith(
       "consistency-check",
       {
@@ -415,6 +418,9 @@ describe("createQualityCheckHook", () => {
         documentContent: ctx.fullText,
       },
     );
+
+    // Logging happens in .then() — flush microtask queue
+    await flushMicrotasks();
     expect(deps.logger.info).toHaveBeenCalledWith(
       "quality-check:completed",
       expect.objectContaining({
@@ -441,6 +447,7 @@ describe("createQualityCheckHook", () => {
     const hook = createQualityCheckHook(deps);
 
     await hook.execute(makeContext());
+    await flushMicrotasks();
 
     expect(deps.logger.info).toHaveBeenCalledWith(
       "quality-check:completed",
@@ -469,7 +476,7 @@ describe("createQualityCheckHook", () => {
     expect(deps.skillExecutor.executeSkill).not.toHaveBeenCalled();
   });
 
-  it("handles skill execution failure gracefully", async () => {
+  it("handles skill execution failure gracefully (fire-and-forget)", async () => {
     const deps = makeQualityCheckDeps({
       skillExecutor: {
         executeSkill: vi.fn().mockResolvedValue({
@@ -480,8 +487,9 @@ describe("createQualityCheckHook", () => {
     });
     const hook = createQualityCheckHook(deps);
 
-    // Should not throw
+    // Should not throw — fire-and-forget
     await hook.execute(makeContext());
+    await flushMicrotasks();
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       "quality-check:skill-failed",
@@ -489,7 +497,7 @@ describe("createQualityCheckHook", () => {
     );
   });
 
-  it("handles skill executor throwing exception", async () => {
+  it("handles skill executor throwing exception (fire-and-forget)", async () => {
     const deps = makeQualityCheckDeps({
       skillExecutor: {
         executeSkill: vi.fn().mockRejectedValue(new Error("executor disposed")),
@@ -497,10 +505,15 @@ describe("createQualityCheckHook", () => {
     });
     const hook = createQualityCheckHook(deps);
 
-    // The hook itself throws (executor.executeSkill rejects) —
-    // but the orchestrator's try-catch in Stage 8 catches this.
-    // Here we verify the hook propagates the error so the orchestrator can catch it.
-    await expect(hook.execute(makeContext())).rejects.toThrow("executor disposed");
+    // Fire-and-forget: hook.execute() does NOT reject — the rejection
+    // is caught by the .catch() handler inside the hook.
+    await hook.execute(makeContext());
+    await flushMicrotasks();
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      "quality-check:fire-and-forget-failed",
+      expect.objectContaining({ error: "Error: executor disposed" }),
+    );
   });
 });
 

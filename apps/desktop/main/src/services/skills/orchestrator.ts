@@ -161,11 +161,11 @@ function readVersionId(data: unknown): string | null {
  *   hooks must not mutate these fields.
  */
 export interface PostWritingHookContext {
-  requestId: string;
-  documentId: string;
-  projectId?: string;
-  sessionId?: string;
-  fullText: string;
+  readonly requestId: string;
+  readonly documentId: string;
+  readonly projectId?: string;
+  readonly sessionId?: string;
+  readonly fullText: string;
 }
 
 export interface PostWritingHook {
@@ -188,6 +188,8 @@ export interface OrchestratorConfig {
   postWritingHooks: PostWritingHook[];
   defaultTimeoutMs: number;
   costTracker?: Pick<CostTracker, "checkBudget" | "recordUsage" | "getSessionCost">;
+  /** Optional logger for Stage 8 hook execution diagnostics. */
+  logger?: Pick<import("../../logging/logger").Logger, "info" | "error">;
   /** P2: handler for Agentic Loop tool execution (read-only registry) */
   toolUseHandler?: ToolUseHandler;
   versionWorkflow?: Pick<
@@ -1156,18 +1158,23 @@ export function createWritingOrchestrator(
           fullText,
         };
         const executedHooks: string[] = [];
+        const failedHooks: string[] = [];
         for (const hook of sortedHooks) {
           if (hook.enabled === false) continue;
           try {
             await hook.execute(hookContext);
             executedHooks.push(hook.name);
-          } catch {
-            executedHooks.push(hook.name);
+          } catch (err) {
+            failedHooks.push(hook.name);
+            config.logger?.error(`post-writing-hook-failed:${hook.name}`, {
+              requestId,
+              error: String(err),
+            });
             // Hook failure doesn't fail pipeline
           }
         }
 
-        yield makeEvent("hooks-done", requestId, { executed: executedHooks });
+        yield makeEvent("hooks-done", requestId, { executed: executedHooks, failed: failedHooks });
 
         taskStates.set(requestId, "completed");
         pruneTaskStates();
