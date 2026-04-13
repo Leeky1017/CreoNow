@@ -19,12 +19,12 @@ P3 全部退出条件满足 + INV-1~INV-10 全部合规。
 **目标**：
 - Episodic Memory：记录每次写作 session 的关键事件（角色引入、剧情转折、重大修改）
 - Semantic Memory：从多次 session 中提取持久化的写作偏好、叙事模式、风格指纹
-- 检索路径：KG+FTS5 为主 → sqlite-vec 语义召回补充（INV-4）
+- 检索路径：KG+FTS5（INV-4）
 
 **文件**：
 - `apps/desktop/main/src/services/memory/episodicMemory.ts` — 已有空壳，填充实现
 - `apps/desktop/main/src/services/memory/semanticMemory.ts` — 已有空壳，填充实现
-- `apps/desktop/main/src/services/memory/userMemoryVec.ts` — sqlite-vec 已实现，优化召回精度
+
 
 **新 Migration**：
 - `0028_memory_episodic_events.sql`：episodic 事件表 (session_id, event_type, entity_refs, content, timestamp)
@@ -60,12 +60,11 @@ P3 全部退出条件满足 + INV-1~INV-10 全部合规。
 
 ### TASK-P4-03: 语义搜索集成
 
-**当前状态**：FTS5 全文搜索可用，sqlite-vec 已集成但仅用于 Memory
+**当前状态**：FTS5 全文搜索可用
 
 **目标**：
 - 项目级语义搜索：用自然语言搜索相关段落
-- 索引：写作完成后异步索引新段落 embedding（INV-8 post-writing hook）
-- 查询：FTS5 关键词匹配 ∪ sqlite-vec 语义召回 → 排序合并
+- 查询：FTS5 关键词匹配（INV-8 post-writing hook 触发索引更新）
 - UI：搜索结果面板，每条结果显示段落摘要 + 相关度评分 + 出处
 
 **文件**：
@@ -113,7 +112,7 @@ P3 全部退出条件满足 + INV-1~INV-10 全部合规。
 
 - [ ] Memory 三层完整运行（L0 + L1 + L2 + Episodic + Semantic）
 - [ ] KG 力导向可视化可用（1000 实体 60fps）
-- [ ] 语义搜索可用（FTS5 + sqlite-vec 联合）
+- [ ] 搜索可用（FTS5）
 - [ ] AutoCompact v2 + 用户可预览
 - [ ] Agentic loop 可执行多步任务
 - [ ] INV-1~INV-10 全部合规

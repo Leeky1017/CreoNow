@@ -71,7 +71,6 @@ P4+ 必须修复：INV-5
 | `kg_entities` | Knowledge Graph | KG 实体（角色/地点/阵营/道具/事件） |
 | `kg_relations` | Knowledge Graph | KG 关系（实体间边） |
 | `documents_fts` | Search | FTS5 全文搜索虚拟表 |
-| `user_memory_vectors` | Memory | sqlite-vec 语义向量（L2 补充路径） |
 | `chat_sessions` | AI Service | 对话会话 |
 | `chat_messages` | AI Service | 对话消息 |
 | `write_sessions` | AI Service | 写作会话（Skill 执行上下文） |

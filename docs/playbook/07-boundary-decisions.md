@@ -25,11 +25,10 @@
 **策略**：小修补，不大动。现有设计中的动效、Zen Mode、布局结构、交互模式均属优秀设计，禁止推翻重建
 **影响**：所有前端任务必须先读黄金源对应页面的 .tsx 源码
 
-### D-04: 数据层 = SQLite + better-sqlite3 + FTS5 + sqlite-vec
+### D-04: 数据层 = SQLite + better-sqlite3 + FTS5
 
 **决策理由**：Electron 本地应用，无服务器；INV-4 Memory-First 要求
-**禁止**：FAISS、Pinecone 等外部向量存储（INV-4）
-**搜索路径**：KG + FTS5 为主检索，sqlite-vec 语义召回为补充
+**搜索路径**：KG + FTS5 为唯一检索路径，不使用向量存储
 
 ### D-05: 字体 = Lora + Source Han Serif SC（衬线正文）
 
