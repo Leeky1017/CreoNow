@@ -3446,6 +3446,54 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("button", { name: "打开 AI 面板" })).toBeInTheDocument();
   });
 
+  it("does not mutate layout when async document creation resolves during zen mode", async () => {
+    // Deferred promise lets us control when createDocument resolves.
+    let resolveCreate!: (value: { ok: true; data: { documentId: string } }) => void;
+    const createPromise = new Promise<{ ok: true; data: { documentId: string } }>((resolve) => {
+      resolveCreate = resolve;
+    });
+    window.api!.file!.createDocument = vi.fn(() => createPromise) as NonNullable<typeof window.api>["file"]["createDocument"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Collapse sidebar so we can verify the async callback doesn't un-collapse it.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
+
+    // Re-expand sidebar so the "新建文档" button is visible.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+
+    // Trigger async createDocument (the promise is still pending).
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建文档" }));
+      await Promise.resolve();
+    });
+
+    // Enter zen mode while the async operation is in-flight.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+
+    // Record sidebar state before resolution — zen does NOT modify sidebarCollapsed,
+    // only hides elements visually.
+    const sidebarStateBefore = window.localStorage.getItem("creonow.layout.sidebarCollapsed");
+    const activeLeftBefore = window.localStorage.getItem("creonow.layout.activeLeftPanel");
+
+    // Resolve the createDocument promise during zen mode.
+    await act(async () => {
+      resolveCreate({ ok: true, data: { documentId: "doc-2" } });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Layout state must be unchanged — the async callback must NOT call
+    // setActiveLeftPanel or setSidebarCollapsed while zen mode is active.
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe(sidebarStateBefore);
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe(activeLeftBefore);
+  });
+
   it("cancels active panel resize when entering zen mode", async () => {
     render(<WorkbenchApp />);
     await screen.findByRole("heading", { name: "第一章" });

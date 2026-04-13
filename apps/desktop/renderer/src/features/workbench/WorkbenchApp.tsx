@@ -178,6 +178,15 @@ function WorkbenchShell() {
   const autosave = useAutosaveController({ api, activeContextTokenRef, userEditRevisionRef });
   const layout = usePanelLayout();
 
+  // @why Async callbacks (handleCreateDocument, handleOpenDocument) capture a
+  // stale `layout.zenMode` closure value. This ref tracks the *latest* zen
+  // state so post-await layout writes can be skipped when zen is active,
+  // preventing layout mutation during zen mode (F-01 R8).
+  const zenModeRef = useRef(layout.zenMode);
+  useEffect(() => {
+    zenModeRef.current = layout.zenMode;
+  }, [layout.zenMode]);
+
   useEffect(() => {
     bootstrapStatusRef.current = bootstrapStatus;
   }, [bootstrapStatus]);
@@ -378,8 +387,10 @@ function WorkbenchShell() {
       autosave.setSaveUiState("idle");
       autosave.setLastSavedAt(result.activeDocument.updatedAt);
       autosave.setWorkbenchError(null, null);
-      layout.setActiveLeftPanel("files");
-      layout.setSidebarCollapsed(false);
+      if (!zenModeRef.current) {
+        layout.setActiveLeftPanel("files");
+        layout.setSidebarCollapsed(false);
+      }
     } catch (error) {
       if (error instanceof BlockedAutosaveError === false) {
         autosave.setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
@@ -421,8 +432,10 @@ function WorkbenchShell() {
       autosave.setWorkbenchError(null, null);
       autosave.setSaveUiState("idle");
       autosave.setLastSavedAt(readDocument.updatedAt);
-      layout.setActiveLeftPanel("files");
-      layout.setSidebarCollapsed(false);
+      if (!zenModeRef.current) {
+        layout.setActiveLeftPanel("files");
+        layout.setSidebarCollapsed(false);
+      }
     } catch (error) {
       if (error instanceof BlockedAutosaveError === false) {
         autosave.setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
