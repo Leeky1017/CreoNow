@@ -383,13 +383,27 @@ describe("ProjectContextRebinder", () => {
       bindOrder.length = 0;
       await participant.bind({ projectId: "proj-b", traceId: "t-1", signal: mutatingSignal });
 
-      // svc1 bound, svc2 ran + set abort, svc3 SKIPPED (mid-loop abort)
+      // svc1 bound, svc2 ran + set abort, svc3 SKIPPED, then rollback to proj-a
       expect(bindOrder).toEqual([
         "bind:fast:proj-b",
         "bind:trigger-abort:proj-b",
-        // "bind:should-skip:proj-b" — correctly absent
+        // abort detected → rollback re-binds all to proj-a
+        "bind:fast:proj-a",
+        "bind:trigger-abort:proj-a",
+        "bind:should-skip:proj-a",
       ]);
-      expect(svc3.bind).toHaveBeenCalledTimes(1); // only from proj-a, not proj-b
+      // svc3 never bound to proj-b
+      expect(svc3.bind).not.toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "proj-b" }),
+      );
+      // rollback triggered
+      expect(logger.error).toHaveBeenCalledWith(
+        "context_rebinder_rollback_triggered",
+        expect.objectContaining({
+          failedProjectId: "proj-b",
+          rollbackProjectId: "proj-a",
+        }),
+      );
     });
   });
 
@@ -662,6 +676,144 @@ describe("ProjectContextRebinder", () => {
       expect(logger.error).toHaveBeenCalledWith(
         "context_rebinder_cleanup_partial_bind",
         expect.objectContaining({ failedProjectId: "proj-b", boundServiceCount: 1 }),
+      );
+    });
+
+    it("cleans up partially-bound services when abort fires mid-loop", async () => {
+      // Simulate: svc1 binds OK, svc2's bind triggers abort (lifecycle timeout),
+      // loop breaks after svc2 succeeds. svc3 never binds. The abort-path
+      // cleanup should rollback/cleanup the 2 partially-bound services.
+      const events: string[] = [];
+      let aborted = false;
+      const signal = {
+        get aborted() {
+          return aborted;
+        },
+      } as AbortSignal;
+
+      const svc1: RebindableService = {
+        id: "svc-1",
+        unbind: vi.fn(({ projectId }) => {
+          events.push(`unbind:svc-1:${projectId}`);
+        }),
+        bind: vi.fn(({ projectId }) => {
+          events.push(`bind:svc-1:${projectId}`);
+        }),
+      };
+      const svc2: RebindableService = {
+        id: "svc-2",
+        unbind: vi.fn(({ projectId }) => {
+          events.push(`unbind:svc-2:${projectId}`);
+        }),
+        bind: vi.fn(({ projectId }) => {
+          events.push(`bind:svc-2:${projectId}`);
+          // Simulate lifecycle timeout firing during svc2's bind to proj-b only
+          if (projectId === "proj-b") {
+            aborted = true;
+          }
+        }),
+      };
+      const svc3: RebindableService = {
+        id: "svc-3",
+        unbind: vi.fn(({ projectId }) => {
+          events.push(`unbind:svc-3:${projectId}`);
+        }),
+        bind: vi.fn(({ projectId }) => {
+          events.push(`bind:svc-3:${projectId}`);
+        }),
+      };
+
+      createProjectContextRebinder({
+        logger,
+        lifecycle,
+        additionalServices: [svc1, svc2, svc3],
+      });
+      const participant = lifecycle.captured();
+
+      // First: successful bind so lastBoundProjectId = "proj-a"
+      await participant.unbind({ projectId: "proj-a", traceId: "t-0", signal: createMockSignal() });
+      await participant.bind({ projectId: "proj-a", traceId: "t-0", signal: createMockSignal() });
+      events.length = 0;
+
+      // Switch to proj-b — abort fires during svc2's bind
+      await participant.unbind({ projectId: "proj-a", traceId: "t-1", signal });
+      await participant.bind({ projectId: "proj-b", traceId: "t-1", signal });
+
+      // svc1+svc2 bound to proj-b, then abort detected → break before svc3 →
+      // rollback: unbind svc2,svc1 (reverse) from proj-b, re-bind all to proj-a
+      expect(events).toEqual([
+        // unbind proj-a
+        "unbind:svc-1:proj-a",
+        "unbind:svc-2:proj-a",
+        "unbind:svc-3:proj-a",
+        // bind proj-b (svc1 OK, svc2 OK + triggers abort, svc3 skipped)
+        "bind:svc-1:proj-b",
+        "bind:svc-2:proj-b",
+        // rollback: unbind from proj-b in reverse
+        "unbind:svc-2:proj-b",
+        "unbind:svc-1:proj-b",
+        // rollback: re-bind ALL to previous (proj-a)
+        "bind:svc-1:proj-a",
+        "bind:svc-2:proj-a",
+        "bind:svc-3:proj-a",
+      ]);
+      expect(svc3.bind).not.toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "proj-b" }),
+      );
+      expect(logger.error).toHaveBeenCalledWith(
+        "context_rebinder_rollback_triggered",
+        expect.objectContaining({
+          failedProjectId: "proj-b",
+          rollbackProjectId: "proj-a",
+          boundServiceCount: 2,
+        }),
+      );
+    });
+
+    it("cleans up partially-bound services on abort with no previous project", async () => {
+      let aborted = false;
+      const signal = {
+        get aborted() {
+          return aborted;
+        },
+      } as AbortSignal;
+      const events: string[] = [];
+
+      const svc1: RebindableService = {
+        id: "svc-1",
+        unbind: vi.fn(({ projectId }) => {
+          events.push(`unbind:svc-1:${projectId}`);
+        }),
+        bind: vi.fn(({ projectId }) => {
+          events.push(`bind:svc-1:${projectId}`);
+          aborted = true; // timeout fires during first bind
+        }),
+      };
+      const svc2: RebindableService = {
+        id: "svc-2",
+        unbind: vi.fn(),
+        bind: vi.fn(),
+      };
+
+      createProjectContextRebinder({
+        logger,
+        lifecycle,
+        additionalServices: [svc1, svc2],
+      });
+      const participant = lifecycle.captured();
+
+      // No prior unbind → no previous project
+      await participant.bind({ projectId: "proj-new", traceId: "t-1", signal });
+
+      // svc1 binds (triggers abort), loop breaks → cleanup (no rollback target)
+      expect(events).toEqual([
+        "bind:svc-1:proj-new",
+        "unbind:svc-1:proj-new", // cleanup unbind
+      ]);
+      expect(svc2.bind).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        "context_rebinder_cleanup_partial_bind",
+        expect.objectContaining({ failedProjectId: "proj-new", boundServiceCount: 1 }),
       );
     });
   });

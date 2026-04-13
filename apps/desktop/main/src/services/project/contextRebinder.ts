@@ -21,6 +21,13 @@
  * - INV-10: Error handling — partial bind failure triggers rollback to previous project;
  *           individual service errors logged but never propagate to crash the switch
  *
+ * ## Scope constraint
+ * This module tracks a single `lastBoundProjectId` — it assumes one active project
+ * at a time. ProjectLifecycle already supports per-scope switching via
+ * `activeProjectByScope`, but the rebinder is scope-unaware. If multi-scope
+ * concurrent binding is needed in the future, this module must be extended to
+ * track state per scope (e.g. `Map<string, string | null>`).
+ *
  * ## Performance constraint
  * All port operations must be sub-10ms (cache invalidation / Map.delete).
  * The lifecycle enforces a 5s per-participant timeout as a safety net.
@@ -237,28 +244,30 @@ export function createProjectContextRebinder(
         }
       }
 
-      // Only update tracking if every service was actually bound.
       // When the lifecycle timeout fires mid-loop, signal.aborted becomes true
-      // and the break above exits early — we must NOT record a partial bind as
-      // the rollback target (INV-10: don't lose context on error).
-      if (!signal.aborted && successfullyBound.length === services.length) {
+      // and the break above exits early. We must clean up partially-bound
+      // services — otherwise they stay attached to the new project while the
+      // lifecycle has already moved on (INV-10: don't lose context on error).
+      if (signal.aborted && successfullyBound.length > 0) {
+        if (previousProjectId !== null) {
+          await rollback({
+            successfullyBound,
+            failedProjectId: projectId,
+            previousProjectId,
+            traceId,
+          });
+        } else {
+          await cleanupPartialBind(successfullyBound, projectId, traceId);
+        }
+        return;
+      }
+
+      // Only update tracking if every service was actually bound.
+      if (successfullyBound.length === services.length) {
         lastBoundProjectId = projectId;
       }
     },
   });
-
-  /**
-   * Best-effort rollback: unbind services that were bound to the failed project,
-   * then re-bind all services to the previous project.
-   *
-   * @why INV-10 requires that errors don't lose context. Re-binding the previous
-   * project ensures the user retains a working context even when the switch fails.
-   *
-   * @risk If rollback itself fails, we log and accept partial state. The alternative
-   * (throwing from the lifecycle participant) would cause the lifecycle to log an
-   * error for us and continue — the user would end up with no context bound. Our
-   * best-effort approach at least attempts recovery.
-   */
 
   /**
    * Clean up partially-bound services when there is no previous project to
@@ -292,6 +301,18 @@ export function createProjectContextRebinder(
     }
   }
 
+  /**
+   * Best-effort rollback: unbind services that were bound to the failed project,
+   * then re-bind all services to the previous project.
+   *
+   * @why INV-10 requires that errors don't lose context. Re-binding the previous
+   * project ensures the user retains a working context even when the switch fails.
+   *
+   * @risk If rollback itself fails, we log and accept partial state. The alternative
+   * (throwing from the lifecycle participant) would cause the lifecycle to log an
+   * error for us and continue — the user would end up with no context bound. Our
+   * best-effort approach at least attempts recovery.
+   */
   async function rollback(args: {
     successfullyBound: RebindableService[];
     failedProjectId: string;
