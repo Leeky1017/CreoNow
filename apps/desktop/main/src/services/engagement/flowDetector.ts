@@ -60,13 +60,15 @@ export interface FlowDetectorConfig {
    */
   maxKeystrokeGapMs?: number;
   /**
-   * Silence duration after which getFlowState reports no-flow.
+   * Upper bound on silence before getFlowState reports no-flow.
    * Internal keystroke buffer is NOT cleared — only the reported state changes.
+   * Must be >= maxKeystrokeGapMs (enforced at construction time).
    * Default: 60s.
-   * @why 2× the spec's STUCK_PAUSE (30s). A full minute without input
-   * means the user has context-switched or walked away. The spec does not
-   * define an explicit exit/reset threshold — this is a conservative
-   * heuristic for the simplified 2-state model (flow / no-flow).
+   * @why In the current 2-state model (flow / no-flow), the tighter
+   * maxKeystrokeGapMs check in getFlowState is the effective exit threshold
+   * (spec: "停顿 < 15 秒"). This parameter is retained as an upper bound
+   * and will become the primary exit in the planned multi-state model
+   * (STUCK_PAUSE/COOLING from §机制8). 2× the spec's STUCK_PAUSE (30s).
    */
   flowExitTimeoutMs?: number;
 }
@@ -300,13 +302,19 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
     const latest = keystrokes[effectiveLatestIdx];
 
     // Exit timeout: >= exitTimeout since last keystroke → no flow.
-    // @why `>=` for consistency with maxGap boundary semantics.
+    // @why `>=` for consistency with maxGap boundary semantics. Under the
+    // invariant exitTimeout >= maxGap, the maxGap check below is the tighter
+    // bound — this check is architecturally retained as an upper bound and
+    // will become the primary exit in the planned multi-state model
+    // (STUCK_PAUSE/COOLING from §机制8 where maxGap breaks the chain but
+    // flow state persists through intermediate states before full exit).
     if (currentTime - latest >= exitTimeout) {
       return NO_FLOW;
     }
 
     // If gap since last keystroke reaches maxGap, continuous run is broken.
     // @why `>=` not `>`: spec "停顿 < 15 秒" → gap of exactly 15s is NOT continuous.
+    // In the current 2-state model this is the effective exit threshold.
     if (currentTime - latest >= maxGap) {
       return NO_FLOW;
     }

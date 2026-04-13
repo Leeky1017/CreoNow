@@ -1,11 +1,11 @@
 /**
  * flowDetector unit tests — 心流状态检测器
  *
- * 31 tests covering:
+ * 33 tests covering:
  *   - Core state machine: initial, sporadic (gap >= 15s), light/deep flow
  *   - Window events: blur breaks flow, focus alone doesn't restore
  *   - Timing: exit timeout, duration accuracy, gap boundary (>= maxGap)
- *   - Config: custom thresholds, keystroke buffer pruning
+ *   - Config: custom thresholds, keystroke buffer pruning, validation
  *   - Edge cases: monotonic timestamps, future keystrokes, blur-before-input,
  *     blur boundary on latest keystroke, exact maxGap boundary
  */
@@ -724,7 +724,10 @@ describe("flowDetector", () => {
           maxKeystrokeGapMs: 1000,
           flowExitTimeoutMs: 200,
         }),
-      ).toThrow("flowExitTimeoutMs (200) must be >= maxKeystrokeGapMs (1000)");
+      ).toThrow(
+        "flowExitTimeoutMs (200) must be >= maxKeystrokeGapMs (1000). " +
+          "A shorter exit timeout than the max gap creates contradictory chain semantics.",
+      );
     });
 
     it("accepts flowExitTimeoutMs equal to maxKeystrokeGapMs", () => {
