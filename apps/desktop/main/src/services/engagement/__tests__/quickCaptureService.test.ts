@@ -1002,16 +1002,16 @@ describe("QuickCaptureService", () => {
         );
 
         CREATE TABLE kg_relations (
-          id             TEXT PRIMARY KEY,
-          project_id     TEXT NOT NULL,
-          source_id      TEXT NOT NULL,
-          target_id      TEXT NOT NULL,
-          type           TEXT NOT NULL,
-          attributes_json TEXT NOT NULL DEFAULT '{}',
-          created_at     TEXT NOT NULL,
-          updated_at     TEXT NOT NULL,
-          FOREIGN KEY (source_id) REFERENCES kg_entities (id) ON DELETE CASCADE,
-          FOREIGN KEY (target_id) REFERENCES kg_entities (id) ON DELETE CASCADE
+          id               TEXT PRIMARY KEY,
+          project_id       TEXT NOT NULL,
+          source_entity_id TEXT NOT NULL,
+          target_entity_id TEXT NOT NULL,
+          relation_type    TEXT NOT NULL,
+          description      TEXT NOT NULL DEFAULT '',
+          created_at       TEXT NOT NULL,
+          FOREIGN KEY (project_id) REFERENCES projects (project_id) ON DELETE CASCADE,
+          FOREIGN KEY (source_entity_id) REFERENCES kg_entities (id) ON DELETE CASCADE,
+          FOREIGN KEY (target_entity_id) REFERENCES kg_entities (id) ON DELETE CASCADE
         );
       `);
 
@@ -1031,10 +1031,10 @@ describe("QuickCaptureService", () => {
         .run("ent-2", "proj-1", isoNow, isoNow);
       migDb
         .prepare(
-          `INSERT INTO kg_relations (id, project_id, source_id, target_id, type, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 'located_at', ?, ?)`,
+          `INSERT INTO kg_relations (id, project_id, source_entity_id, target_entity_id, relation_type, created_at)
+           VALUES (?, ?, ?, ?, 'located_at', ?)`,
         )
-        .run("rel-1", "proj-1", "ent-1", "ent-2", isoNow, isoNow);
+        .run("rel-1", "proj-1", "ent-1", "ent-2", isoNow);
 
       // Verify relation exists before migration
       const relsBefore = migDb
