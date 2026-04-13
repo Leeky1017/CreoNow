@@ -688,6 +688,7 @@ describe("StoryStatusService", () => {
       expect(chapterSql![0]).toContain("rollback");
       expect(chapterSql![0]).toContain("branch-merge");
       expect(chapterSql![0]).toContain("manual-save");
+      expect(chapterSql![0]).toContain("search-replace");
     });
 
     it("L0 memory query prefers project scope over global", () => {
