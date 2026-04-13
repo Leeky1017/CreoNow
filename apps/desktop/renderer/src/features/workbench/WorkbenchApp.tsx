@@ -14,7 +14,7 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
@@ -181,9 +181,11 @@ function WorkbenchShell() {
   // @why Async callbacks (handleCreateDocument, handleOpenDocument) capture a
   // stale `layout.zenMode` closure value. This ref tracks the *latest* zen
   // state so post-await layout writes can be skipped when zen is active,
-  // preventing layout mutation during zen mode (F-01 R8).
+  // preventing layout mutation during zen mode (FE-01 R8).
+  // useLayoutEffect (not useEffect) ensures the ref is updated synchronously
+  // after React commits, before any microtask/promise continuation can read it.
   const zenModeRef = useRef(layout.zenMode);
-  useEffect(() => {
+  useLayoutEffect(() => {
     zenModeRef.current = layout.zenMode;
   }, [layout.zenMode]);
 
