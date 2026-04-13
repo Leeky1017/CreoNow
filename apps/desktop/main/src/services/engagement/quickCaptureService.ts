@@ -336,10 +336,13 @@ export function createQuickCaptureService(
         throw new Error("projectId is required");
       }
 
-      // Cache check
+      // Cache check — re-filter to handle items that cross the 14d threshold
+      // during the 30s cache window (spec: >=14d must not appear in dashboard).
       const cached = unusedCache.get(projectId);
       if (cached && nowMs() < cached.expiresAt) {
-        return cached.data;
+        const now = nowMs();
+        const cutoffMs = now - FADING_MAX_DAYS * DAY_MS;
+        return cached.data.filter((item) => item.capturedAt > cutoffMs);
       }
 
       // Fresh query — exclude items older than 14 days per spec:

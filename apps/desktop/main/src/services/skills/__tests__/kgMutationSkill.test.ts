@@ -197,6 +197,33 @@ describe("kgMutationSkill", () => {
         expect(result.error.code).toBe("DB_ERROR");
       }
     });
+
+    it("rejects 'inspiration' type — managed by quickCaptureService", () => {
+      const result = skill.execute(
+        makeReq("entity:create", { type: "inspiration", name: "Plot Twist" }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityCreate).not.toHaveBeenCalled();
+    });
+
+    it("rejects 'foreshadowing' type — managed by foreshadowingTracker", () => {
+      const result = skill.execute(
+        makeReq("entity:create", {
+          type: "foreshadowing",
+          name: "Dark Omen",
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityCreate).not.toHaveBeenCalled();
+    });
   });
 
   // ── entity:update ──

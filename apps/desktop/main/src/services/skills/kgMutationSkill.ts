@@ -18,6 +18,22 @@ import type { KnowledgeGraphService } from "../kg/types";
 import type { ServiceResult } from "../shared/ipcResult";
 import { ipcError } from "../shared/ipcResult";
 
+// ── Dedicated-service types ───────────────────────────────────────
+
+/**
+ * Entity types managed exclusively by their dedicated services
+ * (quickCaptureService, foreshadowingTracker). These use structured JSON
+ * attributes incompatible with kgCoreService's Record<string, string> model.
+ * Generic KG CRUD must reject them to prevent silent data loss from
+ * parseAttributes() dropping non-string values.
+ *
+ * @see types.ts @deviation note for full rationale.
+ */
+const DEDICATED_SERVICE_ONLY_TYPES: ReadonlySet<string> = new Set([
+  "inspiration",
+  "foreshadowing",
+]);
+
 // ── Mutation types ────────────────────────────────────────────────
 
 export const KG_MUTATION_TYPES = [
@@ -97,8 +113,18 @@ function validateMutation(
           "entity:create requires type and name",
         );
       }
+      if (DEDICATED_SERVICE_ONLY_TYPES.has(p["type"])) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          `Type '${p["type"]}' must be managed through its dedicated service, not generic KG CRUD`,
+        );
+      }
       break;
     case "entity:update":
+      // NOTE: entity:update payload contains id + expectedVersion but NOT type,
+      // so we cannot guard dedicated-service types here. This is acceptable
+      // because: (a) the entity must already exist (so create-path guard caught
+      // it), and (b) dedicated services own the update path for their types.
       if (!isNonEmptyString(p["id"]) || typeof p["expectedVersion"] !== "number") {
         return ipcError(
           "INVALID_ARGUMENT",

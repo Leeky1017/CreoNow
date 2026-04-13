@@ -6,7 +6,7 @@
  * on entity type matches production (migration 002 extended the allowlist
  * to include 'inspiration' and 'foreshadowing').
  *
- * Coverage targets (54 tests):
+ * Coverage targets (55 tests):
  *   1-2.   Empty state: listUnused, getDecayStats
  *   3.     capture() creates entity with correct fields
  *   4.     capture() returns InspirationItem
@@ -34,6 +34,7 @@
  *  26.     Cache: markUsed invalidates cache
  *  27.     Cache: archiveStale invalidates cache
  *  28.     Cache: TTL expiry triggers fresh query
+ *  28b.    Cache: post-filter drops items crossing 14d boundary in TTL window
  *  29.     Cache: getDecayStats caches separately
  *  30.     Disposed: listUnused throws
  *  31.     Disposed: capture throws
@@ -683,6 +684,34 @@ describe("QuickCaptureService", () => {
 
       const items = svc.listUnused(PROJECT_ID);
       expect(items).toHaveLength(2); // cache expired, fresh query picks up new item
+    });
+
+    it("cache post-filters items crossing 14d boundary during TTL window", () => {
+      // Item captured at (14d - 15s) — within fading tier at cache time
+      const almostExpired = NOW - 14 * DAY_MS + 15_000;
+      insertInspiration(sqliteDb, {
+        id: "insp-boundary",
+        name: "边界灵感",
+        created_at: almostExpired,
+      });
+      insertInspiration(sqliteDb, {
+        id: "insp-fresh",
+        name: "新鲜灵感",
+        created_at: NOW - 1 * DAY_MS,
+      });
+      createService();
+
+      // First call caches both items
+      const first = svc.listUnused(PROJECT_ID);
+      expect(first).toHaveLength(2);
+
+      // Advance clock 20s — within 30s TTL but past 14d for boundary item
+      clock = NOW + 20_000;
+
+      // Second call hits cache but post-filter should drop the boundary item
+      const second = svc.listUnused(PROJECT_ID);
+      expect(second).toHaveLength(1);
+      expect(second[0].id).toBe("insp-fresh");
     });
 
     it("getDecayStats caches independently from listUnused", () => {
