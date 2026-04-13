@@ -111,7 +111,7 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
             <p className="panel-meta">{t("editor.selectionHint")}</p>
           </div>
           <div className="editor-header__actions">
-            <Button tone="ghost" className="zen-toggle" aria-label={args.zenMode ? t("zenMode.exit") : t("zenMode.enter")}>
+            <Button tone="ghost" className="zen-toggle" aria-label={args.zenMode ? t("zenMode.exit") : t("zenMode.enter")} aria-pressed={args.zenMode} title={`${args.zenMode ? t("zenMode.exit") : t("zenMode.enter")} (Shift+Z)`}>
               {args.zenMode ? <Minimize2 size={ICON_SIZE} /> : <Maximize2 size={ICON_SIZE} />}
             </Button>
             {args.rightPanelCollapsed ? <Button tone="ghost">{t("panel.actions.openAi")}</Button> : null}

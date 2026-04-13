@@ -181,8 +181,24 @@ export function usePanelLayout() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Shift+Z toggles Zen Mode (no Cmd/Ctrl required).
+      // Shift+Z toggles Zen Mode — but only when NOT in an editable field.
+      // @why Without this guard, typing uppercase "Z" in the ProseMirror editor,
+      // AI textarea, or any <input> would fire preventDefault() and toggle zen
+      // mode instead of inserting the character.
+      // @risk isContentEditable alone may not be computed in all DOM environments
+      // (e.g. jsdom), so we also check the contenteditable attribute directly.
       if (event.shiftKey && event.key.toLowerCase() === "z" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const target = event.target as HTMLElement;
+        if (
+          target.isContentEditable
+          || target.contentEditable === "true"
+          || target.closest?.("[contenteditable='true']") != null
+          || target.tagName === "INPUT"
+          || target.tagName === "TEXTAREA"
+          || target.tagName === "SELECT"
+        ) {
+          return;
+        }
         event.preventDefault();
         setZenMode((current) => !current);
         return;

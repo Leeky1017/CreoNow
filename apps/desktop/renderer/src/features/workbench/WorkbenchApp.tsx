@@ -740,7 +740,9 @@ function WorkbenchShell() {
       data-export-active={exportProgress.isExporting ? "true" : undefined}
       style={frameStyle}
     >
-      <aside className="icon-rail" aria-label={t("app.title")}>
+      {/* Icon rail, left sidebar, and left resizer are unmounted in zen mode
+          so they are not tabbable or focusable via keyboard navigation. */}
+      {layout.zenMode ? null : <aside className="icon-rail" aria-label={t("app.title")}>
         <div className="icon-rail__group">
           {LEFT_PANEL_ITEMS.filter((item) => item.placement === "top").map((item) => {
             const Icon = item.icon;
@@ -773,13 +775,13 @@ function WorkbenchShell() {
             </Button>;
           })}
         </div>
-      </aside>
+      </aside>}
 
-      {layout.sidebarCollapsed ? null : <aside className="sidebar" aria-label={t("sidebar.title")}>
+      {(layout.zenMode || layout.sidebarCollapsed) ? null : <aside className="sidebar" aria-label={t("sidebar.title")}>
         {renderSidebarContent()}
       </aside>}
 
-      {layout.sidebarCollapsed ? null : <div
+      {(layout.zenMode || layout.sidebarCollapsed) ? null : <div
         className={layout.dragState?.panel === "left" ? "panel-resizer panel-resizer--dragging" : "panel-resizer"}
         role="separator"
         aria-label={t("sidebar.resizeHandle")}
@@ -831,7 +833,7 @@ function WorkbenchShell() {
         </div>
       </section>
 
-      {layout.rightPanelCollapsed ? null : <div
+      {(layout.zenMode || layout.rightPanelCollapsed) ? null : <div
         className={layout.dragState?.panel === "right" ? "panel-resizer panel-resizer--dragging" : "panel-resizer"}
         role="separator"
         aria-label={t("panel.resizeHandle")}
@@ -840,7 +842,7 @@ function WorkbenchShell() {
         onMouseDown={layout.startResize("right")}
       />}
 
-      {layout.rightPanelCollapsed ? null : <aside className="right-panel" aria-label={t("panel.title")}>
+      {(layout.zenMode || layout.rightPanelCollapsed) ? null : <aside className="right-panel" aria-label={t("panel.title")}>
         <div className="right-tabs">
           <div className="right-tabs__list" role="tablist" aria-label={t("panel.tabs")}>
             {RIGHT_PANEL_IDS.map((panelId) => (

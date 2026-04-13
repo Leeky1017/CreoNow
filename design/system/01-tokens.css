@@ -58,6 +58,8 @@
   --duration-fast: 120ms;
   --duration-slow: 300ms;
   --ease-default: cubic-bezier(0.2, 0, 0, 1);
+
+  --z-tooltip: 50;
 }
 
 .dark {
@@ -86,4 +88,6 @@
 
   --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.28);
   --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.36);
+
+  --z-tooltip: 50;
 }

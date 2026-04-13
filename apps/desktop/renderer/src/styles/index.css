@@ -169,9 +169,9 @@ button {
   transform: translateY(-50%);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
+  background: var(--color-bg-surface);
   color: var(--color-fg-base);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-status-size);
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;

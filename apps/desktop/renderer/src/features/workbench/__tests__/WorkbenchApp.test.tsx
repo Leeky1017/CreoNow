@@ -3281,4 +3281,106 @@ describe("WorkbenchApp", () => {
     expect(window.localStorage.getItem("creonow.layout.activePanelTab")).toBe("ai");
     expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).toBe("false");
   });
+
+  it("toggles zen mode via button, hides sidebar/panel/status-bar, and persists to localStorage", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+
+    // Zen mode off by default — panels visible.
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+    expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument(); // icon rail
+    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+    expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toBeInTheDocument(); // status bar via <footer>
+
+    // Enter zen mode via button.
+    fireEvent.click(screen.getByRole("button", { name: "进入专注模式" }));
+    expect(frame).toHaveClass("workbench-frame--zen");
+    expect(screen.queryByLabelText("CreoNow 工作台")).toBeNull(); // icon rail unmounted
+    expect(screen.queryByLabelText("左侧边栏")).toBeNull(); // sidebar unmounted
+    expect(screen.queryByLabelText("右侧面板")).toBeNull(); // right panel unmounted
+    expect(screen.queryByRole("contentinfo")).toBeNull(); // status bar hidden
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+
+    // Toggle back off.
+    fireEvent.click(screen.getByRole("button", { name: "退出专注模式" }));
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+    expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument();
+    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+    expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("false");
+  });
+
+  it("persists zen mode state to localStorage and restores it on next render", async () => {
+    window.localStorage.setItem("creonow.layout.zenMode", "true");
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+    expect(frame).toHaveClass("workbench-frame--zen");
+    expect(screen.queryByLabelText("CreoNow 工作台")).toBeNull();
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+  });
+
+  it("does NOT toggle zen mode via Shift+Z when focus is inside an editable element", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // Simulate Shift+Z from inside an input element.
+    const inputEl = document.createElement("input");
+    document.body.appendChild(inputEl);
+    inputEl.focus();
+
+    fireEvent.keyDown(inputEl, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // Simulate Shift+Z from inside a contentEditable element.
+    const editableEl = document.createElement("div");
+    editableEl.contentEditable = "true";
+    document.body.appendChild(editableEl);
+    editableEl.focus();
+
+    fireEvent.keyDown(editableEl, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // Simulate Shift+Z from inside a textarea element.
+    const textareaEl = document.createElement("textarea");
+    document.body.appendChild(textareaEl);
+    textareaEl.focus();
+
+    fireEvent.keyDown(textareaEl, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // Now dispatch from window (non-editable) — SHOULD toggle.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).toHaveClass("workbench-frame--zen");
+
+    // Cleanup.
+    document.body.removeChild(inputEl);
+    document.body.removeChild(editableEl);
+    document.body.removeChild(textareaEl);
+  });
+
+  it("toggles zen mode via Shift+Z keyboard shortcut from non-editable context", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).toHaveClass("workbench-frame--zen");
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("false");
+  });
 });
