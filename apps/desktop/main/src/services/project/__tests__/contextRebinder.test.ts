@@ -327,6 +327,70 @@ describe("ProjectContextRebinder", () => {
 
       expect(svc.bind).not.toHaveBeenCalled();
     });
+
+    it("does not update lastBoundProjectId on mid-loop signal abort", async () => {
+      // Regression: signal.aborted becoming true mid-loop must NOT record
+      // the new project as the rollback target (would corrupt future rollback).
+      // Uses getter-backed signal so abort fires DURING loop iteration.
+      let abortFlag = false;
+      const mutatingSignal = {
+        get aborted() { return abortFlag; },
+      } as AbortSignal;
+
+      const bindOrder: string[] = [];
+      const svc1: RebindableService = {
+        id: "fast",
+        unbind: vi.fn(),
+        bind: vi.fn(({ projectId }: { projectId: string }) => {
+          bindOrder.push(`bind:fast:${projectId}`);
+        }),
+      };
+      const svc2: RebindableService = {
+        id: "trigger-abort",
+        unbind: vi.fn(),
+        bind: vi.fn(({ projectId }: { projectId: string }) => {
+          bindOrder.push(`bind:trigger-abort:${projectId}`);
+          if (projectId === "proj-b") {
+            // Simulates lifecycle timeout firing after this service runs
+            abortFlag = true;
+          }
+        }),
+      };
+      const svc3: RebindableService = {
+        id: "should-skip",
+        unbind: vi.fn(),
+        bind: vi.fn(({ projectId }: { projectId: string }) => {
+          bindOrder.push(`bind:should-skip:${projectId}`);
+        }),
+      };
+      createProjectContextRebinder({
+        logger,
+        lifecycle,
+        additionalServices: [svc1, svc2, svc3],
+      });
+      const participant = lifecycle.captured();
+
+      // Step 1: bind proj-a normally (all 3 services bound)
+      await participant.bind({ projectId: "proj-a", traceId: "t-0", signal: createMockSignal() });
+      expect(bindOrder).toEqual([
+        "bind:fast:proj-a",
+        "bind:trigger-abort:proj-a",
+        "bind:should-skip:proj-a",
+      ]);
+
+      // Step 2: unbind proj-a, then bind proj-b with mid-loop abort
+      await participant.unbind({ projectId: "proj-a", traceId: "t-1", signal: createMockSignal() });
+      bindOrder.length = 0;
+      await participant.bind({ projectId: "proj-b", traceId: "t-1", signal: mutatingSignal });
+
+      // svc1 bound, svc2 ran + set abort, svc3 SKIPPED (mid-loop abort)
+      expect(bindOrder).toEqual([
+        "bind:fast:proj-b",
+        "bind:trigger-abort:proj-b",
+        // "bind:should-skip:proj-b" — correctly absent
+      ]);
+      expect(svc3.bind).toHaveBeenCalledTimes(1); // only from proj-a, not proj-b
+    });
   });
 
   describe("ordering", () => {

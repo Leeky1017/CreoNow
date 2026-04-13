@@ -231,8 +231,13 @@ export function createProjectContextRebinder(
         }
       }
 
-      // All services bound successfully — update tracking.
-      lastBoundProjectId = projectId;
+      // Only update tracking if every service was actually bound.
+      // When the lifecycle timeout fires mid-loop, signal.aborted becomes true
+      // and the break above exits early — we must NOT record a partial bind as
+      // the rollback target (INV-10: don't lose context on error).
+      if (!signal.aborted && successfullyBound.length === services.length) {
+        lastBoundProjectId = projectId;
+      }
     },
   });
 
