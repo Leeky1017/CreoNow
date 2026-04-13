@@ -19,6 +19,17 @@ export interface ForeshadowingItem {
   readonly description: string;
   readonly createdAt: number;
   readonly openDays: number;
+  /**
+   * Urgency score in range [0, 1].
+   *
+   * @deviation The authoritative spec (engagement-engine.md §机制3 lines 183-185)
+   *   defines urgency as chapter-based: `min(1.0, (currentChapter - plantedChapter) / 10)`.
+   *   This implementation uses a time-based approximation:
+   *   `min(1.0, openDays / URGENCY_DECAY_DAYS)` where URGENCY_DECAY_DAYS = 30.
+   *   Rationale: the service has no access to currentChapter (requires document context);
+   *   chapter-based urgency will be implemented when the IPC layer provides chapter info.
+   *   The 30-day decay maps roughly to 10 chapters at ~3 days/chapter writing pace.
+   */
   readonly urgency: number;
   readonly firstChapterHint: string;
 }
@@ -46,6 +57,11 @@ const CACHE_TTL_MS = 30_000;
 
 // Milliseconds per day — used for openDays / urgency calculation.
 const MS_PER_DAY = 86_400_000;
+
+// Number of days mapping to urgency = 1.0.
+// @deviation Spec uses 10 chapters; 30 days ≈ 10 chapters at ~3 days/chapter.
+// Source: engagement-engine.md §机制3 lines 183-185.
+const URGENCY_DECAY_DAYS = 30;
 
 // ─── SQL ────────────────────────────────────────────────────────────
 
@@ -152,8 +168,17 @@ export function createForeshadowingTracker(
     row: Record<string, unknown>,
     now: number,
   ): ForeshadowingItem {
-    const createdAt = row.created_at as number;
-    const openDays = Math.floor((now - createdAt) / MS_PER_DAY);
+    // KG stores created_at as ISO 8601 text (kgCoreService.ts:165 uses
+    // new Date().toISOString()). Parse to epoch ms for arithmetic.
+    const rawCreatedAt = row.created_at;
+    const createdAt =
+      typeof rawCreatedAt === "string"
+        ? new Date(rawCreatedAt).getTime()
+        : (rawCreatedAt as number);
+
+    const openDays = Math.max(0, Math.floor((now - createdAt) / MS_PER_DAY));
+    // Urgency clamped to [0, 1] — see @deviation on ForeshadowingItem.urgency.
+    const urgency = Math.min(1.0, openDays / URGENCY_DECAY_DAYS);
 
     // Best-effort firstChapter extraction from attributes_json.
     let firstChapterHint = "";
@@ -177,7 +202,7 @@ export function createForeshadowingTracker(
       description: (row.description as string) ?? "",
       createdAt,
       openDays,
-      urgency: openDays,
+      urgency,
       firstChapterHint,
     };
   }
@@ -220,7 +245,12 @@ export function createForeshadowingTracker(
         throw new Error("entityId is required");
       }
 
-      const result = stmtResolve.run(nowMs(), entityId, projectId);
+      // Write ISO 8601 string for updated_at — matches kgCoreService convention.
+      const result = stmtResolve.run(
+        new Date(nowMs()).toISOString(),
+        entityId,
+        projectId,
+      );
 
       // Invalidate cache after mutation to prevent stale reads.
       if (result.changes > 0) {

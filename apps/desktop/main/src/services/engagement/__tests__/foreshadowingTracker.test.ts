@@ -61,8 +61,8 @@ function createTestDb(): Database.Database {
       name           TEXT    NOT NULL DEFAULT '',
       description    TEXT    NOT NULL DEFAULT '',
       attributes_json TEXT   NOT NULL DEFAULT '{}',
-      created_at     INTEGER NOT NULL,
-      updated_at     INTEGER NOT NULL,
+      created_at     TEXT    NOT NULL,
+      updated_at     TEXT    NOT NULL,
       PRIMARY KEY (id)
     )
   `);
@@ -105,8 +105,8 @@ function insertEntity(
     defaults.name,
     defaults.description,
     defaults.attributes_json,
-    defaults.created_at,
-    defaults.updated_at,
+    new Date(defaults.created_at).toISOString(),
+    new Date(defaults.updated_at).toISOString(),
   );
 }
 
@@ -179,7 +179,7 @@ describe("ForeshadowingTracker", () => {
         description: "第五章提到的密信下落不明",
         createdAt,
         openDays: 5,
-        urgency: 5,
+        urgency: Math.min(1.0, 5 / 30),
         firstChapterHint: "第五章",
       });
     });
@@ -213,11 +213,11 @@ describe("ForeshadowingTracker", () => {
 
       expect(items).toHaveLength(3);
       expect(items[0].entityId).toBe("fs-old");
-      expect(items[0].urgency).toBe(30);
+      expect(items[0].urgency).toBe(Math.min(1.0, 30 / 30));
       expect(items[1].entityId).toBe("fs-mid");
-      expect(items[1].urgency).toBe(10);
+      expect(items[1].urgency).toBe(Math.min(1.0, 10 / 30));
       expect(items[2].entityId).toBe("fs-new");
-      expect(items[2].urgency).toBe(1);
+      expect(items[2].urgency).toBe(Math.min(1.0, 1 / 30));
     });
   });
 
@@ -314,8 +314,8 @@ describe("ForeshadowingTracker", () => {
 
       const row = sqliteDb
         .prepare("SELECT updated_at FROM kg_entities WHERE id = ?")
-        .get("fs-time") as { updated_at: number };
-      expect(row.updated_at).toBe(NOW);
+        .get("fs-time") as { updated_at: string };
+      expect(row.updated_at).toBe(new Date(NOW).toISOString());
     });
   });
 
@@ -408,7 +408,7 @@ describe("ForeshadowingTracker", () => {
       const items = tracker.listActive(PROJECT_ID);
 
       expect(items[0].openDays).toBe(7);
-      expect(items[0].urgency).toBe(7);
+      expect(items[0].urgency).toBe(Math.min(1.0, 7 / 30));
     });
 
     it("uses Math.floor for partial days", () => {
@@ -832,8 +832,8 @@ describe("ForeshadowingTracker", () => {
           "坏JSON",
           "测试",
           "not-valid-json",
-          NOW - 2 * ONE_DAY_MS,
-          NOW - 2 * ONE_DAY_MS,
+          new Date(NOW - 2 * ONE_DAY_MS).toISOString(),
+          new Date(NOW - 2 * ONE_DAY_MS).toISOString(),
         );
       createTracker();
 
