@@ -3445,4 +3445,30 @@ describe("WorkbenchApp", () => {
     fireEvent.keyDown(window, { key: "Z", shiftKey: true });
     expect(screen.getByRole("button", { name: "打开 AI 面板" })).toBeInTheDocument();
   });
+
+  it("cancels active panel resize when entering zen mode", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const leftHandle = screen.getByRole("separator", { name: "调整左侧边栏宽度" });
+    const frame = screen.getByTestId("workbench-frame");
+
+    const widthBefore = frame.style.getPropertyValue("--left-sidebar-width");
+
+    // Start a resize drag on the left panel.
+    fireEvent.mouseDown(leftHandle, { clientX: 260, button: 0 });
+
+    // Enter zen mode mid-drag.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+
+    // Simulate mouse movement after zen — width should NOT change.
+    fireEvent.mouseMove(window, { clientX: 400 });
+    fireEvent.mouseUp(window);
+
+    // Exit zen mode.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+
+    // Sidebar width should be unchanged from before the aborted drag.
+    expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe(widthBefore);
+  });
 });

@@ -154,6 +154,15 @@ export function usePanelLayout() {
       return;
     }
 
+    // @why Cancel any in-flight resize when zen mode activates (F-01 R7).
+    // Without this guard, a user who is mid-drag on a resizer and presses
+    // Shift+Z would keep mutating sidebarWidth/rightPanelWidth via mousemove
+    // while zen is visually active.
+    if (zenMode) {
+      setDragState(null);
+      return;
+    }
+
     const handleMouseMove = (event: MouseEvent) => {
       if (dragState.panel === "left") {
         setSidebarWidth(clampWidth(dragState.startWidth + (event.clientX - dragState.startX), LEFT_SIDEBAR_BOUNDS));
@@ -177,7 +186,7 @@ export function usePanelLayout() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragState]);
+  }, [dragState, zenMode]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
