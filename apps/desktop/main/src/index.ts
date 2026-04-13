@@ -19,10 +19,8 @@ import { registerExportIpcHandlers } from "./ipc/export";
 import { registerBackupIpcHandlers } from "./ipc/backup";
 import { registerJudgeIpcHandlers } from "./ipc/judge";
 import { registerKnowledgeGraphIpcHandlers } from "./ipc/knowledgeGraph";
-import { registerEmbeddingIpcHandlers } from "./ipc/embedding";
 import { registerMemoryIpcHandlers } from "./ipc/memory";
 import { registerProjectIpcHandlers } from "./ipc/project";
-import { registerRagIpcHandlers } from "./ipc/rag";
 import { registerSearchIpcHandlers } from "./ipc/search";
 import { registerSkillIpcHandlers } from "./ipc/skills";
 import { registerStatsIpcHandlers } from "./ipc/stats";
@@ -37,9 +35,6 @@ import { registerSettingsIpcHandlers } from "./ipc/settings";
 import { registerSimpleMemoryIpcHandlers } from "./ipc/simpleMemory";
 import { createProjectSessionBindingRegistry } from "./ipc/projectSessionBinding";
 import { createMainLogger, type Logger } from "./logging/logger";
-import { createEmbeddingService } from "./services/embedding/embeddingService";
-import { createOnnxEmbeddingRuntime } from "./services/embedding/onnxRuntime";
-import { createSemanticChunkIndexService } from "./services/embedding/semanticChunkIndexService";
 import { createJudgeService } from "./services/judge/judgeService";
 import { createJudgeQualityService } from "./services/ai/judgeQualityService";
 import { createAdvancedCheckRunner } from "./services/ai/judgeAdvancedRunner";
@@ -288,21 +283,6 @@ function registerIpcHandlers(deps: {
   env: NodeJS.ProcessEnv;
 }): void {
   const runtimeGovernance = resolveRuntimeGovernanceFromEnv(deps.env);
-  const onnxModelPath = deps.env.CREONOW_ONNX_MODEL_PATH?.trim() ?? "";
-  const onnxProvider = deps.env.CREONOW_ONNX_PROVIDER?.trim() ?? "cpu";
-  const onnxDimension = parsePositiveInteger(
-    deps.env.CREONOW_ONNX_DIMENSION,
-    384,
-  );
-  const onnxRuntime =
-    onnxModelPath.length > 0
-      ? createOnnxEmbeddingRuntime({
-          logger: deps.logger,
-          modelPath: onnxModelPath,
-          provider: onnxProvider,
-          dimension: onnxDimension,
-        })
-      : undefined;
 
   const judgeService = createJudgeService({
     logger: deps.logger,
@@ -333,15 +313,6 @@ function registerIpcHandlers(deps: {
       contextCache.bindProject({ projectId, traceId });
     },
   });
-  const embeddingService = createEmbeddingService({
-    logger: deps.logger,
-    onnxRuntime,
-  });
-  const semanticIndex = createSemanticChunkIndexService({
-    logger: deps.logger,
-    embedding: embeddingService,
-    defaultModel: deps.env.CREONOW_EMBEDDING_MODEL ?? "default",
-  });
   const recognitionRuntime = deps.db
     ? createKgRecognitionRuntime({
         db: deps.db,
@@ -354,11 +325,6 @@ function registerIpcHandlers(deps: {
         logger: deps.logger,
       })
     : null;
-
-  const ragRerank = {
-    enabled: deps.env.CREONOW_RAG_RERANK === "1",
-    model: deps.env.CREONOW_RAG_RERANK_MODEL,
-  };
 
   const guardedIpcMain = createValidatedIpcMain({
     ipcMain,
@@ -502,9 +468,7 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     recognitionRuntime,
     stateExtractor,
-    semanticIndex,
     computeRunner: utilityProcessFoundation.compute,
-    embeddingQueueDebounceMs: runtimeGovernance.embedding.queueDebounceMs,
   });
 
   registerExportIpcHandlers({
@@ -526,34 +490,12 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
   });
 
-  registerEmbeddingIpcHandlers({
-    ipcMain: guardedIpcMain,
-    db: deps.db,
-    logger: deps.logger,
-    embedding: embeddingService,
-    semanticIndex,
-    computeRunner: utilityProcessFoundation.compute,
-    defaultModel: deps.env.CREONOW_EMBEDDING_MODEL ?? "default",
-  });
-
   registerSearchIpcHandlers({
     ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
-    semanticIndex,
     projectLifecycle,
     projectSessionBinding,
-  });
-
-  registerRagIpcHandlers({
-    ipcMain: guardedIpcMain,
-    db: deps.db,
-    logger: deps.logger,
-    embedding: embeddingService,
-    ragRerank,
-    semanticIndex,
-    computeRunner: utilityProcessFoundation.compute,
-    defaultModel: deps.env.CREONOW_EMBEDDING_MODEL ?? "default",
   });
 
   registerSkillIpcHandlers({

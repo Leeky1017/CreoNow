@@ -4,7 +4,6 @@ import type Database from "better-sqlite3";
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import type { ProjectLifecycle } from "../services/projects/projectLifecycle";
-import type { SemanticChunkIndexService } from "../services/embedding/semanticChunkIndexService";
 import { createFtsService } from "../services/search/ftsService";
 import {
   createHybridRankingService,
@@ -46,66 +45,6 @@ function listProjectDocuments(args: {
       DocumentIndexRow
     >("SELECT document_id as documentId, content_text as contentText, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC")
     .all(args.projectId);
-}
-
-/**
- * Create semantic retriever for hybrid ranking.
- *
- * Why: hybrid strategy must reuse semantic index data while keeping search IPC
- * isolated from embedding IPC channel orchestration.
- */
-function createSearchSemanticRetriever(args: {
-  db: Database.Database;
-  semanticIndex?: SemanticChunkIndexService;
-}): SemanticRetriever {
-  const semanticIndex = args.semanticIndex;
-  if (!semanticIndex) {
-    return createNoopSemanticRetriever();
-  }
-
-  return {
-    search: ({ projectId, query, limit }) => {
-      const docs = listProjectDocuments({
-        db: args.db,
-        projectId,
-      });
-      for (const doc of docs) {
-        const upserted = semanticIndex.upsertDocument({
-          projectId,
-          documentId: doc.documentId,
-          contentText: doc.contentText,
-          updatedAt: doc.updatedAt,
-        });
-        if (!upserted.ok) {
-          return upserted;
-        }
-      }
-
-      const semantic = semanticIndex.search({
-        projectId,
-        queryText: query,
-        topK: limit,
-        minScore: -1,
-      });
-      if (!semantic.ok) {
-        return semantic;
-      }
-
-      return {
-        ok: true,
-        data: {
-          items: semantic.data.chunks.map((chunk) => ({
-            projectId: chunk.projectId,
-            documentId: chunk.documentId,
-            chunkId: chunk.chunkId,
-            snippet: chunk.text,
-            score: chunk.score,
-            updatedAt: chunk.updatedAt,
-          })),
-        },
-      };
-    },
-  };
 }
 
 function toInternalSearchError<T = never>(
@@ -564,7 +503,6 @@ export function registerSearchIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
-  semanticIndex?: SemanticChunkIndexService;
   semanticRetriever?: SemanticRetriever;
   hybridRankingService?: HybridRankingService;
   projectLifecycle?: ProjectLifecycle;
@@ -577,13 +515,8 @@ export function registerSearchIpcHandlers(deps: {
   const replaceService = deps.db
     ? createSearchReplaceService({ db: deps.db, logger: deps.logger })
     : null;
-  const semanticRetriever = deps.db
-    ? (deps.semanticRetriever ??
-      createSearchSemanticRetriever({
-        db: deps.db,
-        semanticIndex: deps.semanticIndex,
-      }))
-    : (deps.semanticRetriever ?? createNoopSemanticRetriever());
+  const semanticRetriever =
+    deps.semanticRetriever ?? createNoopSemanticRetriever();
   const hybridRankingService =
     deps.hybridRankingService ??
     (ftsService

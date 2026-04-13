@@ -17,14 +17,8 @@ export type RuntimeGovernance = {
     sessionQueueLimit: number;
     slotRecoveryTimeoutMs: number;
   };
-  embedding: {
-    queueDebounceMs: number;
-  };
   kg: {
     queryTimeoutMs: number;
-  };
-  rag: {
-    maxTokens: number;
   };
 };
 
@@ -45,14 +39,8 @@ export const RUNTIME_GOVERNANCE_DEFAULTS: RuntimeGovernance = {
     sessionQueueLimit: 20,
     slotRecoveryTimeoutMs: 125_000,
   },
-  embedding: {
-    queueDebounceMs: 120,
-  },
   kg: {
     queryTimeoutMs: 2_000,
-  },
-  rag: {
-    maxTokens: 1_500,
   },
 };
 
@@ -237,15 +225,6 @@ export function resolveRuntimeGovernanceFromEnv(
     RUNTIME_GOVERNANCE_DEFAULTS.skills.slotRecoveryTimeoutMs,
   );
 
-  const embeddingQueueDebounceMs = parsePositiveInt(
-    pickRaw({
-      env,
-      primaryKey: "CN_EMBEDDING_QUEUE_DEBOUNCE_MS",
-      legacyKey: "CREONOW_EMBEDDING_QUEUE_DEBOUNCE_MS",
-    }),
-    RUNTIME_GOVERNANCE_DEFAULTS.embedding.queueDebounceMs,
-  );
-
   const kgQueryTimeoutMs = parsePositiveInt(
     pickRaw({
       env,
@@ -253,15 +232,6 @@ export function resolveRuntimeGovernanceFromEnv(
       legacyKey: "CREONOW_KG_QUERY_TIMEOUT_MS",
     }),
     RUNTIME_GOVERNANCE_DEFAULTS.kg.queryTimeoutMs,
-  );
-
-  const ragMaxTokens = parsePositiveInt(
-    pickRaw({
-      env,
-      primaryKey: "CN_RAG_MAX_TOKENS",
-      legacyKey: "CREONOW_RAG_MAX_TOKENS",
-    }),
-    RUNTIME_GOVERNANCE_DEFAULTS.rag.maxTokens,
   );
 
   return {
@@ -281,14 +251,8 @@ export function resolveRuntimeGovernanceFromEnv(
       sessionQueueLimit: skillSessionQueueLimit,
       slotRecoveryTimeoutMs: skillSlotRecoveryTimeoutMs,
     },
-    embedding: {
-      queueDebounceMs: embeddingQueueDebounceMs,
-    },
     kg: {
       queryTimeoutMs: kgQueryTimeoutMs,
-    },
-    rag: {
-      maxTokens: ragMaxTokens,
     },
   };
 }

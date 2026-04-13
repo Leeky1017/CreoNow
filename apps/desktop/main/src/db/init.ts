@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 import Database from "better-sqlite3";
-import { getLoadablePath } from "sqlite-vec";
 
 import type { IpcError } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
@@ -25,7 +24,6 @@ import skillsSql from "./migrations/0004_skills.sql?raw";
 import knowledgeGraphSql from "./migrations/0005_knowledge_graph.sql?raw";
 import searchFtsSql from "./migrations/0006_search_fts.sql?raw";
 import statsSql from "./migrations/0007_stats.sql?raw";
-import userMemoryVecSql from "./migrations/0008_user_memory_vec.sql?raw";
 import memoryDocumentScopeSql from "./migrations/0009_memory_document_scope.sql?raw";
 import projectsArchiveSql from "./migrations/0010_projects_archive.sql?raw";
 import documentTypeStatusSql from "./migrations/0011_document_type_status.sql?raw";
@@ -176,42 +174,6 @@ const MIGRATIONS_BASE: readonly Migration[] = [
   },
 ];
 
-const SQLITE_VEC_MIGRATION: Migration = {
-  version: 8,
-  name: "0008_user_memory_vec",
-  sql: userMemoryVecSql,
-};
-const SQLITE_VEC_TABLE = "user_memory_vec";
-
-/**
- * Best-effort load sqlite-vec for optional vec0 tables.
- *
- * Why: semantic recall should degrade without blocking app startup on platforms
- * where the extension cannot be loaded.
- */
-function tryLoadSqliteVec(args: {
-  db: Database.Database;
-  logger: Logger;
-}): boolean {
-  try {
-    const rawPath = getLoadablePath();
-    const unpacked = rawPath.replace(
-      `${path.sep}app.asar${path.sep}`,
-      `${path.sep}app.asar.unpacked${path.sep}`,
-    );
-    const loadPath =
-      rawPath !== unpacked && fs.existsSync(unpacked) ? unpacked : rawPath;
-    args.db.loadExtension(loadPath);
-    args.logger.info("sqlite_vec_loaded", {});
-    return true;
-  } catch (error) {
-    args.logger.info("sqlite_vec_unavailable", {
-      message: error instanceof Error ? error.message : String(error),
-    });
-    return false;
-  }
-}
-
 /**
  * Ensure a `schema_version` table exists and return its current version.
  *
@@ -276,26 +238,9 @@ export function initDb(args: {
     const current = ensureSchemaVersion(conn);
     schemaVersion = current;
 
-    const sqliteVecAvailable = tryLoadSqliteVec({ db: conn, logger: args.logger });
-    const migrations = sqliteVecAvailable
-      ? [...MIGRATIONS_BASE, SQLITE_VEC_MIGRATION]
-      : MIGRATIONS_BASE;
-
-    const pendingBase = [...migrations]
+    const pending = [...MIGRATIONS_BASE]
       .filter((m) => m.version > current)
       .sort((a, b) => a.version - b.version);
-    const pending = [...pendingBase];
-
-    // Backfill optional vec migration when startup was previously degraded.
-    // Why: schema_version may already be at a higher value, so plain `> current`
-    // would permanently skip v8 once sqlite-vec becomes available later.
-    if (
-      sqliteVecAvailable &&
-      current >= SQLITE_VEC_MIGRATION.version &&
-      !tableExists(conn, SQLITE_VEC_TABLE)
-    ) {
-      pending.unshift(SQLITE_VEC_MIGRATION);
-    }
 
     const appliedVersions: number[] = [];
 

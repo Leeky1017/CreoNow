@@ -11,13 +11,6 @@ import {
 } from "../services/documents/documentService";
 import { MAX_DOCUMENT_SIZE_BYTES } from "../services/documents/documentCoreService";
 import { deriveContent } from "../services/documents/derive";
-import type { EmbeddingComputeRunner } from "../services/embedding/embeddingComputeOffload";
-import {
-  createEmbeddingQueue,
-  type EmbeddingQueue,
-  type EmbeddingQueueTask,
-} from "../services/embedding/embeddingQueue";
-import type { SemanticChunkIndexService } from "../services/embedding/semanticChunkIndexService";
 import type { KgRecognitionRuntime } from "../services/kg/kgRecognitionRuntime";
 import {
   runStateExtractionForChapterCompletion,
@@ -37,112 +30,6 @@ type SaveReason =
   | "status-change";
 
 const WORDS_PER_SECOND = 3;
-
-type SemanticAutosaveEmbeddingRuntime = Pick<EmbeddingQueue, "enqueue">;
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === "string" && error.trim().length > 0) {
-    return error;
-  }
-  return "unknown error";
-}
-
-function logSemanticUpsertFailed(args: {
-  logger: Logger;
-  projectId: string;
-  documentId: string;
-  code: string;
-  message: string;
-}): void {
-  args.logger.error("embedding_index_upsert_failed", {
-    code: args.code,
-    message: args.message,
-    project_id: args.projectId,
-    document_id: args.documentId,
-  });
-}
-
-/**
- * Create autosave runtime for semantic embedding upsert.
- *
- * Why: BE-EMR-S1/S2 requires autosave enqueue + compute offload instead of
- * synchronous upsert on file IPC save path.
- */
-export function createSemanticAutosaveEmbeddingRuntime(args: {
-  logger: Logger;
-  semanticIndex?: SemanticChunkIndexService;
-  computeRunner?: EmbeddingComputeRunner | null;
-  embeddingQueue?: Pick<EmbeddingQueue, "enqueue">;
-  debounceMs?: number;
-}): SemanticAutosaveEmbeddingRuntime | null {
-  const embeddingQueue = args.embeddingQueue;
-  if (embeddingQueue) {
-    return {
-      enqueue: (task) => {
-        embeddingQueue.enqueue(task);
-      },
-    };
-  }
-
-  const semanticIndex = args.semanticIndex;
-  const computeRunner = args.computeRunner;
-  if (!semanticIndex || !computeRunner) {
-    return null;
-  }
-
-  const queue = createEmbeddingQueue({
-    debounceMs: args.debounceMs,
-    run: async (task) => {
-      const runResult = await computeRunner.run({
-        execute: async (signal) => {
-          if (signal.aborted) {
-            return;
-          }
-          const upserted = semanticIndex.upsertDocument({
-            projectId: task.projectId,
-            documentId: task.documentId,
-            contentText: task.contentText,
-            updatedAt: task.updatedAt,
-          });
-          if (upserted && !upserted.ok) {
-            logSemanticUpsertFailed({
-              logger: args.logger,
-              projectId: task.projectId,
-              documentId: task.documentId,
-              code: upserted.error.code,
-              message: upserted.error.message,
-            });
-          }
-        },
-      });
-
-      if (runResult.status !== "completed") {
-        args.logger.error("embedding_index_upsert_runner_failed", {
-          status: runResult.status,
-          message: toErrorMessage(runResult.error),
-          project_id: task.projectId,
-          document_id: task.documentId,
-        });
-      }
-    },
-    onError: (error, task) => {
-      args.logger.error("embedding_index_upsert_queue_failed", {
-        message: toErrorMessage(error),
-        project_id: task.projectId,
-        document_id: task.documentId,
-      });
-    },
-  });
-
-  return {
-    enqueue: (task: EmbeddingQueueTask): void => {
-      queue.enqueue(task);
-    },
-  };
-}
 
 export function mapDocumentErrorToIpcError(error: DocumentError): IpcError {
   return {
@@ -189,9 +76,7 @@ type FileHandlerDeps = {
   logger: Logger;
   recognitionRuntime?: KgRecognitionRuntime | null;
   stateExtractor?: StateExtractor | null;
-  semanticIndex?: SemanticChunkIndexService;
-  computeRunner?: EmbeddingComputeRunner | null;
-  embeddingQueueDebounceMs?: number;
+  computeRunner?: { run: (args: { execute: (signal: AbortSignal) => Promise<void> }) => Promise<{ status: string; error?: unknown }> } | null;
 };
 
 function registerFileDocumentCrudHandlers(deps: FileHandlerDeps): void {
@@ -384,7 +269,6 @@ function registerFileDocumentCrudHandlers(deps: FileHandlerDeps): void {
 
 function registerFileDocumentContentHandlers(
   deps: FileHandlerDeps,
-  semanticAutosaveEmbeddingRuntime: SemanticAutosaveEmbeddingRuntime | null,
 ): void {
   deps.ipcMain.handle(
     "file:document:save",
@@ -520,22 +404,6 @@ function registerFileDocumentContentHandlers(
                   document_id: payload.documentId,
                 });
               }
-            });
-          }
-
-          if (
-            semanticAutosaveEmbeddingRuntime &&
-            payload.actor === "auto" &&
-            payload.reason === "autosave" &&
-            normalizedContentText.length > 0
-          ) {
-            queueMicrotask(() => {
-              semanticAutosaveEmbeddingRuntime.enqueue({
-                projectId: payload.projectId,
-                documentId: payload.documentId,
-                contentText: normalizedContentText,
-                updatedAt: res.data.updatedAt,
-              });
             });
           }
         } else {
@@ -747,15 +615,7 @@ function registerFileDocumentOperationHandlers(deps: FileHandlerDeps): void {
  * back across restarts without leaking DB details across IPC.
  */
 export function registerFileIpcHandlers(deps: FileHandlerDeps): void {
-  const semanticAutosaveEmbeddingRuntime =
-    createSemanticAutosaveEmbeddingRuntime({
-      logger: deps.logger,
-      semanticIndex: deps.semanticIndex,
-      computeRunner: deps.computeRunner,
-      debounceMs: deps.embeddingQueueDebounceMs,
-    });
-
   registerFileDocumentCrudHandlers(deps);
-  registerFileDocumentContentHandlers(deps, semanticAutosaveEmbeddingRuntime);
+  registerFileDocumentContentHandlers(deps);
   registerFileDocumentOperationHandlers(deps);
 }
