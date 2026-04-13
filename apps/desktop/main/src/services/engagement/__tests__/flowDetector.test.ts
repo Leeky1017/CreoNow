@@ -65,24 +65,25 @@ describe("flowDetector", () => {
 
   // ── 2. Sporadic keystrokes ────────────────────────────────────────
 
-  it("does not trigger flow for sporadic keystrokes (gap > 30s)", () => {
+  it("does not trigger flow for sporadic keystrokes (gap > maxKeystrokeGap)", () => {
     const fd = createFlowDetector();
     const baseTime = 1_000_000;
 
-    // Keystrokes 35s apart — each gap exceeds the 30s max
+    // Keystrokes 20s apart — each gap exceeds the 15s max
     fd.recordKeystroke(baseTime);
-    fd.recordKeystroke(baseTime + 35 * SEC);
-    fd.recordKeystroke(baseTime + 70 * SEC);
-    fd.recordKeystroke(baseTime + 105 * SEC);
+    fd.recordKeystroke(baseTime + 20 * SEC);
+    fd.recordKeystroke(baseTime + 40 * SEC);
+    fd.recordKeystroke(baseTime + 60 * SEC);
+    fd.recordKeystroke(baseTime + 80 * SEC);
+    fd.recordKeystroke(baseTime + 100 * SEC);
+    fd.recordKeystroke(baseTime + 120 * SEC);
     fd.recordKeystroke(baseTime + 140 * SEC);
-    fd.recordKeystroke(baseTime + 175 * SEC);
-    fd.recordKeystroke(baseTime + 210 * SEC);
-    fd.recordKeystroke(baseTime + 245 * SEC);
-    fd.recordKeystroke(baseTime + 280 * SEC);
-    fd.recordKeystroke(baseTime + 315 * SEC);
+    fd.recordKeystroke(baseTime + 160 * SEC);
+    fd.recordKeystroke(baseTime + 180 * SEC);
 
-    // Total span: 315s > 5 min, but no continuous chain
-    const state = fd.getFlowState(baseTime + 315 * SEC);
+    // Total span: 180s > 5 min threshold? No (only 3 min), but point is
+    // no continuous chain — each keystroke is isolated
+    const state = fd.getFlowState(baseTime + 180 * SEC);
     expect(state.isInFlow).toBe(false);
     expect(state.intensity).toBe("none");
   });
@@ -238,7 +239,7 @@ describe("flowDetector", () => {
     fd.recordKeystroke(baseTime + 6 * SEC); // 6s gap > 5s max
     fd.recordKeystroke(baseTime + 7 * SEC);
     fd.recordKeystroke(baseTime + 8 * SEC);
-    // Continuous chain is only 3s (from 6s to 8s), not 8s
+    // Continuous chain is only 2s (from 6s to 8s), not 8s
     expect(fd.getFlowState(baseTime + 8 * SEC).isInFlow).toBe(false);
   });
 
@@ -345,9 +346,9 @@ describe("flowDetector", () => {
       const fd = createFlowDetector();
       const base = 1_000_000;
 
-      // Type for 3 minutes, pause 25s (< 30s), type for 3 more minutes
+      // Type for 3 minutes, pause 10s (< 15s maxGap), type for 3 more minutes
       const firstRunEnd = simulateTyping(fd, base, 3 * MIN);
-      const resumeStart = firstRunEnd + 25 * SEC;
+      const resumeStart = firstRunEnd + 10 * SEC;
       const secondRunEnd = simulateTyping(fd, resumeStart, 3 * MIN);
 
       // Total continuous duration > 6 min → light flow
@@ -392,7 +393,7 @@ describe("flowDetector", () => {
   });
 
   describe("exit timeout vs maxGap interaction", () => {
-    it("maxGap (30s) breaks continuous chain before exitTimeout (60s)", () => {
+    it("maxGap (15s) breaks continuous chain before exitTimeout (60s)", () => {
       const fd = createFlowDetector();
       const base = 1_000_000;
 
@@ -400,9 +401,9 @@ describe("flowDetector", () => {
       const lastKeystroke = simulateTyping(fd, base, 6 * MIN);
       expect(fd.getFlowState(lastKeystroke).isInFlow).toBe(true);
 
-      // 35s later (> 30s maxGap but < 60s exitTimeout)
+      // 20s later (> 15s maxGap but < 60s exitTimeout)
       // Continuous chain is broken, but haven't hit exit timeout
-      const state = fd.getFlowState(lastKeystroke + 35 * SEC);
+      const state = fd.getFlowState(lastKeystroke + 20 * SEC);
       expect(state.isInFlow).toBe(false);
     });
   });
@@ -418,6 +419,132 @@ describe("flowDetector", () => {
       const state = fd.getFlowState(); // Uses Date.now()
       // Should be in flow since lightThreshold is 0
       expect(state.isInFlow).toBe(true);
+    });
+  });
+
+  // ── audit-driven edge cases ───────────────────────────────────────
+
+  describe("blur before any keystrokes", () => {
+    it("does not corrupt state when blur fires before any input", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 100,
+        maxKeystrokeGapMs: 50,
+      });
+
+      // Blur with no prior keystrokes → lastBlurTime = 0
+      fd.recordWindowBlur();
+      fd.recordWindowFocus();
+
+      // Type starting from timestamp 1 (after blur sentinel)
+      for (let t = 1; t <= 200; t += 10) {
+        fd.recordKeystroke(t);
+      }
+
+      const state = fd.getFlowState(200);
+      expect(state.isInFlow).toBe(true);
+      expect(state.intensity).toBe("light");
+    });
+  });
+
+  describe("monotonic timestamp enforcement", () => {
+    it("ignores out-of-order timestamps", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 50,
+        maxKeystrokeGapMs: 100,
+      });
+      const base = 1000;
+
+      // Normal sequence
+      fd.recordKeystroke(base);
+      fd.recordKeystroke(base + 20);
+      fd.recordKeystroke(base + 40);
+
+      // Out-of-order: should be silently ignored
+      fd.recordKeystroke(base + 10);
+      fd.recordKeystroke(base + 30);
+
+      // Continue normally
+      fd.recordKeystroke(base + 60);
+
+      // Duration should be 60ms (base to base+60), not corrupted
+      const state = fd.getFlowState(base + 60);
+      expect(state.isInFlow).toBe(true);
+      expect(state.duration).toBe(60);
+    });
+
+    it("ignores duplicate timestamps", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 50,
+        maxKeystrokeGapMs: 100,
+      });
+
+      fd.recordKeystroke(1000);
+      fd.recordKeystroke(1000); // duplicate — ignored
+      fd.recordKeystroke(1060);
+
+      const state = fd.getFlowState(1060);
+      expect(state.isInFlow).toBe(true);
+      expect(state.duration).toBe(60);
+    });
+  });
+
+  describe("future keystroke filtering", () => {
+    it("ignores keystrokes recorded after the query time", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 50,
+        maxKeystrokeGapMs: 100,
+      });
+
+      // Record keystrokes at 100, 200, 300
+      fd.recordKeystroke(100);
+      fd.recordKeystroke(200);
+      fd.recordKeystroke(300);
+
+      // Query at time 150 — keystroke at 200 and 300 are "future"
+      // Only keystroke at 100 is valid, duration = 150 - 100 = 50
+      const state = fd.getFlowState(150);
+      expect(state.isInFlow).toBe(true);
+      expect(state.duration).toBe(50);
+
+      // Query at time 50 — all keystrokes are "future"
+      const earlyState = fd.getFlowState(50);
+      expect(earlyState.isInFlow).toBe(false);
+    });
+  });
+
+  describe("blur boundary on latest keystroke", () => {
+    it("does not detect flow from pre-blur keystrokes after focus", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 0,
+        maxKeystrokeGapMs: 60_000,
+      });
+
+      // Single keystroke, then blur, then focus
+      fd.recordKeystroke(1000);
+      fd.recordWindowBlur();    // lastBlurTime = 1000
+      fd.recordWindowFocus();
+
+      // Query slightly after — the pre-blur keystroke should NOT count
+      const state = fd.getFlowState(1001);
+      expect(state.isInFlow).toBe(false);
+    });
+
+    it("detects flow only from post-blur keystrokes", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 0,
+        maxKeystrokeGapMs: 60_000,
+      });
+
+      // Keystroke, blur, focus, new keystroke
+      fd.recordKeystroke(1000);
+      fd.recordWindowBlur();    // lastBlurTime = 1000
+      fd.recordWindowFocus();
+      fd.recordKeystroke(2000); // post-blur
+
+      const state = fd.getFlowState(2000);
+      expect(state.isInFlow).toBe(true);
+      // Duration should be from the post-blur keystroke only
+      expect(state.duration).toBe(0);
     });
   });
 });

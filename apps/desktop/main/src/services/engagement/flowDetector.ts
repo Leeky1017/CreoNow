@@ -3,8 +3,13 @@
  * ## Responsibilities: Detect whether the user is in a writing flow state based
  *    on keystroke timing and window focus events. Emits a pure read-only
  *    {@link FlowState} snapshot — no side effects, no DB, no LLM.
+ * ## Scope: Preliminary light/deep flow primitive. Implements the IN_FLOW
+ *    detection from engagement-engine.md §机制8 (5min light, 15min deep,
+ *    gap < 15s per spec). The full 5-state machine (IDLE / WARMING_UP /
+ *    IN_FLOW / STUCK / COOLING) and delete-rate analysis are planned as
+ *    a follow-up — see engagement-engine.md §机制8 for the target spec.
  * ## Does not do: UI mutation, IPC, event emission, persistence, delete-rate
- *    analysis (planned — see engagement-engine.md §机制8 STUCK / COOLING states).
+ *    analysis, STUCK / COOLING state detection.
  * ## Dependency direction: None — zero imports. Pure computation.
  * ## Invariants: P-E (engagement constraint — getFlowState ≤ 200ms).
  * ## Performance: O(1) amortized for getFlowState(); keystroke buffer bounded
@@ -43,18 +48,19 @@ export interface FlowDetectorConfig {
   deepFlowThresholdMs?: number;
   /**
    * Max gap between keystrokes to still count as "continuous typing".
-   * Default: 30s.
-   * @why 30s is generous for creative writing — authors pause to think
-   * between sentences. Shorter gaps (e.g. 5s) would miss legitimate flow.
-   * Csíkszentmihályi's research shows writers maintain flow state across
-   * inter-sentence pauses of up to ~20-30s.
+   * Default: 15s.
+   * @why engagement-engine.md §机制8 defines IN_FLOW as "停顿 < 15 秒".
+   * Gaps >= 15s break the continuous chain. The spec separately defines
+   * STUCK_PAUSE = 30s for the STUCK state (not yet implemented).
    */
   maxKeystrokeGapMs?: number;
   /**
    * Silence duration that exits flow entirely and resets state.
    * Default: 60s.
-   * @why 60s timeout: engagement-engine.md spec. A full minute without
-   * input means the user has context-switched or walked away.
+   * @why 2× the spec's STUCK_PAUSE (30s). A full minute without input
+   * means the user has context-switched or walked away. The spec does not
+   * define an explicit exit/reset threshold — this is a conservative
+   * heuristic for the simplified 2-state model (flow / no-flow).
    */
   flowExitTimeoutMs?: number;
 }
@@ -63,8 +69,8 @@ export interface FlowDetectorConfig {
 
 const DEFAULT_LIGHT_FLOW_MS = 5 * 60 * 1000; // 5 min — Csíkszentmihályi conservative median (engagement-engine.md)
 const DEFAULT_DEEP_FLOW_MS = 15 * 60 * 1000; // 15 min — sustained creative session
-const DEFAULT_MAX_GAP_MS = 30_000; // 30s — inter-sentence creative pause ceiling
-const DEFAULT_EXIT_TIMEOUT_MS = 60_000; // 60s — full context-switch threshold
+const DEFAULT_MAX_GAP_MS = 15_000; // 15s — engagement-engine.md §机制8 IN_FLOW: "停顿 < 15 秒"
+const DEFAULT_EXIT_TIMEOUT_MS = 60_000; // 60s — 2× STUCK_PAUSE, conservative context-switch heuristic
 
 const NO_FLOW: FlowState = Object.freeze({
   isInFlow: false,
@@ -134,29 +140,41 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
   }
 
   /**
-   * Compute the start of continuous typing — walk backwards from the most
-   * recent keystroke and find the earliest point where all consecutive gaps
-   * are ≤ maxGap AND the keystroke is after the last blur event.
+   * Compute the start of continuous typing — walk backwards from the
+   * effective latest keystroke (at `latestIdx`) and find the earliest
+   * point where all consecutive gaps are ≤ maxGap AND the keystroke is
+   * after the last blur event.
    *
    * Returns the timestamp of the first keystroke in the continuous run,
-   * or null if there are no keystrokes or the latest keystroke is stale.
+   * or null if there are no valid keystrokes or the chain is empty.
    */
-  function computeContinuousStart(now: number): number | null {
-    if (keystrokes.length === 0) {
+  function computeContinuousStart(
+    now: number,
+    latestIdx: number,
+  ): number | null {
+    if (latestIdx < 0) {
       return null;
     }
 
-    const latest = keystrokes[keystrokes.length - 1];
+    const latest = keystrokes[latestIdx];
 
     // If the latest keystroke is too old, no active run.
     if (now - latest > maxGap) {
       return null;
     }
 
+    // Latest keystroke must be after blur boundary to start a chain.
+    // @why Without this check, a single keystroke recorded before blur
+    // could be treated as the start of a post-blur chain, violating the
+    // documented contract: "focus alone does NOT restore flow."
+    if (lastBlurTime !== null && latest <= lastBlurTime) {
+      return null;
+    }
+
     // Walk backwards to find the chain of continuous keystrokes.
     // Stop at any gap > maxGap OR any keystroke at/before the last blur.
     let continuousStart = latest;
-    for (let i = keystrokes.length - 2; i >= 0; i--) {
+    for (let i = latestIdx - 1; i >= 0; i--) {
       const gap = keystrokes[i + 1] - keystrokes[i];
       if (gap > maxGap) {
         break;
@@ -174,6 +192,15 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
 
   function recordKeystroke(timestamp?: number): void {
     const ts = timestamp ?? Date.now();
+
+    // Enforce monotonic timestamps — ignore out-of-order or duplicate events.
+    // @why Sorted invariant is required by pruneOldKeystrokes (prefix trim)
+    // and computeContinuousStart (backward gap scan). Real keystrokes from
+    // Date.now() are monotonic; this guard protects against injected test
+    // timestamps or clock drift.
+    if (keystrokes.length > 0 && ts <= keystrokes[keystrokes.length - 1]) {
+      return;
+    }
 
     keystrokes.push(ts);
     pruneOldKeystrokes(ts);
@@ -208,7 +235,18 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
       return NO_FLOW;
     }
 
-    const latest = keystrokes[keystrokes.length - 1];
+    // Find the latest keystroke that is <= currentTime.
+    // @why Callers may query a past point in time (e.g. deterministic tests).
+    // Keystrokes recorded after `now` must not influence the result.
+    let effectiveLatestIdx = keystrokes.length - 1;
+    while (effectiveLatestIdx >= 0 && keystrokes[effectiveLatestIdx] > currentTime) {
+      effectiveLatestIdx--;
+    }
+    if (effectiveLatestIdx < 0) {
+      return NO_FLOW;
+    }
+
+    const latest = keystrokes[effectiveLatestIdx];
 
     // Exit timeout: > exitTimeout since last keystroke → reset.
     if (currentTime - latest > exitTimeout) {
@@ -222,7 +260,7 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
 
     // Recompute continuous start every call — keystroke buffer is bounded,
     // so this backward scan is O(n) where n ≤ maxRetentionMs / typical_interval.
-    const continuousStart = computeContinuousStart(currentTime);
+    const continuousStart = computeContinuousStart(currentTime, effectiveLatestIdx);
 
     if (continuousStart === null) {
       return NO_FLOW;
