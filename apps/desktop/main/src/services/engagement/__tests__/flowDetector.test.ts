@@ -1,7 +1,7 @@
 /**
  * flowDetector unit tests — 心流状态检测器
  *
- * 28 tests covering:
+ * 31 tests covering:
  *   - Core state machine: initial, sporadic (gap > 15s), light/deep flow
  *   - Window events: blur breaks flow, focus alone doesn't restore
  *   - Timing: exit timeout, duration accuracy, gap boundary (>= maxGap)
@@ -443,7 +443,7 @@ describe("flowDetector", () => {
         maxKeystrokeGapMs: 50,
       });
 
-      // Blur with no prior keystrokes → lastBlurTime = 0
+      // Blur with no prior keystrokes → lastBlurTime = -1 (sentinel)
       fd.recordWindowBlur();
       fd.recordWindowFocus();
 
@@ -638,6 +638,78 @@ describe("flowDetector", () => {
       expect(state.isInFlow).toBe(true);
       // Duration from new chain start (1100), not from old chain (0)
       expect(state.duration).toBe(200);
+    });
+  });
+
+  // ── R4 regression tests ───────────────────────────────────────────
+
+  describe("keystrokes while blurred are ignored", () => {
+    it("does not count keystrokes recorded while window is blurred", () => {
+      // Duck R4 finding: recordKeystroke() accepted input while blurred,
+      // allowing chain accumulation that reported flow after refocus.
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 100,
+        maxKeystrokeGapMs: 200,
+      });
+
+      fd.recordKeystroke(0);
+      fd.recordWindowBlur();
+
+      // Attempt to type while blurred — these should all be ignored
+      for (let t = 10; t <= 200; t += 10) {
+        fd.recordKeystroke(t);
+      }
+
+      fd.recordWindowFocus();
+      const state = fd.getFlowState(200);
+      // Must NOT be in flow — blurred keystrokes don't count
+      expect(state.isInFlow).toBe(false);
+    });
+
+    it("can re-enter flow only with post-focus keystrokes", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 100,
+        maxKeystrokeGapMs: 200,
+      });
+
+      fd.recordKeystroke(0);
+      fd.recordWindowBlur();
+
+      // Blurred keystrokes — ignored
+      fd.recordKeystroke(50);
+      fd.recordKeystroke(100);
+
+      fd.recordWindowFocus();
+
+      // Now type post-focus for >100ms
+      fd.recordKeystroke(150);
+      fd.recordKeystroke(200);
+      fd.recordKeystroke(260);
+
+      const state = fd.getFlowState(260);
+      expect(state.isInFlow).toBe(true);
+      // Duration from first post-focus keystroke (150), not from pre-blur (0)
+      expect(state.duration).toBe(110);
+    });
+  });
+
+  describe("exit timeout boundary consistency", () => {
+    it("exits flow at exactly exitTimeout (>= semantics)", () => {
+      // Duck R4 finding: exit used > instead of >=, inconsistent with maxGap.
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 100,
+        maxKeystrokeGapMs: 100_000, // larger than exitTimeout to isolate
+        flowExitTimeoutMs: 60_000,
+      });
+      fd.recordKeystroke(0);
+
+      // At exactly 60000ms → should be NO flow (>= exitTimeout)
+      const atExact = fd.getFlowState(60_000);
+      expect(atExact.isInFlow).toBe(false);
+
+      // One ms before → still in flow
+      const beforeExit = fd.getFlowState(59_999);
+      expect(beforeExit.isInFlow).toBe(true);
     });
   });
 });

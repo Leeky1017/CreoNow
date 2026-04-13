@@ -206,6 +206,13 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
   // ── public API ────────────────────────────────────────────────────
 
   function recordKeystroke(timestamp?: number): void {
+    // Ignore keystrokes when window is not focused — blur is a hard break.
+    // @why Stray/racing key events arriving after blur must not extend
+    // or start a chain that would report flow after the next focus.
+    if (!windowFocused) {
+      return;
+    }
+
     const ts = timestamp ?? Date.now();
 
     // Enforce monotonic timestamps — ignore out-of-order or duplicate events.
@@ -280,8 +287,9 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
 
     const latest = keystrokes[effectiveLatestIdx];
 
-    // Exit timeout: > exitTimeout since last keystroke → reset.
-    if (currentTime - latest > exitTimeout) {
+    // Exit timeout: >= exitTimeout since last keystroke → no flow.
+    // @why `>=` for consistency with maxGap boundary semantics.
+    if (currentTime - latest >= exitTimeout) {
       return NO_FLOW;
     }
 
