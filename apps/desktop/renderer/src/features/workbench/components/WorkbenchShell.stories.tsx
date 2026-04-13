@@ -165,12 +165,12 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
             </section>}
       </aside>}
     </div>
-    {args.zenMode ? null : <footer className="status-bar">
+    <footer className="status-bar" hidden={args.zenMode} {...(args.zenMode && { inert: true })}>
       <span className="status-bar__group">{t("status.projectDocument", { project: t("project.defaultName"), document: t("document.defaultTitle") })}</span>
       <span className="status-bar__group">{t("status.wordCount", { count: 128 })}</span>
       <span className="status-bar__group">{t("status.saved")}</span>
       <span className="status-bar__group">01/01 12:00</span>
-    </footer>}
+    </footer>
   </main>;
 }
 

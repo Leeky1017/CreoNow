@@ -208,6 +208,15 @@ export function usePanelLayout() {
         return;
       }
 
+      // @why Block Ctrl+\ and Ctrl+L shortcuts while zen mode is active (F-01 R4).
+      // Without this guard the user could enter zen mode, press Ctrl+\ or Ctrl+L,
+      // mutate sidebar/panel collapse state, and then exit zen into a layout that
+      // differs from what they expect. Shift+Z (above) is intentionally exempt so
+      // the user can always exit zen via keyboard.
+      if (zenMode) {
+        return;
+      }
+
       if (event.key === "\\") {
         event.preventDefault();
         setSidebarCollapsed((current) => !current);
@@ -230,7 +239,7 @@ export function usePanelLayout() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [rightPanelCollapsed]);
+  }, [rightPanelCollapsed, zenMode]);
 
   const handleLeftPanelSelect = useCallback((panelId: LeftPanelId) => {
     if (activeLeftPanel === panelId) {

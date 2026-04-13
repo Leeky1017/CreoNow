@@ -3384,4 +3384,44 @@ describe("WorkbenchApp", () => {
     expect(frame).not.toHaveClass("workbench-frame--zen");
     expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("false");
   });
+
+  it("blocks Ctrl+\\ and Ctrl+L shortcuts while zen mode is active", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+
+    // Verify sidebar and right panel are visible before zen mode.
+    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+    expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).not.toBe("true");
+    expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).not.toBe("true");
+
+    // Enter zen mode.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).toHaveClass("workbench-frame--zen");
+
+    // Attempt Ctrl+\ (toggle sidebar) — should be blocked in zen mode.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).not.toBe("true");
+
+    // Attempt Ctrl+L (toggle right panel) — should be blocked in zen mode.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
+    expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).not.toBe("true");
+
+    // Exit zen mode.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // After exiting zen, sidebar and panel should still be in their original state.
+    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+    expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
+
+    // Now Ctrl+\ and Ctrl+L should work normally outside zen mode.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
+    expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).toBe("true");
+  });
 });

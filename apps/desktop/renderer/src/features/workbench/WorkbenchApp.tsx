@@ -741,8 +741,16 @@ function WorkbenchShell() {
       style={frameStyle}
     >
       {/* @why Zen mode uses hidden+inert instead of unmounting (F-01 R3) to
-          preserve component state (e.g. SettingsPage draft edits). hidden removes
-          from visual flow; inert prevents keyboard/focus interaction. */}
+          preserve component state (e.g. SettingsPage draft edits).
+          • `hidden` is the PRIMARY mechanism — it removes elements from visual
+            flow and is fully supported in all browsers and React versions.
+          • `inert` is a FORWARD-COMPATIBLE annotation that will work properly
+            in React 19+ (preventing keyboard/focus interaction). On React 18,
+            the boolean `true` is serialised as the string "true" rather than
+            the empty string the spec requires, so `hidden` alone provides
+            the correct behaviour today. No imperative ref workaround is needed
+            because `hidden` already hides content.
+          Remove this note after upgrading to React 19. */}
       <aside className="icon-rail" hidden={layout.zenMode} inert={layout.zenMode || undefined} aria-label={t("app.title")}>
         <div className="icon-rail__group">
           {LEFT_PANEL_ITEMS.filter((item) => item.placement === "top").map((item) => {
