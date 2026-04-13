@@ -85,7 +85,9 @@ const RECENT_EDIT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
  *
  * F3: Uses LEFT JOIN with document_versions to derive the last *content* edit
  *   timestamp. documents.updated_at can be bumped by metadata changes (reorders,
- *   status changes). document_versions.created_at reflects actual content snapshots.
+ *   status changes). The subquery filters to content-edit reasons only (excludes
+ *   status-change, pre-rollback, rollback, branch-merge) so that metadata-only
+ *   snapshots don't affect recency ordering.
  *   Falls back to documents.updated_at when no version history exists.
  *
  * F4: Uses ROW_NUMBER() OVER (ORDER BY sort_order ASC) to compute 1-based
@@ -111,6 +113,7 @@ const SQL_CHAPTER_PROGRESS = `
   LEFT JOIN (
     SELECT document_id, MAX(created_at) AS last_content_at
     FROM document_versions
+    WHERE reason NOT IN ('status-change', 'pre-rollback', 'rollback', 'branch-merge')
     GROUP BY document_id
   ) lv ON lv.document_id = d.document_id
   WHERE d.project_id = ? AND d.type = 'chapter'
@@ -150,6 +153,10 @@ const SQL_ACTIVE_FORESHADOWING = `
  *   TASK-P3-08 lists 3 data sources: documents, kg_entities, AND user_memory (L0).
  *   This query provides the L0 component for interruption point enrichment.
  *
+ * Scope precedence: project > global. A project-scoped memory always wins over
+ * a newer global one, matching the repo's memory ordering convention
+ * (memoryService.ts prefers narrower scope first).
+ *
  * @invariant INV-4: Memory-First — L0 is always-inject layer. We read the most
  *   recent item to provide writing session context.
  */
@@ -161,7 +168,9 @@ const SQL_L0_MEMORY = `
       scope = 'global'
       OR (scope = 'project' AND project_id = ?)
     )
-  ORDER BY updated_at DESC
+  ORDER BY
+    CASE WHEN scope = 'project' THEN 0 ELSE 1 END,
+    updated_at DESC
   LIMIT 1
 `;
 

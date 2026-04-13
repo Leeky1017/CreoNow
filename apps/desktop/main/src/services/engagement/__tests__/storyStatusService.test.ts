@@ -666,4 +666,45 @@ describe("StoryStatusService", () => {
       expect(l0MemoryStmt.get).not.toHaveBeenCalled();
     });
   });
+
+  // ── 9. SQL correctness notes ────────────────────────────────────
+
+  describe("SQL correctness design documentation", () => {
+    it("chapter progress query filters document_versions to content-edit reasons", () => {
+      // Duck R2 F1: document_versions includes metadata-only snapshots
+      // (status-change, pre-rollback, rollback, branch-merge). The SQL must
+      // exclude them so that only actual content edits drive recency.
+      setup({ chapterRow: makeChapterRow() });
+
+      service.getStatus(PROJECT_ID);
+
+      // The SQL string is validated at prepare-time; verify it contains the
+      // NOT IN clause that excludes metadata-only snapshot reasons.
+      const prepareCalls = (db.prepare as Mock).mock.calls;
+      const chapterSql = prepareCalls.find((c: string[]) =>
+        c[0].includes("document_versions"),
+      );
+      expect(chapterSql).toBeDefined();
+      expect(chapterSql![0]).toContain("reason NOT IN");
+      expect(chapterSql![0]).toContain("status-change");
+      expect(chapterSql![0]).toContain("pre-rollback");
+      expect(chapterSql![0]).toContain("rollback");
+      expect(chapterSql![0]).toContain("branch-merge");
+    });
+
+    it("L0 memory query prefers project scope over global", () => {
+      // Duck R2 F2: narrower scope should win over newer global memory.
+      setup({ chapterRow: makeChapterRow() });
+
+      service.getStatus(PROJECT_ID);
+
+      const prepareCalls = (db.prepare as Mock).mock.calls;
+      const l0Sql = prepareCalls.find((c: string[]) =>
+        c[0].includes("user_memory"),
+      );
+      expect(l0Sql).toBeDefined();
+      // Verify scope-priority ordering exists in the SQL
+      expect(l0Sql![0]).toContain("CASE WHEN scope = 'project' THEN 0 ELSE 1 END");
+    });
+  });
 });
