@@ -449,35 +449,6 @@ const SEARCH_REPLACE_SKIPPED_ITEM_SCHEMA = s.object({
   message: s.optional(s.string()),
 });
 
-const EMBEDDING_SEARCH_RESULT_SCHEMA = s.object({
-  chunkId: s.string(),
-  documentId: s.string(),
-  text: s.string(),
-  score: s.number(),
-  startOffset: s.number(),
-  endOffset: s.number(),
-});
-
-const EMBEDDING_SEARCH_ISOLATION_SCHEMA = s.object({
-  code: s.literal("SEARCH_DATA_CORRUPTED"),
-  isolatedChunkIds: s.array(s.string()),
-});
-
-const RAG_CHUNK_SCHEMA = s.object({
-  chunkId: s.string(),
-  documentId: s.string(),
-  text: s.string(),
-  score: s.number(),
-  tokenEstimate: s.number(),
-});
-
-const RAG_CONFIG_SCHEMA = s.object({
-  topK: s.number(),
-  minScore: s.number(),
-  maxTokens: s.number(),
-  model: s.optional(s.string()),
-});
-
 const STATS_SUMMARY_SCHEMA = s.object({
   wordsWritten: s.number(),
   writingSeconds: s.number(),
@@ -1765,85 +1736,6 @@ export const ipcContract = {
         snapshotIds: s.array(s.string()),
         skipped: s.array(SEARCH_REPLACE_SKIPPED_ITEM_SCHEMA),
       }),
-    },
-    "embedding:text:generate": {
-      request: s.object({
-        texts: s.array(s.string()),
-        model: s.optional(s.string()),
-      }),
-      response: s.object({
-        vectors: s.array(s.array(s.number())),
-        dimension: s.number(),
-      }),
-    },
-    "embedding:semantic:search": {
-      request: s.object({
-        projectId: s.string(),
-        queryText: s.string(),
-        topK: s.optional(s.number()),
-        minScore: s.optional(s.number()),
-        model: s.optional(s.string()),
-      }),
-      response: s.object({
-        mode: s.union(s.literal("semantic"), s.literal("fts-fallback")),
-        notice: s.optional(s.string()),
-        fallback: s.optional(
-          s.object({
-            from: s.literal("semantic"),
-            to: s.literal("fts"),
-            reason: s.string(),
-          }),
-        ),
-        isolation: s.optional(EMBEDDING_SEARCH_ISOLATION_SCHEMA),
-        results: s.array(EMBEDDING_SEARCH_RESULT_SCHEMA),
-      }),
-    },
-    "embedding:index:reindex": {
-      request: s.object({
-        projectId: s.string(),
-        batchSize: s.optional(s.number()),
-        model: s.optional(s.string()),
-      }),
-      response: s.object({
-        indexedDocuments: s.number(),
-        indexedChunks: s.number(),
-        changedChunks: s.number(),
-      }),
-    },
-    "rag:context:retrieve": {
-      request: s.object({
-        projectId: s.string(),
-        queryText: s.string(),
-        topK: s.optional(s.number()),
-        minScore: s.optional(s.number()),
-        maxTokens: s.optional(s.number()),
-        model: s.optional(s.string()),
-      }),
-      response: s.object({
-        chunks: s.array(RAG_CHUNK_SCHEMA),
-        truncated: s.boolean(),
-        usedTokens: s.number(),
-        fallback: s.optional(
-          s.object({
-            from: s.literal("semantic"),
-            to: s.literal("fts"),
-            reason: s.string(),
-          }),
-        ),
-      }),
-    },
-    "rag:config:get": {
-      request: s.object({}),
-      response: RAG_CONFIG_SCHEMA,
-    },
-    "rag:config:update": {
-      request: s.object({
-        topK: s.optional(s.number()),
-        minScore: s.optional(s.number()),
-        maxTokens: s.optional(s.number()),
-        model: s.optional(s.string()),
-      }),
-      response: RAG_CONFIG_SCHEMA,
     },
     "knowledge:entity:create": {
       request: s.object({
