@@ -154,10 +154,31 @@ function readVersionId(data: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-interface PostWritingHook {
+/**
+ * Context passed to each post-writing hook in Stage 8.
+ *
+ * @invariant INV-8 — every hook receives the same immutable snapshot;
+ *   hooks must not mutate these fields.
+ */
+export interface PostWritingHookContext {
+  readonly requestId: string;
+  readonly documentId: string;
+  readonly projectId?: string;
+  readonly sessionId?: string;
+  readonly fullText: string;
+}
+
+export interface PostWritingHook {
   name: string;
   enabled?: boolean;
-  execute(context: unknown): Promise<void>;
+  /**
+   * Lower number = higher priority, runs first. Default 100.
+   * @why INV-8 spec requires priority-ordered execution and supports
+   *   dynamic hook addition — without explicit priority, insertion order
+   *   is fragile when hooks are added at runtime.
+   */
+  priority?: number;
+  execute(context: PostWritingHookContext): Promise<void>;
 }
 
 export interface OrchestratorConfig {
@@ -167,6 +188,8 @@ export interface OrchestratorConfig {
   postWritingHooks: PostWritingHook[];
   defaultTimeoutMs: number;
   costTracker?: Pick<CostTracker, "checkBudget" | "recordUsage" | "getSessionCost">;
+  /** Optional logger for Stage 8 hook execution diagnostics. */
+  logger?: Pick<import("../../logging/logger").Logger, "info" | "error">;
   /** P2: handler for Agentic Loop tool execution (read-only registry) */
   toolUseHandler?: ToolUseHandler;
   versionWorkflow?: Pick<
@@ -1122,20 +1145,42 @@ export function createWritingOrchestrator(
 
         yield makeEvent("write-back-done", requestId, { versionId });
 
-        // Stage 8: Post-writing hooks
+        // Stage 8: Post-writing hooks (INV-8)
+        // Sort by priority (lower = runs first); default priority 100.
+        const sortedHooks = [...config.postWritingHooks].sort(
+          (a, b) => (a.priority ?? 100) - (b.priority ?? 100),
+        );
+        const hookContext: PostWritingHookContext = {
+          requestId,
+          documentId: request.documentId,
+          projectId: request.projectId,
+          sessionId: request.sessionId,
+          fullText,
+        };
         const executedHooks: string[] = [];
-        for (const hook of config.postWritingHooks) {
+        const failedHooks: string[] = [];
+        for (const hook of sortedHooks) {
           if (hook.enabled === false) continue;
           try {
-            await hook.execute({ requestId, documentId: request.documentId, fullText });
+            await hook.execute(hookContext);
             executedHooks.push(hook.name);
-          } catch {
-            executedHooks.push(hook.name);
+          } catch (err) {
+            failedHooks.push(hook.name);
+            config.logger?.error(`post-writing-hook-failed:${hook.name}`, {
+              requestId,
+              error: String(err),
+            });
             // Hook failure doesn't fail pipeline
           }
         }
 
-        yield makeEvent("hooks-done", requestId, { executed: executedHooks });
+        // hooks-done semantics:
+        //  - `executed`: hooks whose execute() resolved without throwing.
+        //    For fire-and-forget hooks (e.g. quality-check) this means the
+        //    async work was _launched_ successfully; later failures are
+        //    captured by the hook's own .catch() logging, not reflected here.
+        //  - `failed`: hooks whose execute() threw synchronously or rejected.
+        yield makeEvent("hooks-done", requestId, { executed: executedHooks, failed: failedHooks });
 
         taskStates.set(requestId, "completed");
         pruneTaskStates();

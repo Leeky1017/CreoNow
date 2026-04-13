@@ -74,6 +74,10 @@ import { createDocumentCoreService } from "../services/documents/documentCoreSer
 import { createVersionWorkflowService } from "../services/documents/versionService";
 import { editorSchema } from "../services/editor/prosemirrorSchema";
 import type { CostTracker } from "../services/ai/costTracker";
+import { buildPostWritingHookChain } from "../services/skills/postWritingHooks";
+import { matchEntitiesCached } from "../services/kg/entityMatcher";
+import { createSessionMemoryService } from "../services/memory/sessionMemoryService";
+import { createKgMutationSkill } from "../services/skills/kgMutationSkill";
 
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
@@ -1700,19 +1704,63 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     postWritingHooks: [
       {
         name: "cost-tracking",
+        priority: 10,
         async execute() {
           deps.costTracker?.checkBudget();
         },
       },
       {
         name: "auto-save-version",
+        priority: 20,
         async execute() {
           return;
         },
       },
+       // INV-8: Wire the post-writing hooks from the hook chain factory.
+      // kg-update and memory-extract are fully activated with real services.
+      // quality-check is omitted: P3SkillExecutor needs contextEngine +
+      // eventBus which are not yet available in the IPC scope. It will be
+      // registered once the P3 skill infrastructure is wired here.
+      ...buildPostWritingHookChain({
+        kgUpdate: {
+          scanEntities: matchEntitiesCached,
+          kgService: kgServiceForContext ?? {
+            entityList: () => ({
+              ok: false as const,
+              error: { code: "INTERNAL" as const, message: "Database not available" },
+            }),
+          },
+          // INV-6: Route KG writes through kgMutationSkill gateway.
+          kgMutationSkill: kgServiceForContext
+            ? createKgMutationSkill({ kgService: kgServiceForContext })
+            : {
+                execute: () => ({
+                  ok: false as const,
+                  error: { code: "INTERNAL" as const, message: "Database not available" },
+                }),
+              },
+          logger: deps.logger,
+        },
+        memoryExtract: {
+          sessionMemory: deps.db
+            ? createSessionMemoryService({ db: deps.db })
+            : {
+                create: () => ({
+                  ok: false as const,
+                  error: { code: "INTERNAL" as const, message: "Database not available" },
+                }),
+              },
+          logger: deps.logger,
+        },
+        // qualityCheck intentionally omitted — P3SkillExecutor requires
+        // contextEngine + eventBus which are not yet available in the IPC
+        // scope. The quality-check hook will be registered once the P3 skill
+        // infrastructure lands. See PostWritingHookChainDeps.qualityCheck.
+      }),
     ],
     defaultTimeoutMs: 30_000,
     costTracker: deps.costTracker,
+    logger: deps.logger,
     prepareRequest: async (request) => {
       const prepared = await prepareWritingRequest({
         ctx: {
