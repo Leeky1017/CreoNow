@@ -13,6 +13,7 @@
 
 export {
   createNarrativeCompactService,
+  isProtectedFragment,
   BUILTIN_AUTO_COMPACT_SKILL_ID,
   type NarrativeCompactService,
   type NarrativeCompactConfig,

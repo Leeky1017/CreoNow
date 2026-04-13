@@ -18,6 +18,7 @@ import { estimateTokens } from "@shared/tokenBudget";
 
 import {
   createNarrativeCompactService,
+  isProtectedFragment,
   type NarrativeCompactService,
   type ContextFragment,
   type FragmentPriority,
@@ -727,6 +728,320 @@ describe("NarrativeCompactService", () => {
       expect(callArgs.model).toBe("claude-sonnet-4");
 
       customModelService.dispose();
+    });
+  });
+
+  // ─── R1 Finding 1: Fail-closed protection ────────────────────
+  //     isProtectedFragment must guard against misconfigured
+  //     compactable: true on protected sourceTypes.
+
+  describe("fail-closed protection (R1 Finding 1)", () => {
+    it("isProtectedFragment returns true for compactable:false", () => {
+      const frag = makeFragment({ compactable: false, priority: "old" });
+      expect(isProtectedFragment(frag)).toBe(true);
+    });
+
+    it("isProtectedFragment returns true for priority:protected even if compactable:true", () => {
+      const frag = makeFragment({ compactable: true, priority: "protected" });
+      expect(isProtectedFragment(frag)).toBe(true);
+    });
+
+    it("isProtectedFragment returns true for kg-entity sourceType even if compactable:true", () => {
+      const frag = makeFragment({
+        compactable: true,
+        priority: "old",
+        metadata: { sourceType: "kg-entity" },
+      });
+      expect(isProtectedFragment(frag)).toBe(true);
+    });
+
+    it("isProtectedFragment returns true for all protected sourceTypes", () => {
+      const protectedTypes = [
+        "kg-entity",
+        "character-setting",
+        "foreshadowing",
+        "world-rule",
+        "user-marked",
+      ] as const;
+
+      for (const sourceType of protectedTypes) {
+        const frag = makeFragment({
+          compactable: true,
+          priority: "old",
+          metadata: { sourceType },
+        });
+        expect(isProtectedFragment(frag)).toBe(true);
+      }
+    });
+
+    it("isProtectedFragment returns false for conversation sourceType with compactable:true", () => {
+      const frag = makeFragment({
+        compactable: true,
+        priority: "old",
+        metadata: { sourceType: "conversation" },
+      });
+      expect(isProtectedFragment(frag)).toBe(false);
+    });
+
+    it("isProtectedFragment returns false for document-excerpt sourceType with compactable:true", () => {
+      const frag = makeFragment({
+        compactable: true,
+        priority: "old",
+        metadata: { sourceType: "document-excerpt" },
+      });
+      expect(isProtectedFragment(frag)).toBe(false);
+    });
+
+    it("never compresses kg-entity even when compactable:true (misconfigured)", async () => {
+      const kgFrag = makeFragment({
+        id: "kg-misconfigured",
+        content: makeLongCjkContent(300),
+        priority: "old",
+        compactable: true, // BUG in caller — but we must still protect
+        metadata: { sourceType: "kg-entity", entityId: "entity-123" },
+      });
+      const regularFrag = makeFragment({
+        id: "regular-ok",
+        content: makeLongCjkContent(300),
+        priority: "old",
+        compactable: true,
+        metadata: { sourceType: "conversation" },
+      });
+
+      // Budget so tight that at least one must be compressed
+      const totalTokens = estimateTokens(kgFrag.content) + estimateTokens(regularFrag.content);
+      const budget = Math.floor(totalTokens * 0.6);
+
+      const result = await service.compactContext([kgFrag, regularFrag], budget);
+
+      // kg-entity must NOT be compressed even with compactable:true
+      const kgResult = result.fragments.find((f) => f.originalId === "kg-misconfigured");
+      expect(kgResult?.wasCompressed).toBe(false);
+      expect(kgResult?.content).toBe(kgFrag.content);
+
+      // regular fragment should be compressed instead
+      const regularResult = result.fragments.find((f) => f.originalId === "regular-ok");
+      expect(regularResult?.wasCompressed).toBe(true);
+
+      // protectedCount must reflect the fail-closed check
+      expect(result.protectedCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it("counts protectedCount using fail-closed logic (not just compactable flag)", async () => {
+      const fragments = [
+        makeFragment({
+          id: "foreshadow-misconfig",
+          content: makeLongCjkContent(100),
+          priority: "old",
+          compactable: true,
+          metadata: { sourceType: "foreshadowing" },
+        }),
+        makeFragment({
+          id: "world-rule-misconfig",
+          content: makeLongCjkContent(100),
+          priority: "old",
+          compactable: true,
+          metadata: { sourceType: "world-rule" },
+        }),
+        makeFragment({
+          id: "regular",
+          content: makeLongCjkContent(100),
+          priority: "old",
+          compactable: true,
+          metadata: { sourceType: "conversation" },
+        }),
+      ];
+
+      // Budget so tight compression is attempted
+      const totalTokens = fragments.reduce(
+        (sum, f) => sum + estimateTokens(f.content), 0,
+      );
+      const budget = Math.floor(totalTokens * 0.5);
+
+      const result = await service.compactContext(fragments, budget);
+
+      // 2 fragments have protected sourceTypes even though compactable is true
+      expect(result.protectedCount).toBe(2);
+    });
+  });
+
+  // ─── R1 Finding 2: Inflight dedup ────────────────────────────
+  //     Concurrent compactContext calls for the same content must
+  //     share a single Skill invocation.
+
+  describe("inflight dedup (R1 Finding 2)", () => {
+    it("concurrent calls for same content trigger only one Skill invocation", async () => {
+      const content = makeLongCjkContent(200);
+      const budget = 20;
+
+      // Launch two compactContext calls concurrently with the same content
+      const [result1, result2] = await Promise.all([
+        service.compactContext(
+          [makeFragment({ id: "dup-a", content, priority: "old", compactable: true })],
+          budget,
+        ),
+        service.compactContext(
+          [makeFragment({ id: "dup-b", content, priority: "old", compactable: true })],
+          budget,
+        ),
+      ]);
+
+      // Only 1 Skill invocation for both calls
+      expect(mockSkill.invoke).toHaveBeenCalledTimes(1);
+
+      // Both got a compressed result
+      expect(result1.compressedCount).toBe(1);
+      expect(result2.compressedCount).toBe(1);
+    });
+
+    it("inflight map is cleaned up after completion (allows new calls)", async () => {
+      const content = makeLongCjkContent(200);
+      const budget = 20;
+
+      // First call
+      await service.compactContext(
+        [makeFragment({ id: "seq-1", content, priority: "old", compactable: true })],
+        budget,
+      );
+
+      // Clear cache so second call can't use it
+      service.clearCache();
+      mockSkill.invoke.mockClear();
+
+      // Second call — inflight should be cleaned up, so this is a new call
+      await service.compactContext(
+        [makeFragment({ id: "seq-2", content, priority: "old", compactable: true })],
+        budget,
+      );
+
+      // Since cache was cleared, a new Skill call must happen
+      expect(mockSkill.invoke).toHaveBeenCalledTimes(1);
+    });
+
+    it("inflight map is cleaned up even after Skill error", async () => {
+      const content = makeLongCjkContent(200);
+      const budget = 20;
+
+      // First call fails
+      mockSkill.invoke.mockRejectedValueOnce(new Error("LLM timeout"));
+
+      await expect(
+        service.compactContext(
+          [makeFragment({ id: "err-1", content, priority: "old", compactable: true })],
+          budget,
+        ),
+      ).rejects.toThrow("LLM timeout");
+
+      // Second call should work normally (inflight cleaned up via finally)
+      mockSkill.invoke.mockImplementationOnce(async (args: { input: string }) => ({
+        output: args.input.slice(0, 10),
+        usage: { promptTokens: 100, completionTokens: 10 },
+        model: "gpt-4o",
+        requestId: "req-retry",
+      }));
+
+      const result = await service.compactContext(
+        [makeFragment({ id: "err-2", content, priority: "old", compactable: true })],
+        budget,
+      );
+
+      expect(result.compressedCount).toBe(1);
+    });
+  });
+
+  // ─── R1 Finding 3: Token-accurate summary truncation ─────────
+  //     Summary truncation must use trimUtf8ToTokenBudget (token-level)
+  //     rather than character-ratio slice.
+
+  describe("token-accurate summary truncation (R1 Finding 3)", () => {
+    it("truncates verbose LLM summary to token budget using trimUtf8ToTokenBudget", async () => {
+      // LLM returns a summary that is way too long (100% of input)
+      const originalContent = makeLongCjkContent(200);
+      const verboseSummary = makeLongCjkContent(200); // same length as input
+
+      mockSkill.invoke.mockResolvedValueOnce({
+        output: verboseSummary,
+        usage: { promptTokens: 300, completionTokens: 300 },
+        model: "gpt-4o",
+        requestId: "req-verbose",
+      });
+
+      const fragment = makeFragment({
+        id: "verbose-test",
+        content: originalContent,
+        priority: "old",
+        compactable: true,
+      });
+      const budget = 20;
+
+      const result = await service.compactContext([fragment], budget);
+
+      const compressed = result.fragments.find((f) => f.originalId === "verbose-test");
+      expect(compressed?.wasCompressed).toBe(true);
+
+      // Summary tokens must be at or below maxSummaryRatio (0.3) of original
+      const originalTokens = estimateTokens(originalContent);
+      const maxAllowed = Math.ceil(originalTokens * 0.3);
+      expect(compressed!.tokenCount).toBeLessThanOrEqual(maxAllowed);
+    });
+
+    it("mixed CJK/ASCII summary is trimmed to correct token count", async () => {
+      // Create content with mixed CJK/ASCII
+      const originalContent = "Hello世界 " + makeLongCjkContent(200);
+      // Return a summary with mixed CJK/ASCII that exceeds the 30% ratio
+      const mixedSummary = "Summary摘要 " + "测试".repeat(100) + " test data " + "验证".repeat(50);
+
+      mockSkill.invoke.mockResolvedValueOnce({
+        output: mixedSummary,
+        usage: { promptTokens: 300, completionTokens: 200 },
+        model: "gpt-4o",
+        requestId: "req-mixed",
+      });
+
+      const fragment = makeFragment({
+        id: "mixed-test",
+        content: originalContent,
+        priority: "old",
+        compactable: true,
+      });
+      const budget = 20;
+
+      const result = await service.compactContext([fragment], budget);
+
+      const compressed = result.fragments.find((f) => f.originalId === "mixed-test");
+      expect(compressed?.wasCompressed).toBe(true);
+
+      // The token count after truncation must respect the 30% cap
+      const originalTokens = estimateTokens(originalContent);
+      const maxAllowed = Math.ceil(originalTokens * 0.3);
+      expect(compressed!.tokenCount).toBeLessThanOrEqual(maxAllowed);
+    });
+
+    it("does not truncate summary that is already within ratio", async () => {
+      const originalContent = makeLongCjkContent(300);
+      const shortSummary = "简短摘要";  // very short — well within 30%
+
+      mockSkill.invoke.mockResolvedValueOnce({
+        output: shortSummary,
+        usage: { promptTokens: 400, completionTokens: 10 },
+        model: "gpt-4o",
+        requestId: "req-short",
+      });
+
+      const fragment = makeFragment({
+        id: "short-summary-test",
+        content: originalContent,
+        priority: "old",
+        compactable: true,
+      });
+      const budget = 20;
+
+      const result = await service.compactContext([fragment], budget);
+
+      const compressed = result.fragments.find((f) => f.originalId === "short-summary-test");
+      expect(compressed?.wasCompressed).toBe(true);
+      // Should not be truncated — the summary is already short
+      expect(compressed!.content).toBe(shortSummary);
     });
   });
 });

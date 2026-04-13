@@ -16,7 +16,7 @@
  */
 
 import { createHash } from "crypto";
-import { estimateTokens } from "@shared/tokenBudget";
+import { estimateTokens, trimUtf8ToTokenBudget } from "@shared/tokenBudget";
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -154,6 +154,36 @@ const PRIORITY_WEIGHT: Record<FragmentPriority, number> = {
   old: 3,
 };
 
+// Why: these sourceTypes represent narrative-critical content that must never be
+// compressed, even if the caller accidentally sets compactable: true. Fail-closed
+// approach — if it looks protected, treat it as protected.
+const PROTECTED_SOURCE_TYPES = new Set([
+  "kg-entity",
+  "character-setting",
+  "foreshadowing",
+  "world-rule",
+  "user-marked",
+] as const);
+
+/**
+ * Fail-closed protection check: returns true if a fragment must NOT be
+ * compressed. Guards against misconfigured `compactable: true` on fragments
+ * whose sourceType or priority level implies they should be preserved.
+ *
+ * A fragment is protected if ANY of these hold:
+ *  1. `compactable === false` (explicit flag)
+ *  2. `priority === "protected"` (priority level)
+ *  3. `metadata.sourceType` is in PROTECTED_SOURCE_TYPES
+ */
+export function isProtectedFragment(frag: ContextFragment): boolean {
+  if (!frag.compactable) return true;
+  if (frag.priority === "protected") return true;
+  if (frag.metadata?.sourceType && PROTECTED_SOURCE_TYPES.has(frag.metadata.sourceType as never)) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Sort fragments by compression candidacy: lowest-priority first.
  * Within the same priority, longer fragments compress first (more token savings).
@@ -193,6 +223,9 @@ export function createNarrativeCompactService(
   } = config;
 
   const cache = new Map<string, CacheEntry>();
+  // Inflight dedup: concurrent calls for the same content share a single
+  // Skill invocation instead of racing two LLM calls (Finding 2).
+  const inflight = new Map<string, Promise<{ summary: string; summaryTokens: number; fromCache: boolean }>>();
   let cacheHits = 0;
   let cacheMisses = 0;
   let disposed = false;
@@ -213,6 +246,12 @@ export function createNarrativeCompactService(
     }
   }
 
+  /**
+   * Core compression for a single fragment. Features:
+   * - Cache hit returns immediately (no Skill call)
+   * - Inflight dedup: concurrent calls for the same content share one Promise
+   * - Token-accurate summary truncation via trimUtf8ToTokenBudget (Finding 3)
+   */
   async function compressSingleFragment(
     fragment: ContextFragment,
   ): Promise<{ summary: string; summaryTokens: number; fromCache: boolean }> {
@@ -226,47 +265,63 @@ export function createNarrativeCompactService(
       return { summary: cached.summary, summaryTokens: cached.summaryTokens, fromCache: true };
     }
 
-    cacheMisses++;
-
-    // INV-6: all LLM calls through Skill system
-    const result = await skillInvoker.invoke({
-      skillId: BUILTIN_AUTO_COMPACT_SKILL_ID,
-      input: fragment.content,
-      model: defaultModel,
-    });
-
-    let summary = result.output;
-    let summaryTokens = estimateTokens(summary);
-
-    // Enforce maxSummaryRatio: if summary exceeds the ratio, truncate it.
-    // This guards against LLM returning overly verbose summaries.
-    const originalTokens = estimateTokens(fragment.content);
-    const maxAllowedTokens = Math.ceil(originalTokens * maxSummaryRatio);
-    if (summaryTokens > maxAllowedTokens && summary.length > 0) {
-      const ratio = maxAllowedTokens / summaryTokens;
-      summary = summary.slice(0, Math.max(1, Math.floor(summary.length * ratio)));
-      summaryTokens = estimateTokens(summary);
+    // Inflight dedup: if another call is already compressing the same content,
+    // wait for it rather than firing a second LLM request (Finding 2).
+    const existing = inflight.get(hash);
+    if (existing) {
+      return existing;
     }
 
-    // INV-9: record cost
-    if (result.usage && result.requestId) {
-      costTracker.recordUsage(
-        result.usage,
-        result.model ?? defaultModel,
-        result.requestId,
-        BUILTIN_AUTO_COMPACT_SKILL_ID,
-      );
+    const work = (async () => {
+      cacheMisses++;
+
+      // INV-6: all LLM calls through Skill system
+      const result = await skillInvoker.invoke({
+        skillId: BUILTIN_AUTO_COMPACT_SKILL_ID,
+        input: fragment.content,
+        model: defaultModel,
+      });
+
+      let summary = result.output;
+      let summaryTokens = estimateTokens(summary);
+
+      // Enforce maxSummaryRatio: if summary exceeds the ratio, truncate it.
+      // Finding 3: use token-accurate trimUtf8ToTokenBudget instead of
+      // character-ratio slice so mixed CJK/ASCII text respects the token cap.
+      const originalTokens = estimateTokens(fragment.content);
+      const maxAllowedTokens = Math.ceil(originalTokens * maxSummaryRatio);
+      if (summaryTokens > maxAllowedTokens && summary.length > 0) {
+        summary = trimUtf8ToTokenBudget(summary, maxAllowedTokens);
+        summaryTokens = estimateTokens(summary);
+      }
+
+      // INV-9: record cost
+      if (result.usage && result.requestId) {
+        costTracker.recordUsage(
+          result.usage,
+          result.model ?? defaultModel,
+          result.requestId,
+          BUILTIN_AUTO_COMPACT_SKILL_ID,
+        );
+      }
+
+      // Cache the result
+      cache.set(hash, {
+        summary,
+        summaryTokens,
+        lastUsed: Date.now(),
+      });
+      evictLRU();
+
+      return { summary, summaryTokens, fromCache: false };
+    })();
+
+    inflight.set(hash, work);
+    try {
+      return await work;
+    } finally {
+      inflight.delete(hash);
     }
-
-    // Cache the result
-    cache.set(hash, {
-      summary,
-      summaryTokens,
-      lastUsed: Date.now(),
-    });
-    evictLRU();
-
-    return { summary, summaryTokens, fromCache: false };
   }
 
   const service: NarrativeCompactService = {
@@ -314,7 +369,7 @@ export function createNarrativeCompactService(
           totalTokens: originalTotalTokens,
           originalTotalTokens,
           compressedCount: 0,
-          protectedCount: fragments.filter((f) => !f.compactable).length,
+          protectedCount: fragments.filter((f) => isProtectedFragment(f)).length,
           cacheHits: 0,
           compressionRatio: 1,
         };
@@ -332,8 +387,8 @@ export function createNarrativeCompactService(
       for (const frag of compressionOrder) {
         if (currentTotal <= budgetTokens) break;
 
-        // INV-5: never compress protected content
-        if (!frag.compactable) continue;
+        // INV-5: never compress protected content (fail-closed — Finding 1)
+        if (isProtectedFragment(frag)) continue;
 
         const origTokens = fragmentTokens.get(frag.id)!;
         const { summary, summaryTokens, fromCache } = await compressSingleFragment(
@@ -376,7 +431,7 @@ export function createNarrativeCompactService(
         totalTokens,
         originalTotalTokens,
         compressedCount: compressedMap.size,
-        protectedCount: fragments.filter((f) => !f.compactable).length,
+        protectedCount: fragments.filter((f) => isProtectedFragment(f)).length,
         cacheHits: localCacheHits,
         compressionRatio: originalTotalTokens > 0 ? totalTokens / originalTotalTokens : 1,
       };
