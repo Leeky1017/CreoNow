@@ -1,7 +1,7 @@
 /**
  * flowDetector unit tests — 心流状态检测器
  *
- * 24 tests covering:
+ * 28 tests covering:
  *   - Core state machine: initial, sporadic (gap > 15s), light/deep flow
  *   - Window events: blur breaks flow, focus alone doesn't restore
  *   - Timing: exit timeout, duration accuracy, gap boundary (>= maxGap)
@@ -294,11 +294,9 @@ describe("flowDetector", () => {
     const state = fd.getFlowState(base + 9_999);
     expect(state.isInFlow).toBe(true);
     expect(state.intensity).toBe("deep");
-    // Duration is capped by the retention window (deepThreshold + exitTimeout
-    // = 1000 + 200 = 1200ms) because pruning removes older entries.
-    // This proves the buffer is bounded while flow detection stays correct.
-    expect(state.duration).toBeLessThanOrEqual(1200);
-    expect(state.duration).toBeGreaterThanOrEqual(1000); // still >= deep threshold
+    // With activeChainStart tracking, duration is the true continuous time
+    // even though the keystroke buffer itself is pruned.
+    expect(state.duration).toBe(9_999);
   });
 
   // ── 13. Memory: keystroke buffer doesn't grow unbounded ───────────
@@ -559,6 +557,87 @@ describe("flowDetector", () => {
       expect(state.isInFlow).toBe(true);
       // Duration should be from the post-blur keystroke only
       expect(state.duration).toBe(0);
+    });
+  });
+
+  // ── R3 regression tests ───────────────────────────────────────────
+
+  describe("duration accuracy beyond retention window", () => {
+    it("reports full duration even when buffer is pruned", () => {
+      // Duck R3 finding: pruning discards old keystrokes, causing duration
+      // to be capped at maxRetentionMs instead of the true continuous time.
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 100,
+        deepFlowThresholdMs: 500,
+        maxKeystrokeGapMs: 200,
+        flowExitTimeoutMs: 300,
+        // maxRetentionMs = 500 + 300 = 800
+      });
+
+      // Type continuously from 0 to 1500 (well beyond 800 retention)
+      for (let t = 0; t <= 1500; t += 50) {
+        fd.recordKeystroke(t);
+      }
+
+      const state = fd.getFlowState(1500);
+      expect(state.isInFlow).toBe(true);
+      expect(state.intensity).toBe("deep");
+      // Duration must be the FULL 1500ms, not capped at 800 retention
+      expect(state.duration).toBe(1500);
+    });
+  });
+
+  describe("blur sentinel does not collide with timestamp 0", () => {
+    it("allows post-blur keystrokes starting at timestamp 0", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 50,
+        maxKeystrokeGapMs: 100,
+      });
+
+      // Blur before any keystrokes → sentinel should not block ts=0
+      fd.recordWindowBlur();
+      fd.recordWindowFocus();
+
+      // Type starting at timestamp 0
+      fd.recordKeystroke(0);
+      fd.recordKeystroke(10);
+      fd.recordKeystroke(20);
+      fd.recordKeystroke(60);
+
+      const state = fd.getFlowState(60);
+      expect(state.isInFlow).toBe(true);
+      expect(state.duration).toBe(60);
+    });
+  });
+
+  describe("activeChainStart reset on blur", () => {
+    it("resets chain start after blur even for long sessions", () => {
+      const fd = createFlowDetector({
+        lightFlowThresholdMs: 100,
+        deepFlowThresholdMs: 500,
+        maxKeystrokeGapMs: 200,
+        flowExitTimeoutMs: 300,
+      });
+
+      // Long continuous session
+      for (let t = 0; t <= 1000; t += 50) {
+        fd.recordKeystroke(t);
+      }
+      expect(fd.getFlowState(1000).duration).toBe(1000);
+
+      // Blur breaks the chain
+      fd.recordWindowBlur();
+      fd.recordWindowFocus();
+
+      // New chain starts fresh
+      fd.recordKeystroke(1100);
+      fd.recordKeystroke(1200);
+      fd.recordKeystroke(1300);
+
+      const state = fd.getFlowState(1300);
+      expect(state.isInFlow).toBe(true);
+      // Duration from new chain start (1100), not from old chain (0)
+      expect(state.duration).toBe(200);
     });
   });
 });

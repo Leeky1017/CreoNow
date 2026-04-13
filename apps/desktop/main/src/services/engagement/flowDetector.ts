@@ -112,6 +112,14 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
   let lastBlurTime: number | null = null;
 
   /**
+   * Start timestamp of the current continuous keystroke chain.
+   * Maintained incrementally in recordKeystroke so that duration remains
+   * accurate even after the keystroke buffer is pruned.
+   * null when no active chain exists (initial state, post-blur, post-reset).
+   */
+  let activeChainStart: number | null = null;
+
+  /**
    * Maximum retention window — keystrokes older than this are irrelevant.
    * Set to deepThreshold + exitTimeout to handle the longest possible
    * lookback needed for state computation.
@@ -147,7 +155,7 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
   /**
    * Compute the start of continuous typing — walk backwards from the
    * effective latest keystroke (at `latestIdx`) and find the earliest
-   * point where all consecutive gaps are ≤ maxGap AND the keystroke is
+   * point where all consecutive gaps are < maxGap AND the keystroke is
    * after the last blur event.
    *
    * Returns the timestamp of the first keystroke in the continuous run,
@@ -179,7 +187,7 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
     }
 
     // Walk backwards to find the chain of continuous keystrokes.
-    // Stop at any gap > maxGap OR any keystroke at/before the last blur.
+    // Stop at any gap >= maxGap OR any keystroke at/before the last blur.
     let continuousStart = latest;
     for (let i = latestIdx - 1; i >= 0; i--) {
       const gap = keystrokes[i + 1] - keystrokes[i];
@@ -209,19 +217,36 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
       return;
     }
 
+    // Maintain activeChainStart — tracks the true start of the current
+    // continuous chain so that duration stays accurate after buffer pruning.
+    if (keystrokes.length === 0) {
+      activeChainStart = ts;
+    } else {
+      const lastTs = keystrokes[keystrokes.length - 1];
+      const gapTooLarge = ts - lastTs >= maxGap;
+      const lastPreBlur = lastBlurTime !== null && lastTs <= lastBlurTime;
+      if (gapTooLarge || lastPreBlur) {
+        activeChainStart = ts;
+      }
+      // else: chain continues — keep existing activeChainStart
+    }
+
     keystrokes.push(ts);
     pruneOldKeystrokes(ts);
   }
 
   function recordWindowBlur(): void {
     windowFocused = false;
+    activeChainStart = null;
     // Use the most recent keystroke as the chain-break marker.
     // This keeps the marker in the same time domain as injected timestamps
     // (INV P4 — deterministic testing), rather than using Date.now().
+    // @why -1 (not 0) when no keystrokes: avoids collision with a valid
+    // first post-blur keystroke at timestamp 0 in deterministic tests.
     lastBlurTime =
       keystrokes.length > 0
         ? keystrokes[keystrokes.length - 1]
-        : 0;
+        : -1;
   }
 
   function recordWindowFocus(): void {
@@ -266,15 +291,21 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
       return NO_FLOW;
     }
 
-    // Recompute continuous start every call — keystroke buffer is bounded,
-    // so this backward scan is O(n) where n ≤ maxRetentionMs / typical_interval.
-    const continuousStart = computeContinuousStart(currentTime, effectiveLatestIdx);
+    // Determine duration — use tracked activeChainStart for present-time
+    // queries (accurate beyond retention window), fall back to buffer-bounded
+    // backward scan for past-time queries where future filtering occurred.
+    const futureFiltered = effectiveLatestIdx < keystrokes.length - 1;
+    let duration: number;
 
-    if (continuousStart === null) {
-      return NO_FLOW;
+    if (!futureFiltered && activeChainStart !== null) {
+      duration = currentTime - activeChainStart;
+    } else {
+      const continuousStart = computeContinuousStart(currentTime, effectiveLatestIdx);
+      if (continuousStart === null) {
+        return NO_FLOW;
+      }
+      duration = currentTime - continuousStart;
     }
-
-    const duration = currentTime - continuousStart;
 
     if (duration >= deepThreshold) {
       return { isInFlow: true, duration, intensity: "deep" };
@@ -291,6 +322,7 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
     keystrokes = [];
     windowFocused = true;
     lastBlurTime = null;
+    activeChainStart = null;
   }
 
   return {
