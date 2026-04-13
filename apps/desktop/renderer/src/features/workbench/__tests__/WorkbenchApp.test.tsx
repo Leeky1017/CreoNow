@@ -3494,6 +3494,94 @@ describe("WorkbenchApp", () => {
     expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe(activeLeftBefore);
   });
 
+  it("does not mutate layout when async document open resolves during zen mode", async () => {
+    const secondDocument = {
+      documentId: "doc-2",
+      title: "第二章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: 2,
+    } as const;
+
+    // List two documents so we can click the second one to trigger handleOpenDocument.
+    window.api!.file!.listDocuments = vi.fn(async () => ({
+      ok: true,
+      data: {
+        items: [
+          { documentId: "doc-1", title: "第一章", type: "chapter", status: "draft", sortOrder: 0, updatedAt: 1 },
+          secondDocument,
+        ],
+      },
+    })) as NonNullable<typeof window.api>["file"]["listDocuments"];
+
+    window.api!.file!.setCurrentDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: { documentId },
+    })) as NonNullable<typeof window.api>["file"]["setCurrentDocument"];
+
+    // Deferred readDocument lets us control when the open-document IPC resolves.
+    let resolveRead!: (value: { ok: true; data: Record<string, unknown> }) => void;
+    const readPromise = new Promise<{ ok: true; data: Record<string, unknown> }>((resolve) => {
+      resolveRead = resolve;
+    });
+    const originalReadDocument = window.api!.file!.readDocument;
+    let callCount = 0;
+    window.api!.file!.readDocument = vi.fn(async (args) => {
+      callCount++;
+      // First call (bootstrap) resolves immediately; second call (user click) defers.
+      if (callCount <= 1) {
+        return (originalReadDocument as Function)(args);
+      }
+      return readPromise;
+    }) as NonNullable<typeof window.api>["file"]["readDocument"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Click second document — triggers handleOpenDocument with pending readDocument.
+    await act(async () => {
+      fireEvent.click(screen.getByText("第二章"));
+      await Promise.resolve();
+    });
+
+    // Enter zen mode while the openDocument IPC is in-flight.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+
+    const sidebarStateBefore = window.localStorage.getItem("creonow.layout.sidebarCollapsed");
+    const activeLeftBefore = window.localStorage.getItem("creonow.layout.activeLeftPanel");
+
+    // Resolve the deferred readDocument during zen mode.
+    await act(async () => {
+      resolveRead({
+        ok: true,
+        data: {
+          documentId: "doc-2",
+          projectId: "project-1",
+          title: "第二章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 1,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "第二章内容",
+          contentMd: "",
+          contentHash: "hash-2",
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Layout state must be unchanged — handleOpenDocument must NOT call
+    // setActiveLeftPanel or setSidebarCollapsed while zen mode is active.
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe(sidebarStateBefore);
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe(activeLeftBefore);
+  });
+
   it("cancels active panel resize when entering zen mode", async () => {
     render(<WorkbenchApp />);
     await screen.findByRole("heading", { name: "第一章" });
