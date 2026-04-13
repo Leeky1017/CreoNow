@@ -2,7 +2,7 @@
  * flowDetector unit tests — 心流状态检测器
  *
  * 31 tests covering:
- *   - Core state machine: initial, sporadic (gap > 15s), light/deep flow
+ *   - Core state machine: initial, sporadic (gap >= 15s), light/deep flow
  *   - Window events: blur breaks flow, focus alone doesn't restore
  *   - Timing: exit timeout, duration accuracy, gap boundary (>= maxGap)
  *   - Config: custom thresholds, keystroke buffer pruning

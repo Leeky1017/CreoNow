@@ -60,7 +60,8 @@ export interface FlowDetectorConfig {
    */
   maxKeystrokeGapMs?: number;
   /**
-   * Silence duration that exits flow entirely and resets state.
+   * Silence duration after which getFlowState reports no-flow.
+   * Internal keystroke buffer is NOT cleared — only the reported state changes.
    * Default: 60s.
    * @why 2× the spec's STUCK_PAUSE (30s). A full minute without input
    * means the user has context-switched or walked away. The spec does not
@@ -94,7 +95,7 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
   const exitTimeout = config?.flowExitTimeoutMs ?? DEFAULT_EXIT_TIMEOUT_MS;
 
   /**
-   * Bounded circular buffer of keystroke timestamps.
+   * Bounded array of keystroke timestamps (pruned lazily).
    * @why Array + pruning rather than linked list: better cache locality for
    * the small-N case (typical: a few hundred entries per deep-flow window).
    * Pruning happens lazily inside recordKeystroke to amortize cost.
@@ -131,7 +132,7 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
   /**
    * Remove keystrokes older than the retention window.
    * @why Prevents unbounded memory growth during long sessions.
-   * Uses binary-search-like forward scan since keystrokes are sorted.
+   * Uses a linear forward scan over the sorted buffer.
    */
   function pruneOldKeystrokes(now: number): void {
     const cutoff = now - maxRetentionMs;
