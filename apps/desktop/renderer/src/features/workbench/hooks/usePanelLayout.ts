@@ -154,7 +154,7 @@ export function usePanelLayout() {
       return;
     }
 
-    // @why Cancel any in-flight resize when zen mode activates (F-01 R7).
+    // @why Cancel any in-flight resize when zen mode activates (FE-01 R7).
     // Without this guard, a user who is mid-drag on a resizer and presses
     // Shift+Z would keep mutating sidebarWidth/rightPanelWidth via mousemove
     // while zen is visually active.
@@ -217,7 +217,7 @@ export function usePanelLayout() {
         return;
       }
 
-      // @why Block Ctrl+\ and Ctrl+L shortcuts while zen mode is active (F-01 R4).
+      // @why Block Ctrl+\ and Ctrl+L shortcuts while zen mode is active (FE-01 R4).
       // Without this guard the user could enter zen mode, press Ctrl+\ or Ctrl+L,
       // mutate sidebar/panel collapse state, and then exit zen into a layout that
       // differs from what they expect. Shift+Z (above) is intentionally exempt so

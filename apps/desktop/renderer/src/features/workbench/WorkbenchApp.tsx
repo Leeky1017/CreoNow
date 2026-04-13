@@ -755,7 +755,7 @@ function WorkbenchShell() {
       data-export-active={exportProgress.isExporting ? "true" : undefined}
       style={frameStyle}
     >
-      {/* @why Zen mode uses hidden+inert instead of unmounting (F-01 R3) to
+      {/* @why Zen mode uses hidden+inert instead of unmounting (FE-01 R3) to
           preserve component state (e.g. SettingsPage draft edits).
           • `hidden` is the PRIMARY mechanism — it removes elements from visual
             flow and is fully supported in all browsers and React versions.
