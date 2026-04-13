@@ -94,6 +94,17 @@ export function createFlowDetector(config?: FlowDetectorConfig): FlowDetector {
   const maxGap = config?.maxKeystrokeGapMs ?? DEFAULT_MAX_GAP_MS;
   const exitTimeout = config?.flowExitTimeoutMs ?? DEFAULT_EXIT_TIMEOUT_MS;
 
+  // @why exitTimeout must be >= maxGap. If exitTimeout < maxGap, getFlowState
+  // would exit flow after exitTimeout silence, but recordKeystroke would not
+  // break the chain (gap still < maxGap). A later keystroke could then revive
+  // the old chain and instantly report flow — semantically contradictory.
+  if (exitTimeout < maxGap) {
+    throw new Error(
+      `flowExitTimeoutMs (${exitTimeout}) must be >= maxKeystrokeGapMs (${maxGap}). ` +
+        "A shorter exit timeout than the max gap creates contradictory chain semantics.",
+    );
+  }
+
   /**
    * Bounded array of keystroke timestamps (pruned lazily).
    * @why Array + pruning rather than linked list: better cache locality for

@@ -696,9 +696,10 @@ describe("flowDetector", () => {
   describe("exit timeout boundary consistency", () => {
     it("exits flow at exactly exitTimeout (>= semantics)", () => {
       // Duck R4 finding: exit used > instead of >=, inconsistent with maxGap.
+      // exitTimeout must be >= maxGap (invariant), so we set them equal.
       const fd = createFlowDetector({
         lightFlowThresholdMs: 100,
-        maxKeystrokeGapMs: 100_000, // larger than exitTimeout to isolate
+        maxKeystrokeGapMs: 60_000,
         flowExitTimeoutMs: 60_000,
       });
       fd.recordKeystroke(0);
@@ -710,6 +711,29 @@ describe("flowDetector", () => {
       // One ms before → still in flow
       const beforeExit = fd.getFlowState(59_999);
       expect(beforeExit.isInFlow).toBe(true);
+    });
+  });
+
+  describe("config validation", () => {
+    it("throws if flowExitTimeoutMs < maxKeystrokeGapMs", () => {
+      // Duck R6 finding: exitTimeout < maxGap creates contradictory semantics
+      // where getFlowState exits flow but recordKeystroke does not break the
+      // chain, allowing a later keystroke to revive an expired flow instantly.
+      expect(() =>
+        createFlowDetector({
+          maxKeystrokeGapMs: 1000,
+          flowExitTimeoutMs: 200,
+        }),
+      ).toThrow("flowExitTimeoutMs (200) must be >= maxKeystrokeGapMs (1000)");
+    });
+
+    it("accepts flowExitTimeoutMs equal to maxKeystrokeGapMs", () => {
+      expect(() =>
+        createFlowDetector({
+          maxKeystrokeGapMs: 15_000,
+          flowExitTimeoutMs: 15_000,
+        }),
+      ).not.toThrow();
     });
   });
 });
