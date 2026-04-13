@@ -120,18 +120,34 @@ function validateMutation(
         );
       }
       break;
-    case "entity:update":
-      // NOTE: entity:update payload contains id + expectedVersion but NOT type,
-      // so we cannot guard dedicated-service types here. This is acceptable
-      // because: (a) the entity must already exist (so create-path guard caught
-      // it), and (b) dedicated services own the update path for their types.
+    case "entity:update": {
       if (!isNonEmptyString(p["id"]) || typeof p["expectedVersion"] !== "number") {
         return ipcError(
           "INVALID_ARGUMENT",
           "entity:update requires id and expectedVersion",
         );
       }
+      // Guard: reject if patch.type targets a dedicated-service type.
+      // This prevents converting a normal entity into inspiration/foreshadowing
+      // (which would corrupt attributes via Record<string,string> model) and
+      // prevents generic CRUD from touching dedicated entities' type field.
+      const patch = p["patch"];
+      if (
+        patch &&
+        typeof patch === "object" &&
+        "type" in patch &&
+        typeof (patch as Record<string, unknown>)["type"] === "string" &&
+        DEDICATED_SERVICE_ONLY_TYPES.has(
+          (patch as Record<string, unknown>)["type"] as string,
+        )
+      ) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          `Type '${(patch as Record<string, unknown>)["type"]}' must be managed through its dedicated service, not generic KG CRUD`,
+        );
+      }
       break;
+    }
     case "entity:delete":
       if (!isNonEmptyString(p["id"])) {
         return ipcError("INVALID_ARGUMENT", "entity:delete requires id");

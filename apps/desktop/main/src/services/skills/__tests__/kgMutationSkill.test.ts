@@ -258,6 +258,50 @@ describe("kgMutationSkill", () => {
         expect(kgService.entityUpdate).not.toHaveBeenCalled();
       }
     });
+
+    it("rejects patch.type = 'inspiration' — dedicated-service only", () => {
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { type: "inspiration" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rejects patch.type = 'foreshadowing' — dedicated-service only", () => {
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { type: "foreshadowing" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("allows patch.type = 'character' (not a dedicated type)", () => {
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { type: "character" },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      expect(kgService.entityUpdate).toHaveBeenCalledOnce();
+    });
   });
 
   // ── entity:delete ──
