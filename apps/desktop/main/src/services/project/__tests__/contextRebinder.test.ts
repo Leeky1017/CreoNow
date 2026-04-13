@@ -616,15 +616,24 @@ describe("ProjectContextRebinder", () => {
       );
     });
 
-    it("no rollback when there is no previous project", async () => {
+    it("cleans up successfully-bound services when no previous project", async () => {
       const events: string[] = [];
-      const svc: RebindableService = {
+      const svc1: RebindableService = {
         id: "svc-1",
         unbind: vi.fn(({ projectId }) => {
           events.push(`unbind:${projectId}`);
         }),
         bind: vi.fn(({ projectId }) => {
-          events.push(`bind:${projectId}:FAIL`);
+          events.push(`bind:svc-1:${projectId}`);
+        }),
+      };
+      const svc2: RebindableService = {
+        id: "svc-2",
+        unbind: vi.fn(({ projectId }) => {
+          events.push(`unbind-svc-2:${projectId}`);
+        }),
+        bind: vi.fn(({ projectId }) => {
+          events.push(`bind:svc-2:${projectId}:FAIL`);
           throw new Error("bind failed");
         }),
       };
@@ -632,7 +641,7 @@ describe("ProjectContextRebinder", () => {
       createProjectContextRebinder({
         logger,
         lifecycle,
-        additionalServices: [svc],
+        additionalServices: [svc1, svc2],
       });
       const participant = lifecycle.captured();
 
@@ -643,15 +652,16 @@ describe("ProjectContextRebinder", () => {
         signal: createMockSignal(),
       });
 
-      expect(events).toEqual(["bind:proj-b:FAIL"]);
-      // Error logged but no rollback
+      // svc1 bound successfully, svc2 failed.
+      // Cleanup should unbind svc1 even though there's no previous project.
+      expect(events).toEqual([
+        "bind:svc-1:proj-b",
+        "bind:svc-2:proj-b:FAIL",
+        "unbind:proj-b", // svc1 cleaned up
+      ]);
       expect(logger.error).toHaveBeenCalledWith(
-        "context_rebinder_bind_service_failed",
-        expect.objectContaining({ serviceId: "svc-1" }),
-      );
-      expect(logger.error).not.toHaveBeenCalledWith(
-        "context_rebinder_rollback_triggered",
-        expect.anything(),
+        "context_rebinder_cleanup_partial_bind",
+        expect.objectContaining({ failedProjectId: "proj-b", boundServiceCount: 1 }),
       );
     });
   });

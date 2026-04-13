@@ -216,14 +216,20 @@ export function createProjectContextRebinder(
             message: error instanceof Error ? error.message : String(error),
           });
 
-          // Trigger rollback if we have a previous project to fall back to.
           if (previousProjectId !== null) {
+            // Full rollback: unbind partial + re-bind to previous project.
             await rollback({
               successfullyBound,
               failedProjectId: projectId,
               previousProjectId,
               traceId,
             });
+          } else {
+            // Initial bind (no previous project): clean up partial state by
+            // unbinding whatever was successfully bound. Without this, the
+            // successfully-bound services would remain attached to the failed
+            // project with no way to reach a consistent state.
+            await cleanupPartialBind(successfullyBound, projectId, traceId);
           }
           // Don't update lastBoundProjectId — it stays at the previous value
           // (or null if there was no previous project).
@@ -253,6 +259,39 @@ export function createProjectContextRebinder(
    * error for us and continue — the user would end up with no context bound. Our
    * best-effort approach at least attempts recovery.
    */
+
+  /**
+   * Clean up partially-bound services when there is no previous project to
+   * roll back to (initial bind failure). Unbinds only the services that
+   * were successfully bound, leaving no dangling partial state.
+   */
+  async function cleanupPartialBind(
+    successfullyBound: RebindableService[],
+    failedProjectId: string,
+    traceId: string,
+  ): Promise<void> {
+    if (successfullyBound.length === 0) return;
+
+    deps.logger.error("context_rebinder_cleanup_partial_bind", {
+      failedProjectId,
+      traceId,
+      boundServiceCount: successfullyBound.length,
+    });
+
+    for (const svc of [...successfullyBound].reverse()) {
+      try {
+        await svc.unbind({ projectId: failedProjectId, traceId });
+      } catch (error) {
+        deps.logger.error("context_rebinder_cleanup_unbind_failed", {
+          serviceId: svc.id,
+          projectId: failedProjectId,
+          traceId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
+
   async function rollback(args: {
     successfullyBound: RebindableService[];
     failedProjectId: string;
