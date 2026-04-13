@@ -35,6 +35,7 @@ import { registerWindowIpcHandlers } from "./ipc/window";
 import { registerRendererLogIpcHandlers } from "./ipc/rendererLog";
 import { registerSettingsIpcHandlers } from "./ipc/settings";
 import { registerSimpleMemoryIpcHandlers } from "./ipc/simpleMemory";
+import { registerSessionMemoryIpcHandlers } from "./ipc/sessionMemory";
 import { createProjectSessionBindingRegistry } from "./ipc/projectSessionBinding";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
@@ -596,6 +597,13 @@ function registerIpcHandlers(deps: {
     projectSessionBinding,
     projectLifecycle,
     eventBus,
+  });
+
+  registerSessionMemoryIpcHandlers({
+    ipcMain: guardedIpcMain,
+    db: deps.db,
+    logger: deps.logger,
+    projectSessionBinding,
   });
 
   registerVersionIpcHandlers({
