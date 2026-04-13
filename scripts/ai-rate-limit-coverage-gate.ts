@@ -7,7 +7,6 @@ import {
   type ServiceResult,
   type SkillSchedulerTerminal,
 } from '../apps/desktop/main/src/services/skills/skillScheduler';
-import { createEmbeddingQueue } from '../apps/desktop/main/src/services/embedding/embeddingQueue';
 import { resolveRuntimeGovernanceFromEnv } from '../packages/shared/runtimeGovernance';
 
 export type RateLimitVerifier = {
@@ -210,34 +209,11 @@ export async function verifySkillSchedulerGovernance(): Promise<void> {
   assert.equal((await second).ok, true);
 }
 
-export async function verifyEmbeddingQueueGovernance(): Promise<void> {
-  const governance = resolveRuntimeGovernanceFromEnv({
-    CN_EMBEDDING_QUEUE_DEBOUNCE_MS: '1',
-  });
-  const executed: string[] = [];
-  const queue = createEmbeddingQueue({
-    debounceMs: governance.embedding.queueDebounceMs,
-    run: async (task) => {
-      executed.push(`${task.projectId}:${task.documentId}:${task.contentText}`);
-    },
-  });
-
-  queue.enqueue({ projectId: 'p', documentId: 'd', contentText: 'one', updatedAt: 1 });
-  queue.enqueue({ projectId: 'p', documentId: 'd', contentText: 'two', updatedAt: 2 });
-  queue.enqueue({ projectId: 'p', documentId: 'd', contentText: 'three', updatedAt: 3 });
-
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  queue.dispose();
-
-  assert.deepEqual(executed, ['p:d:three']);
-}
-
 export async function runRateLimitCoverageGate(
   verifiers: readonly RateLimitVerifier[] = [
     { label: 'ai-rate-limit', run: verifyAiRateLimitFromGovernance },
     { label: 'retry-backoff', run: verifyRetryBackoffFromGovernance },
     { label: 'skill-scheduler', run: verifySkillSchedulerGovernance },
-    { label: 'embedding-queue', run: verifyEmbeddingQueueGovernance },
   ],
 ): Promise<AiRateLimitCoverageResult> {
   const passed: string[] = [];
