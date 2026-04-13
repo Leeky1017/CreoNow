@@ -12,7 +12,7 @@
  * ## Performance: list/stats ≤ 200ms — prepared SQLite statements + 30s cache.
  */
 
-import type { DbLike, DbStatement } from "./storyStatusService";
+import type { DbLikeWithRun } from "./dbTypes";
 
 // ─── types ──────────────────────────────────────────────────────────
 
@@ -83,9 +83,9 @@ const FADING_MAX_DAYS = 14;    // exclusive upper bound for fading tier
  * List active (not archived, not used) inspirations sorted by created_at ASC
  * (oldest first = most urgent for decay display).
  *
- * @risk 'inspiration' type is not yet in the kg_entities CHECK constraint
- *   (migration 0013: character/location/event/item/faction only). Until the
- *   constraint is extended, this query returns [] — graceful degradation.
+ * @note 'inspiration' type was added to the kg_entities CHECK constraint by
+ *   migration 002 (kg_entity_type_extension). Prior to that migration, this
+ *   query would return [] — graceful degradation.
  */
 const SQL_LIST_UNUSED = `
   SELECT id, name, attributes_json, created_at, updated_at
@@ -150,20 +150,6 @@ const SQL_INSERT = `
   VALUES (?, ?, 'inspiration', ?, ?, ?, ?)
 `;
 
-// ─── extended DB interface for writes ───────────────────────────────
-
-/**
- * Extends DbStatement with run() for UPDATE/INSERT statements.
- * better-sqlite3 returns { changes: number } from run().
- */
-export interface DbRunStatement extends DbStatement {
-  run(...args: unknown[]): { changes: number };
-}
-
-export interface DbLikeWithRun extends DbLike {
-  prepare(sql: string): DbRunStatement;
-}
-
 // ─── cache ──────────────────────────────────────────────────────────
 
 interface CacheEntry<T> {
@@ -199,8 +185,8 @@ export interface QuickCaptureDeps {
  *
  * @invariant INV-4: all data comes from SQLite structured queries; zero LLM calls.
  * @invariant INV-6: this is NOT a Skill — it's a structured data CRUD service.
- * @risk If 'inspiration' entity type is not yet added to the kg_entities CHECK
- *   constraint, queries return [] and inserts may fail — graceful degradation.
+ * @note 'inspiration' entity type was added to the kg_entities CHECK constraint
+ *   by migration 002 (kg_entity_type_extension).
  */
 export function createQuickCaptureService(
   deps: QuickCaptureDeps,
@@ -442,13 +428,12 @@ export function createQuickCaptureService(
 
       for (const row of rows) {
         const item = toItem(row, now);
-        // Used items don't count toward active decay tiers but are part of total.
+        // Used items don't count toward any decay tier or total.
         // Archived items count as archived regardless of other state.
         if (item.archived) {
           archived++;
         } else if (item.usedInChapter !== null) {
-          // Used items are "consumed" — don't count in any decay tier.
-          // They contribute to total only.
+          // Used items are "consumed" — excluded from all tier counts and total.
         } else {
           // Active, unused item — classify by decay.
           switch (item.decayTier) {

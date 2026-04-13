@@ -3,10 +3,10 @@
  *
  * Uses an in-memory SQLite database (better-sqlite3) with the kg_entities
  * schema to test real SQL queries against real data. The CHECK constraint
- * on entity type is intentionally omitted to allow inserting 'inspiration'
- * type entities for testing.
+ * on entity type matches production (migration 002 extended the allowlist
+ * to include 'inspiration' and 'foreshadowing').
  *
- * Coverage targets (≥ 30 tests):
+ * Coverage targets (51 tests):
  *   1-2.   Empty state: listUnused, getDecayStats
  *   3.     capture() creates entity with correct fields
  *   4.     capture() returns InspirationItem
@@ -46,6 +46,9 @@
  *  38.     Param validation: empty chapterId
  *  39.     relatedEntities parsed from attributes_json
  *  40.     Mixed states: some used, some archived, some fresh in listUnused
+ *  41-49.  Additional edge cases
+ *  50.     archiveStale: boundary — exactly 14d NOT archived
+ *  51.     archiveStale: boundary — 14d + 1ms archived
  */
 
 import Database from "better-sqlite3";
@@ -54,8 +57,8 @@ import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import {
   createQuickCaptureService,
   type QuickCaptureService,
-  type DbLikeWithRun,
 } from "../quickCaptureService";
+import type { DbLikeWithRun } from "../dbTypes";
 
 // ─── test constants ─────────────────────────────────────────────────
 
@@ -67,9 +70,8 @@ const DAY_MS = 86_400_000;
 // ─── in-memory SQLite setup ─────────────────────────────────────────
 
 /**
- * Creates the kg_entities table WITHOUT the CHECK constraint on type,
- * so we can insert 'inspiration' type entities for testing.
- * Schema matches migration 0013 minus the type constraint.
+ * Creates the kg_entities table with the CHECK constraint matching production
+ * (migration 002 extended the allowlist to include 'inspiration' and 'foreshadowing').
  */
 function createTestDb(): Database.Database {
   const db = new Database(":memory:");
@@ -78,7 +80,7 @@ function createTestDb(): Database.Database {
     CREATE TABLE kg_entities (
       id             TEXT    NOT NULL,
       project_id     TEXT    NOT NULL,
-      type           TEXT    NOT NULL,
+      type           TEXT    NOT NULL CHECK (type IN ('character','location','event','item','faction','inspiration','foreshadowing')),
       name           TEXT    NOT NULL DEFAULT '',
       attributes_json TEXT   NOT NULL DEFAULT '{}',
       created_at     TEXT    NOT NULL,
@@ -384,6 +386,38 @@ describe("QuickCaptureService", () => {
       createService();
       const count = svc.archiveStale(PROJECT_ID);
       expect(count).toBe(3);
+    });
+
+    it("does NOT archive item created exactly 14 days ago (boundary)", () => {
+      insertInspiration(sqliteDb, {
+        id: "insp-exact-14d",
+        created_at: NOW - 14 * DAY_MS, // exactly at cutoff
+      });
+
+      createService();
+      const count = svc.archiveStale(PROJECT_ID);
+      expect(count).toBe(0);
+
+      const row = sqliteDb
+        .prepare("SELECT attributes_json FROM kg_entities WHERE id = ?")
+        .get("insp-exact-14d") as { attributes_json: string };
+      expect(JSON.parse(row.attributes_json).archived).toBeUndefined();
+    });
+
+    it("archives item created 14 days + 1ms ago (just past boundary)", () => {
+      insertInspiration(sqliteDb, {
+        id: "insp-14d-plus-1ms",
+        created_at: NOW - 14 * DAY_MS - 1, // 1ms past cutoff
+      });
+
+      createService();
+      const count = svc.archiveStale(PROJECT_ID);
+      expect(count).toBe(1);
+
+      const row = sqliteDb
+        .prepare("SELECT attributes_json FROM kg_entities WHERE id = ?")
+        .get("insp-14d-plus-1ms") as { attributes_json: string };
+      expect(JSON.parse(row.attributes_json).archived).toBe(1);
     });
   });
 

@@ -10,6 +10,8 @@ export const KNOWLEDGE_ENTITY_TYPES = [
   "event",
   "item",
   "faction",
+  "inspiration",
+  "foreshadowing",
 ] as const;
 
 export type KnowledgeEntityType = (typeof KNOWLEDGE_ENTITY_TYPES)[number];

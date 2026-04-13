@@ -33,8 +33,8 @@ import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import {
   createForeshadowingTracker,
   type ForeshadowingTracker,
-  type DbLikeWithRun,
 } from "../foreshadowingTracker";
+import type { DbLikeWithRun } from "../dbTypes";
 
 // ─── test constants ─────────────────────────────────────────────────
 

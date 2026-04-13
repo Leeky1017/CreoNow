@@ -9,7 +9,7 @@
  * ## Performance: listActive() ≤ 200ms — prepared SQLite statements + 30s cache.
  */
 
-import type { DbLike, DbStatement } from "./storyStatusService";
+import type { DbLikeWithRun } from "./dbTypes";
 
 // ─── types ──────────────────────────────────────────────────────────
 
@@ -105,20 +105,6 @@ const SQL_RESOLVE = `
     AND type = 'foreshadowing'
     AND json_extract(attributes_json, '$.resolved') IS NOT 1
 `;
-
-// ─── extended DB interface for writes ───────────────────────────────
-
-/**
- * Extends DbStatement with run() for UPDATE/INSERT statements.
- * better-sqlite3 returns { changes: number } from run().
- */
-export interface DbRunStatement extends DbStatement {
-  run(...args: unknown[]): { changes: number };
-}
-
-export interface DbLikeWithRun extends DbLike {
-  prepare(sql: string): DbRunStatement;
-}
 
 // ─── cache ──────────────────────────────────────────────────────────
 
