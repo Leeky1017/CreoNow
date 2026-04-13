@@ -380,6 +380,44 @@ describe("kgMutationSkill", () => {
       expect(kgService.entityRead).toHaveBeenCalledOnce();
       expect(kgService.entityUpdate).toHaveBeenCalledOnce();
     });
+
+    it("fail-closed: entityRead DB_ERROR propagates, entityUpdate not called", () => {
+      vi.mocked(kgService.entityRead).mockReturnValueOnce({
+        ok: false,
+        error: { code: "DB_ERROR", message: "disk I/O error" },
+      });
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { name: "Updated" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("DB_ERROR");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("fail-closed: entityRead NOT_FOUND propagates, entityUpdate not called", () => {
+      vi.mocked(kgService.entityRead).mockReturnValueOnce({
+        ok: false,
+        error: { code: "NOT_FOUND", message: "Entity not found" },
+      });
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "nonexistent",
+          expectedVersion: 1,
+          patch: { name: "Updated" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("NOT_FOUND");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
   });
 
   // ── entity:delete ──

@@ -213,12 +213,17 @@ export function createKgMutationSkill(deps: {
         // attributes (arrays, booleans) that would be corrupted by generic CRUD's
         // Record<string, string> model. This complements the static patch.type
         // check in validateMutation.
+        // Fail-closed: if entityRead errors (DB_ERROR, NOT_FOUND), propagate the
+        // error rather than proceeding — prevents corruption on transient failures.
         const entityId = (fullPayload as Record<string, unknown>)["id"] as string;
         const existing = kgService.entityRead({
           projectId: request.projectId,
           id: entityId,
         });
-        if (existing.ok && DEDICATED_SERVICE_ONLY_TYPES.has(existing.data.type)) {
+        if (!existing.ok) {
+          return existing as ServiceResult<T>;
+        }
+        if (DEDICATED_SERVICE_ONLY_TYPES.has(existing.data.type)) {
           return ipcError(
             "INVALID_ARGUMENT",
             `Type '${existing.data.type}' must be managed through its dedicated service, not generic KG CRUD`,
