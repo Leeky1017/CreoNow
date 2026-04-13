@@ -23,6 +23,8 @@ export interface InterruptionPoint {
   title: string;
   lastEditedAt: number;
   contentPreview: string;
+  /** L0 user memory context — most recent project-scoped memory (INV-4). */
+  memoryContext: string;
 }
 
 export interface ForeshadowingEntry {
@@ -78,29 +80,55 @@ const RECENT_EDIT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 // ─── SQL ────────────────────────────────────────────────────────────
 
 /**
- * Chapter progress: count all chapters + find the most recently edited one.
- * Uses a single query with window function to avoid two round-trips.
+ * Chapter progress: count all chapters + find the most recently content-edited one.
+ * Uses a single query with window function to avoid multiple round-trips.
  *
- * Result columns: total, current_sort_order, current_title, current_doc_id,
- *                 current_updated_at, current_content_text
+ * F3: Uses LEFT JOIN with document_versions to derive the last *content* edit
+ *   timestamp. documents.updated_at can be bumped by metadata changes (reorders,
+ *   status changes). document_versions.created_at reflects actual content snapshots.
+ *   Falls back to documents.updated_at when no version history exists.
+ *
+ * F4: Uses ROW_NUMBER() OVER (ORDER BY sort_order ASC) to compute 1-based
+ *   chapter number. Raw sort_order is 0-based (migration 0011) and cannot be
+ *   used directly as a display chapter number.
+ *
+ * F5: Uses content tail (last N chars) instead of content start, since the spec
+ *   says "上次写到哪里、最后编辑的段落" — the end of the content better represents
+ *   where the user stopped writing.
+ *
+ * Result columns: total, chapter_number, current_title, current_doc_id,
+ *                 current_edited_at, current_content_tail
  */
 const SQL_CHAPTER_PROGRESS = `
   SELECT
-    COUNT(*) OVER () AS total,
-    sort_order       AS current_sort_order,
-    title            AS current_title,
-    document_id      AS current_doc_id,
-    updated_at       AS current_updated_at,
-    substr(content_text, 1, ?) AS current_content_text
-  FROM documents
-  WHERE project_id = ? AND type = 'chapter'
-  ORDER BY updated_at DESC
+    COUNT(*) OVER ()                                                          AS total,
+    ROW_NUMBER() OVER (ORDER BY d.sort_order ASC)                             AS chapter_number,
+    d.title                                                                   AS current_title,
+    d.document_id                                                             AS current_doc_id,
+    COALESCE(lv.last_content_at, d.updated_at)                                AS current_edited_at,
+    substr(d.content_text, max(1, length(d.content_text) - ? + 1), ?)         AS current_content_tail
+  FROM documents d
+  LEFT JOIN (
+    SELECT document_id, MAX(created_at) AS last_content_at
+    FROM document_versions
+    GROUP BY document_id
+  ) lv ON lv.document_id = d.document_id
+  WHERE d.project_id = ? AND d.type = 'chapter'
+  ORDER BY COALESCE(lv.last_content_at, d.updated_at) DESC
   LIMIT 1
 `;
 
 /**
- * Active foreshadowing: KG entities of type 'foreshadowing' that are NOT
- * resolved. Uses last_seen_state for resolution tracking (migration 0020).
+ * Active foreshadowing: KG entities of type 'foreshadowing' that are NOT resolved.
+ *
+ * F2: Resolution is tracked via attributes_json.resolved (boolean flag), NOT via
+ *   last_seen_state. The last_seen_state column stores narrative states like
+ *   "受伤但清醒" (used by stateExtractor for character/location tracking) and
+ *   has no semantic connection to foreshadowing resolution status.
+ *
+ * @risk Foreshadowing type is not yet in the kg_entities CHECK constraint
+ *   (0013: character/location/event/item/faction only). Until the constraint is
+ *   extended, this query returns [] — graceful degradation per module header.
  *
  * @why The actual kg_entities schema uses 'id' (not 'entity_id') and 'type'
  *   (not 'entity_type') per migration 0013. Column mapping happens here;
@@ -111,8 +139,30 @@ const SQL_ACTIVE_FORESHADOWING = `
   FROM kg_entities
   WHERE project_id = ?
     AND type = 'foreshadowing'
-    AND (last_seen_state IS NULL OR last_seen_state != 'resolved')
+    AND json_extract(attributes_json, '$.resolved') IS NOT 1
   ORDER BY created_at ASC
+`;
+
+/**
+ * L0 user memory: most recent non-deleted memory scoped to the project or global.
+ *
+ * @why engagement-engine.md step 3: "从 Memory Layer 0 读取用户上次中断点".
+ *   TASK-P3-08 lists 3 data sources: documents, kg_entities, AND user_memory (L0).
+ *   This query provides the L0 component for interruption point enrichment.
+ *
+ * @invariant INV-4: Memory-First — L0 is always-inject layer. We read the most
+ *   recent item to provide writing session context.
+ */
+const SQL_L0_MEMORY = `
+  SELECT content, type
+  FROM user_memory
+  WHERE deleted_at IS NULL
+    AND (
+      scope = 'global'
+      OR (scope = 'project' AND project_id = ?)
+    )
+  ORDER BY updated_at DESC
+  LIMIT 1
 `;
 
 // ─── cache ──────────────────────────────────────────────────────────
@@ -144,45 +194,62 @@ export function createStoryStatusService(deps: StoryStatusDeps): StoryStatusServ
   // Prepared statements — allocated once, reused per call.
   const stmtChapterProgress = db.prepare(SQL_CHAPTER_PROGRESS);
   const stmtForeshadowing = db.prepare(SQL_ACTIVE_FORESHADOWING);
+  const stmtL0Memory = db.prepare(SQL_L0_MEMORY);
 
   const cache = new Map<string, CacheEntry>();
   let disposed = false;
 
   // ── internal helpers ────────────────────────────────────────────
 
+  function queryL0Memory(projectId: string): string {
+    const row = stmtL0Memory.get(projectId) as
+      | { content: string; type: string }
+      | undefined;
+    return row?.content ?? "";
+  }
+
   function queryChapterProgress(projectId: string): {
     progress: ChapterProgress;
     interruption: InterruptionPoint | null;
   } {
-    const row = stmtChapterProgress.get(CONTENT_PREVIEW_LENGTH, projectId) as
+    const row = stmtChapterProgress.get(
+      CONTENT_PREVIEW_LENGTH,
+      CONTENT_PREVIEW_LENGTH,
+      projectId,
+    ) as
       | {
           total: number;
-          current_sort_order: number;
+          chapter_number: number;
           current_title: string;
           current_doc_id: string;
-          current_updated_at: number;
-          current_content_text: string;
+          current_edited_at: number;
+          current_content_tail: string;
         }
       | undefined;
 
-    if (!row || row.total === 0) {
+    // F6: When stmt.get() returns a row, COUNT(*) OVER() is guaranteed ≥ 1
+    // because window functions evaluate before LIMIT. No need to check row.total === 0.
+    if (!row) {
       return {
         progress: { current: 0, total: 0, currentTitle: "" },
         interruption: null,
       };
     }
 
+    const l0Context = queryL0Memory(projectId);
+
     return {
       progress: {
-        current: row.current_sort_order,
+        current: row.chapter_number,
         total: row.total,
         currentTitle: row.current_title,
       },
       interruption: {
         documentId: row.current_doc_id,
         title: row.current_title,
-        lastEditedAt: row.current_updated_at,
-        contentPreview: row.current_content_text ?? "",
+        lastEditedAt: row.current_edited_at,
+        contentPreview: row.current_content_tail ?? "",
+        memoryContext: l0Context,
       },
     };
   }
