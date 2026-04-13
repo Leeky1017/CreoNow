@@ -114,7 +114,7 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
             <Button tone="ghost" className="zen-toggle" aria-label={args.zenMode ? t("zenMode.exit") : t("zenMode.enter")} aria-pressed={args.zenMode} title={`${args.zenMode ? t("zenMode.exit") : t("zenMode.enter")} (Shift+Z)`}>
               {args.zenMode ? <Minimize2 size={ICON_SIZE} /> : <Maximize2 size={ICON_SIZE} />}
             </Button>
-            {args.rightPanelCollapsed ? <Button tone="ghost">{t("panel.actions.openAi")}</Button> : null}
+            {!args.zenMode && args.rightPanelCollapsed ? <Button tone="ghost">{t("panel.actions.openAi")}</Button> : null}
           </div>
         </header>
         <div className="editor-scroll">

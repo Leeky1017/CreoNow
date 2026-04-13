@@ -820,7 +820,7 @@ function WorkbenchShell() {
             >
               {layout.zenMode ? <Minimize2 size={ICON_SIZE} /> : <Maximize2 size={ICON_SIZE} />}
             </Button>
-            {layout.rightPanelCollapsed ? (
+            {!layout.zenMode && layout.rightPanelCollapsed ? (
               <Button tone="ghost" disabled={isVersionPreviewActive} onClick={() => layout.handleRightPanelSelect("ai")}>{t("panel.actions.openAi")}</Button>
             ) : null}
           </div>

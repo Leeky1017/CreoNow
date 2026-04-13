@@ -3424,4 +3424,25 @@ describe("WorkbenchApp", () => {
     fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
     expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).toBe("true");
   });
+
+  it("hides 'Open AI Panel' button during zen mode when right panel is collapsed", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Collapse the right panel first.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
+
+    // Verify the button appears when not in zen mode.
+    expect(screen.getByRole("button", { name: "打开 AI 面板" })).toBeInTheDocument();
+
+    // Enter zen mode.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+
+    // Button should be hidden during zen.
+    expect(screen.queryByRole("button", { name: "打开 AI 面板" })).not.toBeInTheDocument();
+
+    // Exit zen — button should reappear.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(screen.getByRole("button", { name: "打开 AI 面板" })).toBeInTheDocument();
+  });
 });
