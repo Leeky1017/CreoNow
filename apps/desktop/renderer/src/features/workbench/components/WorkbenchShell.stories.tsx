@@ -61,7 +61,7 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
         "--right-resizer-width": (args.zenMode || args.rightPanelCollapsed) ? "0px" : "8px",
       } as CSSProperties}
     >
-      <aside className="icon-rail" aria-label={t("app.title")}>
+      <aside className="icon-rail" hidden={args.zenMode} {...(args.zenMode && { inert: true })} aria-label={t("app.title")}>
         <div className="icon-rail__group">
           {leftItems.filter((item) => item.placement === "top").map((item) => {
             const Icon = item.icon;
@@ -82,7 +82,7 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
         </div>
       </aside>
 
-      {args.sidebarCollapsed ? null : <aside className="sidebar" aria-label={t("sidebar.title")}>
+      {args.sidebarCollapsed ? null : <aside className="sidebar" hidden={args.zenMode} {...(args.zenMode && { inert: true })} aria-label={t("sidebar.title")}>
         <div className="sidebar-header">
           <div>
             <h1 className="screen-title">{t("project.defaultName")}</h1>
@@ -102,7 +102,7 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
         </div>
       </aside>}
 
-      {args.sidebarCollapsed ? null : <div className="panel-resizer" role="separator" aria-label={t("sidebar.resizeHandle")} aria-orientation="vertical" />}
+      {args.sidebarCollapsed ? null : <div className="panel-resizer" hidden={args.zenMode} {...(args.zenMode && { inert: true })} role="separator" aria-label={t("sidebar.resizeHandle")} aria-orientation="vertical" />}
 
       <section className="editor-column">
         <header className="editor-header">
@@ -124,9 +124,9 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
         </div>
       </section>
 
-      {args.rightPanelCollapsed ? null : <div className="panel-resizer" role="separator" aria-label={t("panel.resizeHandle")} aria-orientation="vertical" />}
+      {args.rightPanelCollapsed ? null : <div className="panel-resizer" hidden={args.zenMode} {...(args.zenMode && { inert: true })} role="separator" aria-label={t("panel.resizeHandle")} aria-orientation="vertical" />}
 
-      {args.rightPanelCollapsed ? null : <aside className="right-panel" aria-label={t("panel.title")}>
+      {args.rightPanelCollapsed ? null : <aside className="right-panel" hidden={args.zenMode} {...(args.zenMode && { inert: true })} aria-label={t("panel.title")}>
         <div className="right-tabs">
           <div className="right-tabs__list" role="tablist" aria-label={t("panel.tabs")}>
             {(["ai", "info", "quality"] as const).map((panelId) => (

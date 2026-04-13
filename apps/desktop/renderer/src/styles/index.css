@@ -59,7 +59,7 @@ button {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: var(--icon-rail-width, 48px) var(--left-sidebar-width, 240px) var(--left-resizer-width, 8px) minmax(400px, 1fr) var(--right-resizer-width, 8px) var(--right-panel-width, 320px);
+  grid-template-columns: var(--icon-rail-width, 48px) var(--left-sidebar-width, 260px) var(--left-resizer-width, 8px) minmax(400px, 1fr) var(--right-resizer-width, 8px) var(--right-panel-width, 320px);
   transition: grid-template-columns var(--duration-slow) var(--ease-default);
 }
 

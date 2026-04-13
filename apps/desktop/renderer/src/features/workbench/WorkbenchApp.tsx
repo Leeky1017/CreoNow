@@ -745,11 +745,13 @@ function WorkbenchShell() {
           • `hidden` is the PRIMARY mechanism — it removes elements from visual
             flow and is fully supported in all browsers and React versions.
           • `inert` is a FORWARD-COMPATIBLE annotation that will work properly
-            in React 19+ (preventing keyboard/focus interaction). On React 18,
-            the boolean `true` is serialised as the string "true" rather than
-            the empty string the spec requires, so `hidden` alone provides
-            the correct behaviour today. No imperative ref workaround is needed
-            because `hidden` already hides content.
+            in React 19+ (preventing keyboard/focus interaction). On React 18
+            (including 18.3.1), the boolean `inert` attribute is NOT properly
+            forwarded to the DOM — React warns about an unrecognised prop and
+            omits it entirely. Therefore `hidden` alone provides the effective
+            behaviour today.
+          • When upgrading to React 19, `inert` will be natively supported and
+            the `hidden` fallback can be reconsidered.
           Remove this note after upgrading to React 19. */}
       <aside className="icon-rail" hidden={layout.zenMode} inert={layout.zenMode || undefined} aria-label={t("app.title")}>
         <div className="icon-rail__group">
