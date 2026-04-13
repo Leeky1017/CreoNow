@@ -42,9 +42,9 @@
 - 文件：`services/engagement/flowDetector.ts`（新建）
 - 输入：编辑器 keydown 事件流
 - 输出：FlowState { isInFlow: boolean, duration: number, intensity: 'light' | 'deep' }
-- 算法：过去 5 分钟持续打字（间隔 < 30s）且未切换窗口 → light flow；15 分钟 → deep flow
-- 行为：deep flow 时隐藏所有非编辑器 UI（Zen Mode 自动触发）
-- 退出 flow：检测到 > 60s 无输入 → 柔和恢复 UI（300ms 淡入）
+- 算法：过去 5 分钟持续打字（间隔 < 15s，见 engagement-engine.md §机制8）且未切换窗口 → light flow；15 分钟 → deep flow
+- 行为：纯检测原语——输出只读 FlowState，不触发 UI 变更/IPC/事件。Zen Mode 自动触发为下游集成（渲染进程消费 FlowState 后驱动）
+- 退出 flow：间隔 >= 15s（maxGap，spec "停顿 < 15 秒"）→ 当前 2-state 模型的有效退出阈值。exitTimeout（60s）作为上界保留，供计划中的多状态模型（STUCK_PAUSE/COOLING）使用
 - LLM：否
 - INV：无特殊约束
 
