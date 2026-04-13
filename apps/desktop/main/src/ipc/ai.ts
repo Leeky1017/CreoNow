@@ -1715,10 +1715,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           return;
         },
       },
-      // INV-8: Wire the 3 post-writing hooks from the hook chain factory.
-      // Dependencies that are not yet fully available (P3SkillExecutor) get
-      // safe stubs — the hooks are registered and called, and will become
-      // fully functional once the downstream services mature.
+      // INV-8: Wire the post-writing hooks from the hook chain factory.
+      // kg-update and memory-extract are fully activated with real services.
+      // quality-check is omitted: P3SkillExecutor needs contextEngine +
+      // eventBus which are not yet available in the IPC scope. It will be
+      // registered once the P3 skill infrastructure is wired here.
       ...buildPostWritingHookChain({
         kgUpdate: {
           scanEntities: matchEntitiesCached,
@@ -1745,21 +1746,10 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               },
           logger: deps.logger,
         },
-        qualityCheck: {
-          // P3SkillExecutor is not yet wired in this scope — provide a no-op
-          // stub that returns a graceful failure. The quality-check hook is
-          // fire-and-forget so this won't block Stage 8.
-          skillExecutor: {
-            executeSkill: async () => ({
-              success: false,
-              error: {
-                code: "NOT_WIRED" as const,
-                message: "P3SkillExecutor not yet available in IPC scope",
-              },
-            }),
-          },
-          logger: deps.logger,
-        },
+        // qualityCheck intentionally omitted — P3SkillExecutor requires
+        // contextEngine + eventBus which are not yet available in the IPC
+        // scope. The quality-check hook will be registered once the P3 skill
+        // infrastructure lands. See PostWritingHookChainDeps.qualityCheck.
       }),
     ],
     defaultTimeoutMs: 30_000,

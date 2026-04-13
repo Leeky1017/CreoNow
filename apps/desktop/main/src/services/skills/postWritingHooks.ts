@@ -342,7 +342,13 @@ export function createQualityCheckHook(
 export interface PostWritingHookChainDeps {
   kgUpdate: KgUpdateHookDeps;
   memoryExtract: MemoryExtractHookDeps;
-  qualityCheck: QualityCheckHookDeps;
+  /**
+   * Optional — quality-check requires P3SkillExecutor which depends on
+   * contextEngine + eventBus (not yet available in the IPC scope).
+   * When omitted the quality-check hook is simply not registered.
+   * @todo Wire when P3 skill infrastructure lands in IPC scope.
+   */
+  qualityCheck?: QualityCheckHookDeps;
 }
 
 /**
@@ -358,9 +364,12 @@ export interface PostWritingHookChainDeps {
 export function buildPostWritingHookChain(
   deps: PostWritingHookChainDeps,
 ): PostWritingHook[] {
-  return [
+  const hooks: PostWritingHook[] = [
     createKgUpdateHook(deps.kgUpdate),
     createMemoryExtractHook(deps.memoryExtract),
-    createQualityCheckHook(deps.qualityCheck),
   ];
+  if (deps.qualityCheck) {
+    hooks.push(createQualityCheckHook(deps.qualityCheck));
+  }
+  return hooks;
 }

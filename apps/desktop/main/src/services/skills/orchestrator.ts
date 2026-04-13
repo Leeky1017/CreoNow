@@ -1174,6 +1174,12 @@ export function createWritingOrchestrator(
           }
         }
 
+        // hooks-done semantics:
+        //  - `executed`: hooks whose execute() resolved without throwing.
+        //    For fire-and-forget hooks (e.g. quality-check) this means the
+        //    async work was _launched_ successfully; later failures are
+        //    captured by the hook's own .catch() logging, not reflected here.
+        //  - `failed`: hooks whose execute() threw synchronously or rejected.
         yield makeEvent("hooks-done", requestId, { executed: executedHooks, failed: failedHooks });
 
         taskStates.set(requestId, "completed");

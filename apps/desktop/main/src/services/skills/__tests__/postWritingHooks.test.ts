@@ -525,7 +525,7 @@ describe("hook priority ordering", () => {
     expect(MEMORY_EXTRACT_PRIORITY).toBeLessThan(QUALITY_CHECK_PRIORITY);
   });
 
-  it("hooks from buildPostWritingHookChain are sorted by priority", () => {
+  it("hooks from buildPostWritingHookChain are sorted by priority (with qualityCheck)", () => {
     const hooks = buildPostWritingHookChain({
       kgUpdate: makeKgUpdateDeps(),
       memoryExtract: makeMemoryExtractDeps(),
@@ -541,6 +541,17 @@ describe("hook priority ordering", () => {
     expect(hooks[0]!.priority).toBe(KG_UPDATE_PRIORITY);
     expect(hooks[1]!.priority).toBe(MEMORY_EXTRACT_PRIORITY);
     expect(hooks[2]!.priority).toBe(QUALITY_CHECK_PRIORITY);
+  });
+
+  it("hooks from buildPostWritingHookChain omits quality-check when deps absent", () => {
+    const hooks = buildPostWritingHookChain({
+      kgUpdate: makeKgUpdateDeps(),
+      memoryExtract: makeMemoryExtractDeps(),
+    });
+
+    expect(hooks).toHaveLength(2);
+    expect(hooks[0]!.name).toBe("kg-update");
+    expect(hooks[1]!.name).toBe("memory-extract");
   });
 });
 
@@ -610,7 +621,7 @@ describe("error isolation across hooks", () => {
 // ─── buildPostWritingHookChain ──────────────────────────────────────
 
 describe("buildPostWritingHookChain", () => {
-  it("creates all 3 hooks", () => {
+  it("creates all 3 hooks when qualityCheck deps are provided", () => {
     const hooks = buildPostWritingHookChain({
       kgUpdate: makeKgUpdateDeps(),
       memoryExtract: makeMemoryExtractDeps(),
@@ -622,6 +633,19 @@ describe("buildPostWritingHookChain", () => {
     expect(names).toContain("kg-update");
     expect(names).toContain("memory-extract");
     expect(names).toContain("quality-check");
+  });
+
+  it("creates only 2 hooks when qualityCheck deps are omitted", () => {
+    const hooks = buildPostWritingHookChain({
+      kgUpdate: makeKgUpdateDeps(),
+      memoryExtract: makeMemoryExtractDeps(),
+    });
+
+    expect(hooks).toHaveLength(2);
+    const names = hooks.map((h) => h.name);
+    expect(names).toContain("kg-update");
+    expect(names).toContain("memory-extract");
+    expect(names).not.toContain("quality-check");
   });
 
   it("all hooks are enabled by default", () => {
