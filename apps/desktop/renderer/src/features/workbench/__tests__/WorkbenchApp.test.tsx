@@ -3298,18 +3298,19 @@ describe("WorkbenchApp", () => {
     // Enter zen mode via button.
     fireEvent.click(screen.getByRole("button", { name: "进入专注模式" }));
     expect(frame).toHaveClass("workbench-frame--zen");
-    expect(screen.queryByLabelText("CreoNow 工作台")).toBeNull(); // icon rail unmounted
-    expect(screen.queryByLabelText("左侧边栏")).toBeNull(); // sidebar unmounted
-    expect(screen.queryByLabelText("右侧面板")).toBeNull(); // right panel unmounted
-    expect(screen.queryByRole("contentinfo")).toBeNull(); // status bar hidden
+    // Elements stay in DOM with hidden+inert (preserves component state).
+    expect(screen.getByLabelText("CreoNow 工作台")).toHaveAttribute("hidden");
+    expect(screen.getByLabelText("左侧边栏")).toHaveAttribute("hidden");
+    expect(screen.getByLabelText("右侧面板")).toHaveAttribute("hidden");
+    expect(screen.getByRole("contentinfo", { hidden: true })).toHaveAttribute("hidden");
     expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
 
     // Toggle back off.
     fireEvent.click(screen.getByRole("button", { name: "退出专注模式" }));
     expect(frame).not.toHaveClass("workbench-frame--zen");
-    expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument();
-    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
-    expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
+    expect(screen.getByLabelText("CreoNow 工作台")).not.toHaveAttribute("hidden");
+    expect(screen.getByLabelText("左侧边栏")).not.toHaveAttribute("hidden");
+    expect(screen.getByLabelText("右侧面板")).not.toHaveAttribute("hidden");
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
     expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("false");
   });
@@ -3321,8 +3322,8 @@ describe("WorkbenchApp", () => {
 
     const frame = screen.getByTestId("workbench-frame");
     expect(frame).toHaveClass("workbench-frame--zen");
-    expect(screen.queryByLabelText("CreoNow 工作台")).toBeNull();
-    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(screen.getByLabelText("CreoNow 工作台")).toHaveAttribute("hidden");
+    expect(screen.getByRole("contentinfo", { hidden: true })).toHaveAttribute("hidden");
     expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
   });
 

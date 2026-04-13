@@ -740,9 +740,10 @@ function WorkbenchShell() {
       data-export-active={exportProgress.isExporting ? "true" : undefined}
       style={frameStyle}
     >
-      {/* Icon rail, left sidebar, and left resizer are unmounted in zen mode
-          so they are not tabbable or focusable via keyboard navigation. */}
-      {layout.zenMode ? null : <aside className="icon-rail" aria-label={t("app.title")}>
+      {/* @why Zen mode uses hidden+inert instead of unmounting (F-01 R3) to
+          preserve component state (e.g. SettingsPage draft edits). hidden removes
+          from visual flow; inert prevents keyboard/focus interaction. */}
+      <aside className="icon-rail" hidden={layout.zenMode} inert={layout.zenMode || undefined} aria-label={t("app.title")}>
         <div className="icon-rail__group">
           {LEFT_PANEL_ITEMS.filter((item) => item.placement === "top").map((item) => {
             const Icon = item.icon;
@@ -775,14 +776,16 @@ function WorkbenchShell() {
             </Button>;
           })}
         </div>
-      </aside>}
+      </aside>
 
-      {(layout.zenMode || layout.sidebarCollapsed) ? null : <aside className="sidebar" aria-label={t("sidebar.title")}>
+      {layout.sidebarCollapsed ? null : <aside className="sidebar" hidden={layout.zenMode} inert={layout.zenMode || undefined} aria-label={t("sidebar.title")}>
         {renderSidebarContent()}
       </aside>}
 
-      {(layout.zenMode || layout.sidebarCollapsed) ? null : <div
+      {layout.sidebarCollapsed ? null : <div
         className={layout.dragState?.panel === "left" ? "panel-resizer panel-resizer--dragging" : "panel-resizer"}
+        hidden={layout.zenMode}
+        inert={layout.zenMode || undefined}
         role="separator"
         aria-label={t("sidebar.resizeHandle")}
         aria-orientation="vertical"
@@ -833,8 +836,10 @@ function WorkbenchShell() {
         </div>
       </section>
 
-      {(layout.zenMode || layout.rightPanelCollapsed) ? null : <div
+      {layout.rightPanelCollapsed ? null : <div
         className={layout.dragState?.panel === "right" ? "panel-resizer panel-resizer--dragging" : "panel-resizer"}
+        hidden={layout.zenMode}
+        inert={layout.zenMode || undefined}
         role="separator"
         aria-label={t("panel.resizeHandle")}
         aria-orientation="vertical"
@@ -842,7 +847,7 @@ function WorkbenchShell() {
         onMouseDown={layout.startResize("right")}
       />}
 
-      {(layout.zenMode || layout.rightPanelCollapsed) ? null : <aside className="right-panel" aria-label={t("panel.title")}>
+      {layout.rightPanelCollapsed ? null : <aside className="right-panel" hidden={layout.zenMode} inert={layout.zenMode || undefined} aria-label={t("panel.title")}>
         <div className="right-tabs">
           <div className="right-tabs__list" role="tablist" aria-label={t("panel.tabs")}>
             {RIGHT_PANEL_IDS.map((panelId) => (
@@ -887,7 +892,7 @@ function WorkbenchShell() {
       </section>
     </div>}
 
-    {layout.zenMode ? null : <footer className="status-bar">
+    <footer className="status-bar" hidden={layout.zenMode} inert={layout.zenMode || undefined}>
       <span className="status-bar__group">
         {t("status.projectDocument", {
           project: project?.name ?? t("project.defaultName"),
@@ -899,7 +904,7 @@ function WorkbenchShell() {
         {saveLabel}
       </Button>
       <span className="status-bar__group">{formatTimestamp(autosave.lastSavedAt)}</span>
-    </footer>}
+    </footer>
     </main>
   </>;
 }

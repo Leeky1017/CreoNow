@@ -112,7 +112,6 @@ const resources = {
       "panel.actions.openAi": "打开 AI 面板",
       "zenMode.enter": "进入专注模式",
       "zenMode.exit": "退出专注模式",
-      "zenMode.label": "专注模式",
       "panel.resizeHandle": "调整右侧面板宽度",
       "editor.selectionHint": "先在编辑器中选中一段文字，再请求 AI 建议。",
       "editor.emptySelection": "当前没有有效选区",
