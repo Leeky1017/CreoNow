@@ -18,6 +18,7 @@
 import type { PostWritingHook, PostWritingHookContext } from "./orchestrator";
 import type { MatchResult, MatchableEntity } from "../kg/entityMatcher";
 import type { KnowledgeGraphService, KnowledgeEntity } from "../kg/types";
+import type { KgMutationSkill } from "./kgMutationSkill";
 import type { SessionMemoryService } from "../memory/sessionMemoryService";
 import type { P3SkillExecutor } from "./p3Skills";
 import type { Logger } from "../../logging/logger";
@@ -71,8 +72,15 @@ export interface KgUpdateHookDeps {
     entities: MatchableEntity[],
     projectId: string,
   ) => MatchResult[];
-  /** KG service for listing entities and updating lastSeenState. */
-  kgService: Pick<KnowledgeGraphService, "entityList" | "entityUpdate">;
+  /** KG service for listing entities (read-only queries). */
+  kgService: Pick<KnowledgeGraphService, "entityList">;
+  /**
+   * INV-6 compliant mutation gateway for KG writes.
+   * @why All KG writes go through the kgMutationSkill pipeline
+   *   (validate → permission → execute) to ensure a single auditable
+   *   gateway and future Permission Gate enforcement.
+   */
+  kgMutationSkill: Pick<KgMutationSkill, "execute">;
   logger: Pick<Logger, "info" | "error">;
 }
 
@@ -137,7 +145,7 @@ export function createKgUpdateHook(deps: KgUpdateHookDeps): PostWritingHook {
         matchCount: matches.length,
       });
 
-      // Update lastSeenState for each matched entity with the document reference.
+      // Update lastSeenState for each matched entity via kgMutationSkill (INV-6).
       // Best-effort: individual update failures are logged but don't stop others.
       const timestamp = new Date().toISOString();
       for (const match of matches) {
@@ -147,12 +155,15 @@ export function createKgUpdateHook(deps: KgUpdateHookDeps): PostWritingHook {
         );
         if (!entity) continue;
 
-        const updateResult = deps.kgService.entityUpdate({
+        const updateResult = deps.kgMutationSkill.execute({
+          mutationType: "entity:update",
           projectId,
-          id: match.entityId,
-          expectedVersion: entity.version,
-          patch: {
-            lastSeenState: `Detected in doc:${ctx.documentId} at ${timestamp} (term: "${match.matchedTerm}")`,
+          payload: {
+            id: match.entityId,
+            expectedVersion: entity.version,
+            patch: {
+              lastSeenState: `Detected in doc:${ctx.documentId} at ${timestamp} (term: "${match.matchedTerm}")`,
+            },
           },
         });
 

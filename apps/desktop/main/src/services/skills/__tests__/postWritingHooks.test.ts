@@ -92,7 +92,9 @@ function makeKgUpdateDeps(overrides: Partial<KgUpdateHookDeps> = {}): KgUpdateHo
           totalCount: 2,
         },
       }),
-      entityUpdate: vi.fn().mockReturnValue({ ok: true, data: {} }),
+    },
+    kgMutationSkill: {
+      execute: vi.fn().mockReturnValue({ ok: true, data: {} }),
     },
     logger: makeLogger(),
     ...overrides,
@@ -193,14 +195,17 @@ describe("createKgUpdateHook", () => {
       expect.any(Array),
       "proj-001",
     );
-    expect(deps.kgService.entityUpdate).toHaveBeenCalledTimes(2);
-    expect(deps.kgService.entityUpdate).toHaveBeenCalledWith(
+    expect(deps.kgMutationSkill.execute).toHaveBeenCalledTimes(2);
+    expect(deps.kgMutationSkill.execute).toHaveBeenCalledWith(
       expect.objectContaining({
+        mutationType: "entity:update",
         projectId: "proj-001",
-        id: "ent-1",
-        expectedVersion: 1,
-        patch: expect.objectContaining({
-          lastSeenState: expect.stringContaining("doc-001"),
+        payload: expect.objectContaining({
+          id: "ent-1",
+          expectedVersion: 1,
+          patch: expect.objectContaining({
+            lastSeenState: expect.stringContaining("doc-001"),
+          }),
         }),
       }),
     );
@@ -236,7 +241,6 @@ describe("createKgUpdateHook", () => {
           ok: false,
           error: { code: "INTERNAL", message: "DB error" },
         }),
-        entityUpdate: vi.fn(),
       },
     });
     const hook = createKgUpdateHook(deps);
@@ -250,9 +254,9 @@ describe("createKgUpdateHook", () => {
     );
   });
 
-  it("handles individual entityUpdate failure gracefully", async () => {
+  it("handles individual kgMutationSkill.execute failure gracefully", async () => {
     const deps = makeKgUpdateDeps();
-    (deps.kgService.entityUpdate as ReturnType<typeof vi.fn>)
+    (deps.kgMutationSkill.execute as ReturnType<typeof vi.fn>)
       .mockReturnValueOnce({ ok: false, error: { code: "VERSION_CONFLICT", message: "stale" } })
       .mockReturnValueOnce({ ok: true, data: {} });
     const hook = createKgUpdateHook(deps);
@@ -260,7 +264,7 @@ describe("createKgUpdateHook", () => {
     // Should not throw — first update fails, second succeeds
     await hook.execute(makeContext());
 
-    expect(deps.kgService.entityUpdate).toHaveBeenCalledTimes(2);
+    expect(deps.kgMutationSkill.execute).toHaveBeenCalledTimes(2);
     expect(deps.logger.error).toHaveBeenCalledWith(
       "kg-update:entity-update-failed",
       expect.objectContaining({ entityId: "ent-1", code: "VERSION_CONFLICT" }),
@@ -278,7 +282,7 @@ describe("createKgUpdateHook", () => {
     await hook.execute(makeContext());
 
     expect(deps.scanEntities).not.toHaveBeenCalled();
-    expect(deps.kgService.entityUpdate).not.toHaveBeenCalled();
+    expect(deps.kgMutationSkill.execute).not.toHaveBeenCalled();
   });
 
   it("does nothing when no matches found", async () => {
@@ -289,7 +293,7 @@ describe("createKgUpdateHook", () => {
 
     await hook.execute(makeContext());
 
-    expect(deps.kgService.entityUpdate).not.toHaveBeenCalled();
+    expect(deps.kgMutationSkill.execute).not.toHaveBeenCalled();
   });
 
   it("truncates very long text before scanning", async () => {

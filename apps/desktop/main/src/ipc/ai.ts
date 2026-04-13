@@ -77,6 +77,7 @@ import type { CostTracker } from "../services/ai/costTracker";
 import { buildPostWritingHookChain } from "../services/skills/postWritingHooks";
 import { matchEntitiesCached } from "../services/kg/entityMatcher";
 import { createSessionMemoryService } from "../services/memory/sessionMemoryService";
+import { createKgMutationSkill } from "../services/skills/kgMutationSkill";
 
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
@@ -1715,7 +1716,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           return;
         },
       },
-      // INV-8: Wire the post-writing hooks from the hook chain factory.
+       // INV-8: Wire the post-writing hooks from the hook chain factory.
       // kg-update and memory-extract are fully activated with real services.
       // quality-check is omitted: P3SkillExecutor needs contextEngine +
       // eventBus which are not yet available in the IPC scope. It will be
@@ -1728,11 +1729,16 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               ok: false as const,
               error: { code: "INTERNAL" as const, message: "Database not available" },
             }),
-            entityUpdate: () => ({
-              ok: false as const,
-              error: { code: "INTERNAL" as const, message: "Database not available" },
-            }),
           },
+          // INV-6: Route KG writes through kgMutationSkill gateway.
+          kgMutationSkill: kgServiceForContext
+            ? createKgMutationSkill({ kgService: kgServiceForContext })
+            : {
+                execute: () => ({
+                  ok: false as const,
+                  error: { code: "INTERNAL" as const, message: "Database not available" },
+                }),
+              },
           logger: deps.logger,
         },
         memoryExtract: {
