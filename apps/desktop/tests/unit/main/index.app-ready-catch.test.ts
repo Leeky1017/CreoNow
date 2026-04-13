@@ -99,17 +99,11 @@ async function bootIndexWithWhenReady(
   vi.doMock("../../../main/src/ipc/knowledgeGraph", () => ({
     registerKnowledgeGraphIpcHandlers: vi.fn(),
   }));
-  vi.doMock("../../../main/src/ipc/embedding", () => ({
-    registerEmbeddingIpcHandlers: vi.fn(),
-  }));
   vi.doMock("../../../main/src/ipc/memory", () => ({
     registerMemoryIpcHandlers: vi.fn(),
   }));
   vi.doMock("../../../main/src/ipc/project", () => ({
     registerProjectIpcHandlers: vi.fn(),
-  }));
-  vi.doMock("../../../main/src/ipc/rag", () => ({
-    registerRagIpcHandlers: vi.fn(),
   }));
   vi.doMock("../../../main/src/ipc/search", () => ({
     registerSearchIpcHandlers: vi.fn(),
@@ -129,15 +123,6 @@ async function bootIndexWithWhenReady(
     })),
   }));
 
-  vi.doMock("../../../main/src/services/embedding/embeddingService", () => ({
-    createEmbeddingService: vi.fn(() => ({})),
-  }));
-  vi.doMock(
-    "../../../main/src/services/embedding/semanticChunkIndexService",
-    () => ({
-      createSemanticChunkIndexService: vi.fn(() => ({})),
-    }),
-  );
   vi.doMock("../../../main/src/services/judge/judgeService", () => ({
     createJudgeService: vi.fn(() => ({})),
   }));

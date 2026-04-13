@@ -4,7 +4,6 @@ import type Database from "better-sqlite3";
 import { nowTs } from "@shared/timeUtils";
 
 import type { Logger } from "../../logging/logger";
-import { createUserMemoryVecService } from "./userMemoryVec";
 import { DegradationCounter, logWarn } from "../shared/degradationCounter";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 export type { ServiceResult };
@@ -760,90 +759,23 @@ function executePreviewInjection(
       return { ok: true, data: { items, mode: "deterministic" } };
     }
 
-    const vec = createUserMemoryVecService({
-      db: ctx.db,
-      logger: ctx.logger,
-    });
-    const vecRes = vec.topK({
-      sources: sorted.map((m) => ({
-        memoryId: m.memoryId,
-        content: m.content,
-      })),
-      queryText: trimmedQueryText,
-      k: 8,
-      ts: nowTs(),
-    });
-
-    if (!vecRes.ok) {
-      ctx.reportDegradation({
-        projectId: scopedProjectId,
-        reason: `${vecRes.error.code}:${vecRes.error.message}`,
-      });
-      ctx.logger.info("memory_semantic_recall", {
-        mode: "deterministic",
-        reason: `${vecRes.error.code}:${vecRes.error.message}`,
-      });
-
-      const items: MemoryInjectionItem[] = sorted.map((item) => ({
-        id: item.memoryId,
-        type: item.type,
-        scope: item.scope,
-        origin: item.origin,
-        content: item.content,
-        reason: { kind: "deterministic" },
-      }));
-
-      ctx.logger.info("memory_injection_preview", {
-        mode: "deterministic",
-        count: items.length,
-      });
-      return {
-        ok: true,
-        data: {
-          items,
-          mode: "deterministic",
-          diagnostics: {
-            degradedFrom: "semantic",
-            reason: vecRes.error.message,
-          },
-        },
-      };
-    }
-
+    // Semantic recall via sqlite-vec has been removed.
+    // All memory injection now uses deterministic mode (KG + FTS5 path).
     ctx.resetDegradation();
-    const scores = new Map<string, number>();
-    for (const m of vecRes.data.matches) {
-      scores.set(m.memoryId, m.score);
-    }
-
-    const withScores = sorted.map((m) => ({
-      memory: m,
-      score: scores.get(m.memoryId) ?? 0,
+    const items: MemoryInjectionItem[] = sorted.map((item) => ({
+      id: item.memoryId,
+      type: item.type,
+      scope: item.scope,
+      origin: item.origin,
+      content: item.content,
+      reason: { kind: "deterministic" },
     }));
-    withScores.sort((a, b) => {
-      if (a.score !== b.score) {
-        return b.score - a.score;
-      }
-      return compareDeterministic(a.memory, b.memory);
-    });
-
-    const items: MemoryInjectionItem[] = withScores.map(
-      ({ memory, score }) => ({
-        id: memory.memoryId,
-        type: memory.type,
-        scope: memory.scope,
-        origin: memory.origin,
-        content: memory.content,
-        reason:
-          score > 0 ? { kind: "semantic", score } : { kind: "deterministic" },
-      }),
-    );
 
     ctx.logger.info("memory_injection_preview", {
-      mode: "semantic",
+      mode: "deterministic",
       count: items.length,
     });
-    return { ok: true, data: { items, mode: "semantic" } };
+    return { ok: true, data: { items, mode: "deterministic" } };
   } catch (error) {
     ctx.logger.error("memory_injection_preview_failed", {
       code: "DB_ERROR",

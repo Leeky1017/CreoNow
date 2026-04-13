@@ -214,9 +214,6 @@ export const IPC_CHANNELS = [
   "cost:usage:summary",
   "db:debug:tablenames",
   "dialog:folder:open",
-  "embedding:index:reindex",
-  "embedding:semantic:search",
-  "embedding:text:generate",
   "export:document:docx",
   "export:document:markdown",
   "export:document:pdf",
@@ -302,9 +299,6 @@ export const IPC_CHANNELS = [
   "project:project:stats",
   "project:project:switch",
   "project:style:get",
-  "rag:config:get",
-  "rag:config:update",
-  "rag:context:retrieve",
   "search:fts:indexstatus",
   "search:fts:query",
   "search:fts:reindex",
@@ -1264,58 +1258,6 @@ export type IpcChannelSpec = {
     request: Record<string, never>;
     response: {
       selectedPath?: string;
-    };
-  };
-  "embedding:index:reindex": {
-    request: {
-      batchSize?: number;
-      model?: string;
-      projectId: string;
-    };
-    response: {
-      changedChunks: number;
-      indexedChunks: number;
-      indexedDocuments: number;
-    };
-  };
-  "embedding:semantic:search": {
-    request: {
-      minScore?: number;
-      model?: string;
-      projectId: string;
-      queryText: string;
-      topK?: number;
-    };
-    response: {
-      fallback?: {
-        from: "semantic";
-        reason: string;
-        to: "fts";
-      };
-      isolation?: {
-        code: "SEARCH_DATA_CORRUPTED";
-        isolatedChunkIds: Array<string>;
-      };
-      mode: "semantic" | "fts-fallback";
-      notice?: string;
-      results: Array<{
-        chunkId: string;
-        documentId: string;
-        endOffset: number;
-        score: number;
-        startOffset: number;
-        text: string;
-      }>;
-    };
-  };
-  "embedding:text:generate": {
-    request: {
-      model?: string;
-      texts: Array<string>;
-    };
-    response: {
-      dimension: number;
-      vectors: Array<Array<number>>;
     };
   };
   "export:document:docx": {
@@ -3360,55 +3302,6 @@ export type IpcChannelSpec = {
       narrativePerson: string;
       targetAudience: string;
       tone: string;
-    };
-  };
-  "rag:config:get": {
-    request: Record<string, never>;
-    response: {
-      maxTokens: number;
-      minScore: number;
-      model?: string;
-      topK: number;
-    };
-  };
-  "rag:config:update": {
-    request: {
-      maxTokens?: number;
-      minScore?: number;
-      model?: string;
-      topK?: number;
-    };
-    response: {
-      maxTokens: number;
-      minScore: number;
-      model?: string;
-      topK: number;
-    };
-  };
-  "rag:context:retrieve": {
-    request: {
-      maxTokens?: number;
-      minScore?: number;
-      model?: string;
-      projectId: string;
-      queryText: string;
-      topK?: number;
-    };
-    response: {
-      chunks: Array<{
-        chunkId: string;
-        documentId: string;
-        score: number;
-        text: string;
-        tokenEstimate: number;
-      }>;
-      fallback?: {
-        from: "semantic";
-        reason: string;
-        to: "fts";
-      };
-      truncated: boolean;
-      usedTokens: number;
     };
   };
   "search:fts:indexstatus": {

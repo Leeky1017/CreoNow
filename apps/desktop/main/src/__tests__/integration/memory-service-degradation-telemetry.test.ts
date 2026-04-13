@@ -65,11 +65,9 @@ function cloneMemoryRow(row: MemoryRow): MemoryRow {
 function createDbStub(args?: {
   memories?: MemoryRow[];
   settings?: SettingsRow[];
-  loadExtensionFails?: boolean;
 }): Database.Database {
   const memories = [...(args?.memories ?? [])];
   const settings = [...(args?.settings ?? [])];
-  const loadExtensionFails = args?.loadExtensionFails ?? true;
 
   const db = {
     prepare: (sql: string) => {
@@ -129,11 +127,6 @@ function createDbStub(args?: {
 
       throw new Error(`Unexpected SQL: ${sql}`);
     },
-    loadExtension: () => {
-      if (loadExtensionFails) {
-        throw new Error("sqlite-vec unavailable");
-      }
-    },
   } as unknown as Database.Database;
 
   return db;
@@ -155,7 +148,9 @@ const memories: MemoryRow[] = [
   },
 ];
 
-// Scenarios: AUD-C3-S8 + AUD-C3-S9
+// Scenarios: AUD-C3-S8 + AUD-C3-S9 (post sqlite-vec removal)
+// After removing semantic recall, all injection uses deterministic mode
+// and no degradation telemetry is emitted.
 {
   const warnLogs: LogEntry[] = [];
   const errorLogs: LogEntry[] = [];
@@ -163,17 +158,11 @@ const memories: MemoryRow[] = [
 
   const service = createMemoryService({
     db: createDbStub({
-      loadExtensionFails: false,
       settings: [
         {
           scope: "app",
           key: "creonow.memory.injectionEnabled",
           valueJson: "true",
-        },
-        {
-          scope: "app",
-          key: "creonow.user_memory_vec.dimension",
-          valueJson: "1024",
         },
       ],
       memories,
@@ -190,24 +179,30 @@ const memories: MemoryRow[] = [
 
     assert.equal(result.ok, true);
     if (!result.ok) {
-      throw new Error("AUD-C3-S8: expected deterministic degradation fallback");
+      throw new Error("AUD-C3-S8: expected deterministic result");
     }
     assert.equal(result.data.mode, "deterministic");
-    assert.equal(result.data.diagnostics?.degradedFrom, "semantic");
+    // With sqlite-vec removed, no degradation diagnostics are emitted
+    assert.equal(result.data.diagnostics, undefined);
   }
 
   const degradeWarn = warnLogs.find(
     (entry) => entry.event === "memory_service_degradation",
   );
-  assert.ok(degradeWarn, "AUD-C3-S8: expected memory_service_degradation warn");
-  assert.equal(degradeWarn?.data?.module, "memory-system");
-  assert.equal(degradeWarn?.data?.projectId, "proj-1");
+  assert.equal(
+    degradeWarn,
+    undefined,
+    "AUD-C3-S8: no degradation warn expected after sqlite-vec removal",
+  );
 
   const escalate = errorLogs.find(
     (entry) => entry.event === "memory_service_degradation_escalation",
   );
-  assert.ok(escalate, "AUD-C3-S9: expected memory degradation escalation log");
-  assert.equal(escalate?.data?.count, 3);
+  assert.equal(
+    escalate,
+    undefined,
+    "AUD-C3-S9: no degradation escalation expected after sqlite-vec removal",
+  );
 }
 
 console.log(

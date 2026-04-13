@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import path from "node:path";
 
 import Database from "better-sqlite3";
 
@@ -200,15 +199,6 @@ function ensureSchemaVersion(db: Database.Database): number {
  */
 function setSchemaVersion(db: Database.Database, version: number): void {
   db.prepare("UPDATE schema_version SET version = ?").run(version);
-}
-
-function tableExists(db: Database.Database, tableName: string): boolean {
-  const row = db
-    .prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
-    )
-    .get(tableName) as { name: string } | undefined;
-  return row !== undefined;
 }
 
 /**

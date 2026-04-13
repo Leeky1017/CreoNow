@@ -29,24 +29,6 @@ type SearchReplaceExecuteData = Extract<
   { ok: true }
 >["data"];
 
-type DocumentIndexRow = {
-  documentId: string;
-  contentText: string;
-  updatedAt: number;
-};
-
-function listProjectDocuments(args: {
-  db: Database.Database;
-  projectId: string;
-}): DocumentIndexRow[] {
-  return args.db
-    .prepare<
-      [string],
-      DocumentIndexRow
-    >("SELECT document_id as documentId, content_text as contentText, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC")
-    .all(args.projectId);
-}
-
 function toInternalSearchError<T = never>(
   logger: Logger,
   event: string,

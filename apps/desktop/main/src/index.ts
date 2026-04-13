@@ -49,7 +49,6 @@ import { createProjectLifecycle } from "./services/projects/projectLifecycle";
 import { createUtilityProcessFoundation } from "./services/utilityprocess/utilityProcessFoundation";
 import { createMainEventBus } from "./services/shared/eventBus";
 import { resolvePreloadEntryPathFromBuildConfig } from "./runtimePathResolver";
-import { resolveRuntimeGovernanceFromEnv } from "./config/runtimeGovernance";
 import {
   createDebouncedSaveWindowState,
   loadWindowState,
@@ -282,8 +281,6 @@ function registerIpcHandlers(deps: {
   builtinSkillsDir: string;
   env: NodeJS.ProcessEnv;
 }): void {
-  const runtimeGovernance = resolveRuntimeGovernanceFromEnv(deps.env);
-
   const judgeService = createJudgeService({
     logger: deps.logger,
     isE2E: process.env.CREONOW_E2E === "1",

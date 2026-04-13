@@ -150,9 +150,7 @@ vi.mock("../../ipc/export", () => ({ registerExportIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/backup", () => ({ registerBackupIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/judge", () => ({ registerJudgeIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/knowledgeGraph", () => ({ registerKnowledgeGraphIpcHandlers: vi.fn() }));
-vi.mock("../../ipc/embedding", () => ({ registerEmbeddingIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/memory", () => ({ registerMemoryIpcHandlers: vi.fn() }));
-vi.mock("../../ipc/rag", () => ({ registerRagIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/search", () => ({ registerSearchIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/skills", () => ({ registerSkillIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/stats", () => ({ registerStatsIpcHandlers: vi.fn() }));
@@ -174,11 +172,6 @@ vi.mock("../../logging/logger", () => ({
   createMainLogger: mocks.createMainLogger,
 }));
 
-vi.mock("../../services/embedding/embeddingService", () => ({ createEmbeddingService: vi.fn(() => ({})) }));
-vi.mock("../../services/embedding/onnxRuntime", () => ({ createOnnxEmbeddingRuntime: vi.fn(() => ({})) }));
-vi.mock("../../services/embedding/semanticChunkIndexService", () => ({
-  createSemanticChunkIndexService: vi.fn(() => ({})),
-}));
 vi.mock("../../services/judge/judgeService", () => ({ createJudgeService: vi.fn(() => ({})) }));
 vi.mock("../../services/ai/judgeQualityService", () => ({ createJudgeQualityService: vi.fn(() => ({})) }));
 vi.mock("../../services/ai/judgeAdvancedRunner", () => ({ createAdvancedCheckRunner: vi.fn(() => vi.fn()) }));
@@ -207,7 +200,7 @@ vi.mock("../../runtimePathResolver", () => ({
   resolvePreloadEntryPathFromBuildConfig: mocks.resolvePreloadEntryPathFromBuildConfig,
 }));
 vi.mock("../../config/runtimeGovernance", () => ({
-  resolveRuntimeGovernanceFromEnv: vi.fn(() => ({ embedding: { queueDebounceMs: 100 } })),
+  resolveRuntimeGovernanceFromEnv: vi.fn(() => ({})),
 }));
 vi.mock("../../windowState", () => ({
   WINDOW_STATE_DEFAULTS: { width: 1280, height: 800 },

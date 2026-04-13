@@ -75,7 +75,6 @@ import { resolveRuntimeGovernanceFromEnv as resolvePreload } from "../../preload
     CN_AI_RETRY_BACKOFF_MS: "500,1000,2000",
     CN_AI_SESSION_TOKEN_BUDGET: "123456",
     CN_KG_QUERY_TIMEOUT_MS: "9999",
-    CN_RAG_MAX_TOKENS: "2048",
   };
 
   const mainCfg = resolveMain(validEnv);
@@ -86,7 +85,6 @@ import { resolveRuntimeGovernanceFromEnv as resolvePreload } from "../../preload
   assert.deepEqual(mainCfg.ai.retryBackoffMs, [500, 1000, 2000]);
   assert.equal(mainCfg.ai.sessionTokenBudget, 123_456);
   assert.equal(mainCfg.kg.queryTimeoutMs, 9_999);
-  assert.equal(mainCfg.rag.maxTokens, 2_048);
   assert.deepEqual(preloadCfg, mainCfg);
 }
 
@@ -99,7 +97,6 @@ import { resolveRuntimeGovernanceFromEnv as resolvePreload } from "../../preload
     CN_AI_RETRY_BACKOFF_MS: "1000,NOPE,2000",
     CN_AI_SESSION_TOKEN_BUDGET: "-1",
     CN_KG_QUERY_TIMEOUT_MS: "0",
-    CN_RAG_MAX_TOKENS: "1_500",
   };
 
   const mainCfg = resolveMain(invalidEnv);

@@ -25,9 +25,7 @@ import {
     CN_SKILL_GLOBAL_CONCURRENCY_LIMIT: "3",
     CN_SKILL_SESSION_QUEUE_LIMIT: "9",
     CN_SKILL_SLOT_RECOVERY_TIMEOUT_MS: "60000",
-    CN_EMBEDDING_QUEUE_DEBOUNCE_MS: "75",
     CN_KG_QUERY_TIMEOUT_MS: "9999",
-    CN_RAG_MAX_TOKENS: "2048",
     CN_IPC_MAX_PAYLOAD_BYTES: "1048576",
   });
 
@@ -40,8 +38,6 @@ import {
   assert.equal(cfg.skills.globalConcurrencyLimit, 3);
   assert.equal(cfg.skills.sessionQueueLimit, 9);
   assert.equal(cfg.skills.slotRecoveryTimeoutMs, 60_000);
-  assert.equal(cfg.embedding.queueDebounceMs, 75);
   assert.equal(cfg.kg.queryTimeoutMs, 9_999);
-  assert.equal(cfg.rag.maxTokens, 2_048);
   assert.equal(cfg.ipc.maxPayloadBytes, 1_048_576);
 }

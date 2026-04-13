@@ -95,12 +95,6 @@ vi.mock("../../services/stats/statsService", () => ({
     increment: mocks.statsIncrementMock,
   })),
 }));
-vi.mock("../../services/embedding/embeddingQueue", () => ({
-  createEmbeddingQueue: vi.fn(() => ({
-    enqueue: vi.fn(),
-    dispose: vi.fn(),
-  })),
-}));
 
 const { registerFileIpcHandlers } = await import("../file");
 
