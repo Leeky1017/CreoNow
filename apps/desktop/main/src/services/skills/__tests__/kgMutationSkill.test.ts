@@ -197,6 +197,33 @@ describe("kgMutationSkill", () => {
         expect(result.error.code).toBe("DB_ERROR");
       }
     });
+
+    it("rejects 'inspiration' type — managed by quickCaptureService", () => {
+      const result = skill.execute(
+        makeReq("entity:create", { type: "inspiration", name: "Plot Twist" }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityCreate).not.toHaveBeenCalled();
+    });
+
+    it("rejects 'foreshadowing' type — managed by foreshadowingTracker", () => {
+      const result = skill.execute(
+        makeReq("entity:create", {
+          type: "foreshadowing",
+          name: "Dark Omen",
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityCreate).not.toHaveBeenCalled();
+    });
   });
 
   // ── entity:update ──
@@ -230,6 +257,166 @@ describe("kgMutationSkill", () => {
         expect(result.error.code).toBe("INVALID_ARGUMENT");
         expect(kgService.entityUpdate).not.toHaveBeenCalled();
       }
+    });
+
+    it("rejects patch.type = 'inspiration' — dedicated-service only", () => {
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { type: "inspiration" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rejects patch.type = 'foreshadowing' — dedicated-service only", () => {
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { type: "foreshadowing" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("allows patch.type = 'character' (not a dedicated type)", () => {
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { type: "character" },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      expect(kgService.entityUpdate).toHaveBeenCalledOnce();
+    });
+
+    it("rejects update of existing inspiration entity (runtime type guard)", () => {
+      vi.mocked(kgService.entityRead).mockReturnValueOnce({
+        ok: true,
+        data: {
+          id: "e1",
+          projectId: "p1",
+          type: "inspiration",
+          name: "Quick idea",
+          description: "",
+          attributes: {},
+          aiContextLevel: "when_detected",
+          aliases: [],
+          version: 1,
+          createdAt: "2025-01-01T00:00:00Z",
+          updatedAt: "2025-01-01T00:00:00Z",
+        },
+      });
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { name: "Updated name" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rejects update of existing foreshadowing entity (runtime type guard)", () => {
+      vi.mocked(kgService.entityRead).mockReturnValueOnce({
+        ok: true,
+        data: {
+          id: "e2",
+          projectId: "p1",
+          type: "foreshadowing",
+          name: "Chekhov's gun",
+          description: "",
+          attributes: {},
+          aiContextLevel: "when_detected",
+          aliases: [],
+          version: 1,
+          createdAt: "2025-01-01T00:00:00Z",
+          updatedAt: "2025-01-01T00:00:00Z",
+        },
+      });
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e2",
+          expectedVersion: 1,
+          patch: { attributes: { resolved: "true" } },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("dedicated service");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("allows update of existing character entity (runtime type guard passes)", () => {
+      // Default mock returns type: 'character' — should pass through
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { name: "Bob" },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      expect(kgService.entityRead).toHaveBeenCalledOnce();
+      expect(kgService.entityUpdate).toHaveBeenCalledOnce();
+    });
+
+    it("fail-closed: entityRead DB_ERROR propagates, entityUpdate not called", () => {
+      vi.mocked(kgService.entityRead).mockReturnValueOnce({
+        ok: false,
+        error: { code: "DB_ERROR", message: "disk I/O error" },
+      });
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "e1",
+          expectedVersion: 1,
+          patch: { name: "Updated" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("DB_ERROR");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
+    });
+
+    it("fail-closed: entityRead NOT_FOUND propagates, entityUpdate not called", () => {
+      vi.mocked(kgService.entityRead).mockReturnValueOnce({
+        ok: false,
+        error: { code: "NOT_FOUND", message: "Entity not found" },
+      });
+      const result = skill.execute(
+        makeReq("entity:update", {
+          id: "nonexistent",
+          expectedVersion: 1,
+          patch: { name: "Updated" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("NOT_FOUND");
+      }
+      expect(kgService.entityUpdate).not.toHaveBeenCalled();
     });
   });
 

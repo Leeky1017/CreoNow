@@ -8,6 +8,8 @@ const ENTITY_TYPE_LABELS: Record<KnowledgeEntityType, string> = {
   event: "事件",
   item: "物品",
   faction: "阵营",
+  inspiration: "灵感",
+  foreshadowing: "伏笔",
 };
 
 export function formatEntityForContext(

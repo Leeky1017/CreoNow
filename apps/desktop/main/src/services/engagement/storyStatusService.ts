@@ -132,9 +132,10 @@ const SQL_CHAPTER_PROGRESS = `
  *   "受伤但清醒" (used by stateExtractor for character/location tracking) and
  *   has no semantic connection to foreshadowing resolution status.
  *
- * @risk Foreshadowing type is not yet in the kg_entities CHECK constraint
- *   (0013: character/location/event/item/faction only). Until the constraint is
- *   extended, this query returns [] — graceful degradation per module header.
+ * @note 'foreshadowing' type was added to the kg_entities CHECK constraint
+ *   by migration 002 (002_kg_entity_type_extension). Previously only
+ *   character/location/event/item/faction were allowed; now includes
+ *   inspiration and foreshadowing.
  *
  * @why The actual kg_entities schema uses 'id' (not 'entity_id') and 'type'
  *   (not 'entity_type') per migration 0013. Column mapping happens here;
@@ -196,8 +197,8 @@ export interface StoryStatusDeps {
  * Factory — consistent with sessionMemoryService / p3Skills pattern.
  *
  * @invariant INV-4: all data comes from SQLite structured queries; zero LLM calls.
- * @risk If foreshadowing entity type is not yet added to the kg_entities CHECK
- *   constraint, the foreshadowing query returns [] — graceful degradation.
+ * @note Migration 002 added 'foreshadowing' to the kg_entities CHECK constraint.
+ *   The query now returns real data when foreshadowing entities exist.
  */
 export function createStoryStatusService(deps: StoryStatusDeps): StoryStatusService {
   const { db } = deps;

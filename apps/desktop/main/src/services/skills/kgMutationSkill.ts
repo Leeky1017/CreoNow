@@ -18,6 +18,22 @@ import type { KnowledgeGraphService } from "../kg/types";
 import type { ServiceResult } from "../shared/ipcResult";
 import { ipcError } from "../shared/ipcResult";
 
+// ── Dedicated-service types ───────────────────────────────────────
+
+/**
+ * Entity types managed exclusively by their dedicated services
+ * (quickCaptureService, foreshadowingTracker). These use structured JSON
+ * attributes incompatible with kgCoreService's Record<string, string> model.
+ * Generic KG CRUD must reject them to prevent silent data loss from
+ * parseAttributes() dropping non-string values.
+ *
+ * @see types.ts @deviation note for full rationale.
+ */
+const DEDICATED_SERVICE_ONLY_TYPES: ReadonlySet<string> = new Set([
+  "inspiration",
+  "foreshadowing",
+]);
+
 // ── Mutation types ────────────────────────────────────────────────
 
 export const KG_MUTATION_TYPES = [
@@ -97,15 +113,41 @@ function validateMutation(
           "entity:create requires type and name",
         );
       }
+      if (DEDICATED_SERVICE_ONLY_TYPES.has(p["type"])) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          `Type '${p["type"]}' must be managed through its dedicated service, not generic KG CRUD`,
+        );
+      }
       break;
-    case "entity:update":
+    case "entity:update": {
       if (!isNonEmptyString(p["id"]) || typeof p["expectedVersion"] !== "number") {
         return ipcError(
           "INVALID_ARGUMENT",
           "entity:update requires id and expectedVersion",
         );
       }
+      // Guard: reject if patch.type targets a dedicated-service type.
+      // This prevents converting a normal entity into inspiration/foreshadowing
+      // (which would corrupt attributes via Record<string,string> model) and
+      // prevents generic CRUD from touching dedicated entities' type field.
+      const patch = p["patch"];
+      if (
+        patch &&
+        typeof patch === "object" &&
+        "type" in patch &&
+        typeof (patch as Record<string, unknown>)["type"] === "string" &&
+        DEDICATED_SERVICE_ONLY_TYPES.has(
+          (patch as Record<string, unknown>)["type"] as string,
+        )
+      ) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          `Type '${(patch as Record<string, unknown>)["type"]}' must be managed through its dedicated service, not generic KG CRUD`,
+        );
+      }
       break;
+    }
     case "entity:delete":
       if (!isNonEmptyString(p["id"])) {
         return ipcError("INVALID_ARGUMENT", "entity:delete requires id");
@@ -165,10 +207,32 @@ export function createKgMutationSkill(deps: {
         return kgService.entityCreate(
           fullPayload as Parameters<typeof kgService.entityCreate>[0],
         ) as ServiceResult<T>;
-      case "entity:update":
+      case "entity:update": {
+        // Runtime guard: reject if the existing entity is a dedicated-service type.
+        // Dedicated entities (inspiration, foreshadowing) store structured JSON
+        // attributes (arrays, booleans) that would be corrupted by generic CRUD's
+        // Record<string, string> model. This complements the static patch.type
+        // check in validateMutation.
+        // Fail-closed: if entityRead errors (DB_ERROR, NOT_FOUND), propagate the
+        // error rather than proceeding — prevents corruption on transient failures.
+        const entityId = (fullPayload as Record<string, unknown>)["id"] as string;
+        const existing = kgService.entityRead({
+          projectId: request.projectId,
+          id: entityId,
+        });
+        if (!existing.ok) {
+          return existing as ServiceResult<T>;
+        }
+        if (DEDICATED_SERVICE_ONLY_TYPES.has(existing.data.type)) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            `Type '${existing.data.type}' must be managed through its dedicated service, not generic KG CRUD`,
+          ) as ServiceResult<T>;
+        }
         return kgService.entityUpdate(
           fullPayload as Parameters<typeof kgService.entityUpdate>[0],
         ) as ServiceResult<T>;
+      }
       case "entity:delete":
         return kgService.entityDelete(
           fullPayload as Parameters<typeof kgService.entityDelete>[0],

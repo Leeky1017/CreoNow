@@ -9,7 +9,7 @@
  * ## Performance: listActive() ≤ 200ms — prepared SQLite statements + 30s cache.
  */
 
-import type { DbLike, DbStatement } from "./storyStatusService";
+import type { DbLikeWithRun } from "./dbTypes";
 
 // ─── types ──────────────────────────────────────────────────────────
 
@@ -72,9 +72,9 @@ const URGENCY_DECAY_DAYS = 30;
  * @why attributes_json.resolved is a boolean flag toggled by resolve().
  *   IS NOT 1 covers both NULL (never resolved) and explicit 0.
  *
- * @risk Foreshadowing type is not yet in the kg_entities CHECK constraint
- *   (migration 0013: character/location/event/item/faction only). Until the
- *   constraint is extended, this query returns [] — graceful degradation.
+ * @note 'foreshadowing' type was added to the kg_entities CHECK constraint by
+ *   migration 002 (kg_entity_type_extension). Prior to that migration, this
+ *   query would return [] — graceful degradation.
  */
 const SQL_LIST_ACTIVE = `
   SELECT id, name, description, attributes_json, created_at
@@ -106,20 +106,6 @@ const SQL_RESOLVE = `
     AND json_extract(attributes_json, '$.resolved') IS NOT 1
 `;
 
-// ─── extended DB interface for writes ───────────────────────────────
-
-/**
- * Extends DbStatement with run() for UPDATE/INSERT statements.
- * better-sqlite3 returns { changes: number } from run().
- */
-export interface DbRunStatement extends DbStatement {
-  run(...args: unknown[]): { changes: number };
-}
-
-export interface DbLikeWithRun extends DbLike {
-  prepare(sql: string): DbRunStatement;
-}
-
 // ─── cache ──────────────────────────────────────────────────────────
 
 interface CacheEntry {
@@ -140,8 +126,9 @@ export interface ForeshadowingTrackerDeps {
  *
  * @invariant INV-4: all data comes from SQLite structured queries; zero LLM calls.
  * @invariant INV-6: this is NOT a Skill — it's a structured data query service.
- * @risk If foreshadowing entity type is not yet added to the kg_entities CHECK
- *   constraint, listActive() returns [] — graceful degradation.
+ * @note 'foreshadowing' type was added to the kg_entities CHECK constraint by
+ *   migration 002 (kg_entity_type_extension). Prior to that migration,
+ *   listActive() would return [] — graceful degradation.
  */
 export function createForeshadowingTracker(
   deps: ForeshadowingTrackerDeps,

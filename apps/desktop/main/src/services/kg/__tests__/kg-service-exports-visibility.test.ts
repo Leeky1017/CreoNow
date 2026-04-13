@@ -28,6 +28,8 @@ assert.deepEqual(KNOWLEDGE_ENTITY_TYPES, [
   "event",
   "item",
   "faction",
+  "inspiration",
+  "foreshadowing",
 ]);
 assert.deepEqual(AI_CONTEXT_LEVELS, [
   "always",
