@@ -3078,8 +3078,8 @@ describe("WorkbenchApp", () => {
 
     fireEvent.doubleClick(leftHandle);
     await waitFor(() => {
-      expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe("240px");
-      expect(window.localStorage.getItem("creonow.layout.sidebarWidth")).toBe("240");
+      expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe("260px");
+      expect(window.localStorage.getItem("creonow.layout.sidebarWidth")).toBe("260");
     });
 
     const rightHandle = screen.getByRole("separator", { name: "调整右侧面板宽度" });
@@ -3234,9 +3234,12 @@ describe("WorkbenchApp", () => {
     const iconRail = screen.getByLabelText("CreoNow 工作台");
     const railButtons = within(iconRail).getAllByRole("button");
     expect(railButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "仪表盘",
       "文件",
       "搜索",
+      "日历",
       "大纲",
+      "场景",
       "历史版本",
       "记忆",
       "人物",
