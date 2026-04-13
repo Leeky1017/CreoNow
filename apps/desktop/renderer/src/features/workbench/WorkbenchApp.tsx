@@ -1,9 +1,14 @@
 import {
   Brain,
+  Calendar,
   ChevronLeft,
   FolderTree,
   History,
+  Layers,
+  LayoutDashboard,
   ListTree,
+  Maximize2,
+  Minimize2,
   Network,
   Search,
   Settings,
@@ -58,15 +63,21 @@ type VersionPreviewState = {
   snapshot: VersionHistorySnapshotDetail;
 };
 
+/** @why 20px matches golden design source icon size (figma_design/layout.tsx line 150). */
+const ICON_SIZE = 20;
+
 const LEFT_PANEL_ITEMS: Array<{
   icon: typeof FolderTree;
   id: LeftPanelId;
   labelKey: string;
   placement: "top" | "bottom";
 }> = [
+  { id: "dashboard", icon: LayoutDashboard, labelKey: "iconBar.dashboard", placement: "top" },
   { id: "files", icon: FolderTree, labelKey: "iconBar.files", placement: "top" },
   { id: "search", icon: Search, labelKey: "iconBar.search", placement: "top" },
+  { id: "calendar", icon: Calendar, labelKey: "iconBar.calendar", placement: "top" },
   { id: "outline", icon: ListTree, labelKey: "iconBar.outline", placement: "top" },
+  { id: "scenarios", icon: Layers, labelKey: "iconBar.scenarios", placement: "top" },
   { id: "versionHistory", icon: History, labelKey: "iconBar.versionHistory", placement: "top" },
   { id: "memory", icon: Brain, labelKey: "iconBar.memory", placement: "top" },
   { id: "characters", icon: Users, labelKey: "iconBar.characters", placement: "top" },
@@ -548,10 +559,11 @@ function WorkbenchShell() {
       : t("messages.continueContextEmpty")
     : selectionHint;
   const frameStyle = {
-    "--left-resizer-width": layout.sidebarCollapsed ? "0px" : "8px",
-    "--left-sidebar-width": layout.sidebarCollapsed ? "0px" : `${layout.sidebarWidth}px`,
-    "--right-panel-width": layout.rightPanelCollapsed ? "0px" : `${layout.rightPanelWidth}px`,
-    "--right-resizer-width": layout.rightPanelCollapsed ? "0px" : "8px",
+    "--left-resizer-width": (layout.zenMode || layout.sidebarCollapsed) ? "0px" : "8px",
+    "--left-sidebar-width": (layout.zenMode || layout.sidebarCollapsed) ? "0px" : `${layout.sidebarWidth}px`,
+    "--right-panel-width": (layout.zenMode || layout.rightPanelCollapsed) ? "0px" : `${layout.rightPanelWidth}px`,
+    "--right-resizer-width": (layout.zenMode || layout.rightPanelCollapsed) ? "0px" : "8px",
+    "--icon-rail-width": layout.zenMode ? "0px" : "48px",
   } as CSSProperties;
 
   const previewBannerLabel = versionPreviewSnapshot === null
@@ -719,7 +731,11 @@ function WorkbenchShell() {
     <ToastIntegrationBridge autosaveEvent={autosave.autosaveToastEvent} retryLastAutosave={autosave.retryLastAutosave} />
     <main className="workbench-shell">
     <div
-      className={layout.dragState === null ? "workbench-frame" : "workbench-frame workbench-frame--resizing"}
+      className={[
+        "workbench-frame",
+        layout.dragState !== null && "workbench-frame--resizing",
+        layout.zenMode && "workbench-frame--zen",
+      ].filter(Boolean).join(" ")}
       data-testid="workbench-frame"
       data-export-active={exportProgress.isExporting ? "true" : undefined}
       style={frameStyle}
@@ -736,7 +752,8 @@ function WorkbenchShell() {
               aria-pressed={layout.activeLeftPanel === item.id && layout.sidebarCollapsed === false}
               onClick={() => layout.handleLeftPanelSelect(item.id)}
             >
-              <Icon size={18} />
+              <Icon size={ICON_SIZE} />
+              <span className="rail-button__tooltip">{t(item.labelKey)}</span>
             </Button>;
           })}
         </div>
@@ -751,7 +768,8 @@ function WorkbenchShell() {
               aria-pressed={layout.activeLeftPanel === item.id && layout.sidebarCollapsed === false}
               onClick={() => layout.handleLeftPanelSelect(item.id)}
             >
-              <Icon size={18} />
+              <Icon size={ICON_SIZE} />
+              <span className="rail-button__tooltip">{t(item.labelKey)}</span>
             </Button>;
           })}
         </div>
@@ -776,9 +794,21 @@ function WorkbenchShell() {
             <h2 className="screen-title">{activeDocument?.title ?? t("document.defaultTitle")}</h2>
             <p className="panel-meta">{selectionHint}</p>
           </div>
-          {layout.rightPanelCollapsed ? (
-            <Button tone="ghost" disabled={isVersionPreviewActive} onClick={() => layout.handleRightPanelSelect("ai")}>{t("panel.actions.openAi")}</Button>
-          ) : null}
+          <div className="editor-header__actions">
+            <Button
+              tone="ghost"
+              className="zen-toggle"
+              aria-label={layout.zenMode ? t("zenMode.exit") : t("zenMode.enter")}
+              aria-pressed={layout.zenMode}
+              onClick={layout.toggleZenMode}
+              title={`${layout.zenMode ? t("zenMode.exit") : t("zenMode.enter")} (Shift+Z)`}
+            >
+              {layout.zenMode ? <Minimize2 size={ICON_SIZE} /> : <Maximize2 size={ICON_SIZE} />}
+            </Button>
+            {layout.rightPanelCollapsed ? (
+              <Button tone="ghost" disabled={isVersionPreviewActive} onClick={() => layout.handleRightPanelSelect("ai")}>{t("panel.actions.openAi")}</Button>
+            ) : null}
+          </div>
         </header>
         {versionPreviewSnapshot !== null && previewBannerLabel !== null ? <div className="version-preview-banner" role="status" aria-live="polite">
           <div className="version-preview-banner__copy">
@@ -855,7 +885,7 @@ function WorkbenchShell() {
       </section>
     </div>}
 
-    <footer className="status-bar">
+    {layout.zenMode ? null : <footer className="status-bar">
       <span className="status-bar__group">
         {t("status.projectDocument", {
           project: project?.name ?? t("project.defaultName"),
@@ -867,7 +897,7 @@ function WorkbenchShell() {
         {saveLabel}
       </Button>
       <span className="status-bar__group">{formatTimestamp(autosave.lastSavedAt)}</span>
-    </footer>
+    </footer>}
     </main>
   </>;
 }

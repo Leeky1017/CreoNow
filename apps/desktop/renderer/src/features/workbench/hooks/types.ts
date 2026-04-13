@@ -42,9 +42,12 @@ export type AutosaveToastEvent = {
 };
 
 export type LeftPanelId =
+  | "dashboard"
   | "files"
   | "search"
+  | "calendar"
   | "outline"
+  | "scenarios"
   | "versionHistory"
   | "memory"
   | "characters"

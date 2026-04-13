@@ -59,7 +59,7 @@ button {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 48px var(--left-sidebar-width, 240px) var(--left-resizer-width, 8px) minmax(400px, 1fr) var(--right-resizer-width, 8px) var(--right-panel-width, 320px);
+  grid-template-columns: var(--icon-rail-width, 48px) var(--left-sidebar-width, 240px) var(--left-resizer-width, 8px) minmax(400px, 1fr) var(--right-resizer-width, 8px) var(--right-panel-width, 320px);
   transition: grid-template-columns var(--duration-slow) var(--ease-default);
 }
 
@@ -158,6 +158,49 @@ button {
 .reference-card__dismiss:hover {
   background: var(--color-bg-hover);
   color: var(--color-fg-base);
+}
+
+/* ── Tooltip shown on icon-rail button hover ─────────────────────────── */
+
+.rail-button__tooltip {
+  position: absolute;
+  left: calc(100% + var(--space-2));
+  top: 50%;
+  transform: translateY(-50%);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-fg-base);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-default);
+  z-index: var(--z-tooltip, 50);
+}
+
+.rail-button:hover .rail-button__tooltip {
+  opacity: 1;
+}
+
+/* ── Zen mode – hide icon-rail overflow when collapsed ────────────────── */
+
+.workbench-frame--zen .icon-rail {
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Editor header actions row ───────────────────────────────────────── */
+
+.editor-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.zen-toggle {
+  color: var(--color-fg-muted);
 }
 
 .sidebar,

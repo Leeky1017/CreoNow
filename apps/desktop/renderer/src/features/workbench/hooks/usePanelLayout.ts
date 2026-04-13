@@ -9,10 +9,12 @@ const LAYOUT_STORAGE_KEYS = {
   panelWidth: "creonow.layout.panelWidth",
   sidebarCollapsed: "creonow.layout.sidebarCollapsed",
   sidebarWidth: "creonow.layout.sidebarWidth",
+  zenMode: "creonow.layout.zenMode",
 } as const;
 
 const LEFT_SIDEBAR_BOUNDS = {
-  defaultWidth: 240,
+  /** @why 260px matches the golden design source (figma_design/前端完整参考/layout.tsx line 176). */
+  defaultWidth: 260,
   minWidth: 180,
   maxWidth: 400,
 } as const;
@@ -24,9 +26,12 @@ const RIGHT_PANEL_BOUNDS = {
 } as const;
 
 const LEFT_PANEL_IDS: LeftPanelId[] = [
+  "dashboard",
   "files",
   "search",
+  "calendar",
   "outline",
+  "scenarios",
   "versionHistory",
   "memory",
   "characters",
@@ -112,6 +117,9 @@ export function usePanelLayout() {
     readStoredWidth(LAYOUT_STORAGE_KEYS.panelWidth, RIGHT_PANEL_BOUNDS),
   );
   const [dragState, setDragState] = useState<DragState>(null);
+  const [zenMode, setZenMode] = useState(() =>
+    readStoredBoolean(LAYOUT_STORAGE_KEYS.zenMode, false),
+  );
 
   useEffect(() => {
     writeLayoutValue(LAYOUT_STORAGE_KEYS.activeLeftPanel, activeLeftPanel);
@@ -136,6 +144,10 @@ export function usePanelLayout() {
   useEffect(() => {
     writeLayoutValue(LAYOUT_STORAGE_KEYS.panelWidth, rightPanelWidth);
   }, [rightPanelWidth]);
+
+  useEffect(() => {
+    writeLayoutValue(LAYOUT_STORAGE_KEYS.zenMode, zenMode);
+  }, [zenMode]);
 
   useEffect(() => {
     if (dragState === null) {
@@ -169,6 +181,13 @@ export function usePanelLayout() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Shift+Z toggles Zen Mode (no Cmd/Ctrl required).
+      if (event.shiftKey && event.key.toLowerCase() === "z" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        setZenMode((current) => !current);
+        return;
+      }
+
       if ((event.metaKey || event.ctrlKey) === false || event.altKey || event.shiftKey) {
         return;
       }
@@ -216,6 +235,10 @@ export function usePanelLayout() {
     setRightPanelCollapsed((current) => !current);
   }, []);
 
+  const toggleZenMode = useCallback(() => {
+    setZenMode((current) => !current);
+  }, []);
+
   const startResize = useCallback((panel: "left" | "right") => (event: ReactMouseEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
@@ -248,5 +271,7 @@ export function usePanelLayout() {
     sidebarCollapsed,
     sidebarWidth,
     startResize,
+    toggleZenMode,
+    zenMode,
   };
 }
