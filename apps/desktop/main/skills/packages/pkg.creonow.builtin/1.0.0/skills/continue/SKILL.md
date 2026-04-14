@@ -7,6 +7,7 @@ tags: ["writing", "continue"]
 kind: single
 scope: builtin
 packageId: pkg.creonow.builtin
+inputType: document
 context_rules:
   surrounding: 1600
   user_preferences: true
