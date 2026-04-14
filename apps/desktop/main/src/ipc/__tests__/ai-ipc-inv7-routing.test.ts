@@ -563,6 +563,68 @@ describe("INV-7 factory wiring: writingOrchestratorAiService + writingGenerateTe
     expect(mocks.createNullWritingOrchestratorAiServiceMock).toHaveBeenCalled();
   });
 
+  it("passes validSkillIds=[] when manifest registry loads but has zero valid skills", () => {
+    const harness = createHarness(/* withCostTracker= */ true);
+
+    expect(harness.logger.info).toHaveBeenCalledWith("skill_registry_warmup_loaded", {
+      validSkillCount: 0,
+      builtinValidSkillCount: 0,
+    });
+
+    const orchestratorCalls = mocks.createWritingOrchestratorMock.mock.calls as Array<
+      unknown[]
+    >;
+    const orchestratorConfig = (orchestratorCalls[0]?.[0] ?? {}) as Record<
+      string,
+      unknown
+    >;
+    expect(orchestratorConfig).toEqual(
+      expect.objectContaining({
+        validSkillIds: [],
+      }),
+    );
+  });
+
+  it("warms up required builtin skills in order: polish -> rewrite -> continue -> chat", () => {
+    const resolveForRun = vi.fn().mockReturnValue({
+      ok: true,
+      data: {
+        skill: {
+          id: "builtin:chat",
+          name: "Chat",
+          scope: "builtin",
+          packageId: "pkg.creonow.builtin",
+          version: "1.0.0",
+          filePath: "/mock/skills/pkg.creonow.builtin/1.0.0/skills/chat/SKILL.md",
+          prompt: { system: "s", user: "u" },
+          output: undefined,
+          valid: true,
+          dependsOn: [],
+          timeoutMs: 30_000,
+          permissionLevel: "preview-confirm",
+        },
+        enabled: true,
+        inputType: "document",
+      },
+    });
+    mocks.createSkillServiceMock.mockImplementationOnce(() => ({
+      list: vi.fn().mockReturnValue({ ok: true, data: { items: [] } }),
+      resolveForRun,
+      isDependencyAvailable: vi.fn().mockReturnValue({ ok: true, data: { available: true } }),
+    }));
+
+    createHarness(/* withCostTracker= */ true);
+
+    const calls = resolveForRun.mock.calls as Array<Array<{ id?: string }>>;
+    const warmedBuiltinOrder = calls.map((call) => call[0]?.id);
+    expect(warmedBuiltinOrder).toEqual([
+      "builtin:polish",
+      "builtin:rewrite",
+      "builtin:continue",
+      "builtin:chat",
+    ]);
+  });
+
   it("uses createWritingGenerateText factory, not inline callback", () => {
     createHarness();
 

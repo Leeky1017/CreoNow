@@ -1490,7 +1490,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           (item) => item.scope === "builtin" && item.valid,
         ).length,
       });
-
       const requiredBuiltinSkillIds = [
         "builtin:polish",
         "builtin:rewrite",
