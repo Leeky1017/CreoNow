@@ -8,9 +8,8 @@ import type { KnowledgeGraphService } from "../kg/types";
 import { createMemoryService } from "../memory/memoryService";
 import type { MemoryService } from "../memory/memoryService";
 import { registerAgenticTools } from "./agenticTools";
-import { appendSuggestionToDocument } from "./documentWriteback";
+import { applyCanonicalSkillWriteback } from "./canonicalWriteback";
 import { buildTool, createToolRegistry, type ToolRegistry } from "./toolRegistry";
-import { applySuggestionToSelection } from "./selectionWriteback";
 
 type WritingToolingArgs = {
   db: Database.Database;
@@ -68,18 +67,14 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
           };
         }
 
-        const applied = ctx.selection
-          ? applySuggestionToSelection({
-              contentJson: parsedContent,
-              selection: ctx.selection,
-              suggestion,
-            })
-          : appendSuggestionToDocument({
-              contentJson: parsedContent,
-              cursorPosition:
-                typeof ctx.cursorPosition === "number" ? ctx.cursorPosition : undefined,
-              suggestion,
-            });
+        const applied = applyCanonicalSkillWriteback({
+          contentJson: parsedContent,
+          suggestion,
+          ...(ctx.selection ? { selection: ctx.selection } : {}),
+          ...(typeof ctx.cursorPosition === "number"
+            ? { cursorPosition: ctx.cursorPosition }
+            : {}),
+        });
         if (!applied.ok) {
           return {
             success: false,
