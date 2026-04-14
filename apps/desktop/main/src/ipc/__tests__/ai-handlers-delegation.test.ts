@@ -316,18 +316,30 @@ describe("AI IPC channel registration", () => {
   });
 
   it("启动阶段预热 Skill registry 并检查必需内置技能", () => {
-    createHarness();
+    const harness = createHarness();
     expect(mocks.createSkillServiceMock).toHaveBeenCalled();
     expect(mocks.skillListMock).toHaveBeenCalledWith({ includeDisabled: true });
+    expect(harness.logger.info).toHaveBeenCalledWith("skill_registry_warmup_loaded", {
+      validSkillCount: 0,
+      builtinValidSkillCount: 0,
+    });
     expect(mocks.skillResolveForRunMock).toHaveBeenCalledWith({
       id: "builtin:polish",
     });
     expect(mocks.skillResolveForRunMock).toHaveBeenCalledWith({
-      id: "builtin:chat",
+      id: "builtin:rewrite",
     });
     expect(mocks.skillResolveForRunMock).toHaveBeenCalledWith({
       id: "builtin:continue",
     });
+    expect(mocks.skillResolveForRunMock).toHaveBeenCalledWith({
+      id: "builtin:chat",
+    });
+    expect(mocks.createWritingOrchestratorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        validSkillIds: [],
+      }),
+    );
   });
 
   it("预热 list 失败时记录 skill_registry_warmup_failed 错误日志", () => {
@@ -345,11 +357,12 @@ describe("AI IPC channel registration", () => {
   it("预热解析内置技能失败时记录 builtin_skill_missing_on_startup 错误日志", () => {
     mocks.skillResolveForRunMock
       .mockReturnValueOnce(makeResolvedSkill("builtin:polish"))
+      .mockReturnValueOnce(makeResolvedSkill("builtin:rewrite"))
+      .mockReturnValueOnce(makeResolvedSkill("builtin:continue"))
       .mockReturnValueOnce({
         ok: false,
         error: { code: "NOT_FOUND", message: "chat missing" },
-      })
-      .mockReturnValueOnce(makeResolvedSkill("builtin:continue"));
+      });
     const harness = createHarness();
     expect(harness.logger.error).toHaveBeenCalledWith("builtin_skill_missing_on_startup", {
       skillId: "builtin:chat",
@@ -361,8 +374,9 @@ describe("AI IPC channel registration", () => {
   it("预热解析到 disabled skill 时记录 builtin_skill_disabled_on_startup 日志", () => {
     mocks.skillResolveForRunMock
       .mockReturnValueOnce(makeResolvedSkill("builtin:polish"))
-      .mockReturnValueOnce(makeResolvedSkill("builtin:chat", false, true))
-      .mockReturnValueOnce(makeResolvedSkill("builtin:continue"));
+      .mockReturnValueOnce(makeResolvedSkill("builtin:rewrite"))
+      .mockReturnValueOnce(makeResolvedSkill("builtin:continue"))
+      .mockReturnValueOnce(makeResolvedSkill("builtin:chat", false, true));
     const harness = createHarness();
     expect(harness.logger.info).toHaveBeenCalledWith("builtin_skill_disabled_on_startup", {
       skillId: "builtin:chat",
@@ -372,6 +386,8 @@ describe("AI IPC channel registration", () => {
   it("预热解析到 invalid skill 时记录 builtin_skill_invalid_on_startup 错误日志", () => {
     mocks.skillResolveForRunMock
       .mockReturnValueOnce(makeResolvedSkill("builtin:polish"))
+      .mockReturnValueOnce(makeResolvedSkill("builtin:rewrite"))
+      .mockReturnValueOnce(makeResolvedSkill("builtin:continue"))
       .mockReturnValueOnce({
         ok: true,
         data: {
@@ -382,8 +398,7 @@ describe("AI IPC channel registration", () => {
             error_message: "manifest invalid",
           },
         },
-      })
-      .mockReturnValueOnce(makeResolvedSkill("builtin:continue"));
+      });
     const harness = createHarness();
     expect(harness.logger.error).toHaveBeenCalledWith("builtin_skill_invalid_on_startup", {
       skillId: "builtin:chat",

@@ -77,7 +77,7 @@ function createHarness(args?: {
     userDataDir: "<test-user-data>",
     builtinSkillsDir: path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
-      "../../../skills/packages",
+      "../../../skills",
     ),
     logger: createLogger(),
     env: {

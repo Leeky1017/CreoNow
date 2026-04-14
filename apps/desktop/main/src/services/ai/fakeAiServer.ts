@@ -155,25 +155,38 @@ function resolveFakeMode(args: {
 }
 
 /**
- * Extract the inner text from a `<text>...</text>` block if present.
+ * Extract the inner text from a tagged payload block if present.
  *
- * Why: built-in skills wrap user input in `<text>` blocks, but E2E assertions
- * want to treat the input as the "payload" (not the surrounding template).
+ * Why: builtin skills are migrating from hardcoded prompts to SKILL.md manifests.
+ * Older prompts use `<text>...</text>` while manifest-backed skills like
+ * builtin:continue already use `<input>...</input>`. The fake E2E provider must
+ * understand both forms so it echoes the intended payload instead of the entire
+ * assembled prompt/context blob.
  */
-function extractTextBlockPayload(userText: string): string | null {
-  const open = "<text>";
-  const close = "</text>";
+function extractTaggedPayload(args: {
+  userText: string;
+  tagName: "text" | "input";
+}): string | null {
+  const open = `<${args.tagName}>`;
+  const close = `</${args.tagName}>`;
 
-  const start = userText.lastIndexOf(open);
+  const start = args.userText.lastIndexOf(open);
   if (start < 0) {
     return null;
   }
-  const end = userText.indexOf(close, start + open.length);
+  const end = args.userText.indexOf(close, start + open.length);
   if (end < 0) {
     return null;
   }
 
-  return userText.slice(start + open.length, end).trim();
+  return args.userText.slice(start + open.length, end).trim();
+}
+
+function extractPromptPayload(userText: string): string | null {
+  return (
+    extractTaggedPayload({ userText, tagName: "text" }) ??
+    extractTaggedPayload({ userText, tagName: "input" })
+  );
 }
 
 /**
@@ -346,7 +359,7 @@ export async function startFakeAiServer(deps: {
     const payloadText = userText.includes("***REDACTED***")
       ? userText
       : (extractContextImmediatePayload(userText) ??
-        extractTextBlockPayload(userText) ??
+        extractPromptPayload(userText) ??
         userText);
     const resultText = `E2E_RESULT: ${payloadText}`.trim();
 

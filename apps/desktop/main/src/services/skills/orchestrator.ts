@@ -216,6 +216,17 @@ export interface OrchestratorConfig {
     /** P2: tool calls requested by the AI when finishReason === 'tool_use' */
     toolCalls?: ToolCallInfo[];
   }>;
+  /**
+   * Set of valid skill leaf IDs (without "builtin:" prefix) that this orchestrator accepts.
+   *
+   * Why: replacing the hardcoded VALID_SKILL_IDS constant with a configurable list
+   * allows the real skill manifest registry to drive validation at runtime instead of
+   * a static whitelist that drifts from the actual installed manifests (INV-6).
+   *
+   * When omitted, the orchestrator falls back to the legacy static VALID_SKILL_IDS list
+   * for backward compatibility.
+   */
+  validSkillIds?: readonly string[];
 }
 
 export interface WritingOrchestrator {
@@ -317,8 +328,10 @@ export function createWritingOrchestrator(
 
       return (async function* () {
       try {
-        // Validate skillId
-        if (!VALID_SKILL_IDS.includes(normalizeSkillId(request.skillId))) {
+        // Validate skillId: prefer the runtime-configured list (loaded from real manifests)
+        // over the legacy static whitelist. VALID_SKILL_IDS is the backward-compat fallback.
+        const allowedSkillIds = config.validSkillIds ?? VALID_SKILL_IDS;
+        if (!allowedSkillIds.includes(normalizeSkillId(request.skillId))) {
           taskStates.set(requestId, "failed");
           yield makeEvent("error", requestId, {
             error: {

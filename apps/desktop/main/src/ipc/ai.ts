@@ -1474,6 +1474,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       logger: deps.logger,
     });
   };
+  // Skill IDs loaded from the real SKILL.md manifests at startup.
+  // Passed to WritingOrchestrator to replace the legacy hardcoded VALID_SKILL_IDS whitelist.
+  // Once the registry loads, even an empty list is authoritative and must fail closed.
+  let manifestLoadedSkillIds: string[] = [];
+  let didLoadManifestRegistry = false;
   if (deps.db) {
     const startupSkillService = skillServiceFactory();
     const listed = startupSkillService.list({ includeDisabled: true });
@@ -1483,10 +1488,28 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         message: listed.error.message,
       });
     } else {
+      didLoadManifestRegistry = true;
+      // Collect leaf IDs (without "builtin:" prefix) from all valid installed manifests.
+      // Even an empty list must be forwarded so startup failures fail closed instead of
+      // silently reviving the legacy hardcoded whitelist.
+      manifestLoadedSkillIds = listed.data.items
+        .filter((item) => item.valid)
+        .map((item) => {
+          const parts = item.id.split(":");
+          return parts[parts.length - 1] ?? item.id;
+        });
+      deps.logger.info("skill_registry_warmup_loaded", {
+        validSkillCount: manifestLoadedSkillIds.length,
+        builtinValidSkillCount: listed.data.items.filter(
+          (item) => item.scope === "builtin" && item.valid,
+        ).length,
+      });
+
       const requiredBuiltinSkillIds = [
         "builtin:polish",
-        "builtin:chat",
+        "builtin:rewrite",
         "builtin:continue",
+        "builtin:chat",
       ] as const;
       for (const skillId of requiredBuiltinSkillIds) {
         const resolved = startupSkillService.resolveForRun({ id: skillId });
@@ -2023,6 +2046,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         toolCalls: capturedToolCalls,
       };
     },
+    // INV-6: Use real manifest-loaded skill IDs instead of the legacy hardcoded list.
+    // Only the "DB unavailable, registry never loaded" case keeps the legacy fallback.
+    ...(didLoadManifestRegistry
+      ? { validSkillIds: manifestLoadedSkillIds }
+      : {}),
   });
 
   // INV-7: 将 aiService + writingOrchestrator 包装为统一出口。
