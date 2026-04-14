@@ -68,6 +68,7 @@ function createMockEvent() {
 function createHarness(opts?: {
   db?: unknown;
   recognitionRuntime?: unknown;
+  kgWriteOrchestrator?: unknown;
 }) {
   const handlers = new Map<string, Handler>();
 
@@ -103,11 +104,17 @@ function createHarness(opts?: {
       ? undefined
       : opts.recognitionRuntime;
 
+  const kgWriteOrchestrator =
+    opts?.kgWriteOrchestrator === undefined
+      ? undefined
+      : opts.kgWriteOrchestrator;
+
   registerKnowledgeGraphIpcHandlers({
     ipcMain,
     db: db as never,
     logger: logger as never,
     recognitionRuntime: recognitionRuntime as never,
+    kgWriteOrchestrator: kgWriteOrchestrator as never,
   });
 
   return {
@@ -582,10 +589,10 @@ describe("knowledgeGraph IPC handlers", () => {
     });
   });
 
-  // ── INV-6: write operations route through KgMutationSkill ──────────────
+  // ── INV-6/INV-7: write operations route through kgWriteOrchestrator ────
 
-  describe("INV-6: write operations route through KgMutationSkill", () => {
-    function createHarnessWithSkillSpy() {
+  describe("INV-6/INV-7: write operations route through kgWriteOrchestrator", () => {
+    function createHarnessWithOrchestratorSpy() {
       const handlers = new Map<string, Handler>();
 
       const ipcMain = {
@@ -612,23 +619,21 @@ describe("knowledgeGraph IPC handlers", () => {
         ),
       };
 
-      // Inject a mock KgMutationSkill with a spy — this confirms the
-      // IPC layer routes through the skill rather than calling the
-      // service directly (INV-6).
-      const mockSkillExecute = vi.fn().mockReturnValue({
+      // Inject a mock write orchestrator with a spy — this confirms
+      // IPC routes writes through orchestrator.execute (INV-7).
+      const mockOrchestratorExecute = vi.fn().mockReturnValue({
         ok: true,
         data: { id: "ent-1" },
       });
-      const mockKgMutationSkill = {
-        skillId: "builtin:kg-mutate" as const,
-        execute: mockSkillExecute,
+      const mockKgWriteOrchestrator = {
+        execute: mockOrchestratorExecute,
       };
 
       registerKnowledgeGraphIpcHandlers({
         ipcMain,
         db: db as never,
         logger: logger as never,
-        kgMutationSkill: mockKgMutationSkill,
+        kgWriteOrchestrator: mockKgWriteOrchestrator,
       });
 
       return {
@@ -644,7 +649,7 @@ describe("knowledgeGraph IPC handlers", () => {
             error?: { code: string; message: string };
           };
         },
-        mockSkillExecute,
+        mockOrchestratorExecute,
       };
     }
 
@@ -687,16 +692,20 @@ describe("knowledgeGraph IPC handlers", () => {
     ] as const;
 
     it.each(WRITE_CHANNELS)(
-      "$channel calls kgMutationSkill.execute with mutationType=$mutationType",
+      "$channel calls kgWriteOrchestrator.execute with mutationType=$mutationType",
       async ({ channel, payload, mutationType }) => {
-        const { invoke, mockSkillExecute } = createHarnessWithSkillSpy();
+        const { invoke, mockOrchestratorExecute } =
+          createHarnessWithOrchestratorSpy();
         const res = await invoke(channel, payload);
         expect(res.ok).toBe(true);
-        expect(mockSkillExecute).toHaveBeenCalledOnce();
-        expect(mockSkillExecute).toHaveBeenCalledWith(
+        expect(mockOrchestratorExecute).toHaveBeenCalledOnce();
+        expect(mockOrchestratorExecute).toHaveBeenCalledWith(
           expect.objectContaining({
-            mutationType,
-            projectId: "p1",
+            skill: "kg.write",
+            input: expect.objectContaining({
+              operation: mutationType,
+              projectId: "p1",
+            }),
           }),
         );
       },
@@ -725,8 +734,7 @@ describe("knowledgeGraph IPC handlers", () => {
               fn(...args),
         ),
       };
-      const failingSkill = {
-        skillId: "builtin:kg-mutate" as const,
+      const failingOrchestrator = {
         execute: vi.fn().mockReturnValue({
           ok: false,
           error: { code: "DB_ERROR", message: "constraint violation" },
@@ -736,7 +744,7 @@ describe("knowledgeGraph IPC handlers", () => {
         ipcMain,
         db: db as never,
         logger: logger as never,
-        kgMutationSkill: failingSkill,
+        kgWriteOrchestrator: failingOrchestrator,
       });
 
       const handler = handlers.get("knowledge:entity:create");
@@ -749,10 +757,10 @@ describe("knowledgeGraph IPC handlers", () => {
     });
   });
 
-  // ── INV-6: read operations bypass KgMutationSkill ──────────────────────
+  // ── INV-6: read operations bypass kgWriteOrchestrator ──────────────────
 
-  describe("INV-6: read operations bypass KgMutationSkill (direct service call)", () => {
-    it("entity:read does NOT call kgMutationSkill.execute", async () => {
+  describe("INV-6: read operations bypass kgWriteOrchestrator (direct service call)", () => {
+    it("entity:read does NOT call kgWriteOrchestrator.execute", async () => {
       const handlers = new Map<string, Handler>();
       const ipcMain = {
         handle: vi.fn((channel: string, listener: Handler) => {
@@ -775,25 +783,25 @@ describe("knowledgeGraph IPC handlers", () => {
               fn(...args),
         ),
       };
-      const skillExecuteSpy = vi.fn();
+      const orchestratorExecuteSpy = vi.fn();
       registerKnowledgeGraphIpcHandlers({
         ipcMain,
         db: db as never,
         logger: logger as never,
-        kgMutationSkill: { skillId: "builtin:kg-mutate" as const, execute: skillExecuteSpy },
+        kgWriteOrchestrator: { execute: orchestratorExecuteSpy },
       });
 
       const handler = handlers.get("knowledge:entity:read");
       await handler!(createMockEvent(), { projectId: "p1", id: "e1" });
       // entity:read must bypass the skill entirely — direct service call
-      expect(skillExecuteSpy).not.toHaveBeenCalled();
+      expect(orchestratorExecuteSpy).not.toHaveBeenCalled();
     });
 
     it("entity:list does NOT call kgMutationSkill.execute", async () => {
       const { invoke } = createHarness();
       // Standard harness: no skill override, uses auto-created skill
       // We're just verifying the channel returns ok — the key assertion is
-      // that query ops don't go through the mutation skill path.
+      // that query ops don't go through the write-orchestrator path.
       const res = await invoke("knowledge:entity:list", { projectId: "p1" });
       expect(res.ok).toBe(true);
     });
@@ -835,20 +843,20 @@ describe("knowledgeGraph IPC handlers", () => {
                 fn(...args),
           ),
         };
-        const skillExecuteSpy = vi.fn();
+        const orchestratorExecuteSpy = vi.fn();
         registerKnowledgeGraphIpcHandlers({
           ipcMain,
           db: db as never,
           logger: logger as never,
-          kgMutationSkill: { skillId: "builtin:kg-mutate" as const, execute: skillExecuteSpy },
+          kgWriteOrchestrator: { execute: orchestratorExecuteSpy },
         });
 
         const handler = handlers.get(channel);
         if (!handler) throw new Error(`No handler for ${channel}`);
         const res = await handler(createMockEvent(), payload) as { ok: boolean };
         expect(res.ok).toBe(true);
-        // Read ops must NOT go through the mutation skill
-        expect(skillExecuteSpy).not.toHaveBeenCalled();
+        // Read ops must NOT go through the write orchestrator
+        expect(orchestratorExecuteSpy).not.toHaveBeenCalled();
       },
     );
   });
