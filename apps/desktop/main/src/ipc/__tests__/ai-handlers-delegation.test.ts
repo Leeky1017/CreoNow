@@ -319,9 +319,9 @@ describe("AI IPC channel registration", () => {
     const harness = createHarness();
     expect(mocks.createSkillServiceMock).toHaveBeenCalled();
     expect(mocks.skillListMock).toHaveBeenCalledWith({ includeDisabled: true });
-    expect(harness.logger.info).toHaveBeenCalledWith("skill_manifest_registry_loaded", {
-      count: 0,
-      skillIds: [],
+    expect(harness.logger.info).toHaveBeenCalledWith("skill_registry_warmup_loaded", {
+      validSkillCount: 0,
+      builtinValidSkillCount: 0,
     });
     expect(mocks.skillResolveForRunMock).toHaveBeenCalledWith({
       id: "builtin:polish",
@@ -335,6 +335,11 @@ describe("AI IPC channel registration", () => {
     expect(mocks.skillResolveForRunMock).toHaveBeenCalledWith({
       id: "builtin:chat",
     });
+    expect(mocks.createWritingOrchestratorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        validSkillIds: [],
+      }),
+    );
   });
 
   it("预热 list 失败时记录 skill_registry_warmup_failed 错误日志", () => {

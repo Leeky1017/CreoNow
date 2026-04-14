@@ -140,6 +140,7 @@ tags: ["test"]
 kind: single
 scope: builtin
 packageId: pkg.creonow.builtin
+inputType: ${args.inputType ?? "selection"}
 context_rules:
   surrounding: 500
   user_preferences: true
@@ -266,6 +267,9 @@ describe("P1-04 Skill Manifest Loader — smoke", () => {
       expect(resolved.data.skill.valid, `${skillId} should be valid`).toBe(true);
       expect(resolved.data.skill.prompt?.system.length, `${skillId} should have system prompt`).toBeGreaterThan(0);
       expect(resolved.data.skill.prompt?.user.length, `${skillId} should have user prompt`).toBeGreaterThan(0);
+      if (skillId === "builtin:continue") {
+        expect(resolved.data.inputType).toBe("document");
+      }
     }
   });
 
@@ -313,6 +317,30 @@ describe("P1-04 Skill Manifest Loader — smoke", () => {
       expect(err.code).not.toBe("SKILL_INPUT_INVALID");
     }
     expect(events.some((e) => e.type === "intent-resolved")).toBe(true);
+
+    orchestrator.dispose();
+  });
+
+  it("SMK-03b: empty manifest-loaded validSkillIds fails closed instead of reviving the legacy whitelist", async () => {
+    const orchestrator = createWritingOrchestrator(
+      buildOrchestratorConfig({ validSkillIds: [] }),
+    );
+
+    const request: WritingRequest = {
+      requestId: "test-req-empty-registry",
+      skillId: "builtin:rewrite",
+      documentId: "doc-001",
+      input: { selectedText: "Some text to rewrite." },
+      selection: { from: 0, to: 21, text: "Some text to rewrite.", selectionTextHash: "abc" },
+    };
+
+    const events = await collectEvents(orchestrator.execute(request));
+    const errorEvent = events.find((e) => e.type === "error");
+
+    expect(errorEvent).toBeDefined();
+    const err = (errorEvent as unknown as { error: { code: string } }).error;
+    expect(err.code).toBe("SKILL_INPUT_INVALID");
+    expect(events.some((e) => e.type === "intent-resolved")).toBe(false);
 
     orchestrator.dispose();
   });
