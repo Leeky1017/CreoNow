@@ -2,6 +2,11 @@ import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
+import {
+  createKgWriteOrchestrator,
+  type KgWriteOperation,
+  type KgWriteOrchestrator,
+} from "../core/kgWriteOrchestrator";
 import type { Logger } from "../logging/logger";
 import {
   type AiContextLevel,
@@ -227,9 +232,10 @@ type KgHandlerRegistrar = <TPayload, TResponse, TEvent = unknown>(
 /**
  * Register `knowledge:*` IPC handlers (Knowledge Graph).
  *
- * @invariant INV-6 — KG **write** operations (entity/relation create, update,
- * delete) are routed through `builtin:kg-mutate` Skill. Read-only queries
- * call KG Service directly (no side effects, no Permission Gate needed).
+ * @invariant INV-6/INV-7 — KG **write** operations (entity/relation create,
+ * update, delete) are routed through `kgWriteOrchestrator.execute()` into
+ * `builtin:kg-mutate` Skill. Read-only queries call KG Service directly
+ * (no side effects, no Permission Gate needed).
  *
  * Why: KG is persisted in SQLite and exposed through a stable cross-process
  * contract with explicit request/response envelopes.
@@ -240,6 +246,8 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   logger: Logger;
   recognitionRuntime?: KgRecognitionRuntime | null;
   projectSessionBinding?: ProjectSessionBindingRegistry;
+  /** Override for testing — inject a pre-built KgWriteOrchestrator */
+  kgWriteOrchestrator?: KgWriteOrchestrator | null;
   /** Override for testing — inject a pre-built KgMutationSkill */
   kgMutationSkill?: KgMutationSkill | null;
 }): void {
@@ -272,6 +280,21 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     return createKgMutationSkill({ kgService: service });
   }
 
+  // INV-6/INV-7: all KG write IPC entries route through orchestrator.execute
+  // instead of invoking KgMutationSkill directly from handlers.
+  function createWriteOrchestrator(): KgWriteOrchestrator | null {
+    if (deps.kgWriteOrchestrator !== undefined) {
+      return deps.kgWriteOrchestrator;
+    }
+
+    const mutationSkill = createMutationSkill();
+    if (!mutationSkill) {
+      return null;
+    }
+
+    return createKgWriteOrchestrator({ kgMutationSkill: mutationSkill });
+  }
+
   function handleWithProjectAccess<TPayload, TResponse, TEvent = unknown>(
     channel: string,
     listener: (
@@ -292,8 +315,18 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     });
   }
 
-  registerKgEntityHandlers(deps, handleWithProjectAccess, createService, createMutationSkill);
-  registerKgRelationHandlers(deps, handleWithProjectAccess, createService, createMutationSkill);
+  registerKgEntityHandlers(
+    deps,
+    handleWithProjectAccess,
+    createService,
+    createWriteOrchestrator,
+  );
+  registerKgRelationHandlers(
+    deps,
+    handleWithProjectAccess,
+    createService,
+    createWriteOrchestrator,
+  );
 
   handleWithProjectAccess(
     "knowledge:query:subgraph",
@@ -521,8 +554,31 @@ function registerKgEntityHandlers(
   deps: { db: Database.Database | null },
   handleWithProjectAccess: KgHandlerRegistrar,
   createService: () => ReturnType<typeof createKnowledgeGraphService> | null,
-  createMutationSkill: () => KgMutationSkill | null,
+  createWriteOrchestrator: () => KgWriteOrchestrator | null,
 ): void {
+  async function executeWrite<TPayload extends { projectId: string }, TResponse>(
+    operation: KgWriteOperation,
+    payload: TPayload,
+  ): Promise<IpcResponse<TResponse>> {
+    const orchestrator = createWriteOrchestrator();
+    if (!orchestrator) {
+      return notReady<TResponse>();
+    }
+
+    const result = orchestrator.execute<TResponse, TPayload>({
+      skill: "kg.write",
+      input: {
+        operation,
+        projectId: payload.projectId,
+        payload,
+      },
+    });
+
+    return result.ok
+      ? { ok: true, data: result.data }
+      : { ok: false, error: result.error };
+  }
+
   // ── Write operations → routed through builtin:kg-mutate (INV-6) ──
 
   handleWithProjectAccess(
@@ -535,18 +591,10 @@ function registerKgEntityHandlers(
         return notReady<KnowledgeEntity>();
       }
 
-      const skill = createMutationSkill();
-      if (!skill) {
-        return notReady<KnowledgeEntity>();
-      }
-      const res = skill.execute<KnowledgeEntity>({
-        mutationType: "entity:create",
-        projectId: payload.projectId,
+      return executeWrite<EntityCreatePayload, KnowledgeEntity>(
+        "entity:create",
         payload,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      );
     },
   );
 
@@ -608,18 +656,10 @@ function registerKgEntityHandlers(
         return notReady<KnowledgeEntity>();
       }
 
-      const skill = createMutationSkill();
-      if (!skill) {
-        return notReady<KnowledgeEntity>();
-      }
-      const res = skill.execute<KnowledgeEntity>({
-        mutationType: "entity:update",
-        projectId: payload.projectId,
+      return executeWrite<EntityUpdatePayload, KnowledgeEntity>(
+        "entity:update",
         payload,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      );
     },
   );
 
@@ -635,18 +675,10 @@ function registerKgEntityHandlers(
         return notReady<{ deleted: true; deletedRelationCount: number }>();
       }
 
-      const skill = createMutationSkill();
-      if (!skill) {
-        return notReady<{ deleted: true; deletedRelationCount: number }>();
-      }
-      const res = skill.execute<{ deleted: true; deletedRelationCount: number }>({
-        mutationType: "entity:delete",
-        projectId: payload.projectId,
-        payload,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      return executeWrite<
+        EntityDeletePayload,
+        { deleted: true; deletedRelationCount: number }
+      >("entity:delete", payload);
     },
   );
 }
@@ -655,8 +687,31 @@ function registerKgRelationHandlers(
   deps: { db: Database.Database | null },
   handleWithProjectAccess: KgHandlerRegistrar,
   createService: () => ReturnType<typeof createKnowledgeGraphService> | null,
-  createMutationSkill: () => KgMutationSkill | null,
+  createWriteOrchestrator: () => KgWriteOrchestrator | null,
 ): void {
+  async function executeWrite<TPayload extends { projectId: string }, TResponse>(
+    operation: KgWriteOperation,
+    payload: TPayload,
+  ): Promise<IpcResponse<TResponse>> {
+    const orchestrator = createWriteOrchestrator();
+    if (!orchestrator) {
+      return notReady<TResponse>();
+    }
+
+    const result = orchestrator.execute<TResponse, TPayload>({
+      skill: "kg.write",
+      input: {
+        operation,
+        projectId: payload.projectId,
+        payload,
+      },
+    });
+
+    return result.ok
+      ? { ok: true, data: result.data }
+      : { ok: false, error: result.error };
+  }
+
   // ── Write operations → routed through builtin:kg-mutate (INV-6) ──
 
   handleWithProjectAccess(
@@ -669,18 +724,10 @@ function registerKgRelationHandlers(
         return notReady<KnowledgeRelation>();
       }
 
-      const skill = createMutationSkill();
-      if (!skill) {
-        return notReady<KnowledgeRelation>();
-      }
-      const res = skill.execute<KnowledgeRelation>({
-        mutationType: "relation:create",
-        projectId: payload.projectId,
+      return executeWrite<RelationCreatePayload, KnowledgeRelation>(
+        "relation:create",
         payload,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      );
     },
   );
 
@@ -721,18 +768,10 @@ function registerKgRelationHandlers(
         return notReady<KnowledgeRelation>();
       }
 
-      const skill = createMutationSkill();
-      if (!skill) {
-        return notReady<KnowledgeRelation>();
-      }
-      const res = skill.execute<KnowledgeRelation>({
-        mutationType: "relation:update",
-        projectId: payload.projectId,
+      return executeWrite<RelationUpdatePayload, KnowledgeRelation>(
+        "relation:update",
         payload,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      );
     },
   );
 
@@ -746,18 +785,10 @@ function registerKgRelationHandlers(
         return notReady<{ deleted: true }>();
       }
 
-      const skill = createMutationSkill();
-      if (!skill) {
-        return notReady<{ deleted: true }>();
-      }
-      const res = skill.execute<{ deleted: true }>({
-        mutationType: "relation:delete",
-        projectId: payload.projectId,
+      return executeWrite<RelationDeletePayload, { deleted: true }>(
+        "relation:delete",
         payload,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      );
     },
   );
 }

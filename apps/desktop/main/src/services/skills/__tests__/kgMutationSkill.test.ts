@@ -198,6 +198,18 @@ describe("kgMutationSkill", () => {
       }
     });
 
+    it("rethrows service exception (no silent catch)", () => {
+      vi.mocked(kgService.entityCreate).mockImplementationOnce(() => {
+        throw new Error("db exploded");
+      });
+
+      expect(() =>
+        skill.execute(
+          makeReq("entity:create", { type: "character", name: "Alice" }),
+        ),
+      ).toThrow("db exploded");
+    });
+
     it("rejects 'inspiration' type — managed by quickCaptureService", () => {
       const result = skill.execute(
         makeReq("entity:create", { type: "inspiration", name: "Plot Twist" }),
