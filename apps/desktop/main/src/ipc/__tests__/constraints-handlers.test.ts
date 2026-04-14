@@ -253,6 +253,32 @@ describe("registerConstraintsIpcHandlers", () => {
       }
     });
 
+    it("should log write failure context and preserve IO_ERROR on create", async () => {
+      const fsMock = (await import("node:fs/promises")).default;
+      const enoent = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+      const writeError = new Error("EACCES: permission denied");
+      (fsMock.readFile as ReturnType<typeof vi.fn>).mockRejectedValue(enoent);
+      (fsMock.writeFile as ReturnType<typeof vi.fn>).mockRejectedValue(writeError);
+
+      const { invoke, logger } = createHarness();
+      const result = await invoke("constraints:policy:create", {
+        projectId: "proj-1",
+        constraint: { text: "保持中文写作" },
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("IO_ERROR");
+      }
+      expect(logger.error).toHaveBeenCalledWith(
+        "constraints_file_write_failed",
+        expect.objectContaining({
+          path: expect.stringContaining("constraints.json"),
+          message: writeError.message,
+        }),
+      );
+    });
+
     it("should reject duplicate constraint", async () => {
       const fsMock = (await import("node:fs/promises")).default;
       const store = {

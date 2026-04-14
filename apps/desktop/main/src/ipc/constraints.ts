@@ -530,6 +530,7 @@ async function readConstraintsFile(
 async function writeConstraintsFile(args: {
   constraintsPath: string;
   constraints: ConstraintsStore;
+  logger: Logger;
 }): Promise<ServiceResult<true>> {
   try {
     const normalized: ConstraintsStore = {
@@ -539,7 +540,11 @@ async function writeConstraintsFile(args: {
     const json = JSON.stringify(normalized, null, 2) + "\n";
     await fs.writeFile(args.constraintsPath, json, "utf8");
     return { ok: true, data: true };
-  } catch {
+  } catch (error) {
+    args.logger.error("constraints_file_write_failed", {
+      path: args.constraintsPath,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return ipcError("IO_ERROR", "Failed to write constraints");
   }
 }
@@ -856,6 +861,7 @@ function registerConstraintsCrudHandlers(deps: ConstraintsHandlerDeps): void {
         const writeRes = await writeConstraintsFile({
           constraintsPath,
           constraints: next,
+          logger: deps.logger,
         });
         if (!writeRes.ok) {
           return { ok: false, error: writeRes.error };
@@ -986,6 +992,7 @@ function registerConstraintsCrudHandlers(deps: ConstraintsHandlerDeps): void {
             version: 2,
             items: nextItems,
           },
+          logger: deps.logger,
         });
         if (!writeRes.ok) {
           return { ok: false, error: writeRes.error };
@@ -1086,6 +1093,7 @@ function registerConstraintsDeleteAndLegacyHandlers(
               (item) => item.id !== constraintId,
             ),
           },
+          logger: deps.logger,
         });
         if (!writeRes.ok) {
           return { ok: false, error: writeRes.error };
@@ -1234,6 +1242,7 @@ function registerConstraintsDeleteAndLegacyHandlers(
         const writeRes = await writeConstraintsFile({
           constraintsPath,
           constraints: store,
+          logger: deps.logger,
         });
         if (!writeRes.ok) {
           deps.logger.error("constraints_write_failed", {

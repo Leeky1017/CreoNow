@@ -60,6 +60,24 @@ function makeService(overrides?: {
   });
 }
 
+function createBrokenSseResponse(message: string): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "He" } }] })}\n\n`,
+        ),
+      );
+      controller.error(new Error(message));
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+  });
+}
+
 // ── listModels ──
 
 describe("aiService.listModels", () => {
@@ -374,6 +392,46 @@ describe("aiService.runSkill basics", () => {
     }
   });
 
+  it("fetch 重试前记录可关联的请求上下文", async () => {
+    const logger = createTestLogger();
+    fetchMock
+      .mockRejectedValueOnce(new Error("ECONNRESET"))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "Hello world" } }],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+    const svc = makeService({ logger, retryBackoffMs: [0, 0] });
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "gpt-4o",
+      stream: false,
+      ts: Date.now(),
+      emitEvent: () => {},
+    });
+
+    expect(res.ok).toBe(true);
+    expect(logger.info).toHaveBeenCalledWith(
+      "ai_fetch_transient_failure",
+      expect.objectContaining({
+        attempt: 0,
+        provider: "openai",
+        model: "gpt-4o",
+        url: "https://api.openai.com/v1/chat/completions",
+        executionId: expect.any(String),
+        runId: expect.any(String),
+        traceId: expect.any(String),
+        message: "ECONNRESET",
+      }),
+    );
+  });
+
   it("stream 模式返回成功结果", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
@@ -404,6 +462,39 @@ describe("aiService.runSkill basics", () => {
       expect(res.data.runId).toBeTruthy();
       expect(res.data.traceId).toBeTruthy();
     }
+  });
+
+  it("stream 读取失败时记录 run/trace 级上下文", async () => {
+    const logger = createTestLogger();
+    fetchMock
+      .mockResolvedValueOnce(createBrokenSseResponse("stream exploded"))
+      .mockResolvedValueOnce(createBrokenSseResponse("stream exploded again"));
+
+    const svc = makeService({ logger, retryBackoffMs: [0] });
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "gpt-4o",
+      stream: true,
+      ts: Date.now(),
+      emitEvent: () => {},
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(res.ok).toBeTypeOf("boolean");
+    expect(logger.error).toHaveBeenCalledWith(
+      "ai_stream_read_failed",
+      expect.objectContaining({
+        provider: "openai",
+        model: "gpt-4o",
+        url: "https://api.openai.com/v1/chat/completions",
+        executionId: expect.any(String),
+        runId: expect.any(String),
+        traceId: expect.any(String),
+        message: "stream exploded",
+      }),
+    );
   });
 
   it("tool call 参数 JSON 解析失败时记录 warning 并降级为 null arguments", async () => {

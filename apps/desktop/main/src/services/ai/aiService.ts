@@ -1049,6 +1049,7 @@ function createAiNonStreamHelpers(
   async function fetchWithPolicy(args: {
     url: string;
     init: RequestInit;
+    logContext?: Record<string, unknown>;
   }): Promise<ServiceResult<Response>> {
     const rateLimited = consumeRateLimitToken();
     if (rateLimited) {
@@ -1075,7 +1076,9 @@ function createAiNonStreamHelpers(
         // INV-10: log each transient transport failure so retried errors are not silently swallowed.
         deps.logger.info("ai_fetch_transient_failure", {
           attempt,
+          url: args.url,
           message: error instanceof Error ? error.message : String(error),
+          ...(args.logContext ?? {}),
         });
         await sleep(retryBackoffMs[attempt]);
       }
@@ -1098,6 +1101,13 @@ function createAiNonStreamHelpers(
 
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider: args.cfg.provider,
+        model: args.model,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+      },
       init: {
         method: "POST",
         headers: {
@@ -1170,6 +1180,13 @@ function createAiNonStreamHelpers(
 
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider: args.cfg.provider,
+        model: args.model,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+      },
       init: {
         method: "POST",
         headers: {
@@ -1383,6 +1400,13 @@ function createAiStreamHelpers(
 
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider: args.cfg.provider,
+        model: args.model,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+      },
       init: {
         method: "POST",
         headers: {
@@ -1534,6 +1558,12 @@ function createAiStreamHelpers(
       }
       // INV-10: surface streaming failure via logger before returning error response.
       deps.logger.error("ai_stream_read_failed", {
+        provider: args.cfg.provider,
+        model: args.model,
+        url,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
         message: error instanceof Error ? error.message : String(error),
       });
       return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
@@ -1572,6 +1602,13 @@ function createAiStreamHelpers(
 
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider: args.cfg.provider,
+        model: args.model,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+      },
       init: {
         method: "POST",
         headers: {
@@ -1720,6 +1757,12 @@ function createAiStreamHelpers(
       }
       // INV-10: surface streaming failure via logger before returning error response.
       deps.logger.error("ai_anthropic_stream_read_failed", {
+        provider: args.cfg.provider,
+        model: args.model,
+        url,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
         message: error instanceof Error ? error.message : String(error),
       });
       return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
@@ -2097,6 +2140,11 @@ function createAiRunPipelineHelpers(
 
       // INV-10: log unexpected stream completion error before setting error terminal.
       deps.logger.error("ai_stream_completion_failed", {
+        provider: primaryCfg.provider,
+        model,
+        executionId,
+        runId,
+        traceId,
         message: error instanceof Error ? error.message : String(error),
       });
       setTerminal({
@@ -2601,6 +2649,10 @@ function createAiMethodOps(
     });
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider,
+        operation: "listModels",
+      },
       init: {
         method: "GET",
         headers: {
