@@ -3284,34 +3284,51 @@ describe("WorkbenchApp", () => {
   });
 
   it("toggles zen mode via button, hides sidebar/panel/status-bar, and persists to localStorage", async () => {
-    render(<WorkbenchApp />);
-    await screen.findByRole("heading", { name: "第一章" });
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
-    const frame = screen.getByTestId("workbench-frame");
+    try {
+      render(<WorkbenchApp />);
+      await screen.findByRole("heading", { name: "第一章" });
 
-    // Zen mode off by default — panels visible.
-    expect(frame).not.toHaveClass("workbench-frame--zen");
-    expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument(); // icon rail
-    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
-    expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
-    expect(screen.getByRole("contentinfo")).toBeInTheDocument(); // status bar via <footer>
+      const frame = screen.getByTestId("workbench-frame");
 
-    // Enter zen mode via button.
-    fireEvent.click(screen.getByRole("button", { name: "进入专注模式" }));
-    expect(frame).toHaveClass("workbench-frame--zen");
-    // During animation exit, elements may stay mounted briefly in jsdom.
-    expect(screen.getByLabelText("右侧面板")).toHaveAttribute("hidden");
-    expect(screen.getByRole("contentinfo", { hidden: true })).toHaveAttribute("hidden");
-    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+      // Zen mode off by default — panels visible.
+      expect(frame).not.toHaveClass("workbench-frame--zen");
+      expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument(); // icon rail
+      expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+      expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
+      expect(screen.getByRole("contentinfo")).toBeInTheDocument(); // status bar via <footer>
 
-    // Toggle back off.
-    fireEvent.click(screen.getByRole("button", { name: "退出专注模式" }));
-    expect(frame).not.toHaveClass("workbench-frame--zen");
-    expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument();
-    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
-    expect(screen.getByLabelText("右侧面板")).not.toHaveAttribute("hidden");
-    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
-    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("false");
+      // Enter zen mode via button.
+      fireEvent.click(screen.getByRole("button", { name: "进入专注模式" }));
+      expect(frame).toHaveClass("workbench-frame--zen");
+      // During animation exit, elements may stay mounted briefly in jsdom.
+      expect(screen.getByLabelText("右侧面板")).toHaveAttribute("hidden");
+      expect(screen.getByRole("contentinfo", { hidden: true })).toHaveAttribute("hidden");
+      expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+
+      // Toggle back off.
+      fireEvent.click(screen.getByRole("button", { name: "退出专注模式" }));
+      expect(frame).not.toHaveClass("workbench-frame--zen");
+      expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument();
+      expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+      expect(screen.getByLabelText("右侧面板")).not.toHaveAttribute("hidden");
+      expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+      expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("false");
+
+      expect(
+        consoleErrorSpy.mock.calls.some(([message]) => {
+          if (typeof message !== "string") {
+            return false;
+          }
+          return message.includes("non-boolean attribute") && message.includes("inert");
+        }),
+      ).toBe(false);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("persists zen mode state to localStorage and restores it on next render", async () => {
