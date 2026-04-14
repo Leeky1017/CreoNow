@@ -756,6 +756,43 @@ export function toSkillRunResponseData(
   };
 }
 
+function normalizeSkillRunError(error: unknown): IpcError {
+  if (typeof error === "object" && error !== null) {
+    const shaped = error as {
+      code?: unknown;
+      message?: unknown;
+      details?: unknown;
+    };
+    const code =
+      typeof shaped.code === "string" && shaped.code.trim().length > 0
+        ? shaped.code
+        : "INTERNAL";
+    const message =
+      typeof shaped.message === "string" && shaped.message.trim().length > 0
+        ? shaped.message
+        : error instanceof Error
+          ? error.message
+          : "AI skill run failed";
+    return {
+      code: code as IpcError["code"],
+      message,
+      ...(shaped.details !== undefined ? { details: shaped.details } : {}),
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      code: "INTERNAL",
+      message: error.message,
+    };
+  }
+
+  return {
+    code: "INTERNAL",
+    message: "AI skill run failed",
+  };
+}
+
 function leafSkillId(skillId: string): string {
   const parts = skillId.split(":");
   return parts[parts.length - 1] ?? skillId;
@@ -2265,12 +2302,14 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         });
       } catch (error) {
         ctx.previewSessions.delete(executionId);
+        const normalizedError = normalizeSkillRunError(error);
         ctx.deps.logger.error("ai_skill_run_ipc_failed", {
           message: error instanceof Error ? error.message : String(error),
+          code: normalizedError.code,
         });
         return {
           ok: false,
-          error: { code: "INTERNAL", message: "AI skill run failed" },
+          error: normalizedError,
         };
       }
     },
