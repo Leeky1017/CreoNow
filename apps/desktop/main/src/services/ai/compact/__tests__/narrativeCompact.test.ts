@@ -548,7 +548,7 @@ describe("NarrativeCompactService", () => {
 
       expect(mockCost.recordUsage).toHaveBeenCalled();
       const callArgs = mockCost.recordUsage.mock.calls[0];
-      // recordUsage(usage, modelId, requestId, skillId)
+      // recordUsage(usage, modelId, requestId, skillId, cachedTokens?)
       expect(callArgs[3]).toBe(BUILTIN_AUTO_COMPACT_SKILL_ID);
     });
 
@@ -574,6 +574,32 @@ describe("NarrativeCompactService", () => {
         "gpt-4o",
         "req-001",
         BUILTIN_AUTO_COMPACT_SKILL_ID,
+        undefined,
+      );
+    });
+
+    it("passes cachedTokens into costTracker when provided by skill usage", async () => {
+      mockSkill.invoke.mockResolvedValueOnce({
+        output: "缓存摘要",
+        usage: { promptTokens: 180, completionTokens: 24, cachedTokens: 72 },
+        model: "gpt-4o",
+        requestId: "req-cache-001",
+      });
+
+      const fragment = makeFragment({
+        content: makeLongCjkContent(220),
+        priority: "old",
+        compactable: true,
+      });
+
+      await service.compactContext([fragment], 24);
+
+      expect(mockCost.recordUsage).toHaveBeenCalledWith(
+        { promptTokens: 180, completionTokens: 24, cachedTokens: 72 },
+        "gpt-4o",
+        "req-cache-001",
+        BUILTIN_AUTO_COMPACT_SKILL_ID,
+        72,
       );
     });
 

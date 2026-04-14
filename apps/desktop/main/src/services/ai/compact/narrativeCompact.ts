@@ -104,7 +104,7 @@ export interface SkillInvoker {
     model?: string;
   }): Promise<{
     output: string;
-    usage?: { promptTokens: number; completionTokens: number };
+    usage?: { promptTokens: number; completionTokens: number; cachedTokens?: number };
     model?: string;
     requestId?: string;
   }>;
@@ -116,10 +116,11 @@ export interface SkillInvoker {
  */
 interface CostTrackerLike {
   recordUsage(
-    usage: { promptTokens: number; completionTokens: number },
+    usage: { promptTokens: number; completionTokens: number; cachedTokens?: number },
     modelId: string,
     requestId: string,
     skillId: string,
+    cachedTokens?: number,
   ): unknown;
 }
 
@@ -302,6 +303,7 @@ export function createNarrativeCompactService(
           result.model ?? defaultModel,
           result.requestId,
           BUILTIN_AUTO_COMPACT_SKILL_ID,
+          result.usage.cachedTokens,
         );
       }
 

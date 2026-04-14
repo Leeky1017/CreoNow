@@ -235,7 +235,7 @@ describe("ai skill cost tracking integration", () => {
     }>("cost:usage:summary", undefined);
     const list = await harness.invoke<{
       ok: boolean;
-      data: { totalCount: number; records: Array<{ modelId: string }> };
+      data: { totalCount: number; records: Array<{ modelId: string; cachedTokens: number }> };
     }>("cost:usage:list", undefined);
 
     expect(summary.ok).toBe(true);
@@ -243,7 +243,7 @@ describe("ai skill cost tracking integration", () => {
     expect(summary.data.totalCost).toBeGreaterThan(0);
     expect(list.ok).toBe(true);
     expect(list.data.totalCount).toBe(1);
-    expect(list.data.records[0]).toMatchObject({ modelId: "gpt-5.2" });
+    expect(list.data.records[0]).toMatchObject({ modelId: "gpt-5.2", cachedTokens: 0 });
   });
 
   it("preview → confirm → 下一次 run 只累计一次 sessionTotalTokens", async () => {
