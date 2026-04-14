@@ -5,7 +5,8 @@ import {
   Calendar,
   ChevronDown,
   ChevronLeft,
-  FolderTree,
+  Files,
+  Globe,
   Layers,
   LayoutDashboard,
   Maximize2,
@@ -72,7 +73,7 @@ type VersionPreviewState = {
 const ICON_SIZE = 20;
 
 const LEFT_PANEL_ITEMS: Array<{
-  icon: typeof FolderTree;
+  icon: typeof Files;
   id: LeftPanelId;
   labelKey: string;
   placement: "top" | "bottom";
@@ -80,10 +81,10 @@ const LEFT_PANEL_ITEMS: Array<{
   { id: "dashboard", icon: LayoutDashboard, labelKey: "iconBar.dashboard", placement: "top" },
   { id: "search", icon: Search, labelKey: "iconBar.search", placement: "top" },
   { id: "calendar", icon: Calendar, labelKey: "iconBar.calendar", placement: "top" },
-  { id: "files", icon: FolderTree, labelKey: "iconBar.files", placement: "top" },
+  { id: "files", icon: Files, labelKey: "iconBar.files", placement: "top" },
   { id: "scenarios", icon: Layers, labelKey: "iconBar.scenarios", placement: "top" },
   { id: "characters", icon: Users, labelKey: "iconBar.characters", placement: "top" },
-  { id: "worldbuilding", icon: BookOpen, labelKey: "iconBar.worldbuilding", placement: "top" },
+  { id: "worldbuilding", icon: Globe, labelKey: "iconBar.worldbuilding", placement: "top" },
   { id: "knowledgeGraph", icon: Network, labelKey: "iconBar.knowledgeGraph", placement: "top" },
   { id: "memory", icon: Brain, labelKey: "iconBar.memory", placement: "top" },
   { id: "settings", icon: Settings, labelKey: "iconBar.settings", placement: "bottom" },
@@ -1125,7 +1126,7 @@ function WorkbenchShell() {
                   <Search size={13} />
                 </button>
                 <button type="button" className="zen-dot-toolbar__button" onClick={() => layout.handleLeftPanelSelect("files")} aria-label={t("iconBar.files")}>
-                  <FolderTree size={13} />
+                  <Files size={13} />
                 </button>
               </motion.div> : null}
             </AnimatePresence>
