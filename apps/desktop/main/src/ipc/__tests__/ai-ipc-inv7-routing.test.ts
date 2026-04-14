@@ -476,10 +476,10 @@ describe("INV-7 routing: ai:skill:feedback", () => {
       requestId: "req-feedback-1",
     });
 
-    // Extract run id from orchestrator.execute() call arguments
-    const executeCallArg = mocks.orchestratorExecuteMock.mock.calls[0]?.[0] as {
-      requestId?: string;
-    } | undefined;
+    // Extract run id from orchestrator.execute() call arguments.
+    // Cast through unknown[] to avoid TS2493 when mock.calls is narrowed to an empty tuple.
+    const executeCalls = mocks.orchestratorExecuteMock.mock.calls as Array<unknown[]>;
+    const executeCallArg = (executeCalls[0]?.[0] ?? undefined) as { requestId?: string } | undefined;
     const runId = executeCallArg?.requestId ?? "req-feedback-1";
 
     const res = await harness.invoke("ai:skill:feedback", {
