@@ -549,6 +549,7 @@ const AI_PROMPT_DIAGNOSTICS_SCHEMA = s.object({
 const AI_USAGE_STATS_SCHEMA = s.object({
   promptTokens: s.number(),
   completionTokens: s.number(),
+  cachedTokens: s.optional(s.number()),
   sessionTotalTokens: s.number(),
   estimatedCostUsd: s.optional(s.number()),
 });

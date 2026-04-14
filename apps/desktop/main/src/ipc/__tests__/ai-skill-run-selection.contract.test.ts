@@ -285,4 +285,97 @@ describe("ai:skill:run selection contract", () => {
     });
     expect(result.error?.details).toEqual({ phase: "writeback" });
   });
+
+  it("accepts ai:skill:run responses that include cachedTokens in usage", async () => {
+    orchestratorExecuteSpy.mockReset();
+    orchestratorExecuteSpy.mockImplementation(async function* () {
+      yield {
+        type: "ai-done",
+        timestamp: Date.now(),
+        fullText: "continued",
+        usage: {
+          promptTokens: 120,
+          completionTokens: 24,
+          totalTokens: 144,
+          cachedTokens: 48,
+        },
+      };
+      yield {
+        type: "permission-requested",
+        timestamp: Date.now(),
+        level: "preview-confirm",
+        description: "confirm writeback",
+      };
+    });
+
+    const handlers = new Map<string, Handler>();
+    const ipcMain = {
+      handle: (channel: string, listener: Handler) => {
+        handlers.set(channel, listener);
+      },
+    } as unknown as IpcMain;
+
+    registerAiIpcHandlers({
+      ipcMain,
+      db: {} as Database.Database,
+      userDataDir: "<test-user-data>",
+      builtinSkillsDir: "<test-skills>",
+      logger: createLogger(),
+      env: process.env,
+    });
+
+    const handler = handlers.get("ai:skill:run");
+    expect(handler).toBeDefined();
+
+    const result = await handler!(
+      {
+        sender: {
+          id: 7,
+          send: () => undefined,
+        },
+      },
+      {
+        skillId: "builtin:continue",
+        hasSelection: false,
+        input: "夜幕降临，街灯次第亮起。",
+        mode: "ask",
+        model: "gpt-4.1-mini",
+        stream: false,
+        context: {
+          projectId: "project-1",
+          documentId: "doc-1",
+        },
+      },
+    ) as {
+      ok: boolean;
+      data?: {
+        status: "preview" | "completed" | "rejected";
+        outputText?: string;
+        usage?: {
+          promptTokens: number;
+          completionTokens: number;
+          cachedTokens?: number;
+          sessionTotalTokens: number;
+        };
+      };
+      error?: {
+        code: string;
+        message: string;
+      };
+    };
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        status: "preview",
+        outputText: "continued",
+        usage: {
+          promptTokens: 120,
+          completionTokens: 24,
+          cachedTokens: 48,
+          sessionTotalTokens: 144,
+        },
+      },
+    });
+  });
 });

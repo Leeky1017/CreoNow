@@ -694,6 +694,7 @@ export type IpcChannelSpec = {
       runId: string;
       status: "preview" | "completed" | "rejected";
       usage?: {
+        cachedTokens?: number;
         completionTokens: number;
         estimatedCostUsd?: number;
         promptTokens: number;
