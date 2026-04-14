@@ -476,6 +476,7 @@ function getConstraintsPath(projectRootPath: string): string {
  */
 async function readConstraintsFile(
   constraintsPath: string,
+  logger: Logger,
 ): Promise<ServiceResult<ConstraintsStore>> {
   try {
     const raw = await fs.readFile(constraintsPath, "utf8");
@@ -504,11 +505,21 @@ async function readConstraintsFile(
       return { ok: true, data: getDefaultConstraintsStore() };
     }
     if (error instanceof Error && error.name === "SyntaxError") {
+      // INV-10: surface parse failure via logger before returning error.
+      logger.error("constraints_file_parse_failed", {
+        path: constraintsPath,
+        message: error.message,
+      });
       return ipcError(
         "CONSTRAINT_VALIDATION_ERROR",
         "constraints.json is not valid JSON",
       );
     }
+    // INV-10: surface unexpected I/O errors before returning.
+    logger.error("constraints_file_read_failed", {
+      path: constraintsPath,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return ipcError("IO_ERROR", "Failed to read constraints");
   }
 }
@@ -742,7 +753,7 @@ function registerConstraintsCrudHandlers(deps: ConstraintsHandlerDeps): void {
         }
 
         const constraintsPath = getConstraintsPath(rootRes.data);
-        const res = await readConstraintsFile(constraintsPath);
+        const res = await readConstraintsFile(constraintsPath, deps.logger);
         if (!res.ok) {
           deps.logger.error("constraints_list_failed", {
             projectId,
@@ -813,7 +824,7 @@ function registerConstraintsCrudHandlers(deps: ConstraintsHandlerDeps): void {
         }
 
         const constraintsPath = getConstraintsPath(rootRes.data);
-        const readRes = await readConstraintsFile(constraintsPath);
+        const readRes = await readConstraintsFile(constraintsPath, deps.logger);
         if (!readRes.ok) {
           return { ok: false, error: readRes.error };
         }
@@ -921,7 +932,7 @@ function registerConstraintsCrudHandlers(deps: ConstraintsHandlerDeps): void {
         }
 
         const constraintsPath = getConstraintsPath(rootRes.data);
-        const readRes = await readConstraintsFile(constraintsPath);
+        const readRes = await readConstraintsFile(constraintsPath, deps.logger);
         if (!readRes.ok) {
           return { ok: false, error: readRes.error };
         }
@@ -1048,7 +1059,7 @@ function registerConstraintsDeleteAndLegacyHandlers(
         }
 
         const constraintsPath = getConstraintsPath(rootRes.data);
-        const readRes = await readConstraintsFile(constraintsPath);
+        const readRes = await readConstraintsFile(constraintsPath, deps.logger);
         if (!readRes.ok) {
           return { ok: false, error: readRes.error };
         }
@@ -1141,7 +1152,7 @@ function registerConstraintsDeleteAndLegacyHandlers(
         }
 
         const constraintsPath = getConstraintsPath(rootRes.data);
-        const readRes = await readConstraintsFile(constraintsPath);
+        const readRes = await readConstraintsFile(constraintsPath, deps.logger);
         if (!readRes.ok) {
           deps.logger.error("constraints_read_failed", {
             projectId,

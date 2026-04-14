@@ -30,8 +30,13 @@ export function createAiWriteTransaction(args?: {
         // Rollback is best-effort; subsequent rollback handlers still run.
         try {
           args?.onRollbackError?.(error, index);
-        } catch {
-          // Ignore telemetry callback failures to preserve rollback flow.
+        } catch (callbackError) {
+          // INV-10: log before discarding so the callback failure is not silently swallowed.
+          // We still intentionally continue rollback to preserve the rollback flow.
+          console.error(
+            "[aiWriteTransaction] onRollbackError callback threw:",
+            callbackError instanceof Error ? callbackError.message : String(callbackError),
+          );
         }
       }
     }

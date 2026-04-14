@@ -567,6 +567,8 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
           options: req.options,
         });
       } catch (error) {
+        // INV-10: log before returning structured error so failure is not silently swallowed.
+        console.error("[prosemirrorExporter] buildStructuredOutput failed:", error instanceof Error ? error.message : String(error));
         return {
           success: false,
           error: { code: "EXPORT_UNSUPPORTED_NODE", message: error instanceof Error ? error.message : String(error) },
@@ -583,6 +585,8 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
       try {
         await fs.writeFile(req.outputPath, output);
       } catch (error) {
+        // INV-10: log before returning structured error so failure is not silently swallowed.
+        console.error("[prosemirrorExporter] writeFile failed:", error instanceof Error ? error.message : String(error));
         return {
           success: false,
           error: { code: "EXPORT_WRITE_ERROR", message: error instanceof Error ? error.message : String(error) },
@@ -655,6 +659,8 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
             options: req.options,
           });
         } catch (error) {
+          // INV-10: log before returning structured error so failure is not silently swallowed.
+          console.error("[prosemirrorExporter] buildStructuredOutput (project) failed:", error instanceof Error ? error.message : String(error));
           return {
             success: false,
             error: { code: "EXPORT_UNSUPPORTED_NODE", message: error instanceof Error ? error.message : String(error) },
@@ -671,6 +677,8 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
         try {
           await fs.writeFile(req.outputPath, output);
         } catch (error) {
+          // INV-10: log before returning structured error so failure is not silently swallowed.
+          console.error("[prosemirrorExporter] writeFile (project merge) failed:", error instanceof Error ? error.message : String(error));
           return {
             success: false,
             error: { code: "EXPORT_WRITE_ERROR", message: error instanceof Error ? error.message : String(error) },
@@ -680,6 +688,8 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
         try {
           await fs.mkdir(req.outputPath, { recursive: true });
         } catch (error) {
+          // INV-10: log before returning structured error so failure is not silently swallowed.
+          console.error("[prosemirrorExporter] mkdir failed:", error instanceof Error ? error.message : String(error));
           return {
             success: false,
             error: { code: "EXPORT_WRITE_ERROR", message: error instanceof Error ? error.message : String(error) },
@@ -700,6 +710,8 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
           try {
             await fs.writeFile(`${req.outputPath}/${doc.id}.${extension}`, output);
           } catch (error) {
+            // INV-10: log before returning structured error so failure is not silently swallowed.
+            console.error("[prosemirrorExporter] writeFile (per-doc) failed:", error instanceof Error ? error.message : String(error));
             return {
               success: false,
               error: { code: "EXPORT_WRITE_ERROR", message: error instanceof Error ? error.message : String(error) },

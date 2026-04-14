@@ -550,6 +550,11 @@ export function createApiClient(args: {
       });
       return { ok: true, data: true };
     } catch (error) {
+      // INV-10: surface DB write failure via logger before returning error response.
+      args.logger.error("ai_cost_record_persist_failed", {
+        requestId: argsForRecord.requestId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
       return ipcError(
         "DB_ERROR",
         "Failed to persist AI cost record",

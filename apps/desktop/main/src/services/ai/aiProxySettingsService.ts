@@ -607,6 +607,11 @@ async function executeProxyTest(
     };
   } catch (error) {
     const latencyMs = nowTs() - start;
+    // INV-10: surface unexpected network error before returning structured response.
+    console.error(
+      "[aiProxySettingsService] executeProxyTest failed:",
+      error instanceof Error ? error.message : String(error),
+    );
     return {
       ok: true,
       data: {

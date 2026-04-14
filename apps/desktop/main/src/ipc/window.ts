@@ -35,6 +35,8 @@ function isWindowControlsEnabled(platform: NodeJS.Platform): boolean {
 
 function toInternalError(action: string, error: unknown): IpcResponse<never> {
   const message = error instanceof Error ? error.message : String(error);
+  // INV-10: surface error context before returning; no logger injected into this handler.
+  console.error(`[window-ipc] ${action} failed:`, message);
   return toError("INTERNAL", `Failed to ${action} window: ${message}`);
 }
 

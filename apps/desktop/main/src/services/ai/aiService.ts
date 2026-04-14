@@ -1072,6 +1072,11 @@ function createAiNonStreamHelpers(
           );
         }
 
+        // INV-10: log each transient transport failure so retried errors are not silently swallowed.
+        deps.logger.info("ai_fetch_transient_failure", {
+          attempt,
+          message: error instanceof Error ? error.message : String(error),
+        });
         await sleep(retryBackoffMs[attempt]);
       }
     }
@@ -1527,6 +1532,10 @@ function createAiStreamHelpers(
       if (args.entry.controller.signal.aborted) {
         return ipcError("CANCELED", "AI request canceled");
       }
+      // INV-10: surface streaming failure via logger before returning error response.
+      deps.logger.error("ai_stream_read_failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
       return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
         reason: "STREAM_DISCONNECTED",
         retryable: true,
@@ -1709,6 +1718,10 @@ function createAiStreamHelpers(
       if (args.entry.controller.signal.aborted) {
         return ipcError("CANCELED", "AI request canceled");
       }
+      // INV-10: surface streaming failure via logger before returning error response.
+      deps.logger.error("ai_anthropic_stream_read_failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
       return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
         reason: "STREAM_DISCONNECTED",
         retryable: true,
@@ -2082,6 +2095,10 @@ function createAiRunPipelineHelpers(
         return;
       }
 
+      // INV-10: log unexpected stream completion error before setting error terminal.
+      deps.logger.error("ai_stream_completion_failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
       setTerminal({
         entry,
         terminal: "error",
