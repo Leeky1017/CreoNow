@@ -2015,6 +2015,13 @@ function createAiRunPipelineHelpers(
       persistSuccessfulTurn,
       persistTraceAndGetDegradation,
     } = runCtx;
+    const requestUrl = buildApiUrl({
+      baseUrl: primaryCfg.baseUrl,
+      endpointPath:
+        primaryCfg.provider === "anthropic"
+          ? "/v1/messages"
+          : "/v1/chat/completions",
+    });
     try {
       let replayAttempts = 0;
       for (;;) {
@@ -2142,6 +2149,7 @@ function createAiRunPipelineHelpers(
       deps.logger.error("ai_stream_completion_failed", {
         provider: primaryCfg.provider,
         model,
+        url: requestUrl,
         executionId,
         runId,
         traceId,

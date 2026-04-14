@@ -61,14 +61,8 @@ function makeService(overrides?: {
 }
 
 function createBrokenSseResponse(message: string): Response {
-  const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({ choices: [{ delta: { content: "He" } }] })}\n\n`,
-        ),
-      );
       controller.error(new Error(message));
     },
   });
@@ -466,6 +460,7 @@ describe("aiService.runSkill basics", () => {
 
   it("stream 读取失败时记录 run/trace 级上下文", async () => {
     const logger = createTestLogger();
+    const events: AiStreamEvent[] = [];
     fetchMock
       .mockResolvedValueOnce(createBrokenSseResponse("stream exploded"))
       .mockResolvedValueOnce(createBrokenSseResponse("stream exploded again"));
@@ -478,11 +473,26 @@ describe("aiService.runSkill basics", () => {
       model: "gpt-4o",
       stream: true,
       ts: Date.now(),
-      emitEvent: () => {},
+      emitEvent: (event) => events.push(event),
     });
+    await new Promise((resolve) => setTimeout(resolve, 30));
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(res.ok).toBeTypeOf("boolean");
+    const doneEvent = events.find(
+      (event): event is AiStreamEvent & { type: "done" } => event.type === "done",
+    );
+    expect(doneEvent).toBeDefined();
+    expect(doneEvent?.terminal).toBe("error");
+    expect(doneEvent?.error).toEqual(
+      expect.objectContaining({
+        code: "LLM_API_ERROR",
+        details: expect.objectContaining({
+          reason: "STREAM_DISCONNECTED",
+          retryable: true,
+        }),
+      }),
+    );
+    expect(res.ok).toBe(true);
     expect(logger.error).toHaveBeenCalledWith(
       "ai_stream_read_failed",
       expect.objectContaining({
@@ -492,7 +502,66 @@ describe("aiService.runSkill basics", () => {
         executionId: expect.any(String),
         runId: expect.any(String),
         traceId: expect.any(String),
-        message: "stream exploded",
+        message: "stream exploded again",
+      }),
+    );
+  });
+
+  it("anthropic stream 读取失败时保持断连错误契约并记录上下文", async () => {
+    const logger = createTestLogger();
+    const events: AiStreamEvent[] = [];
+    fetchMock
+      .mockResolvedValueOnce(createBrokenSseResponse("anthropic stream exploded"))
+      .mockResolvedValueOnce(
+        createBrokenSseResponse("anthropic stream exploded again"),
+      );
+
+    const svc = makeService({
+      logger,
+      retryBackoffMs: [0],
+      env: {
+        CREONOW_AI_PROVIDER: "anthropic",
+        CREONOW_AI_BASE_URL: "https://api.anthropic.com",
+        CREONOW_AI_API_KEY: "sk-ant-test-12345678",
+      },
+    });
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "claude-3-5-sonnet",
+      stream: true,
+      ts: Date.now(),
+      emitEvent: (event) => events.push(event),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const doneEvent = events.find(
+      (event): event is AiStreamEvent & { type: "done" } => event.type === "done",
+    );
+    expect(doneEvent).toBeDefined();
+    expect(doneEvent?.terminal).toBe("error");
+    expect(doneEvent?.error).toEqual(
+      expect.objectContaining({
+        code: "LLM_API_ERROR",
+        details: expect.objectContaining({
+          reason: "STREAM_DISCONNECTED",
+          retryable: true,
+        }),
+      }),
+    );
+    expect(res.ok).toBe(true);
+    expect(logger.error).toHaveBeenCalledWith(
+      "ai_anthropic_stream_read_failed",
+      expect.objectContaining({
+        provider: "anthropic",
+        model: "claude-3-5-sonnet",
+        url: "https://api.anthropic.com/v1/messages",
+        executionId: expect.any(String),
+        runId: expect.any(String),
+        traceId: expect.any(String),
+        message: "anthropic stream exploded again",
       }),
     );
   });
