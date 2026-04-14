@@ -1474,6 +1474,10 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       logger: deps.logger,
     });
   };
+  // Skill IDs loaded from the real SKILL.md manifests at startup.
+  // Passed to WritingOrchestrator to replace the legacy hardcoded VALID_SKILL_IDS whitelist.
+  // Empty array means fall back to the legacy list inside the orchestrator.
+  let manifestLoadedSkillIds: string[] = [];
   if (deps.db) {
     const startupSkillService = skillServiceFactory();
     const listed = startupSkillService.list({ includeDisabled: true });
@@ -1483,10 +1487,24 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         message: listed.error.message,
       });
     } else {
+      // Collect leaf IDs (without "builtin:" prefix) from all valid installed manifests.
+      // This replaces the hardcoded VALID_SKILL_IDS constant in orchestrator.ts (INV-6).
+      manifestLoadedSkillIds = listed.data.items
+        .filter((item) => item.valid)
+        .map((item) => {
+          const parts = item.id.split(":");
+          return parts[parts.length - 1] ?? item.id;
+        });
+      deps.logger.info("skill_manifest_registry_loaded", {
+        count: manifestLoadedSkillIds.length,
+        skillIds: manifestLoadedSkillIds,
+      });
+
       const requiredBuiltinSkillIds = [
         "builtin:polish",
-        "builtin:chat",
+        "builtin:rewrite",
         "builtin:continue",
+        "builtin:chat",
       ] as const;
       for (const skillId of requiredBuiltinSkillIds) {
         const resolved = startupSkillService.resolveForRun({ id: skillId });
@@ -2023,6 +2041,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         toolCalls: capturedToolCalls,
       };
     },
+    // INV-6: Use real manifest-loaded skill IDs instead of the legacy hardcoded list.
+    // Falls back to legacy VALID_SKILL_IDS inside orchestrator when empty (e.g. no DB).
+    ...(manifestLoadedSkillIds.length > 0
+      ? { validSkillIds: manifestLoadedSkillIds }
+      : {}),
   });
 
   // INV-7: 将 aiService + writingOrchestrator 包装为统一出口。
