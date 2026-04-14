@@ -219,4 +219,70 @@ describe("ai:skill:run selection contract", () => {
       }),
     );
   });
+
+  it("propagates structured orchestrator error through IPC instead of flattening to INTERNAL", async () => {
+    orchestratorExecuteSpy.mockReset();
+    orchestratorExecuteSpy.mockImplementation(async function* () {
+      throw Object.assign(new Error("selection changed before writeback"), {
+        code: "WRITE_BACK_FAILED",
+        details: { phase: "writeback" },
+      });
+    });
+
+    const handlers = new Map<string, Handler>();
+    const ipcMain = {
+      handle: (channel: string, listener: Handler) => {
+        handlers.set(channel, listener);
+      },
+    } as unknown as IpcMain;
+
+    registerAiIpcHandlers({
+      ipcMain,
+      db: {} as Database.Database,
+      userDataDir: "<test-user-data>",
+      builtinSkillsDir: "<test-skills>",
+      logger: createLogger(),
+      env: process.env,
+    });
+
+    const handler = handlers.get("ai:skill:run");
+    expect(handler).toBeDefined();
+
+    const result = await handler!(
+      {
+        sender: {
+          id: 7,
+          send: () => undefined,
+        },
+      },
+      {
+        skillId: "builtin:rewrite",
+        hasSelection: true,
+        selection: {
+          from: 4,
+          to: 9,
+          text: "原文片段",
+          selectionTextHash: "abc123hash",
+        },
+        input: "原文片段",
+        mode: "ask",
+        model: "gpt-4.1-mini",
+        stream: false,
+        context: {
+          projectId: "project-1",
+          documentId: "doc-1",
+        },
+      },
+    ) as {
+      ok: boolean;
+      error?: { code: string; message: string; details?: unknown };
+    };
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatchObject({
+      code: "WRITE_BACK_FAILED",
+      message: "selection changed before writeback",
+    });
+    expect(result.error?.details).toEqual({ phase: "writeback" });
+  });
 });
