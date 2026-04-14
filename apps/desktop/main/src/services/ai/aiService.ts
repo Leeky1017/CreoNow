@@ -2022,6 +2022,45 @@ function createAiRunPipelineHelpers(
           ? "/v1/messages"
           : "/v1/chat/completions",
     });
+    const setStreamFailureTerminal = (error: unknown): void => {
+      if (entry.terminal !== null) {
+        return;
+      }
+
+      if (controller.signal.aborted) {
+        setTerminal({
+          entry,
+          terminal: "cancelled",
+          logEvent: "ai_run_canceled",
+          errorCode: "CANCELED",
+        });
+        return;
+      }
+
+      // INV-10: log unexpected stream completion errors before surfacing the terminal event.
+      deps.logger.error("ai_stream_completion_failed", {
+        provider: primaryCfg.provider,
+        model,
+        url: requestUrl,
+        executionId,
+        runId,
+        traceId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setTerminal({
+        entry,
+        terminal: "error",
+        error: {
+          code: "INTERNAL",
+          message: "AI request failed",
+          details: {
+            message: error instanceof Error ? error.message : String(error),
+          },
+        },
+        logEvent: "ai_run_failed",
+        errorCode: "INTERNAL",
+      });
+    };
     try {
       let replayAttempts = 0;
       for (;;) {
@@ -2103,71 +2142,38 @@ function createAiRunPipelineHelpers(
           return;
         }
         entry.completionTimer = setTimeout(() => {
-          entry.completionTimer = null;
-          if (entry.terminal !== null) {
-            return;
-          }
-          flushChunkBuffer(entry);
-          if (entry.terminal !== null) {
-            return;
-          }
+          try {
+            entry.completionTimer = null;
+            if (entry.terminal !== null) {
+              return;
+            }
+            flushChunkBuffer(entry);
+            if (entry.terminal !== null) {
+              return;
+            }
 
-          const currentTotal = sessionTokenTotalsByKey.get(sessionKey) ?? 0;
-          const completionTokens = estimateTokenCount(entry.outputText);
-          entry.completionTokens = completionTokens;
-          sessionTokenTotalsByKey.set(
-            sessionKey,
-            currentTotal + promptTokens + completionTokens,
-          );
-          persistSuccessfulTurn(entry.outputText);
-          persistTraceAndGetDegradation(entry.outputText);
+            const currentTotal = sessionTokenTotalsByKey.get(sessionKey) ?? 0;
+            const completionTokens = estimateTokenCount(entry.outputText);
+            entry.completionTokens = completionTokens;
+            sessionTokenTotalsByKey.set(
+              sessionKey,
+              currentTotal + promptTokens + completionTokens,
+            );
+            persistSuccessfulTurn(entry.outputText);
+            persistTraceAndGetDegradation(entry.outputText);
 
-          setTerminal({
-            entry,
-            terminal: "completed",
-            logEvent: "ai_run_completed",
-          });
+            setTerminal({
+              entry,
+              terminal: "completed",
+              logEvent: "ai_run_completed",
+            });
+          } catch (error) {
+            setStreamFailureTerminal(error);
+          }
         }, 0);
       }, STREAM_COMPLETION_SETTLE_MS);
     } catch (error) {
-      if (entry.terminal !== null) {
-        return;
-      }
-
-      const aborted = controller.signal.aborted;
-      if (aborted) {
-        setTerminal({
-          entry,
-          terminal: "cancelled",
-          logEvent: "ai_run_canceled",
-          errorCode: "CANCELED",
-        });
-        return;
-      }
-
-      // INV-10: log unexpected stream completion error before setting error terminal.
-      deps.logger.error("ai_stream_completion_failed", {
-        provider: primaryCfg.provider,
-        model,
-        url: requestUrl,
-        executionId,
-        runId,
-        traceId,
-        message: error instanceof Error ? error.message : String(error),
-      });
-      setTerminal({
-        entry,
-        terminal: "error",
-        error: {
-          code: "INTERNAL",
-          message: "AI request failed",
-          details: {
-            message: error instanceof Error ? error.message : String(error),
-          },
-        },
-        logEvent: "ai_run_failed",
-        errorCode: "INTERNAL",
-      });
+      setStreamFailureTerminal(error);
     }
   }
 

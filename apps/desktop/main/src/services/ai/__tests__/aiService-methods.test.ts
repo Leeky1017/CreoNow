@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AiStreamEvent } from "@shared/types/ai";
 import type { Logger } from "../../../logging/logger";
 import { createAiService, type AiService } from "../aiService";
+import type { TraceStore } from "../traceStore";
 
 type TestLogger = Logger & {
   warn: ReturnType<typeof vi.fn>;
@@ -40,9 +41,7 @@ function makeService(overrides?: {
   sessionTokenBudget?: number;
   env?: NodeJS.ProcessEnv;
   logger?: TestLogger;
-  traceStore?: {
-    recordTraceFeedback: ReturnType<typeof vi.fn>;
-  };
+  traceStore?: Partial<TraceStore>;
 }): AiService {
   return createAiService({
     logger: (overrides?.logger ?? createTestLogger()) as Logger,
@@ -562,6 +561,72 @@ describe("aiService.runSkill basics", () => {
         runId: expect.any(String),
         traceId: expect.any(String),
         message: "anthropic stream exploded again",
+      }),
+    );
+  });
+
+  it("stream completion 失败时保持 INTERNAL 终态并记录完整上下文", async () => {
+    const logger = createTestLogger();
+    const events: AiStreamEvent[] = [];
+    const traceStore: TraceStore = {
+      persistGenerationTrace: vi.fn(() => {
+        throw new Error("trace store exploded");
+      }),
+      recordTraceFeedback: vi.fn(() => ({
+        ok: true as const,
+        data: { feedbackId: "feedback-1" },
+      })),
+      getTraceIdByRunId: vi.fn(() => null),
+    };
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        [
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "He" } }] })}\n\n`,
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "llo" } }] })}\n\n`,
+          "data: [DONE]\n\n",
+        ].join(""),
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      ),
+    );
+
+    const svc = makeService({ logger, traceStore });
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "gpt-4o",
+      stream: true,
+      ts: Date.now(),
+      emitEvent: (event) => events.push(event),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const doneEvent = events.find(
+      (event): event is AiStreamEvent & { type: "done" } => event.type === "done",
+    );
+    expect(doneEvent).toBeDefined();
+    expect(doneEvent?.terminal).toBe("error");
+    expect(doneEvent?.error).toEqual(
+      expect.objectContaining({
+        code: "INTERNAL",
+        message: "AI request failed",
+        details: expect.objectContaining({
+          message: "trace store exploded",
+        }),
+      }),
+    );
+    expect(res.ok).toBe(true);
+    expect(logger.error).toHaveBeenCalledWith(
+      "ai_stream_completion_failed",
+      expect.objectContaining({
+        provider: "openai",
+        model: "gpt-4o",
+        url: "https://api.openai.com/v1/chat/completions",
+        executionId: expect.any(String),
+        runId: expect.any(String),
+        traceId: expect.any(String),
+        message: "trace store exploded",
       }),
     );
   });
