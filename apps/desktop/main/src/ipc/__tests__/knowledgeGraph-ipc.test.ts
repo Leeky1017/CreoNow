@@ -121,10 +121,18 @@ function createHarness(opts?: {
     invoke: async (
       channel: string,
       payload?: unknown,
-    ): Promise<{ ok: boolean; data?: unknown; error?: { code: string; message: string } }> => {
+    ): Promise<{
+      ok: boolean;
+      data?: unknown;
+      error?: { code: string; message: string; details?: unknown };
+    }> => {
       const handler = handlers.get(channel);
       if (!handler) throw new Error(`No handler for ${channel}`);
-      return (await handler(createMockEvent(), payload)) as { ok: boolean; data?: unknown; error?: { code: string; message: string } };
+      return (await handler(createMockEvent(), payload)) as {
+        ok: boolean;
+        data?: unknown;
+        error?: { code: string; message: string; details?: unknown };
+      };
     },
     handlers,
     ipcMain,
@@ -737,7 +745,11 @@ describe("knowledgeGraph IPC handlers", () => {
       const failingOrchestrator = {
         execute: vi.fn().mockReturnValue({
           ok: false,
-          error: { code: "DB_ERROR", message: "constraint violation" },
+          error: {
+            code: "DB_ERROR",
+            message: "constraint violation",
+            details: { entityId: "ent-42", retryable: false },
+          },
         }),
       };
       registerKnowledgeGraphIpcHandlers({
@@ -753,7 +765,14 @@ describe("knowledgeGraph IPC handlers", () => {
         type: "character",
         name: "Bob",
       });
-      expect((res as { ok: boolean }).ok).toBe(false);
+      expect(res).toEqual({
+        ok: false,
+        error: {
+          code: "DB_ERROR",
+          message: "constraint violation",
+          details: { entityId: "ent-42", retryable: false },
+        },
+      });
     });
   });
 
