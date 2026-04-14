@@ -49,6 +49,8 @@ export function registerDialogIpcHandlers(args: {
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        // INV-10: surface error before returning; no logger injected into this handler.
+        console.error("[dialog-ipc] open folder dialog failed:", message);
         return {
           ok: false,
           error: {

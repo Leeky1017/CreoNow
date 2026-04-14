@@ -1049,6 +1049,7 @@ function createAiNonStreamHelpers(
   async function fetchWithPolicy(args: {
     url: string;
     init: RequestInit;
+    logContext?: Record<string, unknown>;
   }): Promise<ServiceResult<Response>> {
     const rateLimited = consumeRateLimitToken();
     if (rateLimited) {
@@ -1072,6 +1073,13 @@ function createAiNonStreamHelpers(
           );
         }
 
+        // INV-10: log each transient transport failure so retried errors are not silently swallowed.
+        deps.logger.info("ai_fetch_transient_failure", {
+          attempt,
+          url: args.url,
+          message: error instanceof Error ? error.message : String(error),
+          ...(args.logContext ?? {}),
+        });
         await sleep(retryBackoffMs[attempt]);
       }
     }
@@ -1093,6 +1101,13 @@ function createAiNonStreamHelpers(
 
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider: args.cfg.provider,
+        model: args.model,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+      },
       init: {
         method: "POST",
         headers: {
@@ -1165,6 +1180,13 @@ function createAiNonStreamHelpers(
 
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider: args.cfg.provider,
+        model: args.model,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+      },
       init: {
         method: "POST",
         headers: {
@@ -1378,6 +1400,13 @@ function createAiStreamHelpers(
 
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider: args.cfg.provider,
+        model: args.model,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+      },
       init: {
         method: "POST",
         headers: {
@@ -1527,6 +1556,16 @@ function createAiStreamHelpers(
       if (args.entry.controller.signal.aborted) {
         return ipcError("CANCELED", "AI request canceled");
       }
+      // INV-10: surface streaming failure via logger before returning error response.
+      deps.logger.error("ai_stream_read_failed", {
+        provider: args.cfg.provider,
+        model: args.model,
+        url,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+        message: error instanceof Error ? error.message : String(error),
+      });
       return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
         reason: "STREAM_DISCONNECTED",
         retryable: true,
@@ -1563,6 +1602,13 @@ function createAiStreamHelpers(
 
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider: args.cfg.provider,
+        model: args.model,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+      },
       init: {
         method: "POST",
         headers: {
@@ -1709,6 +1755,16 @@ function createAiStreamHelpers(
       if (args.entry.controller.signal.aborted) {
         return ipcError("CANCELED", "AI request canceled");
       }
+      // INV-10: surface streaming failure via logger before returning error response.
+      deps.logger.error("ai_anthropic_stream_read_failed", {
+        provider: args.cfg.provider,
+        model: args.model,
+        url,
+        executionId: args.entry.executionId,
+        runId: args.entry.runId,
+        traceId: args.entry.traceId,
+        message: error instanceof Error ? error.message : String(error),
+      });
       return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
         reason: "STREAM_DISCONNECTED",
         retryable: true,
@@ -1959,6 +2015,52 @@ function createAiRunPipelineHelpers(
       persistSuccessfulTurn,
       persistTraceAndGetDegradation,
     } = runCtx;
+    const requestUrl = buildApiUrl({
+      baseUrl: primaryCfg.baseUrl,
+      endpointPath:
+        primaryCfg.provider === "anthropic"
+          ? "/v1/messages"
+          : "/v1/chat/completions",
+    });
+    const setStreamFailureTerminal = (error: unknown): void => {
+      if (entry.terminal !== null) {
+        return;
+      }
+
+      if (controller.signal.aborted) {
+        setTerminal({
+          entry,
+          terminal: "cancelled",
+          logEvent: "ai_run_canceled",
+          errorCode: "CANCELED",
+        });
+        return;
+      }
+
+      // INV-10: log unexpected stream completion errors before surfacing the terminal event.
+      deps.logger.error("ai_stream_completion_failed", {
+        provider: primaryCfg.provider,
+        model,
+        url: requestUrl,
+        executionId,
+        runId,
+        traceId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setTerminal({
+        entry,
+        terminal: "error",
+        error: {
+          code: "INTERNAL",
+          message: "AI request failed",
+          details: {
+            message: error instanceof Error ? error.message : String(error),
+          },
+        },
+        logEvent: "ai_run_failed",
+        errorCode: "INTERNAL",
+      });
+    };
     try {
       let replayAttempts = 0;
       for (;;) {
@@ -2040,61 +2142,38 @@ function createAiRunPipelineHelpers(
           return;
         }
         entry.completionTimer = setTimeout(() => {
-          entry.completionTimer = null;
-          if (entry.terminal !== null) {
-            return;
-          }
-          flushChunkBuffer(entry);
-          if (entry.terminal !== null) {
-            return;
-          }
+          try {
+            entry.completionTimer = null;
+            if (entry.terminal !== null) {
+              return;
+            }
+            flushChunkBuffer(entry);
+            if (entry.terminal !== null) {
+              return;
+            }
 
-          const currentTotal = sessionTokenTotalsByKey.get(sessionKey) ?? 0;
-          const completionTokens = estimateTokenCount(entry.outputText);
-          entry.completionTokens = completionTokens;
-          sessionTokenTotalsByKey.set(
-            sessionKey,
-            currentTotal + promptTokens + completionTokens,
-          );
-          persistSuccessfulTurn(entry.outputText);
-          persistTraceAndGetDegradation(entry.outputText);
+            const currentTotal = sessionTokenTotalsByKey.get(sessionKey) ?? 0;
+            const completionTokens = estimateTokenCount(entry.outputText);
+            entry.completionTokens = completionTokens;
+            sessionTokenTotalsByKey.set(
+              sessionKey,
+              currentTotal + promptTokens + completionTokens,
+            );
+            persistSuccessfulTurn(entry.outputText);
+            persistTraceAndGetDegradation(entry.outputText);
 
-          setTerminal({
-            entry,
-            terminal: "completed",
-            logEvent: "ai_run_completed",
-          });
+            setTerminal({
+              entry,
+              terminal: "completed",
+              logEvent: "ai_run_completed",
+            });
+          } catch (error) {
+            setStreamFailureTerminal(error);
+          }
         }, 0);
       }, STREAM_COMPLETION_SETTLE_MS);
     } catch (error) {
-      if (entry.terminal !== null) {
-        return;
-      }
-
-      const aborted = controller.signal.aborted;
-      if (aborted) {
-        setTerminal({
-          entry,
-          terminal: "cancelled",
-          logEvent: "ai_run_canceled",
-          errorCode: "CANCELED",
-        });
-        return;
-      }
-
-      setTerminal({
-        entry,
-        terminal: "error",
-        error: {
-          code: "INTERNAL",
-          message: "AI request failed",
-          details: {
-            message: error instanceof Error ? error.message : String(error),
-          },
-        },
-        logEvent: "ai_run_failed",
-        errorCode: "INTERNAL",
-      });
+      setStreamFailureTerminal(error);
     }
   }
 
@@ -2584,6 +2663,10 @@ function createAiMethodOps(
     });
     const fetchRes = await fetchWithPolicy({
       url,
+      logContext: {
+        provider,
+        operation: "listModels",
+      },
       init: {
         method: "GET",
         headers: {

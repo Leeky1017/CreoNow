@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AiStreamEvent } from "@shared/types/ai";
 import type { Logger } from "../../../logging/logger";
 import { createAiService, type AiService } from "../aiService";
+import type { TraceStore } from "../traceStore";
 
 type TestLogger = Logger & {
   warn: ReturnType<typeof vi.fn>;
@@ -40,9 +41,7 @@ function makeService(overrides?: {
   sessionTokenBudget?: number;
   env?: NodeJS.ProcessEnv;
   logger?: TestLogger;
-  traceStore?: {
-    recordTraceFeedback: ReturnType<typeof vi.fn>;
-  };
+  traceStore?: Partial<TraceStore>;
 }): AiService {
   return createAiService({
     logger: (overrides?.logger ?? createTestLogger()) as Logger,
@@ -57,6 +56,18 @@ function makeService(overrides?: {
     retryBackoffMs: overrides?.retryBackoffMs ?? [0],
     sessionTokenBudget: overrides?.sessionTokenBudget,
     traceStore: overrides?.traceStore as never,
+  });
+}
+
+function createBrokenSseResponse(message: string): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.error(new Error(message));
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
   });
 }
 
@@ -374,6 +385,46 @@ describe("aiService.runSkill basics", () => {
     }
   });
 
+  it("fetch 重试前记录可关联的请求上下文", async () => {
+    const logger = createTestLogger();
+    fetchMock
+      .mockRejectedValueOnce(new Error("ECONNRESET"))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "Hello world" } }],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+    const svc = makeService({ logger, retryBackoffMs: [0, 0] });
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "gpt-4o",
+      stream: false,
+      ts: Date.now(),
+      emitEvent: () => {},
+    });
+
+    expect(res.ok).toBe(true);
+    expect(logger.info).toHaveBeenCalledWith(
+      "ai_fetch_transient_failure",
+      expect.objectContaining({
+        attempt: 0,
+        provider: "openai",
+        model: "gpt-4o",
+        url: "https://api.openai.com/v1/chat/completions",
+        executionId: expect.any(String),
+        runId: expect.any(String),
+        traceId: expect.any(String),
+        message: "ECONNRESET",
+      }),
+    );
+  });
+
   it("stream 模式返回成功结果", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
@@ -404,6 +455,180 @@ describe("aiService.runSkill basics", () => {
       expect(res.data.runId).toBeTruthy();
       expect(res.data.traceId).toBeTruthy();
     }
+  });
+
+  it("stream 读取失败时记录 run/trace 级上下文", async () => {
+    const logger = createTestLogger();
+    const events: AiStreamEvent[] = [];
+    fetchMock
+      .mockResolvedValueOnce(createBrokenSseResponse("stream exploded"))
+      .mockResolvedValueOnce(createBrokenSseResponse("stream exploded again"));
+
+    const svc = makeService({ logger, retryBackoffMs: [0] });
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "gpt-4o",
+      stream: true,
+      ts: Date.now(),
+      emitEvent: (event) => events.push(event),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const doneEvent = events.find(
+      (event): event is AiStreamEvent & { type: "done" } => event.type === "done",
+    );
+    expect(doneEvent).toBeDefined();
+    expect(doneEvent?.terminal).toBe("error");
+    expect(doneEvent?.error).toEqual(
+      expect.objectContaining({
+        code: "LLM_API_ERROR",
+        details: expect.objectContaining({
+          reason: "STREAM_DISCONNECTED",
+          retryable: true,
+        }),
+      }),
+    );
+    expect(res.ok).toBe(true);
+    expect(logger.error).toHaveBeenCalledWith(
+      "ai_stream_read_failed",
+      expect.objectContaining({
+        provider: "openai",
+        model: "gpt-4o",
+        url: "https://api.openai.com/v1/chat/completions",
+        executionId: expect.any(String),
+        runId: expect.any(String),
+        traceId: expect.any(String),
+        message: "stream exploded again",
+      }),
+    );
+  });
+
+  it("anthropic stream 读取失败时保持断连错误契约并记录上下文", async () => {
+    const logger = createTestLogger();
+    const events: AiStreamEvent[] = [];
+    fetchMock
+      .mockResolvedValueOnce(createBrokenSseResponse("anthropic stream exploded"))
+      .mockResolvedValueOnce(
+        createBrokenSseResponse("anthropic stream exploded again"),
+      );
+
+    const svc = makeService({
+      logger,
+      retryBackoffMs: [0],
+      env: {
+        CREONOW_AI_PROVIDER: "anthropic",
+        CREONOW_AI_BASE_URL: "https://api.anthropic.com",
+        CREONOW_AI_API_KEY: "sk-ant-test-12345678",
+      },
+    });
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "claude-3-5-sonnet",
+      stream: true,
+      ts: Date.now(),
+      emitEvent: (event) => events.push(event),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const doneEvent = events.find(
+      (event): event is AiStreamEvent & { type: "done" } => event.type === "done",
+    );
+    expect(doneEvent).toBeDefined();
+    expect(doneEvent?.terminal).toBe("error");
+    expect(doneEvent?.error).toEqual(
+      expect.objectContaining({
+        code: "LLM_API_ERROR",
+        details: expect.objectContaining({
+          reason: "STREAM_DISCONNECTED",
+          retryable: true,
+        }),
+      }),
+    );
+    expect(res.ok).toBe(true);
+    expect(logger.error).toHaveBeenCalledWith(
+      "ai_anthropic_stream_read_failed",
+      expect.objectContaining({
+        provider: "anthropic",
+        model: "claude-3-5-sonnet",
+        url: "https://api.anthropic.com/v1/messages",
+        executionId: expect.any(String),
+        runId: expect.any(String),
+        traceId: expect.any(String),
+        message: "anthropic stream exploded again",
+      }),
+    );
+  });
+
+  it("stream completion 失败时保持 INTERNAL 终态并记录完整上下文", async () => {
+    const logger = createTestLogger();
+    const events: AiStreamEvent[] = [];
+    const traceStore: TraceStore = {
+      persistGenerationTrace: vi.fn(() => {
+        throw new Error("trace store exploded");
+      }),
+      recordTraceFeedback: vi.fn(() => ({
+        ok: true as const,
+        data: { feedbackId: "feedback-1" },
+      })),
+      getTraceIdByRunId: vi.fn(() => null),
+    };
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        [
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "He" } }] })}\n\n`,
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "llo" } }] })}\n\n`,
+          "data: [DONE]\n\n",
+        ].join(""),
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      ),
+    );
+
+    const svc = makeService({ logger, traceStore });
+    const res = await svc.runSkill({
+      skillId: "test",
+      input: "Test prompt",
+      mode: "ask",
+      model: "gpt-4o",
+      stream: true,
+      ts: Date.now(),
+      emitEvent: (event) => events.push(event),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const doneEvent = events.find(
+      (event): event is AiStreamEvent & { type: "done" } => event.type === "done",
+    );
+    expect(doneEvent).toBeDefined();
+    expect(doneEvent?.terminal).toBe("error");
+    expect(doneEvent?.error).toEqual(
+      expect.objectContaining({
+        code: "INTERNAL",
+        message: "AI request failed",
+        details: expect.objectContaining({
+          message: "trace store exploded",
+        }),
+      }),
+    );
+    expect(res.ok).toBe(true);
+    expect(logger.error).toHaveBeenCalledWith(
+      "ai_stream_completion_failed",
+      expect.objectContaining({
+        provider: "openai",
+        model: "gpt-4o",
+        url: "https://api.openai.com/v1/chat/completions",
+        executionId: expect.any(String),
+        runId: expect.any(String),
+        traceId: expect.any(String),
+        message: "trace store exploded",
+      }),
+    );
   });
 
   it("tool call 参数 JSON 解析失败时记录 warning 并降级为 null arguments", async () => {

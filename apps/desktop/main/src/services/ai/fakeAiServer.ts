@@ -315,6 +315,8 @@ export async function startFakeAiServer(deps: {
     try {
       body = await readJsonBody(req);
     } catch (error) {
+      // INV-10: surface parse error before sending 400 response.
+      console.error("[fakeAiServer] invalid request body:", error instanceof Error ? error.message : String(error));
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
