@@ -620,6 +620,109 @@ describe("WorkbenchApp", () => {
     });
   });
 
+  it("opens version history from the visible rail instead of requiring persisted layout state", async () => {
+    const listSnapshots = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          createSnapshotSummary({
+            versionId: "snapshot-2",
+            actor: "ai",
+            reason: "ai-accept",
+            wordCount: 8,
+            parentSnapshotId: "snapshot-1",
+            createdAt: 2,
+          }),
+          createSnapshotSummary(),
+        ],
+      },
+    }));
+    const readSnapshot = vi.fn(async ({ versionId }: { versionId: string }) => ({
+      ok: true as const,
+      data: versionId === "snapshot-2"
+        ? createSnapshotDetail({
+            versionId: "snapshot-2",
+            actor: "ai",
+            reason: "ai-accept",
+            contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "AI 改写版本" }] }] }),
+            contentText: "AI 改写版本",
+            contentMd: "AI 改写版本",
+            contentHash: "snapshot-hash-2",
+            wordCount: 8,
+            parentSnapshotId: "snapshot-1",
+            createdAt: 2,
+          })
+        : createSnapshotDetail(),
+    }));
+
+    window.api = {
+      ...createApiMock(),
+      version: {
+        ...createApiMock().version,
+        listSnapshots: listSnapshots as PreloadApi["version"]["listSnapshots"],
+        readSnapshot: readSnapshot as PreloadApi["version"]["readSnapshot"],
+      },
+    };
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+
+    await screen.findByRole("heading", { name: "历史版本" });
+    await waitFor(() => {
+      expect(window.api?.version.listSnapshots).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        projectId: "project-1",
+      });
+    });
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe("versionHistory");
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+
+    fireEvent.click(await screen.findByRole("button", { name: /AI 接受/ }));
+    expect(await screen.findByText("AI 改写版本")).toBeInTheDocument();
+  });
+
+  it("opens outline from the visible rail and persists the selected left panel", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "大纲" }));
+
+    await screen.findByRole("heading", { name: "大纲" });
+    expect(screen.getByText("等待结构同步")).toBeInTheDocument();
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe("outline");
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+  });
+
+  it("shows every document in the files sidebar instead of truncating after eight entries", async () => {
+    const documents = Array.from({ length: 10 }, (_, index) => ({
+      documentId: `doc-${index + 1}`,
+      title: `第${index + 1}章`,
+      type: "chapter" as const,
+      status: "draft" as const,
+      sortOrder: index,
+      updatedAt: index + 1,
+    }));
+
+    window.api = {
+      ...createApiMock(),
+      file: {
+        ...createApiMock().file,
+        listDocuments: vi.fn(async () => ({
+          ok: true as const,
+          data: { items: documents },
+        })) as PreloadApi["file"]["listDocuments"],
+      },
+    };
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    expect(screen.getByText("第9章")).toBeInTheDocument();
+    expect(screen.getByText("第10章")).toBeInTheDocument();
+  });
+
   it("keeps the AI reference sticky until clear, replacement, send, and new chat", async () => {
     render(<WorkbenchApp />);
 
@@ -3241,6 +3344,8 @@ describe("WorkbenchApp", () => {
       "搜索",
       "日历",
       "文件",
+      "大纲",
+      "历史版本",
       "场景",
       "人物",
       "世界观",

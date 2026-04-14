@@ -82,6 +82,8 @@ const LEFT_PANEL_ITEMS: Array<{
   { id: "search", icon: Search, labelKey: "iconBar.search", placement: "top" },
   { id: "calendar", icon: Calendar, labelKey: "iconBar.calendar", placement: "top" },
   { id: "files", icon: Files, labelKey: "iconBar.files", placement: "top" },
+  { id: "outline", icon: Type, labelKey: "iconBar.outline", placement: "top" },
+  { id: "versionHistory", icon: BookOpen, labelKey: "iconBar.versionHistory", placement: "top" },
   { id: "scenarios", icon: Layers, labelKey: "iconBar.scenarios", placement: "top" },
   { id: "characters", icon: Users, labelKey: "iconBar.characters", placement: "top" },
   { id: "worldbuilding", icon: Globe, labelKey: "iconBar.worldbuilding", placement: "top" },
@@ -230,12 +232,26 @@ function WorkbenchShell() {
   }, [bootstrapStatus]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    const updateElapsedMinutes = () => {
       setElapsedMinutes(Math.max(0, Math.floor((Date.now() - sessionStartAt) / 60000)));
-    }, 1000);
+    };
+
+    // @why The files rail can legitimately render long project lists. Updating
+    // the creative-duration badge only when the visible minute changes keeps
+    // the whole workbench from pointlessly re-rendering every second.
+    updateElapsedMinutes();
+    const remainingUntilNextMinute = 60000 - ((Date.now() - sessionStartAt) % 60000);
+    let intervalId: number | null = null;
+    const timeoutId = window.setTimeout(() => {
+      updateElapsedMinutes();
+      intervalId = window.setInterval(updateElapsedMinutes, 60000);
+    }, remainingUntilNextMinute);
 
     return () => {
-      window.clearInterval(timer);
+      window.clearTimeout(timeoutId);
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
     };
   }, [sessionStartAt]);
 
@@ -459,7 +475,7 @@ function WorkbenchShell() {
     }
   };
 
-  const handleOpenDocument = async (documentId: string) => {
+  const handleOpenDocument = useCallback(async (documentId: string) => {
     if (project === null) {
       return;
     }
@@ -502,7 +518,16 @@ function WorkbenchShell() {
         aiSkill.setBusy(false);
       }
     }
-  };
+  }, [
+    activeDocument,
+    aiSkill,
+    api,
+    autosave,
+    layout,
+    project,
+    replaceEditorContextContent,
+    t,
+  ]);
 
   const refreshActiveDocumentFromDisk = useCallback(async () => {
     if (activeDocument === null) {
@@ -643,6 +668,17 @@ function WorkbenchShell() {
     : t("versionHistory.previewingVersion", {
         timestamp: formatTimestamp(versionPreviewSnapshot.createdAt),
       });
+  const fileSidebarItems = useMemo(() => documents.map((document) => (
+    <Button
+      key={document.documentId}
+      tone="ghost"
+      className={document.documentId === activeDocument?.documentId ? "sidebar-item sidebar-item--active" : "sidebar-item"}
+      onClick={() => void handleOpenDocument(document.documentId)}
+    >
+      <span className="sidebar-item__title">{document.title}</span>
+      <span className="sidebar-item__meta">{formatTimestamp(document.updatedAt)}</span>
+    </Button>
+  )), [activeDocument?.documentId, documents, handleOpenDocument]);
 
   const renderSidebarContent = () => {
     if (layout.activeLeftPanel === "files") {
@@ -676,17 +712,7 @@ function WorkbenchShell() {
             <Button tone="ghost" onClick={() => void handleCreateDocument()}>{t("sidebar.newDocument")}</Button>
           </div>
           {documents.length === 0 ? <p className="panel-meta">{t("sidebar.empty")}</p> : null}
-          {documents.slice(0, 8).map((document) => (
-            <Button
-              key={document.documentId}
-              tone="ghost"
-              className={document.documentId === activeDocument?.documentId ? "sidebar-item sidebar-item--active" : "sidebar-item"}
-              onClick={() => void handleOpenDocument(document.documentId)}
-            >
-              <span className="sidebar-item__title">{document.title}</span>
-              <span className="sidebar-item__meta">{formatTimestamp(document.updatedAt)}</span>
-            </Button>
-          ))}
+          {fileSidebarItems}
         </div>
       </>;
     }

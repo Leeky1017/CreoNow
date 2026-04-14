@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Brain,
   Calendar,
   ChevronLeft,
@@ -11,6 +12,7 @@ import {
   Network,
   Search,
   Settings,
+  Type,
   Users,
 } from "lucide-react";
 import type { Meta, StoryObj } from "@storybook/react";
@@ -27,6 +29,8 @@ const leftItems = [
   { id: "search", icon: Search, labelKey: "iconBar.search", placement: "top" },
   { id: "calendar", icon: Calendar, labelKey: "iconBar.calendar", placement: "top" },
   { id: "files", icon: Files, labelKey: "iconBar.files", placement: "top" },
+  { id: "outline", icon: Type, labelKey: "iconBar.outline", placement: "top" },
+  { id: "versionHistory", icon: BookOpen, labelKey: "iconBar.versionHistory", placement: "top" },
   { id: "scenarios", icon: Layers, labelKey: "iconBar.scenarios", placement: "top" },
   { id: "characters", icon: Users, labelKey: "iconBar.characters", placement: "top" },
   { id: "worldbuilding", icon: Globe, labelKey: "iconBar.worldbuilding", placement: "top" },
