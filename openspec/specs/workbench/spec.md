@@ -73,28 +73,24 @@
 
 系统**必须**渲染一个固定在最左侧的 Icon Bar，宽度 48px，不可调整。
 
-Icon Bar 当前实现入口按以下固定顺序排列（遵循 `DESIGN_DECISIONS.md` §9.1，并与黄金设计源 `figma_design/前端完整参考/` 的工作台 rail 对齐）：
+Icon Bar 当前实现入口按以下固定顺序排列（遵循 `DESIGN_DECISIONS.md` §9.1）：
 
 | 位置     | ID               | 图标   | 说明           |
 | -------- | ---------------- | ------ | -------------- |
-| 顶部 1   | `dashboard`      | 仪表盘 | 项目总览       |
+| 顶部 1   | `files`          | 文件夹 | 文件树（默认） |
 | 顶部 2   | `search`         | 搜索   | 搜索           |
-| 顶部 3   | `calendar`       | 日历   | 写作日历       |
-| 顶部 4   | `files`          | 文件夹 | 文件树（默认） |
-| 顶部 5   | `outline`        | 大纲   | 章节结构       |
-| 顶部 6   | `versionHistory` | 历史   | 历史版本       |
-| 顶部 7   | `scenarios`      | 场景   | 写作场景       |
-| 顶部 8   | `characters`     | 人物   | 角色管理       |
-| 顶部 9   | `worldbuilding`  | 地球   | 世界观         |
-| 顶部 10  | `knowledgeGraph` | 节点图 | 知识图谱       |
-| 顶部 11  | `memory`         | 记忆   | 记忆面板       |
+| 顶部 3   | `outline`        | 列表   | 大纲           |
+| 顶部 4   | `versionHistory` | 历史   | 历史版本       |
+| 顶部 5   | `memory`         | 记忆   | 记忆面板       |
+| 顶部 6   | `characters`     | 人物   | 角色管理       |
+| 顶部 7   | `knowledgeGraph` | 节点图 | 知识图谱       |
 | 底部固定 | `settings`       | 齿轮   | 设置           |
 
 `media` 入口保留为未来能力（`[FUTURE]`），当前不计入实现入口顺序校验；能力上线后再并入当前序列。
 
 图标规格：
 
-- 图标尺寸 20px，按钮区域 40×40px，居中对齐（flexbox）
+- 图标尺寸 24px，按钮区域 40×40px，居中对齐（flexbox）
 - 当前激活项**必须**有左侧 2px 白色指示条（`--color-accent`）
 - 悬停反馈：`background: var(--color-bg-hover)`，过渡 `var(--duration-fast)`
 - 所有按钮**必须**有 `aria-label` 属性
@@ -526,7 +522,7 @@ Workbench 相关的发布事实**必须**沉淀为可复核的工件，供事实
     - `sidebarWidth`: `z.number().min(180).max(400)`
     - `panelWidth`: `z.number().min(280).max(480)`
     - `sidebarCollapsed` / `panelCollapsed`: `z.boolean()`
-    - `activeLeftPanel`: `z.enum(["dashboard","search","calendar","files","outline","versionHistory","scenarios","characters","worldbuilding","knowledgeGraph","memory","settings"])`
+    - `activeLeftPanel`: `z.enum(["files","search","outline","versionHistory","memory","characters","knowledgeGraph"])`
     - `activeRightPanel`: `z.enum(["ai","info","quality"])`
     - `theme.mode`: `z.enum(["dark","light","system"])`
 - 失败处理策略：
