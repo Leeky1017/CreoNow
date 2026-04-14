@@ -15,7 +15,7 @@ declare global {
  */
 declare module "react" {
   interface HTMLAttributes<T> {
-    inert?: boolean | undefined;
+    inert?: boolean | "" | "true" | undefined;
   }
 }
 

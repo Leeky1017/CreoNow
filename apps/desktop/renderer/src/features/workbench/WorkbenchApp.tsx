@@ -934,7 +934,7 @@ function WorkbenchShell() {
       {layout.sidebarCollapsed ? null : <div
         className={layout.dragState?.panel === "left" ? "panel-resizer panel-resizer--dragging" : "panel-resizer"}
         hidden={layout.zenMode}
-        inert={layout.zenMode || undefined}
+        inert={layout.zenMode ? "" : undefined}
         role="separator"
         aria-label={t("sidebar.resizeHandle")}
         aria-orientation="vertical"
@@ -1037,7 +1037,7 @@ function WorkbenchShell() {
       {layout.rightPanelCollapsed ? null : <div
         className={layout.dragState?.panel === "right" ? "panel-resizer panel-resizer--dragging" : "panel-resizer"}
         hidden={layout.zenMode}
-        inert={layout.zenMode || undefined}
+        inert={layout.zenMode ? "" : undefined}
         role="separator"
         aria-label={t("panel.resizeHandle")}
         aria-orientation="vertical"
@@ -1045,7 +1045,7 @@ function WorkbenchShell() {
         onMouseDown={layout.startResize("right")}
       />}
 
-      {layout.rightPanelCollapsed ? null : <aside className="right-panel" hidden={layout.zenMode} inert={layout.zenMode || undefined} aria-label={t("panel.title")}>
+      {layout.rightPanelCollapsed ? null : <aside className="right-panel" hidden={layout.zenMode} inert={layout.zenMode ? "" : undefined} aria-label={t("panel.title")}>
         <div className="right-tabs">
           <div className="right-tabs__list" role="tablist" aria-label={t("panel.tabs")}>
             {RIGHT_PANEL_IDS.map((panelId) => (
@@ -1168,7 +1168,7 @@ function WorkbenchShell() {
       </section>
     </div>}
 
-    <footer className="status-bar" hidden={layout.zenMode} inert={layout.zenMode || undefined}>
+    <footer className="status-bar" hidden={layout.zenMode} inert={layout.zenMode ? "" : undefined}>
       <span className="status-bar__group">{t("status.wordCount", { count: wordCount })}</span>
       <span className="status-bar__separator">|</span>
       <span className="status-bar__group">{t("status.creativeDuration", { duration: writingDurationLabel })}</span>
