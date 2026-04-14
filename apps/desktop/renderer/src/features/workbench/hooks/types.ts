@@ -51,6 +51,7 @@ export type LeftPanelId =
   | "versionHistory"
   | "memory"
   | "characters"
+  | "worldbuilding"
   | "knowledgeGraph"
   | "settings";
 

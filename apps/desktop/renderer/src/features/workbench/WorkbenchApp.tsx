@@ -1,19 +1,24 @@
 import {
+  Bold,
+  BookOpen,
   Brain,
   Calendar,
+  ChevronDown,
   ChevronLeft,
   FolderTree,
-  History,
   Layers,
   LayoutDashboard,
-  ListTree,
   Maximize2,
+  MessageSquare,
   Minimize2,
   Network,
   Search,
   Settings,
+  Type,
   Users,
+  Italic,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -73,17 +78,30 @@ const LEFT_PANEL_ITEMS: Array<{
   placement: "top" | "bottom";
 }> = [
   { id: "dashboard", icon: LayoutDashboard, labelKey: "iconBar.dashboard", placement: "top" },
-  { id: "files", icon: FolderTree, labelKey: "iconBar.files", placement: "top" },
   { id: "search", icon: Search, labelKey: "iconBar.search", placement: "top" },
   { id: "calendar", icon: Calendar, labelKey: "iconBar.calendar", placement: "top" },
-  { id: "outline", icon: ListTree, labelKey: "iconBar.outline", placement: "top" },
+  { id: "files", icon: FolderTree, labelKey: "iconBar.files", placement: "top" },
   { id: "scenarios", icon: Layers, labelKey: "iconBar.scenarios", placement: "top" },
-  { id: "versionHistory", icon: History, labelKey: "iconBar.versionHistory", placement: "top" },
-  { id: "memory", icon: Brain, labelKey: "iconBar.memory", placement: "top" },
   { id: "characters", icon: Users, labelKey: "iconBar.characters", placement: "top" },
+  { id: "worldbuilding", icon: BookOpen, labelKey: "iconBar.worldbuilding", placement: "top" },
   { id: "knowledgeGraph", icon: Network, labelKey: "iconBar.knowledgeGraph", placement: "top" },
+  { id: "memory", icon: Brain, labelKey: "iconBar.memory", placement: "top" },
   { id: "settings", icon: Settings, labelKey: "iconBar.settings", placement: "bottom" },
 ];
+
+const SCENARIO_ITEMS = [
+  { id: "novel", labelKey: "scenario.novel" },
+  { id: "diary", labelKey: "scenario.diary" },
+  { id: "script", labelKey: "scenario.script" },
+  { id: "social", labelKey: "scenario.social" },
+] as const;
+
+const QUICK_TOOL_ITEMS = [
+  "sidebar.quickTools.search",
+  "sidebar.quickTools.tree",
+  "sidebar.quickTools.conflict",
+  "sidebar.quickTools.export",
+] as const;
 
 function formatTimestamp(value: number | null): string {
   if (value === null) {
@@ -108,6 +126,16 @@ function truncateReference(text: string): string {
   }
 
   return text.slice(0, MAX_REFERENCE_LENGTH).trimEnd() + "...";
+}
+
+function formatCreativeDuration(totalMinutes: number, t: (key: string, options?: Record<string, unknown>) => string): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) {
+    return t("status.durationMinutes", { minutes });
+  }
+
+  return t("status.durationHours", { hours, minutes });
 }
 
 function ToastIntegrationBridge(props: {
@@ -174,6 +202,13 @@ function WorkbenchShell() {
   const [preview, setPreview] = useState<AiPreview | null>(null);
   const [versionPreviewState, setVersionPreviewState] = useState<VersionPreviewState | null>(null);
   const [restoreDialogSnapshot, setRestoreDialogSnapshot] = useState<VersionHistorySnapshotDetail | null>(null);
+  const [activeScenarioId, setActiveScenarioId] = useState<(typeof SCENARIO_ITEMS)[number]["id"]>("novel");
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [scenarioMenuOpen, setScenarioMenuOpen] = useState(false);
+  const [zenDotExpanded, setZenDotExpanded] = useState(false);
+  const [zenCapsuleHovered, setZenCapsuleHovered] = useState(false);
+  const [sessionStartAt] = useState(() => Date.now());
+  const [elapsedMinutes, setElapsedMinutes] = useState(0);
 
   const autosave = useAutosaveController({ api, activeContextTokenRef, userEditRevisionRef });
   const layout = usePanelLayout();
@@ -192,6 +227,25 @@ function WorkbenchShell() {
   useEffect(() => {
     bootstrapStatusRef.current = bootstrapStatus;
   }, [bootstrapStatus]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setElapsedMinutes(Math.max(0, Math.floor((Date.now() - sessionStartAt) / 60000)));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [sessionStartAt]);
+
+  useEffect(() => {
+    if (layout.zenMode === false) {
+      return;
+    }
+
+    setProjectMenuOpen(false);
+    setScenarioMenuOpen(false);
+  }, [layout.zenMode]);
 
   const editorBridge = useMemo(
     () =>
@@ -556,6 +610,8 @@ function WorkbenchShell() {
           : t("status.ready");
 
   const wordCount = editorBridge.getTextContent().trim().length;
+  const activeScenario = SCENARIO_ITEMS.find((scenario) => scenario.id === activeScenarioId) ?? SCENARIO_ITEMS[0];
+  const writingDurationLabel = formatCreativeDuration(elapsedMinutes, t);
   const selectionHint = isVersionPreviewActive
     ? t("versionHistory.previewReadonlyHint")
     : stickySelection
@@ -590,16 +646,36 @@ function WorkbenchShell() {
   const renderSidebarContent = () => {
     if (layout.activeLeftPanel === "files") {
       return <>
-        <div className="sidebar-header">
-          <div>
-            <h1 className="screen-title">{project?.name ?? t("project.defaultName")}</h1>
-            <p className="panel-subtitle">{t("sidebar.files.subtitle")}</p>
-          </div>
-          <Button tone="ghost" onClick={() => void handleCreateDocument()}>{t("sidebar.newDocument")}</Button>
+        <div className="sidebar-project-switcher">
+          <p className="sidebar-label">{t("sidebar.files.projectSwitcher")}</p>
+          <button className="sidebar-project-button" type="button" onClick={() => setProjectMenuOpen((open) => !open)}>
+            <div>
+              <strong>{project?.name ?? t("project.defaultName")}</strong>
+              <span>{t("sidebar.files.subtitle")}</span>
+            </div>
+            <ChevronDown size={14} aria-hidden="true" className={projectMenuOpen ? "sidebar-chevron sidebar-chevron--open" : "sidebar-chevron"} />
+          </button>
+          <AnimatePresence>
+            {projectMenuOpen ? <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 280, damping: 24 }}
+              className="sidebar-project-menu"
+            >
+              <button className="sidebar-project-menu__item" type="button" onClick={() => setProjectMenuOpen(false)}>
+                {project?.name ?? t("project.defaultName")}
+              </button>
+            </motion.div> : null}
+          </AnimatePresence>
         </div>
         <div className="sidebar-list">
+          <div className="sidebar-list__header">
+            <p className="sidebar-label">{t("sidebar.files.recentChapters")}</p>
+            <Button tone="ghost" onClick={() => void handleCreateDocument()}>{t("sidebar.newDocument")}</Button>
+          </div>
           {documents.length === 0 ? <p className="panel-meta">{t("sidebar.empty")}</p> : null}
-          {documents.map((document) => (
+          {documents.slice(0, 8).map((document) => (
             <Button
               key={document.documentId}
               tone="ghost"
@@ -612,6 +688,47 @@ function WorkbenchShell() {
           ))}
         </div>
       </>;
+    }
+
+    if (layout.activeLeftPanel === "scenarios") {
+      return <div className="sidebar-surface">
+        <div className="panel-section">
+          <h1 className="screen-title">{t("sidebar.scenarios.title")}</h1>
+          <p className="panel-subtitle">{t("sidebar.scenarios.subtitle")}</p>
+        </div>
+        <div className="sidebar-list">
+          {SCENARIO_ITEMS.map((scenario) => (
+            <button
+              key={scenario.id}
+              className={activeScenarioId === scenario.id ? "sidebar-item sidebar-item--active" : "sidebar-item"}
+              onClick={() => {
+                setActiveScenarioId(scenario.id);
+              }}
+              type="button"
+            >
+              <span className="sidebar-item__title">{t(scenario.labelKey)}</span>
+            </button>
+          ))}
+        </div>
+      </div>;
+    }
+
+    if (layout.activeLeftPanel === "knowledgeGraph" || layout.activeLeftPanel === "characters" || layout.activeLeftPanel === "worldbuilding") {
+      return <div className="sidebar-surface">
+        <div className="panel-section">
+          <h1 className="screen-title">{t(`sidebar.${layout.activeLeftPanel}.title`)}</h1>
+          <p className="panel-subtitle">{t(`sidebar.${layout.activeLeftPanel}.subtitle`)}</p>
+        </div>
+        <div className="sidebar-quick-tools">
+          {QUICK_TOOL_ITEMS.map((toolKey) => (
+            <button key={toolKey} type="button" className="sidebar-quick-tools__item">{t(toolKey)}</button>
+          ))}
+        </div>
+        <div className="sidebar-summary-card">
+          <p className="sidebar-label">{t("sidebar.quickTools.summary")}</p>
+          <p className="panel-meta">{t(`sidebar.${layout.activeLeftPanel}.state`)}</p>
+        </div>
+      </div>;
     }
 
     if (layout.activeLeftPanel === "versionHistory") {
@@ -755,57 +872,64 @@ function WorkbenchShell() {
       data-export-active={exportProgress.isExporting ? "true" : undefined}
       style={frameStyle}
     >
-      {/* @why Zen mode uses hidden+inert instead of unmounting (FE-01 R3) to
-          preserve component state (e.g. SettingsPage draft edits).
-          • `hidden` is the PRIMARY mechanism — it removes elements from visual
-            flow and is fully supported in all browsers and React versions.
-          • `inert` is a FORWARD-COMPATIBLE annotation that will work properly
-            in React 19+ (preventing keyboard/focus interaction). On React 18
-            (including 18.3.1), the boolean `inert` attribute is NOT properly
-            forwarded to the DOM — React warns about an unrecognised prop and
-            omits it entirely. Therefore `hidden` alone provides the effective
-            behaviour today.
-          • When upgrading to React 19, `inert` will be natively supported and
-            the `hidden` fallback can be reconsidered.
-          Remove this note after upgrading to React 19. */}
-      <aside className="icon-rail" hidden={layout.zenMode} inert={layout.zenMode || undefined} aria-label={t("app.title")}>
-        <div className="icon-rail__group">
-          {LEFT_PANEL_ITEMS.filter((item) => item.placement === "top").map((item) => {
-            const Icon = item.icon;
-            return <Button
-              key={item.id}
-              className={layout.activeLeftPanel === item.id ? "rail-button rail-button--active" : "rail-button"}
-              tone="ghost"
-              aria-label={t(item.labelKey)}
-              aria-pressed={layout.activeLeftPanel === item.id && layout.sidebarCollapsed === false}
-              onClick={() => layout.handleLeftPanelSelect(item.id)}
-            >
-              <Icon size={ICON_SIZE} />
-              <span className="rail-button__tooltip">{t(item.labelKey)}</span>
-            </Button>;
-          })}
-        </div>
-        <div className="icon-rail__group icon-rail__group--bottom">
-          {LEFT_PANEL_ITEMS.filter((item) => item.placement === "bottom").map((item) => {
-            const Icon = item.icon;
-            return <Button
-              key={item.id}
-              className={layout.activeLeftPanel === item.id ? "rail-button rail-button--active" : "rail-button"}
-              tone="ghost"
-              aria-label={t(item.labelKey)}
-              aria-pressed={layout.activeLeftPanel === item.id && layout.sidebarCollapsed === false}
-              onClick={() => layout.handleLeftPanelSelect(item.id)}
-            >
-              <Icon size={ICON_SIZE} />
-              <span className="rail-button__tooltip">{t(item.labelKey)}</span>
-            </Button>;
-          })}
-        </div>
-      </aside>
+      <AnimatePresence initial={false}>
+        {layout.zenMode ? null : <motion.aside
+          key="icon-rail"
+          initial={{ x: -48 }}
+          animate={{ x: 0 }}
+          exit={{ x: -48 }}
+          transition={{ type: "spring", damping: 20, stiffness: 150 }}
+          className="icon-rail"
+          aria-label={t("app.title")}
+        >
+          <div className="icon-rail__group">
+            {LEFT_PANEL_ITEMS.filter((item) => item.placement === "top").map((item) => {
+              const Icon = item.icon;
+              return <Button
+                key={item.id}
+                className={layout.activeLeftPanel === item.id ? "rail-button rail-button--active" : "rail-button"}
+                tone="ghost"
+                aria-label={t(item.labelKey)}
+                aria-pressed={layout.activeLeftPanel === item.id && layout.sidebarCollapsed === false}
+                onClick={() => layout.handleLeftPanelSelect(item.id)}
+              >
+                <Icon size={ICON_SIZE} />
+                <span className="rail-button__tooltip">{t(item.labelKey)}</span>
+              </Button>;
+            })}
+          </div>
+          <div className="icon-rail__group icon-rail__group--bottom">
+            {LEFT_PANEL_ITEMS.filter((item) => item.placement === "bottom").map((item) => {
+              const Icon = item.icon;
+              return <Button
+                key={item.id}
+                className={layout.activeLeftPanel === item.id ? "rail-button rail-button--active" : "rail-button"}
+                tone="ghost"
+                aria-label={t(item.labelKey)}
+                aria-pressed={layout.activeLeftPanel === item.id && layout.sidebarCollapsed === false}
+                onClick={() => layout.handleLeftPanelSelect(item.id)}
+              >
+                <Icon size={ICON_SIZE} />
+                <span className="rail-button__tooltip">{t(item.labelKey)}</span>
+              </Button>;
+            })}
+          </div>
+        </motion.aside>}
+      </AnimatePresence>
 
-      {layout.sidebarCollapsed ? null : <aside className="sidebar" hidden={layout.zenMode} inert={layout.zenMode || undefined} aria-label={t("sidebar.title")}>
-        {renderSidebarContent()}
-      </aside>}
+      <AnimatePresence initial={false}>
+        {layout.sidebarCollapsed || layout.zenMode ? null : <motion.aside
+          key="left-sidebar"
+          className="sidebar"
+          aria-label={t("sidebar.title")}
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: layout.sidebarWidth, opacity: 1 }}
+          exit={{ width: 0, opacity: 0 }}
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        >
+          {renderSidebarContent()}
+        </motion.aside>}
+      </AnimatePresence>
 
       {layout.sidebarCollapsed ? null : <div
         className={layout.dragState?.panel === "left" ? "panel-resizer panel-resizer--dragging" : "panel-resizer"}
@@ -824,6 +948,55 @@ function WorkbenchShell() {
             <h2 className="screen-title">{activeDocument?.title ?? t("document.defaultTitle")}</h2>
             <p className="panel-meta">{selectionHint}</p>
           </div>
+          {layout.zenMode ? null : <div className="editor-header__capsule-wrap">
+            <div className="editor-header__capsule" role="group" aria-label={t("editor.capsule.label")}>
+              <button className="editor-capsule-btn editor-capsule-btn--left" type="button" onClick={() => setProjectMenuOpen((open) => !open)}>
+                <span>{t("editor.capsule.project", { project: project?.name ?? t("project.defaultName") })}</span>
+                <ChevronDown size={14} aria-hidden="true" className={projectMenuOpen ? "sidebar-chevron sidebar-chevron--open" : "sidebar-chevron"} />
+              </button>
+              <button className="editor-capsule-btn editor-capsule-btn--right" type="button" onClick={() => setScenarioMenuOpen((open) => !open)}>
+                <BookOpen size={14} aria-hidden="true" />
+                <span>{t(activeScenario.labelKey)}</span>
+                <ChevronDown size={14} aria-hidden="true" className={scenarioMenuOpen ? "sidebar-chevron sidebar-chevron--open" : "sidebar-chevron"} />
+              </button>
+            </div>
+            <AnimatePresence>
+              {projectMenuOpen ? <motion.div
+                className="editor-capsule-menu editor-capsule-menu--left"
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 280, damping: 24 }}
+              >
+                <button className="editor-capsule-menu__item" type="button" onClick={() => setProjectMenuOpen(false)}>
+                  {project?.name ?? t("project.defaultName")}
+                </button>
+              </motion.div> : null}
+            </AnimatePresence>
+            <AnimatePresence>
+              {scenarioMenuOpen ? <motion.div
+                className="editor-capsule-menu editor-capsule-menu--right"
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 280, damping: 24 }}
+              >
+                {SCENARIO_ITEMS.map((scenario) => (
+                  <button
+                    key={scenario.id}
+                    className={activeScenarioId === scenario.id ? "editor-capsule-menu__item editor-capsule-menu__item--active" : "editor-capsule-menu__item"}
+                    type="button"
+                    onClick={() => {
+                      setActiveScenarioId(scenario.id);
+                      setScenarioMenuOpen(false);
+                    }}
+                  >
+                    {t(scenario.labelKey)}
+                  </button>
+                ))}
+              </motion.div> : null}
+            </AnimatePresence>
+          </div>}
           <div className="editor-header__actions">
             <Button
               tone="ghost"
@@ -902,6 +1075,84 @@ function WorkbenchShell() {
       </aside>}
     </div>
 
+    <AnimatePresence>
+      {layout.rightPanelCollapsed && !layout.zenMode ? <motion.button
+        key="panel-fab"
+        className="workbench-fab"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        onClick={() => layout.handleRightPanelSelect("ai")}
+        type="button"
+      >
+        <MessageSquare size={20} />
+        <span className="workbench-fab__tooltip">{t("panel.fabTooltip")}</span>
+      </motion.button> : null}
+    </AnimatePresence>
+
+    <AnimatePresence>
+      {layout.zenMode ? <>
+        <motion.div
+          key="zen-dot"
+          className="zen-dot-toolbar"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div className={zenDotExpanded ? "zen-dot-toolbar__shell zen-dot-toolbar__shell--expanded" : "zen-dot-toolbar__shell"}>
+            <button className={zenDotExpanded ? "zen-dot-toolbar__trigger zen-dot-toolbar__trigger--expanded" : "zen-dot-toolbar__trigger"} onClick={() => setZenDotExpanded((expanded) => !expanded)} type="button" aria-label={t("zenMode.toolbarToggle")}/>
+            <AnimatePresence>
+              {zenDotExpanded ? <motion.div
+                className="zen-dot-toolbar__panel"
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: "auto", opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+              >
+                <button type="button" className="zen-dot-toolbar__button" onClick={layout.toggleZenMode} aria-label={t("zenMode.exit")}>
+                  <Minimize2 size={14} />
+                </button>
+                <button type="button" className="zen-dot-toolbar__button" aria-label={t("zenMode.bold")}>
+                  <Bold size={13} />
+                </button>
+                <button type="button" className="zen-dot-toolbar__button" aria-label={t("zenMode.italic")}>
+                  <Italic size={13} />
+                </button>
+                <button type="button" className="zen-dot-toolbar__button" aria-label={t("zenMode.type")}>
+                  <Type size={13} />
+                </button>
+                <button type="button" className="zen-dot-toolbar__button" aria-label={t("iconBar.search")}>
+                  <Search size={13} />
+                </button>
+                <button type="button" className="zen-dot-toolbar__button" onClick={() => layout.handleLeftPanelSelect("files")} aria-label={t("iconBar.files")}>
+                  <FolderTree size={13} />
+                </button>
+              </motion.div> : null}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+        <motion.div
+          key="zen-input"
+          className="zen-capsule-input-wrap"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 24 }}
+          transition={{ type: "spring", stiffness: 140, damping: 24 }}
+        >
+          <motion.div
+            className="zen-capsule-input"
+            onMouseEnter={() => setZenCapsuleHovered(true)}
+            onMouseLeave={() => setZenCapsuleHovered(false)}
+            animate={{ opacity: zenCapsuleHovered ? 1 : 0.08 }}
+            transition={{ duration: 0.2 }}
+          >
+            <MessageSquare size={14} />
+            <input readOnly value={t("zenMode.aiPlaceholder")} aria-label={t("zenMode.aiPlaceholder")} />
+          </motion.div>
+        </motion.div>
+      </> : null}
+    </AnimatePresence>
+
     {restoreDialogSnapshot === null ? null : <div className="version-restore-dialog-backdrop">
       <section className="version-restore-dialog" role="dialog" aria-modal="true" aria-labelledby="version-restore-dialog-title">
         <div className="panel-section">
@@ -918,17 +1169,18 @@ function WorkbenchShell() {
     </div>}
 
     <footer className="status-bar" hidden={layout.zenMode} inert={layout.zenMode || undefined}>
-      <span className="status-bar__group">
-        {t("status.projectDocument", {
-          project: project?.name ?? t("project.defaultName"),
-          document: activeDocument?.title ?? t("document.defaultTitle"),
-        })}
-      </span>
       <span className="status-bar__group">{t("status.wordCount", { count: wordCount })}</span>
-      <Button className="status-bar__group status-bar__action" tone="ghost" onClick={handleStatusBarAction}>
+      <span className="status-bar__separator">|</span>
+      <span className="status-bar__group">{t("status.creativeDuration", { duration: writingDurationLabel })}</span>
+      <span className="status-bar__separator">|</span>
+      <span className="status-bar__group status-bar__sync">
+        <span className="status-bar__sync-dot" aria-hidden="true" />
+        {t("status.cloudSyncing")}
+      </span>
+      <Button className="status-bar__group status-bar__action status-bar__legacy" tone="ghost" onClick={handleStatusBarAction}>
         {saveLabel}
       </Button>
-      <span className="status-bar__group">{formatTimestamp(autosave.lastSavedAt)}</span>
+      <span className="status-bar__group status-bar__legacy">{formatTimestamp(autosave.lastSavedAt)}</span>
     </footer>
     </main>
   </>;

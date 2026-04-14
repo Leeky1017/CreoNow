@@ -35,6 +35,7 @@ const LEFT_PANEL_IDS: LeftPanelId[] = [
   "versionHistory",
   "memory",
   "characters",
+  "worldbuilding",
   "knowledgeGraph",
   "settings",
 ];

@@ -1,12 +1,11 @@
 import {
   Brain,
+  BookOpen,
   Calendar,
   ChevronLeft,
   FolderTree,
-  History,
   Layers,
   LayoutDashboard,
-  ListTree,
   Maximize2,
   Minimize2,
   Network,
@@ -25,15 +24,14 @@ const ICON_SIZE = 20;
 
 const leftItems = [
   { id: "dashboard", icon: LayoutDashboard, labelKey: "iconBar.dashboard", placement: "top" },
-  { id: "files", icon: FolderTree, labelKey: "iconBar.files", placement: "top" },
   { id: "search", icon: Search, labelKey: "iconBar.search", placement: "top" },
   { id: "calendar", icon: Calendar, labelKey: "iconBar.calendar", placement: "top" },
-  { id: "outline", icon: ListTree, labelKey: "iconBar.outline", placement: "top" },
+  { id: "files", icon: FolderTree, labelKey: "iconBar.files", placement: "top" },
   { id: "scenarios", icon: Layers, labelKey: "iconBar.scenarios", placement: "top" },
-  { id: "versionHistory", icon: History, labelKey: "iconBar.versionHistory", placement: "top" },
-  { id: "memory", icon: Brain, labelKey: "iconBar.memory", placement: "top" },
   { id: "characters", icon: Users, labelKey: "iconBar.characters", placement: "top" },
+  { id: "worldbuilding", icon: BookOpen, labelKey: "iconBar.worldbuilding", placement: "top" },
   { id: "knowledgeGraph", icon: Network, labelKey: "iconBar.knowledgeGraph", placement: "top" },
+  { id: "memory", icon: Brain, labelKey: "iconBar.memory", placement: "top" },
   { id: "settings", icon: Settings, labelKey: "iconBar.settings", placement: "bottom" },
 ] as const;
 

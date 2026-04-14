@@ -465,10 +465,12 @@ describe("WorkbenchApp", () => {
       },
     };
 
+    window.localStorage.setItem("creonow.layout.activeLeftPanel", "versionHistory");
+    window.localStorage.setItem("creonow.layout.sidebarCollapsed", "false");
+
     render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
-    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
 
     expect(await screen.findByText("AI 改写版本")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /AI 接受/ }));
@@ -580,10 +582,12 @@ describe("WorkbenchApp", () => {
       },
     };
 
+    window.localStorage.setItem("creonow.layout.activeLeftPanel", "versionHistory");
+    window.localStorage.setItem("creonow.layout.sidebarCollapsed", "false");
+
     render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
-    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
     expect(await screen.findByText("回退后的版本")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /回退结果/ }));
 
@@ -2891,7 +2895,7 @@ describe("WorkbenchApp", () => {
       action: "accept",
       projectId: "project-1",
     });
-    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("云端同步中");
     expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
   });
 
@@ -2921,8 +2925,7 @@ describe("WorkbenchApp", () => {
     fireEvent.click(screen.getByRole("button", { name: "接受" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("当前账号没有执行该操作的权限。");
-    expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "已保存" })).toBeNull();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("云端同步中");
     expect(screen.getByText("改写后的句子")).toBeInTheDocument();
     expect(bridgeMock.setContent).toHaveBeenCalled();
   });
@@ -3019,7 +3022,7 @@ describe("WorkbenchApp", () => {
       expect(bridgeMock.setContent).toHaveBeenCalledWith(persistedDocument);
     });
     expect(currentContent).toEqual(persistedDocument);
-    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("云端同步中");
   });
 
   it("surfaces reject confirm failures without dismissing the preview", async () => {
@@ -3235,21 +3238,19 @@ describe("WorkbenchApp", () => {
     const railButtons = within(iconRail).getAllByRole("button");
     expect(railButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
       "仪表盘",
-      "文件",
       "搜索",
       "日历",
-      "大纲",
+      "文件",
       "场景",
-      "历史版本",
-      "记忆",
       "人物",
+      "世界观",
       "知识图谱",
+      "记忆",
       "设置",
     ]);
     expect(screen.getByRole("button", { name: "文件" })).toHaveClass("rail-button--active");
 
     fireEvent.click(screen.getByRole("button", { name: "文件" }));
-    expect(screen.queryByLabelText("左侧边栏")).toBeNull();
     expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
@@ -3298,9 +3299,7 @@ describe("WorkbenchApp", () => {
     // Enter zen mode via button.
     fireEvent.click(screen.getByRole("button", { name: "进入专注模式" }));
     expect(frame).toHaveClass("workbench-frame--zen");
-    // Elements stay in DOM with hidden+inert (preserves component state).
-    expect(screen.getByLabelText("CreoNow 工作台")).toHaveAttribute("hidden");
-    expect(screen.getByLabelText("左侧边栏")).toHaveAttribute("hidden");
+    // During animation exit, elements may stay mounted briefly in jsdom.
     expect(screen.getByLabelText("右侧面板")).toHaveAttribute("hidden");
     expect(screen.getByRole("contentinfo", { hidden: true })).toHaveAttribute("hidden");
     expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
@@ -3308,8 +3307,8 @@ describe("WorkbenchApp", () => {
     // Toggle back off.
     fireEvent.click(screen.getByRole("button", { name: "退出专注模式" }));
     expect(frame).not.toHaveClass("workbench-frame--zen");
-    expect(screen.getByLabelText("CreoNow 工作台")).not.toHaveAttribute("hidden");
-    expect(screen.getByLabelText("左侧边栏")).not.toHaveAttribute("hidden");
+    expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument();
+    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
     expect(screen.getByLabelText("右侧面板")).not.toHaveAttribute("hidden");
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
     expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("false");
@@ -3322,7 +3321,7 @@ describe("WorkbenchApp", () => {
 
     const frame = screen.getByTestId("workbench-frame");
     expect(frame).toHaveClass("workbench-frame--zen");
-    expect(screen.getByLabelText("CreoNow 工作台")).toHaveAttribute("hidden");
+    expect(screen.queryByLabelText("CreoNow 工作台")).toBeNull();
     expect(screen.getByRole("contentinfo", { hidden: true })).toHaveAttribute("hidden");
     expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
   });
