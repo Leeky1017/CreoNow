@@ -11,14 +11,17 @@ import {
   SKILL_STREAM_DONE_CHANNEL,
   SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
-  type AiCompletionResult,
-  type AiTokenUsage,
 } from "@shared/types/ai";
 import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
 import { createAiService } from "../services/ai/aiService";
 import { createAiServiceBridge } from "../services/ai/aiServiceBridge";
 import { createSqliteTraceStore } from "../services/ai/traceStore";
+import {
+  createWritingOrchestratorAiService,
+  createNullWritingOrchestratorAiService,
+} from "../services/ai/writingOrchestratorAiService";
+import { createWritingGenerateText } from "../services/ai/writingGenerateText";
 import { resolveRuntimeGovernanceFromEnv } from "../config/runtimeGovernance";
 import {
   type SecretStorageAdapter,
@@ -35,10 +38,7 @@ import {
 } from "../services/memory/preferenceLearning";
 import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
-import {
-  createSkillExecutor,
-  type SkillExecutorRunArgs,
-} from "../services/skills/skillExecutor";
+import { createSkillExecutor } from "../services/skills/skillExecutor";
 import { normalizeAssembledContextPrompt } from "../services/skills/contextPromptPolicy";
 import { renderPromptTemplate } from "../services/skills/promptTemplate";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
@@ -127,20 +127,6 @@ function resolveCursorPosition(payload: SkillRunPayload): number | undefined {
     return payload.cursorPosition;
   }
   return undefined;
-}
-
-function makeAbortError(message: string): Error & { kind: "aborted" } {
-  const err = new Error(message) as Error & { kind: "aborted" };
-  err.name = "AbortError";
-  err.kind = "aborted";
-  return err;
-}
-
-function isBridgeUnsupportedProviderError(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
-  return (error as { kind?: unknown }).kind === "unsupported-provider";
 }
 
 type SkillRunUsage = {
@@ -1504,7 +1490,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           (item) => item.scope === "builtin" && item.valid,
         ).length,
       });
-
       const requiredBuiltinSkillIds = [
         "builtin:polish",
         "builtin:rewrite",
@@ -1536,166 +1521,32 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
     }
   }
+  // INV-7: Build the WritingOrchestrator's AI service adapter using factories from
+  // the services layer. ai.ts must not hold bare aiService.runSkill() calls directly;
+  // all AI calling logic is encapsulated in writingOrchestratorAiService + writingGenerateText.
+  const writingOrchestratorAiSvc = (() => {
+    if (deps.db === null || !deps.costTracker) {
+      return createNullWritingOrchestratorAiService();
+    }
+    const bridgeAiService = createAiServiceBridge({
+      db: deps.db,
+      logger: deps.logger,
+      costTracker: deps.costTracker,
+      env: deps.env,
+      runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
+      getProxySettings: readProxySettings,
+    });
+    return createWritingOrchestratorAiService({
+      aiService,
+      bridgeAiService,
+    });
+  })();
+  const generateText = createWritingGenerateText({
+    aiService,
+    skillExecutor,
+  });
   const writingOrchestrator = createWritingOrchestrator({
-    aiService: (() => {
-      const legacyActiveAbortControllers = new Set<AbortController>();
-      const legacyOrchestratorAiService = {
-        async *streamChat(
-          messages: Array<{ role: string; content: string }>,
-          options: {
-            signal: AbortSignal;
-            onComplete: (result: {
-              usage?: Partial<AiTokenUsage>;
-            } & Partial<AiCompletionResult>) => void;
-            onError: (e: unknown) => void;
-            onApiCallStarted?: () => void;
-            skillId?: string;
-          },
-        ) {
-          const legacyAbortController = new AbortController();
-          legacyActiveAbortControllers.add(legacyAbortController);
-          const onExternalAbort = () => legacyAbortController.abort();
-          options.signal.addEventListener("abort", onExternalAbort, { once: true });
-          const throwIfAborted = () => {
-            if (options.signal.aborted || legacyAbortController.signal.aborted) {
-              throw makeAbortError("Streaming request aborted");
-            }
-          };
-
-          try {
-            throwIfAborted();
-
-            // NOTE: For orchestrator-level cost/abort accounting, runSkill is the API boundary.
-            // Internal provider resolution/preflight remains encapsulated in aiService.
-            options.onApiCallStarted?.();
-            const runSkillPromise = aiService.runSkill({
-              skillId: options.skillId ?? "builtin:continue",
-              input: messages[messages.length - 1]?.content ?? "",
-              mode: "ask",
-              model: "default",
-              stream: false,
-              ts: nowTs(),
-              overrideMessages: messages,
-              emitEvent: () => {},
-            });
-            let abortListener: (() => void) | undefined;
-            const abortPromise = new Promise<never>((_, reject) => {
-              abortListener = () => {
-                reject(makeAbortError("Streaming request aborted"));
-              };
-              if (legacyAbortController.signal.aborted) {
-                abortListener();
-                return;
-              }
-              legacyAbortController.signal.addEventListener("abort", abortListener, {
-                once: true,
-              });
-            });
-            const res = await Promise.race([runSkillPromise, abortPromise]);
-            if (abortListener) {
-              legacyAbortController.signal.removeEventListener("abort", abortListener);
-            }
-            throwIfAborted();
-            if (!res.ok) {
-              const kind =
-                res.error.code === "CANCELED"
-                  ? "aborted"
-                  : res.error.retryable
-                    ? "retryable"
-                    : "non-retryable";
-              const streamError = {
-                kind,
-                message: res.error.message,
-                retryCount: 0,
-              };
-              if (kind !== "aborted") {
-                options.onError(streamError);
-              }
-              throw streamError;
-            }
-
-            const content = res.data.outputText ?? "";
-            const completionTokens = estimateTokens(content);
-            yield {
-              delta: content,
-              finishReason: res.data.finishReason ?? "stop",
-              accumulatedTokens: completionTokens,
-            };
-            options.onComplete({
-              content,
-              usage: {
-                promptTokens: 0,
-                completionTokens,
-                totalTokens: completionTokens,
-                cachedTokens: 0,
-              },
-              wasRetried: false,
-            });
-          } finally {
-            options.signal.removeEventListener("abort", onExternalAbort);
-            legacyActiveAbortControllers.delete(legacyAbortController);
-          }
-        },
-        estimateTokens,
-        abort() {
-          for (const controller of legacyActiveAbortControllers) {
-            controller.abort();
-          }
-          legacyActiveAbortControllers.clear();
-        },
-      };
-
-      if (deps.db === null || !deps.costTracker) {
-        return {
-          async *streamChat() {
-            return;
-          },
-          estimateTokens,
-          abort() {
-            return;
-          },
-        };
-      }
-
-      const bridgeAiService = createAiServiceBridge({
-        db: deps.db,
-        logger: deps.logger,
-        costTracker: deps.costTracker,
-        env: deps.env,
-        runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
-        getProxySettings: readProxySettings,
-      });
-
-      return {
-        async *streamChat(
-          messages: Array<{ role: string; content: string }>,
-          options: {
-            signal: AbortSignal;
-            onComplete: (result: {
-              usage?: Partial<AiTokenUsage>;
-            } & Partial<AiCompletionResult>) => void;
-            onError: (e: unknown) => void;
-            onApiCallStarted?: () => void;
-            skillId?: string;
-            requestId?: string;
-            sessionId?: string;
-          },
-        ) {
-          try {
-            yield* bridgeAiService.streamChat(messages, options);
-          } catch (error) {
-            if (!isBridgeUnsupportedProviderError(error)) {
-              throw error;
-            }
-            yield* legacyOrchestratorAiService.streamChat(messages, options);
-          }
-        },
-        estimateTokens: bridgeAiService.estimateTokens,
-        abort: () => {
-          // Per-request cancellation is propagated by the request-level AbortSignal chain.
-        },
-      };
-    })(),
+    aiService: writingOrchestratorAiSvc,
     toolRegistry:
       deps.db === null
         ? createToolRegistry()
@@ -1833,219 +1684,10 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
       return prepared.data;
     },
-    generateText: async ({
-      request,
-      signal,
-      emitChunk,
-      onApiCallStarted,
-      messages,
-    }) => {
-      let outputText = "";
-      let usage: {
-        promptTokens: number;
-        completionTokens: number;
-        totalTokens: number;
-        cachedTokens?: number;
-      } = {
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-      };
-      let capturedFinishReason: "stop" | "tool_use" | undefined;
-      let capturedToolCalls:
-        | Array<{
-            id: string;
-            name: string;
-            arguments: Record<string, unknown>;
-          }>
-        | undefined;
-      let sawStreamChunk = false;
-      let streamTerminalSeen = false;
-      let settleStreamCompletion: (() => void) | null = null;
-      let rejectStreamCompletion: ((error: Error) => void) | null = null;
-      const streamCompletion = new Promise<void>((resolve, reject) => {
-        settleStreamCompletion = resolve;
-        rejectStreamCompletion = reject;
-      });
-
-      const onDoneEvent = (event: {
-        type: "done";
-        outputText: string;
-        terminal: string;
-        error?: { message?: string; code?: string };
-        result?: {
-          metadata: {
-            promptTokens: number;
-            completionTokens: number;
-            cachedTokens?: number;
-          };
-        };
-        finishReason?: "stop" | "tool_use";
-        toolCalls?: Array<{
-          id: string;
-          name: string;
-          arguments: Record<string, unknown>;
-        }>;
-      }) => {
-        if (!sawStreamChunk && event.outputText.length > 0) {
-          outputText = event.outputText;
-          emitChunk(event.outputText, estimateTokens(event.outputText));
-          sawStreamChunk = true;
-        } else {
-          outputText = event.outputText;
-        }
-        usage = {
-          promptTokens:
-            event.result?.metadata.promptTokens ??
-            estimateTokens(resolveWritingRequestInput(request)),
-          completionTokens:
-            event.result?.metadata.completionTokens ??
-            estimateTokens(event.outputText),
-          totalTokens:
-            (event.result?.metadata.promptTokens ??
-              estimateTokens(resolveWritingRequestInput(request))) +
-            (event.result?.metadata.completionTokens ??
-              estimateTokens(event.outputText)),
-          cachedTokens: event.result?.metadata.cachedTokens ?? 0,
-        };
-        // F1: capture finishReason and toolCalls from the done event
-        if (event.finishReason !== undefined) {
-          capturedFinishReason = event.finishReason;
-        }
-        if (event.toolCalls !== undefined) {
-          capturedToolCalls = event.toolCalls;
-        }
-        streamTerminalSeen = true;
-        if (event.terminal === "completed") {
-          settleStreamCompletion?.();
-        } else {
-          rejectStreamCompletion?.(
-            Object.assign(
-              new Error(
-                event.error?.message ??
-                  (event.terminal === "cancelled"
-                    ? "AI request canceled"
-                    : "AI stream failed"),
-              ),
-              {
-                code: event.error?.code ?? "AI_SERVICE_ERROR",
-                terminal: event.terminal,
-              },
-            ),
-          );
-        }
-      };
-
-      // F2: when messages is provided (agentic loop rounds 2+), call aiService directly
-      // bypassing skillExecutor so that the accumulated tool-result messages are forwarded
-      if (messages && messages.length > 0) {
-        onApiCallStarted?.();
-        const res = await aiService.runSkill({
-          skillId: request.skillId,
-          input: messages[messages.length - 1]?.content ?? "",
-          mode: "ask",
-          model: request.modelId ?? "default",
-          context: {
-            projectId: request.projectId,
-            documentId: request.documentId,
-          },
-          stream: true,
-          ts: nowTs(),
-          overrideMessages: messages,
-          emitEvent: (event) => {
-            if (signal.aborted) return;
-            if (event.type === "chunk") {
-              sawStreamChunk = true;
-              outputText += event.chunk;
-              const accumulatedTokens = estimateTokens(outputText);
-              emitChunk(event.chunk, accumulatedTokens);
-              return;
-            }
-            if (event.type === "done") {
-              onDoneEvent(event as Parameters<typeof onDoneEvent>[0]);
-            }
-          },
-        });
-        if (!res.ok) throw res.error;
-        if (!streamTerminalSeen) await streamCompletion;
-        if (!sawStreamChunk && (res.data.outputText?.length ?? 0) > 0) {
-          const finalOutput = res.data.outputText ?? "";
-          outputText = finalOutput;
-          emitChunk(finalOutput, estimateTokens(finalOutput));
-        }
-        return {
-          fullText: outputText || res.data.outputText || "",
-          usage,
-          finishReason: capturedFinishReason,
-          toolCalls: capturedToolCalls,
-        };
-      }
-
-      // First call: use skillExecutor for full context assembly
-      let apiStartedFired = false;
-      const res = await skillExecutor.execute({
-        skillId: request.skillId,
-        hasSelection: Boolean(request.selection),
-        input: resolveWritingRequestInput(request),
-        selectedText:
-          request.selection?.text ??
-          request.input.selectedText ??
-          resolveWritingRequestInput(request),
-        ...(request.cursorPosition === undefined
-          ? {}
-          : { cursorPosition: request.cursorPosition }),
-        mode: "ask",
-        model: request.modelId ?? "default",
-        ...(request.userInstruction === undefined
-          ? {}
-          : { userInstruction: request.userInstruction }),
-        context: {
-          projectId: request.projectId,
-          documentId: request.documentId,
-        },
-        ...(messages
-          ? { messages: messages as SkillExecutorRunArgs["messages"] }
-          : {}),
-        stream: true,
-        ts: nowTs(),
-        emitEvent: (event) => {
-          if (!apiStartedFired) {
-            apiStartedFired = true;
-            onApiCallStarted?.();
-          }
-          if (signal.aborted) {
-            return;
-          }
-          if (event.type === "chunk") {
-            sawStreamChunk = true;
-            outputText += event.chunk;
-            const accumulatedTokens = estimateTokens(outputText);
-            emitChunk(event.chunk, accumulatedTokens);
-            return;
-          }
-          if (event.type === "done") {
-            onDoneEvent(event as Parameters<typeof onDoneEvent>[0]);
-          }
-        },
-      });
-      if (!res.ok) {
-        throw res.error;
-      }
-      if (!streamTerminalSeen) {
-        await streamCompletion;
-      }
-      if (!sawStreamChunk && (res.data.outputText?.length ?? 0) > 0) {
-        const finalOutput = res.data.outputText ?? "";
-        outputText = finalOutput;
-        emitChunk(finalOutput, estimateTokens(finalOutput));
-      }
-      return {
-        fullText: outputText || res.data.outputText || "",
-        usage,
-        finishReason: capturedFinishReason,
-        toolCalls: capturedToolCalls,
-      };
-    },
+    // INV-7: generateText is no longer defined inline here; the factory in
+    // writingGenerateText.ts encapsulates the aiService / skillExecutor calls
+    // so that ai.ts does not hold bare aiService.runSkill() references.
+    generateText,
     // INV-6: Use real manifest-loaded skill IDs instead of the legacy hardcoded list.
     // Only the "DB unavailable, registry never loaded" case keeps the legacy fallback.
     ...(didLoadManifestRegistry
