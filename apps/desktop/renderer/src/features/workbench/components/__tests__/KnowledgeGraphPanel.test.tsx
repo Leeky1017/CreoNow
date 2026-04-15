@@ -70,6 +70,12 @@ describe("KnowledgeGraphPanel", () => {
     expect(onViewChange).toHaveBeenCalledWith("summary");
   });
 
+  it("视图切换按钮使用 aria-pressed 语义", () => {
+    renderPanel();
+    expect(screen.getByTestId("knowledge-graph-view-graph")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("knowledge-graph-view-summary")).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("summary 视图渲染实体卡片", () => {
     renderPanel({ view: "summary" });
     expect(screen.getByTestId("knowledge-graph-summary-list")).toBeInTheDocument();

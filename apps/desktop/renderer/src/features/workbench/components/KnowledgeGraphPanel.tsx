@@ -66,7 +66,7 @@ function typeLabel(type: KnowledgeGraphNodeType, t: (key: string) => string): st
 }
 
 export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [scale, setScale] = useState(1);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
@@ -122,6 +122,16 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
     () => [...filteredNodes].sort((left, right) => right.updatedAt - left.updatedAt),
     [filteredNodes],
   );
+  const summaryTimestampFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.resolvedLanguage ?? undefined, {
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        month: "2-digit",
+      }),
+    [i18n.resolvedLanguage],
+  );
 
   return (
     <div className="knowledge-graph-panel" data-testid="knowledge-graph-panel">
@@ -142,11 +152,10 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
             data-testid="knowledge-graph-search"
           />
         </label>
-        <div className="knowledge-graph-panel__view-switch" role="tablist" aria-label={t("sidebar.knowledgeGraph.viewLabel")}>
+        <div className="knowledge-graph-panel__view-switch" role="group" aria-label={t("sidebar.knowledgeGraph.viewLabel")}>
           <button
             type="button"
-            role="tab"
-            aria-selected={props.view === "graph"}
+            aria-pressed={props.view === "graph"}
             className={props.view === "graph" ? "knowledge-graph-panel__view-tab is-active" : "knowledge-graph-panel__view-tab"}
             onClick={() => props.onViewChange("graph")}
             data-testid="knowledge-graph-view-graph"
@@ -155,8 +164,7 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={props.view === "summary"}
+            aria-pressed={props.view === "summary"}
             className={props.view === "summary" ? "knowledge-graph-panel__view-tab is-active" : "knowledge-graph-panel__view-tab"}
             onClick={() => props.onViewChange("summary")}
             data-testid="knowledge-graph-view-summary"
@@ -321,12 +329,7 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
               </p>
               <p className="knowledge-graph-summary-card__meta">
                 {t("sidebar.knowledgeGraph.summary.updatedAt", {
-                  timestamp: new Intl.DateTimeFormat("zh-CN", {
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    month: "2-digit",
-                  }).format(node.updatedAt),
+                  timestamp: summaryTimestampFormatter.format(node.updatedAt),
                 })}
               </p>
             </article>

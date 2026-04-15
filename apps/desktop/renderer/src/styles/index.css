@@ -602,7 +602,6 @@ button {
 
 .knowledge-graph-node {
   cursor: pointer;
-  outline: none;
 }
 
 .knowledge-graph-node circle {
@@ -626,6 +625,11 @@ button {
 .knowledge-graph-node:hover text,
 .knowledge-graph-node.is-selected text {
   fill: var(--color-fg-base);
+}
+
+.knowledge-graph-node:focus-visible circle {
+  stroke: var(--color-focus-ring);
+  stroke-width: 3;
 }
 
 .knowledge-graph-node--character {
