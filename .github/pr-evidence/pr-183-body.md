@@ -77,7 +77,7 @@ Closes #183
 - `pnpm --filter @creonow/desktop test:renderer` ✅（26 files / 213 tests）
 - `pnpm test:unit` ✅（159 files / 2971 tests）
 - `pnpm --filter @creonow/desktop storybook:build` ✅
-- `bash scripts/agent_pr_preflight.sh` ⏳（待 PR 创建后复跑）
+- `bash scripts/agent_pr_preflight.sh` ✅
 
 ## Visual Evidence
 
