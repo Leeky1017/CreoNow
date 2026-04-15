@@ -465,6 +465,25 @@ describe("WorkbenchApp", () => {
     });
   });
 
+  it("does not swallow Escape when command palette is closed and prompt input handles it", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("Escape 应该交给输入框处理。", 12));
+    });
+
+    const toolbar = await screen.findByTestId("editor-selection-toolbar");
+    fireEvent.click(within(toolbar).getByRole("button", { name: "告诉 AI 如何改写…" }));
+    const promptInput = await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input");
+
+    fireEvent.keyDown(promptInput, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("editor-selection-toolbar-prompt-input")).not.toBeInTheDocument();
+    });
+  });
+
   it("dismisses the prompt toolbar when selection collapses from editor focus", async () => {
     render(<WorkbenchApp />);
 
@@ -851,6 +870,9 @@ describe("WorkbenchApp", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "恢复到此版本" }));
     expect(await screen.findByRole("dialog", { name: "确认恢复历史版本" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "命令面板" })).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+    expect(screen.queryByRole("dialog", { name: "命令面板" })).not.toBeInTheDocument();
     expect(window.api?.version.restoreSnapshot).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
@@ -3998,5 +4020,54 @@ describe("WorkbenchApp", () => {
 
     // Sidebar width should be unchanged from before the aborted drag.
     expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe(widthBefore);
+  });
+
+  it("opens command palette via Ctrl+K and closes it with Escape", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+    const palette = screen.getByRole("dialog", { name: "命令面板" });
+    expect(palette).toBeInTheDocument();
+
+    const input = within(palette).getByPlaceholderText("搜索页面、场景或动作…");
+    fireEvent.change(input, { target: { value: "设置" } });
+    expect(within(palette).getByText("设置")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "命令面板" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("does not collapse sidebar when selecting the current panel from command palette", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+    const palette = screen.getByRole("dialog", { name: "命令面板" });
+    fireEvent.click(within(palette).getByRole("button", { name: /文件项目文稿与章节入口/ }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "命令面板" })).not.toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+  });
+
+  it("blocks layout-level global shortcuts while command palette is open", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+    const frame = screen.getByTestId("workbench-frame");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+    expect(screen.getByRole("dialog", { name: "命令面板" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+
+    fireEvent.keyDown(window, { shiftKey: true, key: "Z" });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
   });
 });

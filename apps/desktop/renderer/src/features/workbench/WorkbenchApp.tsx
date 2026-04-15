@@ -34,6 +34,7 @@ import type { VersionHistorySnapshotDetail } from "@/features/version-history/ty
 import { useVersionHistoryController } from "@/features/version-history/useVersionHistoryController";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
+import { CommandPalette, type CommandPaletteItem } from "@/features/workbench/components/CommandPalette";
 import { EditorSelectionToolbar } from "@/features/workbench/components/EditorSelectionToolbar";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
@@ -217,6 +218,8 @@ function WorkbenchShell() {
   const [activeScenarioId, setActiveScenarioId] = useState<(typeof SCENARIO_ITEMS)[number]["id"]>("novel");
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [scenarioMenuOpen, setScenarioMenuOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
   const [zenDotExpanded, setZenDotExpanded] = useState(false);
   const [zenCapsuleHovered, setZenCapsuleHovered] = useState(false);
   const [sessionStartAt] = useState(() => Date.now());
@@ -282,6 +285,54 @@ function WorkbenchShell() {
     setProjectMenuOpen(false);
     setScenarioMenuOpen(false);
   }, [layout.zenMode]);
+
+  useEffect(() => {
+    if (restoreDialogSnapshot !== null) {
+      setCommandPaletteOpen(false);
+    }
+  }, [restoreDialogSnapshot]);
+
+  useEffect(() => {
+    const handleWindowKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && key === "k") {
+        if (restoreDialogSnapshot !== null) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        setCommandPaletteOpen((current) => {
+          const next = !current;
+          if (next) {
+            setCommandPaletteQuery("");
+          }
+          return next;
+        });
+        return;
+      }
+
+      const blocksLayoutShortcut = commandPaletteOpen && (
+        (event.shiftKey && key === "z" && !event.metaKey && !event.ctrlKey && !event.altKey)
+        || ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && (event.key === "\\" || key === "l"))
+      );
+      if (blocksLayoutShortcut) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      if (commandPaletteOpen && event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setCommandPaletteOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleWindowKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleWindowKeyDown, true);
+    };
+  }, [commandPaletteOpen, restoreDialogSnapshot]);
 
   const editorBridge = useMemo(
     () =>
@@ -765,6 +816,162 @@ function WorkbenchShell() {
       aiSkill.retryLastAcceptSave();
     }
   };
+
+  const runCommandPaletteAction = useCallback((action: () => void) => {
+    setCommandPaletteOpen(false);
+    setCommandPaletteQuery("");
+    action();
+  }, []);
+
+  const openLeftPanel = useCallback((panelId: LeftPanelId) => {
+    layout.setActiveLeftPanel(panelId);
+    layout.setSidebarCollapsed(false);
+  }, [layout]);
+
+  const commandPaletteItems = useMemo<CommandPaletteItem[]>(() => {
+    const navigationItems: CommandPaletteItem[] = [
+      {
+        id: "nav-dashboard",
+        description: t("sidebar.dashboard.subtitle"),
+        group: "navigation",
+        label: t("iconBar.dashboard"),
+      },
+      {
+        id: "nav-files",
+        description: t("sidebar.files.subtitle"),
+        group: "navigation",
+        label: t("iconBar.files"),
+      },
+      {
+        id: "nav-search",
+        description: t("sidebar.search.subtitle"),
+        group: "navigation",
+        label: t("iconBar.search"),
+      },
+      {
+        id: "nav-scenarios",
+        description: t("sidebar.scenarios.subtitle"),
+        group: "navigation",
+        label: t("iconBar.scenarios"),
+      },
+      {
+        id: "nav-memory",
+        description: t("sidebar.memory.subtitle"),
+        group: "navigation",
+        label: t("iconBar.memory"),
+      },
+      {
+        id: "nav-settings",
+        description: t("sidebar.settings.subtitle"),
+        group: "navigation",
+        label: t("iconBar.settings"),
+      },
+      {
+        id: "nav-ai",
+        description: t("commandPalette.target.ai.description"),
+        group: "navigation",
+        label: t("commandPalette.target.ai.label"),
+      },
+    ];
+
+    const scenarioItems: CommandPaletteItem[] = SCENARIO_ITEMS.map((scenario) => ({
+      id: `scenario-${scenario.id}`,
+      description: t("commandPalette.target.scenario.description"),
+      group: "scenarios",
+      label: t(scenario.labelKey),
+      keywords: [scenario.id],
+    }));
+
+    const documentItems: CommandPaletteItem[] = documents.slice(0, 8).map((document) => ({
+      id: `document-${document.documentId}`,
+      description: formatTimestamp(document.updatedAt),
+      group: "documents",
+      label: document.title,
+      keywords: [document.documentId],
+    }));
+
+    const actionItems: CommandPaletteItem[] = [
+      {
+        id: "action-new-document",
+        description: t("commandPalette.action.newDocument.description"),
+        group: "actions",
+        label: t("commandPalette.action.newDocument.label"),
+      },
+      {
+        id: "action-new-chat",
+        description: t("commandPalette.action.newChat.description"),
+        group: "actions",
+        label: t("commandPalette.action.newChat.label"),
+      },
+      {
+        id: "action-toggle-zen",
+        description: t("commandPalette.action.toggleZen.description"),
+        group: "actions",
+        label: layout.zenMode ? t("zenMode.exit") : t("zenMode.enter"),
+      },
+    ];
+
+    return [...navigationItems, ...scenarioItems, ...documentItems, ...actionItems];
+  }, [documents, layout.zenMode, t]);
+
+  const handleCommandPaletteSelect = useCallback((item: CommandPaletteItem) => {
+    if (item.id.startsWith("document-")) {
+      const documentId = item.id.slice("document-".length);
+      runCommandPaletteAction(() => {
+        void handleOpenDocument(documentId);
+      });
+      return;
+    }
+
+    if (item.id.startsWith("scenario-")) {
+      const scenarioId = item.id.slice("scenario-".length) as (typeof SCENARIO_ITEMS)[number]["id"];
+      runCommandPaletteAction(() => {
+        setActiveScenarioId(scenarioId);
+        openLeftPanel("scenarios");
+      });
+      return;
+    }
+
+    switch (item.id) {
+      case "nav-dashboard":
+        runCommandPaletteAction(() => openLeftPanel("dashboard"));
+        return;
+      case "nav-files":
+        runCommandPaletteAction(() => openLeftPanel("files"));
+        return;
+      case "nav-search":
+        runCommandPaletteAction(() => openLeftPanel("search"));
+        return;
+      case "nav-scenarios":
+        runCommandPaletteAction(() => openLeftPanel("scenarios"));
+        return;
+      case "nav-memory":
+        runCommandPaletteAction(() => openLeftPanel("memory"));
+        return;
+      case "nav-settings":
+        runCommandPaletteAction(() => openLeftPanel("settings"));
+        return;
+      case "nav-ai":
+        runCommandPaletteAction(() => layout.handleRightPanelSelect("ai"));
+        return;
+      case "action-new-document":
+        runCommandPaletteAction(() => {
+          void handleCreateDocument();
+        });
+        return;
+      case "action-new-chat":
+        runCommandPaletteAction(() => {
+          layout.handleRightPanelSelect("ai");
+          aiSkill.resetAiConversation();
+        });
+        return;
+      case "action-toggle-zen":
+        runCommandPaletteAction(() => layout.toggleZenMode());
+        return;
+      default:
+        runCommandPaletteAction(() => undefined);
+    }
+  }, [aiSkill, handleCreateDocument, handleOpenDocument, layout, openLeftPanel, runCommandPaletteAction]);
 
   const saveLabel =
     autosave.saveState === "saving"
@@ -1340,6 +1547,25 @@ function WorkbenchShell() {
         </motion.div>
       </> : null}
     </AnimatePresence>
+
+    <CommandPalette
+      emptyLabel={t("commandPalette.empty")}
+      groupLabels={{
+        actions: t("commandPalette.group.actions"),
+        documents: t("commandPalette.group.documents"),
+        navigation: t("commandPalette.group.navigation"),
+        scenarios: t("commandPalette.group.scenarios"),
+      }}
+      items={commandPaletteItems}
+      onClose={() => setCommandPaletteOpen(false)}
+      onQueryChange={setCommandPaletteQuery}
+      onSelect={handleCommandPaletteSelect}
+      open={commandPaletteOpen && restoreDialogSnapshot === null}
+      placeholder={t("commandPalette.placeholder")}
+      query={commandPaletteQuery}
+      shortcutHint={t("commandPalette.shortcutHint")}
+      title={t("commandPalette.title")}
+    />
 
     {restoreDialogSnapshot === null ? null : <div className="version-restore-dialog-backdrop">
       <section className="version-restore-dialog" role="dialog" aria-modal="true" aria-labelledby="version-restore-dialog-title">
