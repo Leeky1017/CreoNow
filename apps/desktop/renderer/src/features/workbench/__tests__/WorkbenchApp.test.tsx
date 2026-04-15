@@ -436,6 +436,31 @@ describe("WorkbenchApp", () => {
     });
   });
 
+  it("keeps the prompt toolbar open when the input takes focus and collapses editor selection", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("输入框拿走焦点时不能掉。", 12));
+    });
+
+    const toolbar = await screen.findByTestId("editor-selection-toolbar");
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Ask AI to edit…" }));
+    const promptInput = await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input");
+    fireEvent.change(promptInput, {
+      target: { value: "保留现有输入，不要闪退。" },
+    });
+
+    fireEvent.mouseDown(promptInput);
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(null);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-selection-toolbar-prompt-input")).toHaveValue("保留现有输入，不要闪退。");
+    });
+  });
+
   it("runs continue from cursor context without any selection", async () => {
     render(<WorkbenchApp />);
 

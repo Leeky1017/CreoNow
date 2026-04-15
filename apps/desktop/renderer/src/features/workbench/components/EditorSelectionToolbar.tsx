@@ -16,10 +16,11 @@ import type { SelectionViewportAnchor } from "@/editor/bridge";
 interface EditorSelectionToolbarProps {
   anchor: SelectionViewportAnchor | null;
   busy: boolean;
-  selectionKey: string | null;
+  resetKey: string | null;
   onChangeTone: () => void;
   onFixGrammar: () => void;
   onPolish: () => void;
+  onPromptOpenChange: (open: boolean) => void;
   onSubmitInstruction: (instruction: string) => void;
   visible: boolean;
   defaultPromptOpen?: boolean;
@@ -35,7 +36,7 @@ export function EditorSelectionToolbar(props: EditorSelectionToolbarProps) {
   }, [props.defaultPromptOpen]);
 
   useEffect(() => {
-    if (props.visible === false || props.selectionKey === null) {
+    if (props.visible === false || props.resetKey === null) {
       setPromptOpen(false);
       setCustomInstruction("");
       return;
@@ -45,9 +46,13 @@ export function EditorSelectionToolbar(props: EditorSelectionToolbarProps) {
     setCustomInstruction("");
   }, [
     props.defaultPromptOpen,
-    props.selectionKey,
+    props.resetKey,
     props.visible,
   ]);
+
+  useEffect(() => {
+    props.onPromptOpenChange(promptOpen);
+  }, [promptOpen, props]);
 
   if (props.visible === false || props.anchor === null) {
     return null;
@@ -66,7 +71,14 @@ export function EditorSelectionToolbar(props: EditorSelectionToolbarProps) {
     <div
       className="editor-selection-toolbar"
       data-testid="editor-selection-toolbar"
-      onMouseDownCapture={(event) => event.preventDefault()}
+      onMouseDownCapture={(event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement && target.closest("input") !== null) {
+          return;
+        }
+
+        event.preventDefault();
+      }}
       style={style}
     >
       {promptOpen
@@ -80,6 +92,8 @@ export function EditorSelectionToolbar(props: EditorSelectionToolbarProps) {
               }
 
               props.onSubmitInstruction(nextInstruction);
+              setPromptOpen(false);
+              setCustomInstruction("");
             }}
           >
             <div className="editor-selection-toolbar__prompt-input-shell">

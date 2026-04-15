@@ -199,6 +199,7 @@ function WorkbenchShell() {
   const editorContextRevisionRef = useRef(0);
   const activeContextTokenRef = useRef<WorkbenchContextToken | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
+  const selectionToolbarPromptOpenRef = useRef(false);
 
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>("loading");
   const [project, setProject] = useState<ProjectListItem | null>(null);
@@ -207,6 +208,8 @@ function WorkbenchShell() {
   const [liveSelection, setLiveSelection] = useState<SelectionRef | null>(null);
   const [selectionToolbarAnchor, setSelectionToolbarAnchor] =
     useState<SelectionViewportAnchor | null>(null);
+  const [selectionToolbarPromptOpen, setSelectionToolbarPromptOpen] = useState(false);
+  const [selectionToolbarResetKey, setSelectionToolbarResetKey] = useState<string | null>(null);
   const [stickySelection, setStickySelection] = useState<SelectionRef | null>(null);
   const [preview, setPreview] = useState<AiPreview | null>(null);
   const [versionPreviewState, setVersionPreviewState] = useState<VersionPreviewState | null>(null);
@@ -236,6 +239,10 @@ function WorkbenchShell() {
   useEffect(() => {
     bootstrapStatusRef.current = bootstrapStatus;
   }, [bootstrapStatus]);
+
+  useEffect(() => {
+    selectionToolbarPromptOpenRef.current = selectionToolbarPromptOpen;
+  }, [selectionToolbarPromptOpen]);
 
   useEffect(() => {
     const updateElapsedMinutes = () => {
@@ -277,10 +284,16 @@ function WorkbenchShell() {
           setLiveSelection(nextSelection);
 
           if (bootstrapStatusRef.current !== "ready" || isMeaningfulSelection(nextSelection) === false) {
-            setSelectionToolbarAnchor(null);
+            if (selectionToolbarPromptOpenRef.current === false) {
+              setSelectionToolbarAnchor(null);
+              setSelectionToolbarResetKey(null);
+            }
             return;
           }
 
+          setSelectionToolbarResetKey(
+            `${nextSelection.from}:${nextSelection.to}:${nextSelection.selectionTextHash}`,
+          );
           setSelectionToolbarAnchor(editorBridge.getSelectionViewportAnchor());
           setStickySelection(nextSelection);
           setPreview(null);
@@ -442,22 +455,15 @@ function WorkbenchShell() {
   }, [api, autosave.clearPendingAutosaveTimer, autosave.clearSavedStateDecayTimer, autosave.setWorkbenchError, autosave.setSaveUiState, autosave.setLastSavedAt, replaceEditorContextContent, t]);
 
   useEffect(() => {
-    if (
-      bootstrapStatus !== "ready"
-      || preview !== null
-      || isVersionPreviewActive
-      || isMeaningfulSelection(liveSelection) === false
-    ) {
+    if (bootstrapStatus !== "ready" || preview !== null || isVersionPreviewActive) {
       setSelectionToolbarAnchor(null);
+      setSelectionToolbarResetKey(null);
+      setSelectionToolbarPromptOpen(false);
       return;
     }
-
-    setSelectionToolbarAnchor(editorBridge.getSelectionViewportAnchor());
   }, [
     bootstrapStatus,
-    editorBridge,
     isVersionPreviewActive,
-    liveSelection,
     preview,
   ]);
 
@@ -467,10 +473,15 @@ function WorkbenchShell() {
     }
 
     const syncSelectionToolbarAnchor = () => {
+      if (selectionToolbarPromptOpenRef.current) {
+        return;
+      }
       setSelectionToolbarAnchor(editorBridge.getSelectionViewportAnchor());
     };
     const dismissSelectionToolbar = () => {
       setSelectionToolbarAnchor(null);
+      setSelectionToolbarResetKey(null);
+      setSelectionToolbarPromptOpen(false);
     };
 
     window.addEventListener("resize", syncSelectionToolbarAnchor);
@@ -480,6 +491,35 @@ function WorkbenchShell() {
       window.removeEventListener("scroll", dismissSelectionToolbar, true);
     };
   }, [editorBridge, selectionToolbarAnchor]);
+
+  useEffect(() => {
+    if (selectionToolbarAnchor === null) {
+      return;
+    }
+
+    const dismissSelectionToolbarFromOutsideClick = (event: MouseEvent) => {
+      const target = event.target;
+      if ((target instanceof HTMLElement) === false) {
+        return;
+      }
+
+      if (
+        target.closest(".editor-selection-toolbar") !== null
+        || target.closest(".ProseMirror") !== null
+      ) {
+        return;
+      }
+
+      setSelectionToolbarAnchor(null);
+      setSelectionToolbarResetKey(null);
+      setSelectionToolbarPromptOpen(false);
+    };
+
+    document.addEventListener("mousedown", dismissSelectionToolbarFromOutsideClick, true);
+    return () => {
+      document.removeEventListener("mousedown", dismissSelectionToolbarFromOutsideClick, true);
+    };
+  }, [selectionToolbarAnchor]);
 
   const handleCreateDocument = async () => {
     if (project === null) {
@@ -658,6 +698,8 @@ function WorkbenchShell() {
   const clearReference = () => {
     setStickySelection(null);
     setSelectionToolbarAnchor(null);
+    setSelectionToolbarResetKey(null);
+    setSelectionToolbarPromptOpen(false);
   };
 
   const handleToolbarSubmitInstruction = useCallback((nextInstruction: string) => {
@@ -1140,11 +1182,13 @@ function WorkbenchShell() {
         <EditorSelectionToolbar
           anchor={selectionToolbarAnchor}
           busy={aiSkill.busy || isVersionPreviewActive}
+          defaultPromptOpen={false}
           onChangeTone={handleToolbarChangeTone}
           onFixGrammar={handleToolbarFixGrammar}
           onPolish={handleToolbarPolish}
+          onPromptOpenChange={setSelectionToolbarPromptOpen}
           onSubmitInstruction={handleToolbarSubmitInstruction}
-          selectionKey={liveSelection === null ? null : `${liveSelection.from}:${liveSelection.to}:${liveSelection.selectionTextHash}`}
+          resetKey={selectionToolbarResetKey}
           visible={bootstrapStatus === "ready" && preview === null && isVersionPreviewActive === false}
         />
       </section>
