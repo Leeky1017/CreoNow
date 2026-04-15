@@ -3999,4 +3999,22 @@ describe("WorkbenchApp", () => {
     // Sidebar width should be unchanged from before the aborted drag.
     expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe(widthBefore);
   });
+
+  it("opens command palette via Ctrl+K and closes it with Escape", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+    const palette = screen.getByRole("dialog", { name: "命令面板" });
+    expect(palette).toBeInTheDocument();
+
+    const input = within(palette).getByPlaceholderText("搜索页面、场景或动作…");
+    fireEvent.change(input, { target: { value: "设置" } });
+    expect(within(palette).getByText("设置")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "命令面板" })).not.toBeInTheDocument();
+    });
+  });
 });
