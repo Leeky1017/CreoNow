@@ -23,8 +23,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { IpcResponseData } from "@shared/types/ipc-generated";
-
 import { Button } from "@/components/primitives/Button";
 import {
   createEditorBridge,
@@ -40,13 +38,6 @@ import { CommandPalette, type CommandPaletteItem } from "@/features/workbench/co
 import { EditorSelectionToolbar } from "@/features/workbench/components/EditorSelectionToolbar";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
-  WorldbuildingPanel,
-  type WorldbuildingEntry,
-  type WorldbuildingEntryStatus,
-  type WorldbuildingPanelStatus,
-  type WorldbuildingTab,
-} from "@/features/workbench/components/WorldbuildingPanel";
-import {
   bootstrapWorkspace,
   createDocumentAndOpen,
   openDocument,
@@ -59,7 +50,7 @@ import {
 import { AppToastProvider, useAppToast } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { GlobalErrorToastBridge } from "@/lib/globalErrorToastBridge";
-import { getPreloadApi, type PreloadApi } from "@/lib/preloadApi";
+import { getPreloadApi } from "@/lib/preloadApi";
 import { useExportProgress } from "@/lib/useExportProgress";
 
 import {
@@ -75,7 +66,6 @@ import {
 } from "./hooks";
 
 const MAX_REFERENCE_LENGTH = 120;
-type LocationListItem = IpcResponseData<"settings:location:list">["items"][number];
 
 type BootstrapStatus = "loading" | "ready" | "error";
 
@@ -120,38 +110,6 @@ const QUICK_TOOL_ITEMS = [
   "sidebar.quickTools.conflict",
   "sidebar.quickTools.export",
 ] as const;
-
-function toWorldbuildingStatus(rawStatus: string | undefined, description: string): WorldbuildingEntryStatus {
-  const normalized = rawStatus?.trim().toLocaleLowerCase();
-  if (normalized === "detailed") {
-    return "detailed";
-  }
-  if (normalized === "draft") {
-    return "draft";
-  }
-  if (normalized === "unknown") {
-    return "unknown";
-  }
-  return description.trim().length > 0 ? "detailed" : "draft";
-}
-
-function mapLocationToWorldbuildingEntry(
-  location: LocationListItem,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): WorldbuildingEntry {
-  const detailType = location.attributes.type?.trim() || location.attributes.category?.trim();
-  const typeLabel = detailType && detailType.length > 0
-    ? t("sidebar.worldbuilding.entryType.tagged", { type: detailType })
-    : t("sidebar.worldbuilding.entryType.location");
-  return {
-    description: location.description ?? "",
-    id: location.id,
-    name: location.name,
-    status: toWorldbuildingStatus(location.attributes.status, location.description ?? ""),
-    typeLabel,
-    updatedAt: location.updatedAt,
-  };
-}
 
 function formatTimestamp(value: number | null): string {
   if (value === null) {
@@ -260,12 +218,6 @@ function WorkbenchShell() {
   const [activeScenarioId, setActiveScenarioId] = useState<(typeof SCENARIO_ITEMS)[number]["id"]>("novel");
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [scenarioMenuOpen, setScenarioMenuOpen] = useState(false);
-  const [worldbuildingEntries, setWorldbuildingEntries] = useState<WorldbuildingEntry[]>([]);
-  const [worldbuildingStatus, setWorldbuildingStatus] = useState<WorldbuildingPanelStatus>("loading");
-  const [worldbuildingErrorMessage, setWorldbuildingErrorMessage] = useState<string | null>(null);
-  const [worldbuildingQuery, setWorldbuildingQuery] = useState("");
-  const [worldbuildingTab, setWorldbuildingTab] = useState<WorldbuildingTab>("encyclopedia");
-  const [worldbuildingReloadToken, setWorldbuildingReloadToken] = useState(0);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
   const [zenDotExpanded, setZenDotExpanded] = useState(false);
@@ -381,74 +333,6 @@ function WorkbenchShell() {
       window.removeEventListener("keydown", handleWindowKeyDown, true);
     };
   }, [commandPaletteOpen, restoreDialogSnapshot]);
-
-  const triggerWorldbuildingReload = useCallback(() => {
-    setWorldbuildingReloadToken((value) => value + 1);
-  }, []);
-
-  const handleCreateWorldbuildingEntry = useCallback(() => {
-    layout.setActiveLeftPanel("settings");
-  }, [layout]);
-
-  useEffect(() => {
-    if (project === null) {
-      return;
-    }
-    setWorldbuildingQuery("");
-    setWorldbuildingTab("encyclopedia");
-  }, [project?.projectId]);
-
-  useEffect(() => {
-    if (layout.activeLeftPanel !== "worldbuilding") {
-      return;
-    }
-    if (project === null) {
-      setWorldbuildingEntries([]);
-      setWorldbuildingStatus("error");
-      setWorldbuildingErrorMessage(t("sidebar.worldbuilding.errorNoProject"));
-      return;
-    }
-
-    const listLocations = (api.location as Partial<PreloadApi["location"]>).list;
-    if (typeof listLocations !== "function") {
-      setWorldbuildingEntries([]);
-      setWorldbuildingStatus("error");
-      setWorldbuildingErrorMessage(t("sidebar.worldbuilding.errorBridgeUnavailable"));
-      return;
-    }
-
-    let cancelled = false;
-    setWorldbuildingStatus("loading");
-    setWorldbuildingErrorMessage(null);
-
-    void listLocations({ projectId: project.projectId })
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
-        if (!result.ok) {
-          setWorldbuildingEntries([]);
-          setWorldbuildingStatus("error");
-          setWorldbuildingErrorMessage(getHumanErrorMessage(result.error, t));
-          return;
-        }
-        const entries = result.data.items.map((location) => mapLocationToWorldbuildingEntry(location, t));
-        setWorldbuildingEntries(entries);
-        setWorldbuildingStatus("ready");
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-        setWorldbuildingEntries([]);
-        setWorldbuildingStatus("error");
-        setWorldbuildingErrorMessage(getHumanErrorMessage(error as Error, t));
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [api, layout.activeLeftPanel, project?.projectId, t, worldbuildingReloadToken]);
 
   const editorBridge = useMemo(
     () =>
@@ -1203,21 +1087,7 @@ function WorkbenchShell() {
       </div>;
     }
 
-    if (layout.activeLeftPanel === "worldbuilding") {
-      return <WorldbuildingPanel
-        entries={worldbuildingEntries}
-        errorMessage={worldbuildingErrorMessage}
-        onCreateEntry={handleCreateWorldbuildingEntry}
-        onQueryChange={setWorldbuildingQuery}
-        onRetry={triggerWorldbuildingReload}
-        onTabChange={setWorldbuildingTab}
-        query={worldbuildingQuery}
-        status={worldbuildingStatus}
-        tab={worldbuildingTab}
-      />;
-    }
-
-    if (layout.activeLeftPanel === "knowledgeGraph" || layout.activeLeftPanel === "characters") {
+    if (layout.activeLeftPanel === "knowledgeGraph" || layout.activeLeftPanel === "characters" || layout.activeLeftPanel === "worldbuilding") {
       return <div className="sidebar-surface">
         <div className="panel-section">
           <h1 className="screen-title">{t(`sidebar.${layout.activeLeftPanel}.title`)}</h1>
