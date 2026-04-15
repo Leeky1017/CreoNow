@@ -882,6 +882,8 @@ button {
 }
 
 .ai-stream-strip {
+  --ai-stream-dot-size: var(--space-2);
+  --ai-stream-dot-duration: calc(var(--duration-slow) * 4);
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -892,15 +894,15 @@ button {
 }
 
 .ai-stream-strip__dot {
-  width: 8px;
-  height: 8px;
+  width: var(--ai-stream-dot-size);
+  height: var(--ai-stream-dot-size);
   border-radius: 999px;
   background: var(--color-fg-subtle);
 }
 
 .ai-stream-strip--running .ai-stream-strip__dot {
   background: var(--color-accent-strong);
-  animation: ai-stream-dot-pulse 1.3s ease-in-out infinite;
+  animation: ai-stream-dot-pulse var(--ai-stream-dot-duration) ease-in-out infinite;
 }
 
 .ai-stream-strip--ready .ai-stream-strip__dot {
@@ -915,7 +917,7 @@ button {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(var(--space-1) / 2);
 }
 
 .ai-stream-strip__title,
@@ -1040,6 +1042,9 @@ button {
 }
 
 .ai-stream-progress {
+  --ai-stream-bullet-size: calc(var(--space-2) - (var(--space-1) / 2));
+  --ai-stream-line-height: var(--space-2);
+  --ai-stream-shimmer-duration: calc(var(--duration-slow) * 4);
   border: 1px solid var(--color-separator);
   border-radius: var(--radius-md);
   background: var(--color-bg-surface);
@@ -1067,8 +1072,8 @@ button {
   position: absolute;
   left: 0;
   top: 50%;
-  width: 6px;
-  height: 6px;
+  width: var(--ai-stream-bullet-size);
+  height: var(--ai-stream-bullet-size);
   border-radius: 999px;
   background: var(--color-fg-subtle);
   transform: translateY(-50%);
@@ -1083,7 +1088,7 @@ button {
 
 .ai-stream-progress__line {
   display: block;
-  height: 8px;
+  height: var(--ai-stream-line-height);
   border-radius: var(--radius-sm);
   background: linear-gradient(
     90deg,
@@ -1092,7 +1097,7 @@ button {
     color-mix(in srgb, var(--color-bg-hover) 92%, transparent) 100%
   );
   background-size: 220% 100%;
-  animation: ai-stream-shimmer 1.2s linear infinite;
+  animation: ai-stream-shimmer var(--ai-stream-shimmer-duration) linear infinite;
 }
 
 .ai-stream-progress__line--long {
@@ -1449,6 +1454,13 @@ button {
   }
   100% {
     background-position: -40% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-stream-strip--running .ai-stream-strip__dot,
+  .ai-stream-progress__line {
+    animation: none;
   }
 }
 

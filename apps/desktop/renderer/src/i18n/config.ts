@@ -190,7 +190,7 @@ const resources = {
       "panel.ai.previewModeValue.replace": "替换选区",
       "panel.ai.previewModeValue.insert": "插入光标处",
       "panel.ai.previewModeValueLabel": "预览模式：{{mode}}",
-      "panel.ai.previewRunId": "Run #{{runId}}",
+      "panel.ai.previewRunId": "批次 #{{runId}}",
       "panel.ai.accept": "接受",
       "panel.ai.reject": "拒绝",
       "panel.ai.ready": "建议已就绪，可直接写回。",

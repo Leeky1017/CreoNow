@@ -51,11 +51,13 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
   const skillKey = toSkillKey(props.activeSkill);
   const reference = props.activeSkill !== "builtin:continue" ? props.reference : null;
   const insertionPreview = props.preview?.changeType === "insert";
-  const streamState = props.busy ? "running" : props.errorMessage
-    ? "error"
-    : props.preview
-      ? "ready"
-      : "idle";
+  const streamState = props.preview
+    ? "ready"
+    : props.busy
+      ? "running"
+      : props.errorMessage
+        ? "error"
+        : "idle";
   const previewOriginalHeading = insertionPreview ? t("panel.ai.previewInsertionTarget") : t("panel.ai.previewOriginal");
   const previewOriginalBody = insertionPreview ? t("panel.ai.previewInsertionBody") : props.preview?.originalText ?? "";
   const previewOriginalBodyClassName = insertionPreview ? "preview-body preview-body--anchor" : "preview-body preview-body--original";
@@ -69,7 +71,12 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
       </div>
     </header>
 
-    <div className={`ai-stream-strip ai-stream-strip--${streamState}`} role="status" aria-live="polite">
+    <div
+      className={`ai-stream-strip ai-stream-strip--${streamState}`}
+      role={streamState === "error" ? undefined : "status"}
+      aria-live={streamState === "error" ? "off" : "polite"}
+      aria-atomic={streamState === "error" ? undefined : "true"}
+    >
       <span className="ai-stream-strip__dot" aria-hidden="true" />
       <div className="ai-stream-strip__content">
         <p className="ai-stream-strip__title">{t("panel.ai.stream.title")}</p>
@@ -178,7 +185,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         </div>
       </div>
     ) : props.busy ? (
-      <div className="panel-section ai-stream-progress" aria-live="polite">
+      <div className="panel-section ai-stream-progress">
         <p className="panel-meta">{t("panel.ai.stream.caption")}</p>
         <ul className="ai-stream-progress__stages">
           <li>{t("panel.ai.stream.stage.context")}</li>
