@@ -139,7 +139,7 @@ const resources = {
       "editor.selectionHint": "先在编辑器中选中一段文字，再请求 AI 建议。",
       "editor.emptySelection": "当前没有有效选区",
       "editor.placeholder": "在这里开始写作……",
-      "editorToolbar.askAiEdit": "Ask AI to edit…",
+      "editorToolbar.askAiEdit": "告诉 AI 如何改写…",
       "editorToolbar.comment": "评论",
       "editorToolbar.quickActions": "快捷指令",
       "editorToolbar.polish": "改善润色",

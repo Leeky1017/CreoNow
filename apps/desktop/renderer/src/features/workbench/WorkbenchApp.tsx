@@ -244,6 +244,12 @@ function WorkbenchShell() {
     selectionToolbarPromptOpenRef.current = selectionToolbarPromptOpen;
   }, [selectionToolbarPromptOpen]);
 
+  const dismissSelectionToolbar = useCallback(() => {
+    setSelectionToolbarAnchor(null);
+    setSelectionToolbarResetKey(null);
+    setSelectionToolbarPromptOpen(false);
+  }, []);
+
   useEffect(() => {
     const updateElapsedMinutes = () => {
       setElapsedMinutes(Math.max(0, Math.floor((Date.now() - sessionStartAt) / 60000)));
@@ -284,9 +290,12 @@ function WorkbenchShell() {
           setLiveSelection(nextSelection);
 
           if (bootstrapStatusRef.current !== "ready" || isMeaningfulSelection(nextSelection) === false) {
-            if (selectionToolbarPromptOpenRef.current === false) {
-              setSelectionToolbarAnchor(null);
-              setSelectionToolbarResetKey(null);
+            const activeElement = document.activeElement;
+            const keepPromptOpen = selectionToolbarPromptOpenRef.current
+              && activeElement instanceof Element
+              && activeElement.closest(".editor-selection-toolbar") !== null;
+            if (keepPromptOpen === false) {
+              dismissSelectionToolbar();
             }
             return;
           }
@@ -438,6 +447,7 @@ function WorkbenchShell() {
         setPreview(null);
         setStickySelection(null);
         setLiveSelection(null);
+        dismissSelectionToolbar();
         setBootstrapStatus("ready");
       } catch (error) {
         if (disposed === false) {
@@ -452,17 +462,26 @@ function WorkbenchShell() {
     return () => {
       disposed = true;
     };
-  }, [api, autosave.clearPendingAutosaveTimer, autosave.clearSavedStateDecayTimer, autosave.setWorkbenchError, autosave.setSaveUiState, autosave.setLastSavedAt, replaceEditorContextContent, t]);
+  }, [
+    api,
+    autosave.clearPendingAutosaveTimer,
+    autosave.clearSavedStateDecayTimer,
+    autosave.setWorkbenchError,
+    autosave.setSaveUiState,
+    autosave.setLastSavedAt,
+    dismissSelectionToolbar,
+    replaceEditorContextContent,
+    t,
+  ]);
 
   useEffect(() => {
     if (bootstrapStatus !== "ready" || preview !== null || isVersionPreviewActive) {
-      setSelectionToolbarAnchor(null);
-      setSelectionToolbarResetKey(null);
-      setSelectionToolbarPromptOpen(false);
+      dismissSelectionToolbar();
       return;
     }
   }, [
     bootstrapStatus,
+    dismissSelectionToolbar,
     isVersionPreviewActive,
     preview,
   ]);
@@ -478,11 +497,6 @@ function WorkbenchShell() {
       }
       setSelectionToolbarAnchor(editorBridge.getSelectionViewportAnchor());
     };
-    const dismissSelectionToolbar = () => {
-      setSelectionToolbarAnchor(null);
-      setSelectionToolbarResetKey(null);
-      setSelectionToolbarPromptOpen(false);
-    };
 
     window.addEventListener("resize", syncSelectionToolbarAnchor);
     window.addEventListener("scroll", dismissSelectionToolbar, true);
@@ -490,7 +504,7 @@ function WorkbenchShell() {
       window.removeEventListener("resize", syncSelectionToolbarAnchor);
       window.removeEventListener("scroll", dismissSelectionToolbar, true);
     };
-  }, [editorBridge, selectionToolbarAnchor]);
+  }, [dismissSelectionToolbar, editorBridge, selectionToolbarAnchor]);
 
   useEffect(() => {
     if (selectionToolbarAnchor === null) {
@@ -510,16 +524,14 @@ function WorkbenchShell() {
         return;
       }
 
-      setSelectionToolbarAnchor(null);
-      setSelectionToolbarResetKey(null);
-      setSelectionToolbarPromptOpen(false);
+      dismissSelectionToolbar();
     };
 
     document.addEventListener("mousedown", dismissSelectionToolbarFromOutsideClick, true);
     return () => {
       document.removeEventListener("mousedown", dismissSelectionToolbarFromOutsideClick, true);
     };
-  }, [selectionToolbarAnchor]);
+  }, [dismissSelectionToolbar, selectionToolbarAnchor]);
 
   const handleCreateDocument = async () => {
     if (project === null) {
@@ -545,6 +557,7 @@ function WorkbenchShell() {
       setPreview(null);
       setStickySelection(null);
       setLiveSelection(null);
+      dismissSelectionToolbar();
       autosave.setSaveUiState("idle");
       autosave.setLastSavedAt(result.activeDocument.updatedAt);
       autosave.setWorkbenchError(null, null);
@@ -590,6 +603,7 @@ function WorkbenchShell() {
       setPreview(null);
       setStickySelection(null);
       setLiveSelection(null);
+      dismissSelectionToolbar();
       autosave.setWorkbenchError(null, null);
       autosave.setSaveUiState("idle");
       autosave.setLastSavedAt(readDocument.updatedAt);
@@ -612,6 +626,7 @@ function WorkbenchShell() {
     api,
     autosave,
     layout,
+    dismissSelectionToolbar,
     project,
     replaceEditorContextContent,
     t,
@@ -649,10 +664,18 @@ function WorkbenchShell() {
     setPreview(null);
     setStickySelection(null);
     setLiveSelection(null);
+    dismissSelectionToolbar();
     autosave.setSaveUiState("idle");
     autosave.setLastSavedAt(readDocument.data.updatedAt);
     return readDocument.data;
-  }, [activeDocument, api.file, autosave.setSaveUiState, autosave.setLastSavedAt, replaceEditorContextContent]);
+  }, [
+    activeDocument,
+    api.file,
+    autosave.setSaveUiState,
+    autosave.setLastSavedAt,
+    dismissSelectionToolbar,
+    replaceEditorContextContent,
+  ]);
 
   const handleVersionHistoryRestore = useCallback(async () => {
     const busyOperationId = aiSkill.reserveBusyOperation();
@@ -697,9 +720,7 @@ function WorkbenchShell() {
 
   const clearReference = () => {
     setStickySelection(null);
-    setSelectionToolbarAnchor(null);
-    setSelectionToolbarResetKey(null);
-    setSelectionToolbarPromptOpen(false);
+    dismissSelectionToolbar();
   };
 
   const handleToolbarSubmitInstruction = useCallback((nextInstruction: string) => {

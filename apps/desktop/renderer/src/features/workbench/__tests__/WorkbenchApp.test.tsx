@@ -342,7 +342,7 @@ describe("WorkbenchApp", () => {
     });
 
     const toolbar = await screen.findByTestId("editor-selection-toolbar");
-    fireEvent.click(within(toolbar).getByRole("button", { name: "Ask AI to edit…" }));
+    fireEvent.click(within(toolbar).getByRole("button", { name: "告诉 AI 如何改写…" }));
     fireEvent.change(await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input"), {
       target: { value: "把这一段改得更克制，但保留压迫感。" },
     });
@@ -423,7 +423,7 @@ describe("WorkbenchApp", () => {
     });
 
     const toolbar = await screen.findByTestId("editor-selection-toolbar");
-    fireEvent.click(within(toolbar).getByRole("button", { name: "Ask AI to edit…" }));
+    fireEvent.click(within(toolbar).getByRole("button", { name: "告诉 AI 如何改写…" }));
     const promptInput = await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input");
     fireEvent.change(promptInput, {
       target: { value: "把这段压缩到两句，但保留刺痛感。" },
@@ -445,7 +445,7 @@ describe("WorkbenchApp", () => {
     });
 
     const toolbar = await screen.findByTestId("editor-selection-toolbar");
-    fireEvent.click(within(toolbar).getByRole("button", { name: "Ask AI to edit…" }));
+    fireEvent.click(within(toolbar).getByRole("button", { name: "告诉 AI 如何改写…" }));
     const promptInput = await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input");
     fireEvent.change(promptInput, {
       target: { value: "保留现有输入，不要闪退。" },
@@ -458,6 +458,80 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("editor-selection-toolbar-prompt-input")).toHaveValue("保留现有输入，不要闪退。");
+    });
+  });
+
+  it("dismisses the prompt toolbar when selection collapses from editor focus", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("点击编辑区后应该收起。", 12));
+    });
+
+    const toolbar = await screen.findByTestId("editor-selection-toolbar");
+    fireEvent.click(within(toolbar).getByRole("button", { name: "告诉 AI 如何改写…" }));
+    const promptInput = await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input");
+    fireEvent.change(promptInput, {
+      target: { value: "这段输入会在点击编辑区后被放弃。" },
+    });
+
+    const proseMirrorHost = document.createElement("div");
+    proseMirrorHost.className = "ProseMirror";
+    proseMirrorHost.tabIndex = -1;
+    document.body.append(proseMirrorHost);
+    proseMirrorHost.focus();
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(null);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("editor-selection-toolbar")).not.toBeInTheDocument();
+    });
+
+    proseMirrorHost.remove();
+  });
+
+  it("dismisses the prompt toolbar when creating a new document switches context", async () => {
+    const fileApi = window.api!.file!;
+    fileApi.createDocument = vi.fn(async () => ({ ok: true, data: { documentId: "doc-2" } })) as typeof fileApi.createDocument;
+    fileApi.readDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: {
+        documentId,
+        projectId: "project-1",
+        title: documentId === "doc-2" ? "第二章" : "第一章",
+        type: "chapter",
+        status: "draft",
+        sortOrder: documentId === "doc-2" ? 1 : 0,
+        contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+        contentText: documentId === "doc-2" ? "新章节内容" : "风从北方来",
+        contentMd: "",
+        contentHash: documentId === "doc-2" ? "hash-2" : "hash",
+        createdAt: 1,
+        updatedAt: documentId === "doc-2" ? 2 : 1,
+      },
+    })) as typeof fileApi.readDocument;
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("切文档前先打开 prompt。", 10));
+    });
+
+    const toolbar = await screen.findByTestId("editor-selection-toolbar");
+    fireEvent.click(within(toolbar).getByRole("button", { name: "告诉 AI 如何改写…" }));
+    fireEvent.change(await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input"), {
+      target: { value: "这条指令不应跨文档残留。" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新建文档" }));
+
+    await screen.findByRole("heading", { name: "第二章" });
+    await waitFor(() => {
+      expect(screen.queryByTestId("editor-selection-toolbar")).not.toBeInTheDocument();
     });
   });
 
