@@ -64,6 +64,9 @@ export interface PreloadApi {
   };
   memory?: {
     list: InvokeHandler<"memory:simple:list">;
+    episodeQuery?: InvokeHandler<"memory:episode:query">;
+    semanticDistill?: InvokeHandler<"memory:semantic:distill">;
+    semanticList?: InvokeHandler<"memory:semantic:list">;
   };
   export?: {
     docx: InvokeHandler<"export:document:docx">;
@@ -73,6 +76,12 @@ export interface PreloadApi {
   };
   search: {
     query: InvokeHandler<"search:fts:query">;
+    queryByStrategy?: InvokeHandler<"search:query:strategy">;
+    semanticQuery?: InvokeHandler<"search:semantic:query">;
+  };
+  knowledge?: {
+    listEntities: InvokeHandler<"knowledge:entity:list">;
+    listRelations: InvokeHandler<"knowledge:relation:list">;
   };
 }
 

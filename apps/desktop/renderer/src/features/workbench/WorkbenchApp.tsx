@@ -53,16 +53,22 @@ import {
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
   KnowledgeGraphPanel,
-  type KnowledgeGraphLink,
-  type KnowledgeGraphNode,
-  type KnowledgeGraphPanelStatus,
-  type KnowledgeGraphPanelView,
 } from "@/features/workbench/components/KnowledgeGraphPanel";
+import type {
+  KnowledgeGraphEdge,
+  KnowledgeGraphNode,
+} from "@/features/workbench/components/KnowledgeGraphCanvas";
 import {
   MemoryPanel,
   type MemoryPanelEntry,
   type MemoryPanelStatus,
 } from "@/features/workbench/components/MemoryPanel";
+import {
+  SearchPanel,
+  type SearchPanelResult,
+  type SearchPanelStatus,
+  type SearchStrategy,
+} from "@/features/workbench/components/SearchPanel";
 import {
   ScenariosPanel,
   type ScenarioTemplate,
@@ -108,6 +114,11 @@ const WELCOME_SCENARIOS_KEY = "creonow:onboarding:welcome-scenarios";
 type LocationListItem = IpcResponseData<"settings:location:list">["items"][number];
 type CharacterListItem = IpcResponseData<"settings:character:list">["items"][number];
 type MemorySimpleListItem = IpcResponseData<"memory:simple:list">["items"][number];
+type MemoryEpisodeListItem = IpcResponseData<"memory:episode:query">["items"][number];
+type MemorySemanticRuleItem = IpcResponseData<"memory:semantic:list">["items"][number];
+type KnowledgeEntityListItem = IpcResponseData<"knowledge:entity:list">["items"][number];
+type KnowledgeRelationListItem = IpcResponseData<"knowledge:relation:list">["items"][number];
+type WorkbenchKnowledgeGraphNode = KnowledgeGraphNode & { updatedAt: number };
 
 type BootstrapStatus = "loading" | "ready" | "error";
 
@@ -214,23 +225,58 @@ function mapLocationToWorldbuildingEntry(
   };
 }
 
-function mapCharacterToKnowledgeNode(character: CharacterListItem): KnowledgeGraphNode {
+function mapCharacterToKnowledgeNode(character: CharacterListItem): WorkbenchKnowledgeGraphNode {
   return {
+    attributes: character.attributes,
     description: character.description ?? "",
-    id: `character:${character.id}`,
+    id: character.id,
     name: character.name,
     type: "character",
     updatedAt: character.updatedAt,
   };
 }
 
-function mapLocationToKnowledgeNode(location: LocationListItem): KnowledgeGraphNode {
+function mapLocationToKnowledgeNode(location: LocationListItem): WorkbenchKnowledgeGraphNode {
   return {
+    attributes: location.attributes,
     description: location.description ?? "",
-    id: `location:${location.id}`,
+    id: location.id,
     name: location.name,
     type: "location",
     updatedAt: location.updatedAt,
+  };
+}
+
+function parseTimestampToMs(input: string | number | null | undefined): number {
+  if (typeof input === "number" && Number.isFinite(input)) {
+    return input;
+  }
+  if (typeof input === "string") {
+    const parsed = Date.parse(input);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return Date.now();
+}
+
+function mapKnowledgeEntityToNode(entity: KnowledgeEntityListItem): WorkbenchKnowledgeGraphNode {
+  return {
+    attributes: entity.attributes,
+    description: entity.description ?? "",
+    id: entity.id,
+    name: entity.name,
+    type: entity.type,
+    updatedAt: parseTimestampToMs(entity.updatedAt),
+  };
+}
+
+function mapKnowledgeRelationToEdge(relation: KnowledgeRelationListItem): KnowledgeGraphEdge {
+  return {
+    id: relation.id,
+    label: relation.relationType,
+    sourceId: relation.sourceEntityId,
+    targetId: relation.targetEntityId,
   };
 }
 
@@ -243,6 +289,38 @@ function mapMemoryItemToPanelEntry(item: MemorySimpleListItem): MemoryPanelEntry
     source: item.source,
     updatedAt: item.updatedAt,
     value: item.value,
+  };
+}
+
+function mapSemanticRuleToPanelEntry(rule: MemorySemanticRuleItem): MemoryPanelEntry {
+  const evidenceSummary = [
+    rule.supportingEpisodes.length > 0 ? `+${rule.supportingEpisodes.length}` : "",
+    rule.contradictingEpisodes.length > 0 ? `-${rule.contradictingEpisodes.length}` : "",
+  ]
+    .filter((part) => part.length > 0)
+    .join(" / ");
+  const confidenceText = `${Math.round(rule.confidence * 100)}%`;
+
+  return {
+    category: rule.category,
+    createdAt: rule.createdAt,
+    id: `semantic:${rule.id}`,
+    key: rule.rule,
+    source: "system",
+    updatedAt: rule.updatedAt,
+    value: [confidenceText, evidenceSummary].filter((part) => part.length > 0).join(" · "),
+  };
+}
+
+function mapEpisodeToPanelEntry(item: MemoryEpisodeListItem): MemoryPanelEntry {
+  return {
+    category: "episodic",
+    createdAt: item.createdAt,
+    id: `episode:${item.id}`,
+    key: `${item.sceneType} · ${item.skillUsed}`,
+    source: "system",
+    updatedAt: item.updatedAt,
+    value: item.finalText.trim().length > 0 ? item.finalText : item.inputContext,
   };
 }
 
@@ -359,13 +437,17 @@ function WorkbenchShell() {
   const [worldbuildingQuery, setWorldbuildingQuery] = useState("");
   const [worldbuildingTab, setWorldbuildingTab] = useState<WorldbuildingTab>("encyclopedia");
   const [worldbuildingReloadToken, setWorldbuildingReloadToken] = useState(0);
-  const [knowledgeGraphNodes, setKnowledgeGraphNodes] = useState<KnowledgeGraphNode[]>([]);
-  const [knowledgeGraphLinks, setKnowledgeGraphLinks] = useState<KnowledgeGraphLink[]>([]);
-  const [knowledgeGraphStatus, setKnowledgeGraphStatus] = useState<KnowledgeGraphPanelStatus>("loading");
+  const [knowledgeGraphNodes, setKnowledgeGraphNodes] = useState<WorkbenchKnowledgeGraphNode[]>([]);
+  const [knowledgeGraphEdges, setKnowledgeGraphEdges] = useState<KnowledgeGraphEdge[]>([]);
+  const [knowledgeGraphStatus, setKnowledgeGraphStatus] = useState<"loading" | "ready" | "error">("loading");
   const [knowledgeGraphErrorMessage, setKnowledgeGraphErrorMessage] = useState<string | null>(null);
-  const [knowledgeGraphQuery, setKnowledgeGraphQuery] = useState("");
-  const [knowledgeGraphView, setKnowledgeGraphView] = useState<KnowledgeGraphPanelView>("graph");
   const [knowledgeGraphReloadToken, setKnowledgeGraphReloadToken] = useState(0);
+  const [searchResults, setSearchResults] = useState<SearchPanelResult[]>([]);
+  const [searchStatus, setSearchStatus] = useState<SearchPanelStatus>("ready");
+  const [searchErrorMessage, setSearchErrorMessage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchStrategy, setSearchStrategy] = useState<SearchStrategy>("hybrid");
+  const [searchReloadToken, setSearchReloadToken] = useState(0);
   const [memoryEntries, setMemoryEntries] = useState<MemoryPanelEntry[]>([]);
   const [memoryStatus, setMemoryStatus] = useState<MemoryPanelStatus>("loading");
   const [memoryErrorMessage, setMemoryErrorMessage] = useState<string | null>(null);
@@ -507,6 +589,10 @@ function WorkbenchShell() {
 
   const triggerMemoryReload = useCallback(() => {
     setMemoryReloadToken((value) => value + 1);
+  }, []);
+
+  const triggerSearchReload = useCallback(() => {
+    setSearchReloadToken((value) => value + 1);
   }, []);
 
   const scenarioTemplates = useMemo<ScenarioTemplate[]>(
@@ -654,16 +740,268 @@ function WorkbenchShell() {
   }, [project?.projectId]);
 
   useEffect(() => {
-    if (project === null) {
-      return;
-    }
-    setKnowledgeGraphQuery("");
-    setKnowledgeGraphView("graph");
+    setMemoryQuery("");
   }, [project?.projectId]);
 
   useEffect(() => {
-    setMemoryQuery("");
+    setSearchQuery("");
   }, [project?.projectId]);
+
+  useEffect(() => {
+    if (layout.activeLeftPanel !== "search") {
+      return;
+    }
+    if (project === null) {
+      setSearchResults([]);
+      setSearchStatus("error");
+      setSearchErrorMessage(t("sidebar.search.errorNoProject"));
+      return;
+    }
+
+    const queryText = searchQuery.trim();
+    if (queryText.length === 0) {
+      setSearchResults([]);
+      setSearchStatus("ready");
+      setSearchErrorMessage(null);
+      return;
+    }
+
+    const queryByStrategy = api.search.queryByStrategy;
+    const semanticQuery = api.search.semanticQuery;
+    const ftsQuery = api.search.query;
+    if (
+      typeof queryByStrategy !== "function"
+      && typeof semanticQuery !== "function"
+      && typeof ftsQuery !== "function"
+    ) {
+      setSearchResults([]);
+      setSearchStatus("error");
+      setSearchErrorMessage(t("sidebar.search.errorBridgeUnavailable"));
+      return;
+    }
+
+    const mapRankedResult = (
+      items: Array<{
+        chunkId: string;
+        documentId: string;
+        finalScore: number;
+        snippet: string;
+        updatedAt: number;
+      }>,
+      strategy: SearchStrategy,
+    ): SearchPanelResult[] =>
+      items.map((item) => ({
+        documentId: item.documentId,
+        id: `${item.documentId}:${item.chunkId}`,
+        score: item.finalScore,
+        snippet: item.snippet,
+        strategy,
+        updatedAt: item.updatedAt,
+      }));
+
+    let cancelled = false;
+    setSearchResults([]);
+    setSearchStatus("loading");
+    setSearchErrorMessage(null);
+
+    void (async () => {
+      try {
+        if (searchStrategy === "fts" && typeof ftsQuery === "function" && typeof queryByStrategy !== "function") {
+          const result = await ftsQuery({
+            limit: 20,
+            offset: 0,
+            projectId: project.projectId,
+            query: queryText,
+          });
+          if (!result.ok) {
+            if (cancelled) {
+              return;
+            }
+            setSearchResults([]);
+            setSearchStatus("error");
+            setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+            return;
+          }
+          if (cancelled) {
+            return;
+          }
+          setSearchResults(
+            result.data.results.map((item) => ({
+              documentId: item.documentId,
+              id: `${item.documentId}:${item.anchor.start}-${item.anchor.end}`,
+              score: item.score,
+              snippet: item.snippet,
+              strategy: "fts" as const,
+              title: item.documentTitle,
+              updatedAt: item.updatedAt,
+            })),
+          );
+          setSearchStatus("ready");
+          setSearchErrorMessage(null);
+          return;
+        }
+
+        if (searchStrategy === "semantic") {
+          if (typeof semanticQuery === "function") {
+            const result = await semanticQuery({
+              limit: 20,
+              offset: 0,
+              projectId: project.projectId,
+              query: queryText,
+              strategy: "semantic",
+            });
+            if (!result.ok) {
+              if (cancelled) {
+                return;
+              }
+              setSearchResults([]);
+              setSearchStatus("error");
+              setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+              return;
+            }
+            if (cancelled) {
+              return;
+            }
+            setSearchResults(mapRankedResult(result.data.results, "semantic"));
+            setSearchStatus("ready");
+            setSearchErrorMessage(null);
+            return;
+          }
+
+          if (typeof queryByStrategy === "function") {
+            const result = await queryByStrategy({
+              limit: 20,
+              offset: 0,
+              projectId: project.projectId,
+              query: queryText,
+              strategy: "semantic",
+            });
+            if (!result.ok) {
+              if (cancelled) {
+                return;
+              }
+              setSearchResults([]);
+              setSearchStatus("error");
+              setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+              return;
+            }
+            if (cancelled) {
+              return;
+            }
+            setSearchResults(mapRankedResult(result.data.results, "semantic"));
+            setSearchStatus("ready");
+            setSearchErrorMessage(null);
+            return;
+          }
+        }
+
+        if (typeof queryByStrategy === "function") {
+          const result = await queryByStrategy({
+            limit: 20,
+            offset: 0,
+            projectId: project.projectId,
+            query: queryText,
+            strategy: searchStrategy,
+          });
+          if (!result.ok) {
+            if (cancelled) {
+              return;
+            }
+            setSearchResults([]);
+            setSearchStatus("error");
+            setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+            return;
+          }
+          if (cancelled) {
+            return;
+          }
+          setSearchResults(mapRankedResult(result.data.results, searchStrategy));
+          setSearchStatus("ready");
+          setSearchErrorMessage(null);
+          return;
+        }
+
+        if (typeof semanticQuery === "function") {
+          const result = await semanticQuery({
+            limit: 20,
+            offset: 0,
+            projectId: project.projectId,
+            query: queryText,
+            strategy: "hybrid",
+          });
+          if (!result.ok) {
+            if (cancelled) {
+              return;
+            }
+            setSearchResults([]);
+            setSearchStatus("error");
+            setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+            return;
+          }
+          if (cancelled) {
+            return;
+          }
+          setSearchResults(mapRankedResult(result.data.results, "hybrid"));
+          setSearchStatus("ready");
+          setSearchErrorMessage(null);
+          return;
+        }
+
+        if (typeof ftsQuery === "function") {
+          const result = await ftsQuery({
+            limit: 20,
+            offset: 0,
+            projectId: project.projectId,
+            query: queryText,
+          });
+          if (!result.ok) {
+            if (cancelled) {
+              return;
+            }
+            setSearchResults([]);
+            setSearchStatus("error");
+            setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+            return;
+          }
+          if (cancelled) {
+            return;
+          }
+          setSearchResults(
+            result.data.results.map((item) => ({
+              documentId: item.documentId,
+              id: `${item.documentId}:${item.anchor.start}-${item.anchor.end}`,
+              score: item.score,
+              snippet: item.snippet,
+              strategy: "fts" as const,
+              title: item.documentTitle,
+              updatedAt: item.updatedAt,
+            })),
+          );
+          setSearchStatus("ready");
+          setSearchErrorMessage(null);
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setSearchResults([]);
+        setSearchStatus("error");
+        setSearchErrorMessage(getHumanErrorMessage(error as Error, t));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    api.search,
+    layout.activeLeftPanel,
+    project?.projectId,
+    searchQuery,
+    searchReloadToken,
+    searchStrategy,
+    t,
+  ]);
 
   useEffect(() => {
     if (layout.activeLeftPanel !== "worldbuilding") {
@@ -724,17 +1062,21 @@ function WorkbenchShell() {
     }
     if (project === null) {
       setKnowledgeGraphNodes([]);
-      setKnowledgeGraphLinks([]);
+      setKnowledgeGraphEdges([]);
       setKnowledgeGraphStatus("error");
       setKnowledgeGraphErrorMessage(t("sidebar.knowledgeGraph.errorNoProject"));
       return;
     }
 
+    const listEntities = api.knowledge?.listEntities;
+    const listRelations = api.knowledge?.listRelations;
     const listCharacters = (api.character as Partial<PreloadApi["character"]>).list;
     const listLocations = (api.location as Partial<PreloadApi["location"]>).list;
-    if (typeof listCharacters !== "function" && typeof listLocations !== "function") {
+    const hasKnowledgeApi =
+      typeof listEntities === "function" && typeof listRelations === "function";
+    if (!hasKnowledgeApi && typeof listCharacters !== "function" && typeof listLocations !== "function") {
       setKnowledgeGraphNodes([]);
-      setKnowledgeGraphLinks([]);
+      setKnowledgeGraphEdges([]);
       setKnowledgeGraphStatus("error");
       setKnowledgeGraphErrorMessage(t("sidebar.knowledgeGraph.errorBridgeUnavailable"));
       return;
@@ -742,12 +1084,59 @@ function WorkbenchShell() {
 
     let cancelled = false;
     setKnowledgeGraphNodes([]);
-    setKnowledgeGraphLinks([]);
+    setKnowledgeGraphEdges([]);
     setKnowledgeGraphStatus("loading");
     setKnowledgeGraphErrorMessage(null);
 
     void (async () => {
-      const collectedNodes: KnowledgeGraphNode[] = [];
+      if (hasKnowledgeApi && typeof listEntities === "function" && typeof listRelations === "function") {
+        try {
+          const [entitiesResult, relationsResult] = await Promise.all([
+            listEntities({ limit: 500, offset: 0, projectId: project.projectId }),
+            listRelations({ limit: 1000, offset: 0, projectId: project.projectId }),
+          ]);
+
+          if (cancelled) {
+            return;
+          }
+
+          if (!entitiesResult.ok) {
+            setKnowledgeGraphNodes([]);
+            setKnowledgeGraphEdges([]);
+            setKnowledgeGraphStatus("error");
+            setKnowledgeGraphErrorMessage(getHumanErrorMessage(entitiesResult.error, t));
+            return;
+          }
+
+          if (!relationsResult.ok) {
+            setKnowledgeGraphNodes([]);
+            setKnowledgeGraphEdges([]);
+            setKnowledgeGraphStatus("error");
+            setKnowledgeGraphErrorMessage(getHumanErrorMessage(relationsResult.error, t));
+            return;
+          }
+
+          const sortedNodes = entitiesResult.data.items
+            .map(mapKnowledgeEntityToNode)
+            .sort((left, right) => right.updatedAt - left.updatedAt);
+          setKnowledgeGraphNodes(sortedNodes);
+          setKnowledgeGraphEdges(relationsResult.data.items.map(mapKnowledgeRelationToEdge));
+          setKnowledgeGraphStatus("ready");
+          setKnowledgeGraphErrorMessage(null);
+          return;
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+          setKnowledgeGraphNodes([]);
+          setKnowledgeGraphEdges([]);
+          setKnowledgeGraphStatus("error");
+          setKnowledgeGraphErrorMessage(getHumanErrorMessage(error as Error, t));
+          return;
+        }
+      }
+
+      const collectedNodes: WorkbenchKnowledgeGraphNode[] = [];
       let firstError: string | null = null;
 
       if (typeof listCharacters === "function") {
@@ -782,7 +1171,7 @@ function WorkbenchShell() {
 
       if (collectedNodes.length === 0 && firstError !== null) {
         setKnowledgeGraphNodes([]);
-        setKnowledgeGraphLinks([]);
+        setKnowledgeGraphEdges([]);
         setKnowledgeGraphStatus("error");
         setKnowledgeGraphErrorMessage(firstError);
         return;
@@ -790,7 +1179,7 @@ function WorkbenchShell() {
 
       const sortedNodes = collectedNodes.sort((left, right) => right.updatedAt - left.updatedAt);
       setKnowledgeGraphNodes(sortedNodes);
-      setKnowledgeGraphLinks([]);
+      setKnowledgeGraphEdges([]);
       setKnowledgeGraphStatus("ready");
       setKnowledgeGraphErrorMessage(null);
     })();
@@ -806,6 +1195,8 @@ function WorkbenchShell() {
     }
 
     const listMemory = api.memory?.list;
+    const listSemanticRules = api.memory?.semanticList;
+    const listEpisodes = api.memory?.episodeQuery;
     if (typeof listMemory !== "function") {
       setMemoryEntries([]);
       setMemoryStatus("error");
@@ -818,36 +1209,61 @@ function WorkbenchShell() {
     setMemoryStatus("loading");
     setMemoryErrorMessage(null);
 
-    void listMemory({ projectId: project?.projectId ?? null })
-      .then((result) => {
+    void (async () => {
+      try {
+        const projectId = project?.projectId ?? null;
+        const baseResult = await listMemory({ projectId });
+        if (!baseResult.ok) {
+          if (cancelled) {
+            return;
+          }
+          setMemoryEntries([]);
+          setMemoryStatus("error");
+          setMemoryErrorMessage(getHumanErrorMessage(baseResult.error, t));
+          return;
+        }
+
+        const merged = baseResult.data.items.map(mapMemoryItemToPanelEntry);
+        const activeProjectId = project?.projectId;
+
+        if (activeProjectId && typeof listSemanticRules === "function") {
+          const semanticResult = await listSemanticRules({ projectId: activeProjectId });
+          if (semanticResult.ok) {
+            merged.push(...semanticResult.data.items.map(mapSemanticRuleToPanelEntry));
+          }
+        }
+
+        if (activeProjectId && typeof listEpisodes === "function") {
+          const episodicResult = await listEpisodes({
+            projectId: activeProjectId,
+            sceneType: activeScenarioId,
+            limit: 5,
+          });
+          if (episodicResult.ok) {
+            merged.push(...episodicResult.data.items.map(mapEpisodeToPanelEntry));
+          }
+        }
+
         if (cancelled) {
           return;
         }
-        if (!result.ok) {
-          setMemoryEntries([]);
-          setMemoryStatus("error");
-          setMemoryErrorMessage(getHumanErrorMessage(result.error, t));
-          return;
-        }
-        const entries = result.data.items
-          .map(mapMemoryItemToPanelEntry)
-          .sort((left, right) => right.updatedAt - left.updatedAt);
+        const entries = merged.sort((left, right) => right.updatedAt - left.updatedAt);
         setMemoryEntries(entries);
         setMemoryStatus("ready");
-      })
-      .catch((error) => {
+      } catch (error) {
         if (cancelled) {
           return;
         }
         setMemoryEntries([]);
         setMemoryStatus("error");
         setMemoryErrorMessage(getHumanErrorMessage(error as Error, t));
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [api.memory, layout.activeLeftPanel, memoryReloadToken, project?.projectId, t]);
+  }, [activeScenarioId, api.memory, layout.activeLeftPanel, memoryReloadToken, project?.projectId, t]);
 
   const editorBridge = useMemo(
     () =>
@@ -1591,6 +2007,19 @@ function WorkbenchShell() {
       />;
     }
 
+    if (layout.activeLeftPanel === "search") {
+      return <SearchPanel
+        errorMessage={searchErrorMessage}
+        onQueryChange={setSearchQuery}
+        onRetry={triggerSearchReload}
+        onStrategyChange={setSearchStrategy}
+        query={searchQuery}
+        results={searchResults}
+        status={searchStatus}
+        strategy={searchStrategy}
+      />;
+    }
+
     if (layout.activeLeftPanel === "scenarios") {
       return <ScenariosPanel
         activeScenarioId={activeScenarioId}
@@ -1618,15 +2047,11 @@ function WorkbenchShell() {
 
     if (layout.activeLeftPanel === "knowledgeGraph") {
       return <KnowledgeGraphPanel
+        edges={knowledgeGraphEdges}
         errorMessage={knowledgeGraphErrorMessage}
-        links={knowledgeGraphLinks}
         nodes={knowledgeGraphNodes}
-        onQueryChange={setKnowledgeGraphQuery}
         onRetry={triggerKnowledgeGraphReload}
-        onViewChange={setKnowledgeGraphView}
-        query={knowledgeGraphQuery}
         status={knowledgeGraphStatus}
-        view={knowledgeGraphView}
       />;
     }
 

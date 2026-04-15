@@ -407,6 +407,10 @@ const SEARCH_QUERY_STRATEGY_SCHEMA = s.union(
   s.literal("semantic"),
   s.literal("hybrid"),
 );
+const SEARCH_SEMANTIC_QUERY_STRATEGY_SCHEMA = s.union(
+  s.literal("semantic"),
+  s.literal("hybrid"),
+);
 
 const SEARCH_FALLBACK_SCHEMA = s.union(s.literal("fts"), s.literal("none"));
 
@@ -1714,6 +1718,26 @@ export const ipcContract = {
         projectId: s.string(),
         query: s.string(),
         strategy: SEARCH_QUERY_STRATEGY_SCHEMA,
+        limit: s.optional(s.number()),
+        offset: s.optional(s.number()),
+      }),
+      response: s.object({
+        traceId: s.string(),
+        costMs: s.number(),
+        strategy: SEARCH_QUERY_STRATEGY_SCHEMA,
+        fallback: SEARCH_FALLBACK_SCHEMA,
+        notice: s.optional(s.string()),
+        results: s.array(SEARCH_RANKED_ITEM_SCHEMA),
+        total: s.number(),
+        hasMore: s.boolean(),
+        backpressure: SEARCH_RANK_BACKPRESSURE_SCHEMA,
+      }),
+    },
+    "search:semantic:query": {
+      request: s.object({
+        projectId: s.string(),
+        query: s.string(),
+        strategy: s.optional(SEARCH_SEMANTIC_QUERY_STRATEGY_SCHEMA),
         limit: s.optional(s.number()),
         offset: s.optional(s.number()),
       }),

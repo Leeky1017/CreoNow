@@ -112,6 +112,12 @@ const api = {
   memory: {
     list: (payload: Parameters<typeof creonowInvoke<"memory:simple:list">>[1]) =>
       creonowInvoke("memory:simple:list", payload),
+    episodeQuery: (payload: Parameters<typeof creonowInvoke<"memory:episode:query">>[1]) =>
+      creonowInvoke("memory:episode:query", payload),
+    semanticList: (payload: Parameters<typeof creonowInvoke<"memory:semantic:list">>[1]) =>
+      creonowInvoke("memory:semantic:list", payload),
+    semanticDistill: (payload: Parameters<typeof creonowInvoke<"memory:semantic:distill">>[1]) =>
+      creonowInvoke("memory:semantic:distill", payload),
   },
   export: {
     docx: (payload: Parameters<typeof creonowInvoke<"export:document:docx">>[1]) =>
@@ -126,6 +132,16 @@ const api = {
   search: {
     query: (payload: Parameters<typeof creonowInvoke<"search:fts:query">>[1]) =>
       creonowInvoke("search:fts:query", payload),
+    queryByStrategy: (payload: Parameters<typeof creonowInvoke<"search:query:strategy">>[1]) =>
+      creonowInvoke("search:query:strategy", payload),
+    semanticQuery: (payload: Parameters<typeof creonowInvoke<"search:semantic:query">>[1]) =>
+      creonowInvoke("search:semantic:query", payload),
+  },
+  knowledge: {
+    listEntities: (payload: Parameters<typeof creonowInvoke<"knowledge:entity:list">>[1]) =>
+      creonowInvoke("knowledge:entity:list", payload),
+    listRelations: (payload: Parameters<typeof creonowInvoke<"knowledge:relation:list">>[1]) =>
+      creonowInvoke("knowledge:relation:list", payload),
   },
 };
 

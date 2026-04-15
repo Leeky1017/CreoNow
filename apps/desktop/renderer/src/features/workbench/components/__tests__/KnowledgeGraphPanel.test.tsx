@@ -2,125 +2,129 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { KnowledgeGraphPanel } from "../KnowledgeGraphPanel";
+import { KnowledgeGraphPanel } from "@/features/workbench/components/KnowledgeGraphPanel";
 
-const baseNodes = [
+type KnowledgeGraphPanelNodes = ComponentProps<typeof KnowledgeGraphPanel>["nodes"];
+
+const graphNodes: KnowledgeGraphPanelNodes = [
   {
-    id: "character:char-1",
-    name: "雷恩",
+    attributes: { 年龄: "28" } as Record<string, string>,
+    description: "冷静克制，擅长追踪。",
+    id: "node-linyuan",
+    name: "林远",
     type: "character" as const,
-    description: "契约守护者。",
-    updatedAt: 2,
   },
   {
-    id: "location:loc-1",
-    name: "深渊洞窟",
+    attributes: { 区域: "旧城北区" } as Record<string, string>,
+    description: "雨夜追逐的关键场景。",
+    id: "node-clocktower",
+    name: "旧钟楼",
     type: "location" as const,
-    description: "主线冲突地带。",
-    updatedAt: 1,
   },
-];
-
-const baseLinks = [
   {
-    id: "link-1",
-    sourceId: "character:char-1",
-    targetId: "location:loc-1",
-    label: "探索",
+    attributes: { 立场: "中立偏敌对" } as Record<string, string>,
+    description: "控制旧城地下网络。",
+    id: "node-faction",
+    name: "黑曜会",
+    type: "faction" as const,
   },
 ];
 
-function renderPanel(override: Partial<ComponentProps<typeof KnowledgeGraphPanel>> = {}) {
-  const onViewChange = vi.fn();
-  const onQueryChange = vi.fn();
-  render(
-    <KnowledgeGraphPanel
-      errorMessage={null}
-      links={baseLinks}
-      nodes={baseNodes}
-      onQueryChange={onQueryChange}
-      onRetry={() => {}}
-      onViewChange={onViewChange}
-      query=""
-      status="ready"
-      view="graph"
-      {...override}
-    />,
-  );
-  return { onQueryChange, onViewChange };
-}
+const graphEdges = [
+  {
+    id: "edge-ally",
+    label: "盟友",
+    sourceId: "node-linyuan",
+    targetId: "node-faction",
+  },
+  {
+    id: "edge-located",
+    label: "位于",
+    sourceId: "node-faction",
+    targetId: "node-clocktower",
+  },
+];
 
 describe("KnowledgeGraphPanel", () => {
-  it("ready 态渲染图谱画布与节点", () => {
-    renderPanel();
-    expect(screen.getByTestId("knowledge-graph-svg")).toBeInTheDocument();
-    expect(screen.getByTestId("knowledge-graph-node-character-char-1")).toBeInTheDocument();
-  });
-
-  it("点击节点后显示详情", () => {
-    renderPanel();
-    fireEvent.click(screen.getByTestId("knowledge-graph-node-character-char-1"));
-    expect(screen.getByTestId("knowledge-graph-detail")).toHaveTextContent("雷恩");
-    expect(screen.getByTestId("knowledge-graph-detail")).toHaveTextContent("契约守护者。");
-  });
-
-  it("切换视图会触发 onViewChange", () => {
-    const { onViewChange } = renderPanel();
-    fireEvent.click(screen.getByTestId("knowledge-graph-view-summary"));
-    expect(onViewChange).toHaveBeenCalledWith("summary");
-  });
-
-  it("视图切换按钮使用 aria-pressed 语义", () => {
-    renderPanel();
-    expect(screen.getByTestId("knowledge-graph-view-graph")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("knowledge-graph-view-summary")).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("summary 视图渲染实体卡片", () => {
-    renderPanel({ view: "summary" });
-    expect(screen.getByTestId("knowledge-graph-summary-list")).toBeInTheDocument();
-    expect(screen.getByTestId("knowledge-graph-summary-character-char-1")).toBeInTheDocument();
-  });
-
-  it("搜索无命中时渲染 no-match", () => {
-    renderPanel({ query: "不存在" });
-    expect(screen.getByTestId("knowledge-graph-no-match")).toBeInTheDocument();
-  });
-
-  it("loading 和 error 状态可见", () => {
-    const { rerender } = render(
+  it("renders core graph elements and relation labels", () => {
+    render(
       <KnowledgeGraphPanel
-        errorMessage={null}
-        links={[]}
-        nodes={[]}
-        onQueryChange={() => {}}
-        onRetry={() => {}}
-        onViewChange={() => {}}
-        query=""
-        status="loading"
-        view="graph"
+        edges={graphEdges}
+        nodes={graphNodes}
+        status="ready"
       />,
     );
-    expect(screen.getByTestId("knowledge-graph-loading")).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: "林远" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "旧钟楼" })).toBeInTheDocument();
+    expect(screen.getByText("盟友")).toBeInTheDocument();
+  });
+
+  it("supports type filtering and can restore all nodes", () => {
+    render(
+      <KnowledgeGraphPanel
+        edges={graphEdges}
+        nodes={graphNodes}
+        status="ready"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "角色" }));
+    expect(screen.queryByRole("button", { name: "林远" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "旧钟楼" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "阵营" }));
+    fireEvent.click(screen.getByRole("button", { name: "事件" }));
+    fireEvent.click(screen.getByRole("button", { name: "物品" }));
+    fireEvent.click(screen.getByRole("button", { name: "其他" }));
+
+    expect(screen.getByText("当前筛选没有匹配实体。")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "显示全部" }));
+    expect(screen.getByRole("button", { name: "林远" })).toBeInTheDocument();
+  });
+
+  it("switches node selection and updates detail panel", () => {
+    render(
+      <KnowledgeGraphPanel
+        edges={graphEdges}
+        nodes={graphNodes}
+        status="ready"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "旧钟楼" }));
+    expect(screen.getByRole("heading", { level: 3, name: "旧钟楼" })).toBeInTheDocument();
+    expect(screen.getByText("实体类型")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "黑曜会" }));
+    expect(screen.getByRole("heading", { level: 3, name: "黑曜会" })).toBeInTheDocument();
+    expect(screen.getByText("关系数量")).toBeInTheDocument();
+  });
+
+  it("renders empty state and error state", () => {
+    const onRetry = vi.fn();
+    const { rerender } = render(
+      <KnowledgeGraphPanel
+        edges={[]}
+        nodes={[]}
+        status="ready"
+      />,
+    );
+    expect(screen.getByText("等待图谱索引接入")).toBeInTheDocument();
 
     rerender(
       <KnowledgeGraphPanel
-        errorMessage="failed"
-        links={[]}
+        edges={[]}
+        errorMessage="图谱读取失败"
         nodes={[]}
-        onQueryChange={() => {}}
-        onRetry={() => {}}
-        onViewChange={() => {}}
-        query=""
+        onRetry={onRetry}
         status="error"
-        view="graph"
       />,
     );
-    expect(screen.getByTestId("knowledge-graph-error")).toBeInTheDocument();
-  });
-
-  it("ready 但无数据时渲染 empty", () => {
-    renderPanel({ nodes: [], links: [] });
-    expect(screen.getByTestId("knowledge-graph-empty")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("图谱读取失败");
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

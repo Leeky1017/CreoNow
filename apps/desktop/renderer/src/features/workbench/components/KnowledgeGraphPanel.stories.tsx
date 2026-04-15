@@ -1,81 +1,116 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import type { ComponentProps } from "react";
 
-import { KnowledgeGraphPanel, type KnowledgeGraphNode } from "./KnowledgeGraphPanel";
+import { KnowledgeGraphPanel } from "@/features/workbench/components/KnowledgeGraphPanel";
 
-const nodes: KnowledgeGraphNode[] = [
+type KnowledgeGraphPanelProps = ComponentProps<typeof KnowledgeGraphPanel>;
+
+const nodes: KnowledgeGraphPanelProps["nodes"] = [
   {
-    id: "character:char-1",
-    name: "雷恩",
+    attributes: { 年龄: "28", 身份: "前特种兵" },
+    description: "冷静克制，擅长追踪。",
+    id: "node-linyuan",
+    name: "林远",
     type: "character",
-    description: "契约守护者，正在追查崩裂事件。",
-    updatedAt: Date.now(),
   },
   {
-    id: "character:char-2",
-    name: "艾琳娜",
+    attributes: { 阵营: "巡夜会" },
+    description: "档案管理员，掌握旧城地图。",
+    id: "node-zhangwei",
+    name: "张薇",
     type: "character",
-    description: "联盟档案官，掌握失落契约副本。",
-    updatedAt: Date.now() - 3600_000,
   },
   {
-    id: "location:loc-1",
-    name: "深渊洞窟",
+    attributes: { 区域: "旧城北区" },
+    description: "雨夜追逐的关键场景。",
+    id: "node-clocktower",
+    name: "旧钟楼",
     type: "location",
-    description: "已封锁的地下节点，关联多条冲突线索。",
-    updatedAt: Date.now() - 7200_000,
+  },
+  {
+    attributes: { 危险级别: "高" },
+    description: "触发主线反转的爆炸案。",
+    id: "node-explosion",
+    name: "码头爆炸",
+    type: "event",
+  },
+  {
+    attributes: { 密级: "绝密" },
+    description: "决定阵营走向的硬盘。",
+    id: "node-drive",
+    name: "密钥硬盘",
+    type: "item",
+  },
+  {
+    attributes: { 立场: "中立偏敌对" },
+    description: "控制旧城地下网络。",
+    id: "node-faction",
+    name: "黑曜会",
+    type: "faction",
   },
 ];
 
-const links = [
-  { id: "link-1", sourceId: "character:char-1", targetId: "location:loc-1", label: "探索" },
-  { id: "link-2", sourceId: "character:char-2", targetId: "character:char-1", label: "协作" },
+const edges: KnowledgeGraphPanelProps["edges"] = [
+  {
+    id: "edge-ally",
+    label: "盟友",
+    sourceId: "node-linyuan",
+    targetId: "node-zhangwei",
+  },
+  {
+    id: "edge-located",
+    label: "位于",
+    sourceId: "node-drive",
+    targetId: "node-clocktower",
+  },
+  {
+    id: "edge-participates",
+    label: "参与",
+    sourceId: "node-linyuan",
+    targetId: "node-explosion",
+  },
+  {
+    id: "edge-enemy",
+    label: "敌对",
+    sourceId: "node-zhangwei",
+    targetId: "node-faction",
+  },
 ];
 
-const meta: Meta<typeof KnowledgeGraphPanel> = {
-  title: "Features/Workbench/KnowledgeGraphPanel",
+const meta = {
+  title: "Workbench/KnowledgeGraphPanel",
   component: KnowledgeGraphPanel,
-  parameters: { layout: "fullscreen" },
-};
+  args: {
+    edges,
+    errorMessage: null,
+    nodes,
+    status: "ready",
+  },
+} satisfies Meta<typeof KnowledgeGraphPanel>;
 
 export default meta;
-type Story = StoryObj<typeof KnowledgeGraphPanel>;
 
-export const GraphReady: Story = {
-  args: {
-    errorMessage: null,
-    links,
-    nodes,
-    onQueryChange: () => {},
-    onRetry: () => {},
-    onViewChange: () => {},
-    query: "",
-    status: "ready",
-    view: "graph",
-  },
-};
+type Story = StoryObj<typeof meta>;
 
-export const SummaryReady: Story = {
-  args: {
-    ...GraphReady.args,
-    view: "summary",
-  },
-};
+export const Default: Story = {};
 
 export const Loading: Story = {
   args: {
-    ...GraphReady.args,
-    links: [],
-    nodes: [],
     status: "loading",
+  },
+};
+
+export const Empty: Story = {
+  args: {
+    edges: [],
+    nodes: [],
+    status: "ready",
   },
 };
 
 export const ErrorState: Story = {
   args: {
-    ...GraphReady.args,
-    links: [],
-    nodes: [],
+    errorMessage: "图谱加载失败，请稍后重试。",
     status: "error",
-    errorMessage: "知识图谱索引读取失败，请稍后重试。",
   },
 };
