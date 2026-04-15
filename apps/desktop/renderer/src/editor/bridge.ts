@@ -23,6 +23,12 @@ export interface EditorBridgeOptions {
   onSelectionChange?: (selection: SelectionRef | null) => void;
 }
 
+export interface SelectionViewportAnchor {
+  bottom: number;
+  left: number;
+  top: number;
+}
+
 export type ReplaceSelectionResult =
   | { ok: true }
   | { ok: false; reason: "selection-changed" };
@@ -35,6 +41,7 @@ export interface EditorBridge {
   getContent(): ProseMirrorJson;
   getCursorContext(): { cursorPosition: number; precedingText: string } | null;
   getSelection(): SelectionRef | null;
+  getSelectionViewportAnchor(): SelectionViewportAnchor | null;
   setEditable(editable: boolean): void;
   setContent(content: unknown): void;
   replaceSelection(selection: SelectionRef, nextText: string): ReplaceSelectionResult;
@@ -49,6 +56,59 @@ function createSelectionFromView(view: EditorView): SelectionRef | null {
 
   const text = view.state.doc.textBetween(from, to, LINE_BREAK, LINE_BREAK);
   return createSelectionRef({ from, to, text });
+}
+
+function createSelectionViewportAnchorFromView(
+  view: EditorView,
+): SelectionViewportAnchor | null {
+  const { from, to, empty } = view.state.selection;
+  if (empty || from === to) {
+    return null;
+  }
+
+  try {
+    const domSelection = globalThis.getSelection?.();
+    const anchorNode = domSelection?.anchorNode ?? null;
+    const focusNode = domSelection?.focusNode ?? null;
+    const selectionBelongsToView = (node: Node | null) => {
+      if (node === null) {
+        return false;
+      }
+
+      const container = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return container !== null && view.dom.contains(container);
+    };
+
+    if (
+      domSelection
+      && domSelection.rangeCount > 0
+      && selectionBelongsToView(anchorNode)
+      && selectionBelongsToView(focusNode)
+    ) {
+      const rect = domSelection.getRangeAt(0).getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) {
+        return {
+          bottom: rect.bottom,
+          left: rect.left + rect.width / 2,
+          top: rect.top,
+        };
+      }
+    }
+  } catch {
+    // Fall back to ProseMirror coordinates below.
+  }
+
+  try {
+    const start = view.coordsAtPos(from);
+    const end = view.coordsAtPos(to);
+    return {
+      bottom: Math.max(start.bottom, end.bottom),
+      left: (start.left + end.right) / 2,
+      top: Math.min(start.top, end.top),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function createPlugins(onSelectionChange?: (selection: SelectionRef | null) => void): Plugin[] {
@@ -166,6 +226,14 @@ export function createEditorBridge(options: EditorBridgeOptions = {}): EditorBri
       }
 
       return createSelectionFromView(view);
+    },
+
+    getSelectionViewportAnchor() {
+      if (view === null) {
+        return null;
+      }
+
+      return createSelectionViewportAnchorFromView(view);
     },
 
     setEditable(nextEditable) {

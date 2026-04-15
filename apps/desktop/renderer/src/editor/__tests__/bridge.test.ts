@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { TextSelection } from "prosemirror-state";
 import { createElement, useEffect, useRef } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createEditorBridge } from "@/editor/bridge";
 
@@ -197,5 +197,49 @@ describe("createEditorBridge", () => {
         },
       ],
     });
+  });
+
+  it("ignores viewport anchors from DOM selections outside the editor view", () => {
+    const bridge = createEditorBridge();
+    const container = document.createElement("div");
+    const outside = document.createElement("div");
+    outside.textContent = "outside";
+    document.body.append(container, outside);
+
+    bridge.mount(container, createDoc("hello world"));
+
+    const view = bridge.view;
+    if (view === null) {
+      throw new Error("EditorView missing");
+    }
+
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 6)));
+    vi.spyOn(view, "coordsAtPos")
+      .mockReturnValueOnce({ bottom: 44, left: 20, right: 60, top: 24 })
+      .mockReturnValueOnce({ bottom: 48, left: 72, right: 112, top: 28 });
+
+    const getSelectionMock = vi.spyOn(globalThis, "getSelection").mockReturnValue({
+      anchorNode: outside,
+      focusNode: outside,
+      getRangeAt: () => ({
+        getBoundingClientRect: () => ({
+          bottom: 999,
+          height: 20,
+          left: 500,
+          right: 580,
+          top: 960,
+          width: 80,
+        }),
+      }),
+      rangeCount: 1,
+    } as unknown as Selection);
+
+    expect(bridge.getSelectionViewportAnchor()).toEqual({
+      bottom: 48,
+      left: 66,
+      top: 24,
+    });
+
+    getSelectionMock.mockRestore();
   });
 });

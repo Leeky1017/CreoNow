@@ -46,6 +46,10 @@ export interface AiSkillController {
   reserveBusyOperation: () => number;
   resetAiConversation: () => void;
   retryLastAcceptSave: () => void;
+  runQuickAction: (args: {
+    instruction?: string;
+    skillId: Extract<WorkbenchSkillId, "builtin:polish" | "builtin:rewrite">;
+  }) => Promise<void>;
   runAcceptPreview: (acceptingPreview: AiPreview) => Promise<void>;
   selectAiSkill: (skillId: WorkbenchSkillId) => void;
   setBusy: React.Dispatch<React.SetStateAction<boolean>>;
@@ -217,25 +221,39 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     }
   }, [api, autosave.isCurrentContextToken, autosave.clearAcceptSaveRetryController, autosave.clearAcceptSaveFailure, autosave.runWithoutAutosave, autosave.setWorkbenchError, isLatestBusyOperation, preview, reserveBusyOperation, setPreview, t]);
 
-  const handleGeneratePreview = useCallback(async () => {
+  const executePreviewRequest = useCallback(async (args?: {
+    instruction?: string;
+    skillId?: WorkbenchSkillId;
+  }) => {
     const previewContext = activeContextTokenRef.current;
     if (previewContext === null) {
       return;
     }
 
+    const nextSkillId = args?.skillId ?? activeSkill;
+    const nextInstruction = args?.instruction ?? instruction;
+
+    if (args?.skillId !== undefined) {
+      setActiveSkill(args.skillId);
+    }
+
+    if (args?.instruction !== undefined) {
+      setInstruction(args.instruction);
+    }
+
     autosave.clearAcceptSaveFailure();
 
-    if (activeSkill === "builtin:rewrite" && instruction.trim().length === 0) {
+    if (nextSkillId === "builtin:rewrite" && nextInstruction.trim().length === 0) {
       autosave.setWorkbenchError(t("messages.rewriteInstructionRequired"), "general");
       return;
     }
 
-    if (activeSkill !== "builtin:continue" && stickySelection === null) {
+    if (nextSkillId !== "builtin:continue" && stickySelection === null) {
       return;
     }
 
-    const cursorContext = activeSkill === "builtin:continue" ? editorBridge.getCursorContext() : null;
-    if (activeSkill === "builtin:continue" && (cursorContext === null || cursorContext.precedingText.trim().length === 0)) {
+    const cursorContext = nextSkillId === "builtin:continue" ? editorBridge.getCursorContext() : null;
+    if (nextSkillId === "builtin:continue" && (cursorContext === null || cursorContext.precedingText.trim().length === 0)) {
       autosave.setWorkbenchError(t("messages.continueContextEmpty"), "general");
       return;
     }
@@ -244,24 +262,24 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     try {
       setBusy(true);
       autosave.setWorkbenchError(null, null);
-      const nextPreview = activeSkill === "builtin:continue"
+      const nextPreview = nextSkillId === "builtin:continue"
         ? await requestAiPreview({
             api,
             context: previewContext,
             cursorPosition: cursorContext!.cursorPosition,
-            instruction,
+            instruction: nextInstruction,
             model,
             precedingText: cursorContext!.precedingText,
-            skillId: activeSkill,
+            skillId: nextSkillId,
             userEditRevision: userEditRevisionRef.current,
           })
         : await requestAiPreview({
             api,
             context: previewContext,
             selection: stickySelection!,
-            instruction,
+            instruction: nextInstruction,
             model,
-            skillId: activeSkill,
+            skillId: nextSkillId,
             userEditRevision: userEditRevisionRef.current,
           });
       if (autosave.isCurrentContextToken(previewContext)) {
@@ -284,6 +302,17 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     }
   }, [activeContextTokenRef, activeSkill, api, autosave.clearAcceptSaveFailure, autosave.isCurrentContextToken, autosave.setWorkbenchError, editorBridge, instruction, isLatestBusyOperation, model, reserveBusyOperation, setPreview, setStickySelection, stickySelection, t, userEditRevisionRef]);
 
+  const handleGeneratePreview = useCallback(async () => {
+    await executePreviewRequest();
+  }, [executePreviewRequest]);
+
+  const runQuickAction = useCallback(async (args: {
+    instruction?: string;
+    skillId: Extract<WorkbenchSkillId, "builtin:polish" | "builtin:rewrite">;
+  }) => {
+    await executePreviewRequest(args);
+  }, [executePreviewRequest]);
+
   return {
     activeSkill,
     busy,
@@ -296,6 +325,7 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     reserveBusyOperation,
     resetAiConversation,
     retryLastAcceptSave,
+    runQuickAction,
     runAcceptPreview,
     selectAiSkill,
     setBusy,

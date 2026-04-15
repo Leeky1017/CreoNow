@@ -24,13 +24,17 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
-import { createEditorBridge } from "@/editor/bridge";
+import {
+  createEditorBridge,
+  type SelectionViewportAnchor,
+} from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import { VersionHistoryPanel } from "@/features/version-history/VersionHistoryPanel";
 import type { VersionHistorySnapshotDetail } from "@/features/version-history/types";
 import { useVersionHistoryController } from "@/features/version-history/useVersionHistoryController";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
+import { EditorSelectionToolbar } from "@/features/workbench/components/EditorSelectionToolbar";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
   bootstrapWorkspace,
@@ -201,6 +205,8 @@ function WorkbenchShell() {
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [activeDocument, setActiveDocument] = useState<DocumentRead | null>(null);
   const [liveSelection, setLiveSelection] = useState<SelectionRef | null>(null);
+  const [selectionToolbarAnchor, setSelectionToolbarAnchor] =
+    useState<SelectionViewportAnchor | null>(null);
   const [stickySelection, setStickySelection] = useState<SelectionRef | null>(null);
   const [preview, setPreview] = useState<AiPreview | null>(null);
   const [versionPreviewState, setVersionPreviewState] = useState<VersionPreviewState | null>(null);
@@ -271,9 +277,11 @@ function WorkbenchShell() {
           setLiveSelection(nextSelection);
 
           if (bootstrapStatusRef.current !== "ready" || isMeaningfulSelection(nextSelection) === false) {
+            setSelectionToolbarAnchor(null);
             return;
           }
 
+          setSelectionToolbarAnchor(editorBridge.getSelectionViewportAnchor());
           setStickySelection(nextSelection);
           setPreview(null);
           autosave.clearAcceptSaveFailure();
@@ -432,6 +440,46 @@ function WorkbenchShell() {
       disposed = true;
     };
   }, [api, autosave.clearPendingAutosaveTimer, autosave.clearSavedStateDecayTimer, autosave.setWorkbenchError, autosave.setSaveUiState, autosave.setLastSavedAt, replaceEditorContextContent, t]);
+
+  useEffect(() => {
+    if (
+      bootstrapStatus !== "ready"
+      || preview !== null
+      || isVersionPreviewActive
+      || isMeaningfulSelection(liveSelection) === false
+    ) {
+      setSelectionToolbarAnchor(null);
+      return;
+    }
+
+    setSelectionToolbarAnchor(editorBridge.getSelectionViewportAnchor());
+  }, [
+    bootstrapStatus,
+    editorBridge,
+    isVersionPreviewActive,
+    liveSelection,
+    preview,
+  ]);
+
+  useEffect(() => {
+    if (selectionToolbarAnchor === null) {
+      return;
+    }
+
+    const syncSelectionToolbarAnchor = () => {
+      setSelectionToolbarAnchor(editorBridge.getSelectionViewportAnchor());
+    };
+    const dismissSelectionToolbar = () => {
+      setSelectionToolbarAnchor(null);
+    };
+
+    window.addEventListener("resize", syncSelectionToolbarAnchor);
+    window.addEventListener("scroll", dismissSelectionToolbar, true);
+    return () => {
+      window.removeEventListener("resize", syncSelectionToolbarAnchor);
+      window.removeEventListener("scroll", dismissSelectionToolbar, true);
+    };
+  }, [editorBridge, selectionToolbarAnchor]);
 
   const handleCreateDocument = async () => {
     if (project === null) {
@@ -609,7 +657,37 @@ function WorkbenchShell() {
 
   const clearReference = () => {
     setStickySelection(null);
+    setSelectionToolbarAnchor(null);
   };
+
+  const handleToolbarSubmitInstruction = useCallback((nextInstruction: string) => {
+    layout.handleRightPanelSelect("ai");
+    void aiSkill.runQuickAction({
+      instruction: nextInstruction,
+      skillId: "builtin:rewrite",
+    });
+  }, [aiSkill, layout]);
+
+  const handleToolbarPolish = useCallback(() => {
+    layout.handleRightPanelSelect("ai");
+    void aiSkill.runQuickAction({ skillId: "builtin:polish" });
+  }, [aiSkill, layout]);
+
+  const handleToolbarFixGrammar = useCallback(() => {
+    layout.handleRightPanelSelect("ai");
+    void aiSkill.runQuickAction({
+      instruction: t("editorToolbar.presets.fixGrammar"),
+      skillId: "builtin:rewrite",
+    });
+  }, [aiSkill, layout, t]);
+
+  const handleToolbarChangeTone = useCallback(() => {
+    layout.handleRightPanelSelect("ai");
+    void aiSkill.runQuickAction({
+      instruction: t("editorToolbar.presets.changeTone"),
+      skillId: "builtin:rewrite",
+    });
+  }, [aiSkill, layout, t]);
 
   const handleStatusBarAction = () => {
     if (autosave.saveState !== "error") {
@@ -1059,6 +1137,16 @@ function WorkbenchShell() {
         <div className="editor-scroll">
           <div ref={containerRef} className={versionPreviewSnapshot === null ? "editor-host" : "editor-host editor-host--readonly"} />
         </div>
+        <EditorSelectionToolbar
+          anchor={selectionToolbarAnchor}
+          busy={aiSkill.busy || isVersionPreviewActive}
+          onChangeTone={handleToolbarChangeTone}
+          onFixGrammar={handleToolbarFixGrammar}
+          onPolish={handleToolbarPolish}
+          onSubmitInstruction={handleToolbarSubmitInstruction}
+          selectionKey={liveSelection === null ? null : `${liveSelection.from}:${liveSelection.to}:${liveSelection.selectionTextHash}`}
+          visible={bootstrapStatus === "ready" && preview === null && isVersionPreviewActive === false}
+        />
       </section>
 
       {layout.rightPanelCollapsed ? null : <div

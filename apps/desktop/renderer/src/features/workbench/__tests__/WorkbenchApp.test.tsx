@@ -25,6 +25,7 @@ const bridgeMock: EditorBridge = {
   getContent: vi.fn(() => ({ type: "doc" })),
   getCursorContext: vi.fn(() => ({ cursorPosition: 5, precedingText: "风从北方来" })),
   getSelection: vi.fn(() => null),
+  getSelectionViewportAnchor: vi.fn(() => ({ bottom: 228, left: 640, top: 200 })),
   getTextContent: vi.fn(() => "风从北方来"),
   mount: vi.fn(),
   replaceSelection: vi.fn(() => ({ ok: true as const })),
@@ -306,6 +307,132 @@ describe("WorkbenchApp", () => {
         skillId: "builtin:polish",
         selection,
       }));
+    });
+  });
+
+  it("shows the floating editor toolbar for a selection and lets quick polish hit skill IPC", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    const selection = createSelection("需要润色的一段文字。", 16);
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(selection);
+    });
+
+    const toolbar = await screen.findByTestId("editor-selection-toolbar");
+    expect(toolbar).toBeInTheDocument();
+
+    fireEvent.click(within(toolbar).getByTestId("editor-selection-toolbar-polish"));
+
+    await waitFor(() => {
+      expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+        skillId: "builtin:polish",
+        selection,
+      }));
+    });
+  });
+
+  it("submits a custom rewrite instruction from the floating editor toolbar", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    const selection = createSelection("这一段需要更冷静、更锋利。", 12);
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(selection);
+    });
+
+    const toolbar = await screen.findByTestId("editor-selection-toolbar");
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Ask AI to edit…" }));
+    fireEvent.change(await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input"), {
+      target: { value: "把这一段改得更克制，但保留压迫感。" },
+    });
+    fireEvent.click(within(toolbar).getByTestId("editor-selection-toolbar-prompt-submit"));
+
+    await waitFor(() => {
+      expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+        skillId: "builtin:rewrite",
+        selection,
+        userInstruction: "把这一段改得更克制，但保留压迫感。",
+      }));
+    });
+  });
+
+  it("runs rewrite quick actions from the floating editor toolbar with preset instructions", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    const selection = createSelection("语法需要修复的句子。", 8);
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(selection);
+    });
+
+    const toolbar = await screen.findByTestId("editor-selection-toolbar");
+    fireEvent.click(within(toolbar).getByTestId("editor-selection-toolbar-grammar"));
+
+    await waitFor(() => {
+      expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+        skillId: "builtin:rewrite",
+        selection,
+        userInstruction: "请修正语法与拼写，并保留原意。",
+      }));
+    });
+  });
+
+  it("hides the floating editor toolbar when the selection collapses", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("会被取消的选区。", 8));
+    });
+
+    expect(await screen.findByTestId("editor-selection-toolbar")).toBeInTheDocument();
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(null);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("editor-selection-toolbar")).not.toBeInTheDocument();
+    });
+  });
+
+  it("hides the floating editor toolbar after editor-area scrolling", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("滚动后应当收起。", 8));
+    });
+
+    expect(await screen.findByTestId("editor-selection-toolbar")).toBeInTheDocument();
+
+    fireEvent.scroll(window);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("editor-selection-toolbar")).not.toBeInTheDocument();
+    });
+  });
+
+  it("keeps custom toolbar instructions intact across anchor-only resize recalculation", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("窗口变化时不该丢输入。", 10));
+    });
+
+    const toolbar = await screen.findByTestId("editor-selection-toolbar");
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Ask AI to edit…" }));
+    const promptInput = await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input");
+    fireEvent.change(promptInput, {
+      target: { value: "把这段压缩到两句，但保留刺痛感。" },
+    });
+
+    fireEvent(window, new Event("resize"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-selection-toolbar-prompt-input")).toHaveValue("把这段压缩到两句，但保留刺痛感。");
     });
   });
 
