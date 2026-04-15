@@ -40,6 +40,13 @@ import { CommandPalette, type CommandPaletteItem } from "@/features/workbench/co
 import { EditorSelectionToolbar } from "@/features/workbench/components/EditorSelectionToolbar";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
+  KnowledgeGraphPanel,
+  type KnowledgeGraphLink,
+  type KnowledgeGraphNode,
+  type KnowledgeGraphPanelStatus,
+  type KnowledgeGraphPanelView,
+} from "@/features/workbench/components/KnowledgeGraphPanel";
+import {
   WorldbuildingPanel,
   type WorldbuildingEntry,
   type WorldbuildingEntryStatus,
@@ -76,6 +83,7 @@ import {
 
 const MAX_REFERENCE_LENGTH = 120;
 type LocationListItem = IpcResponseData<"settings:location:list">["items"][number];
+type CharacterListItem = IpcResponseData<"settings:character:list">["items"][number];
 
 type BootstrapStatus = "loading" | "ready" | "error";
 
@@ -152,6 +160,26 @@ function mapLocationToWorldbuildingEntry(
     name: location.name,
     status: toWorldbuildingStatus(location.attributes.status, location.description ?? ""),
     typeLabel,
+    updatedAt: location.updatedAt,
+  };
+}
+
+function mapCharacterToKnowledgeNode(character: CharacterListItem): KnowledgeGraphNode {
+  return {
+    description: character.description ?? "",
+    id: `character:${character.id}`,
+    name: character.name,
+    type: "character",
+    updatedAt: character.updatedAt,
+  };
+}
+
+function mapLocationToKnowledgeNode(location: LocationListItem): KnowledgeGraphNode {
+  return {
+    description: location.description ?? "",
+    id: `location:${location.id}`,
+    name: location.name,
+    type: "location",
     updatedAt: location.updatedAt,
   };
 }
@@ -269,6 +297,13 @@ function WorkbenchShell() {
   const [worldbuildingQuery, setWorldbuildingQuery] = useState("");
   const [worldbuildingTab, setWorldbuildingTab] = useState<WorldbuildingTab>("encyclopedia");
   const [worldbuildingReloadToken, setWorldbuildingReloadToken] = useState(0);
+  const [knowledgeGraphNodes, setKnowledgeGraphNodes] = useState<KnowledgeGraphNode[]>([]);
+  const [knowledgeGraphLinks, setKnowledgeGraphLinks] = useState<KnowledgeGraphLink[]>([]);
+  const [knowledgeGraphStatus, setKnowledgeGraphStatus] = useState<KnowledgeGraphPanelStatus>("loading");
+  const [knowledgeGraphErrorMessage, setKnowledgeGraphErrorMessage] = useState<string | null>(null);
+  const [knowledgeGraphQuery, setKnowledgeGraphQuery] = useState("");
+  const [knowledgeGraphView, setKnowledgeGraphView] = useState<KnowledgeGraphPanelView>("graph");
+  const [knowledgeGraphReloadToken, setKnowledgeGraphReloadToken] = useState(0);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
   const [zenDotExpanded, setZenDotExpanded] = useState(false);
@@ -389,6 +424,10 @@ function WorkbenchShell() {
     setWorldbuildingReloadToken((value) => value + 1);
   }, []);
 
+  const triggerKnowledgeGraphReload = useCallback(() => {
+    setKnowledgeGraphReloadToken((value) => value + 1);
+  }, []);
+
   const handleCreateWorldbuildingEntry = useCallback(() => {
     layout.setActiveLeftPanel("settings");
   }, [layout]);
@@ -399,6 +438,14 @@ function WorkbenchShell() {
     }
     setWorldbuildingQuery("");
     setWorldbuildingTab("encyclopedia");
+  }, [project?.projectId]);
+
+  useEffect(() => {
+    if (project === null) {
+      return;
+    }
+    setKnowledgeGraphQuery("");
+    setKnowledgeGraphView("graph");
   }, [project?.projectId]);
 
   useEffect(() => {
@@ -453,6 +500,88 @@ function WorkbenchShell() {
       cancelled = true;
     };
   }, [api, layout.activeLeftPanel, project?.projectId, t, worldbuildingReloadToken]);
+
+  useEffect(() => {
+    if (layout.activeLeftPanel !== "knowledgeGraph") {
+      return;
+    }
+    if (project === null) {
+      setKnowledgeGraphNodes([]);
+      setKnowledgeGraphLinks([]);
+      setKnowledgeGraphStatus("error");
+      setKnowledgeGraphErrorMessage(t("sidebar.knowledgeGraph.errorNoProject"));
+      return;
+    }
+
+    const listCharacters = (api.character as Partial<PreloadApi["character"]>).list;
+    const listLocations = (api.location as Partial<PreloadApi["location"]>).list;
+    if (typeof listCharacters !== "function" && typeof listLocations !== "function") {
+      setKnowledgeGraphNodes([]);
+      setKnowledgeGraphLinks([]);
+      setKnowledgeGraphStatus("error");
+      setKnowledgeGraphErrorMessage(t("sidebar.knowledgeGraph.errorBridgeUnavailable"));
+      return;
+    }
+
+    let cancelled = false;
+    setKnowledgeGraphNodes([]);
+    setKnowledgeGraphLinks([]);
+    setKnowledgeGraphStatus("loading");
+    setKnowledgeGraphErrorMessage(null);
+
+    void (async () => {
+      const collectedNodes: KnowledgeGraphNode[] = [];
+      let firstError: string | null = null;
+
+      if (typeof listCharacters === "function") {
+        try {
+          const result = await listCharacters({ projectId: project.projectId });
+          if (result.ok) {
+            collectedNodes.push(...result.data.items.map(mapCharacterToKnowledgeNode));
+          } else {
+            firstError ??= getHumanErrorMessage(result.error, t);
+          }
+        } catch (error) {
+          firstError ??= getHumanErrorMessage(error as Error, t);
+        }
+      }
+
+      if (typeof listLocations === "function") {
+        try {
+          const result = await listLocations({ projectId: project.projectId });
+          if (result.ok) {
+            collectedNodes.push(...result.data.items.map(mapLocationToKnowledgeNode));
+          } else {
+            firstError ??= getHumanErrorMessage(result.error, t);
+          }
+        } catch (error) {
+          firstError ??= getHumanErrorMessage(error as Error, t);
+        }
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      if (collectedNodes.length === 0 && firstError !== null) {
+        setKnowledgeGraphNodes([]);
+        setKnowledgeGraphLinks([]);
+        setKnowledgeGraphStatus("error");
+        setKnowledgeGraphErrorMessage(firstError);
+        return;
+      }
+
+      const sortedNodes = collectedNodes.sort((left, right) => right.updatedAt - left.updatedAt);
+      setKnowledgeGraphNodes(sortedNodes);
+      setKnowledgeGraphLinks([]);
+      setKnowledgeGraphStatus("ready");
+      setKnowledgeGraphErrorMessage(null);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, knowledgeGraphReloadToken, layout.activeLeftPanel, project?.projectId, t]);
 
   const editorBridge = useMemo(
     () =>
@@ -1221,7 +1350,21 @@ function WorkbenchShell() {
       />;
     }
 
-    if (layout.activeLeftPanel === "knowledgeGraph" || layout.activeLeftPanel === "characters") {
+    if (layout.activeLeftPanel === "knowledgeGraph") {
+      return <KnowledgeGraphPanel
+        errorMessage={knowledgeGraphErrorMessage}
+        links={knowledgeGraphLinks}
+        nodes={knowledgeGraphNodes}
+        onQueryChange={setKnowledgeGraphQuery}
+        onRetry={triggerKnowledgeGraphReload}
+        onViewChange={setKnowledgeGraphView}
+        query={knowledgeGraphQuery}
+        status={knowledgeGraphStatus}
+        view={knowledgeGraphView}
+      />;
+    }
+
+    if (layout.activeLeftPanel === "characters") {
       return <div className="sidebar-surface">
         <div className="panel-section">
           <h1 className="screen-title">{t(`sidebar.${layout.activeLeftPanel}.title`)}</h1>

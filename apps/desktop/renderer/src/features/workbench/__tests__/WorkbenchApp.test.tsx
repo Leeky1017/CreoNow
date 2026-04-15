@@ -4163,4 +4163,93 @@ describe("WorkbenchApp", () => {
     expect(screen.getByText("未归类")).toBeInTheDocument();
     expect(screen.getByText("1 未归类")).toBeInTheDocument();
   });
+
+  it("knowledge graph 面板会聚合 character/location 词条", async () => {
+    const api = window.api as PreloadApi;
+    const characterList = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            id: "char-1",
+            projectId: "project-1",
+            name: "雷恩",
+            description: "契约守护者。",
+            attributes: {},
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+      },
+    }));
+    const locationList = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            id: "loc-1",
+            projectId: "project-1",
+            name: "深渊洞窟",
+            description: "主线冲突地带。",
+            attributes: {},
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+      },
+    }));
+    api.character = { list: characterList } as unknown as PreloadApi["character"];
+    api.location = { list: locationList } as unknown as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+
+    await waitFor(() => {
+      expect(characterList).toHaveBeenCalledWith({ projectId: "project-1" });
+      expect(locationList).toHaveBeenCalledWith({ projectId: "project-1" });
+    });
+
+    expect(await screen.findByTestId("knowledge-graph-node-character-char-1")).toBeInTheDocument();
+    expect(screen.getByText("2 个实体")).toBeInTheDocument();
+  });
+
+  it("knowledge graph 数据桥缺失时显示错误态", async () => {
+    const api = window.api as PreloadApi;
+    api.character = {} as PreloadApi["character"];
+    api.location = {} as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+
+    expect(await screen.findByTestId("knowledge-graph-error")).toBeInTheDocument();
+    expect(screen.getByText("当前环境未提供知识图谱数据接口。")).toBeInTheDocument();
+  });
+
+  it("knowledge graph IPC 全失败时渲染错误态", async () => {
+    const api = window.api as PreloadApi;
+    api.character = {
+      list: vi.fn(async () => ({
+        ok: false as const,
+        error: { code: "INTERNAL", message: "character list failed" },
+      })),
+    } as unknown as PreloadApi["character"];
+    api.location = {
+      list: vi.fn(async () => ({
+        ok: false as const,
+        error: { code: "DB_ERROR", message: "location list failed" },
+      })),
+    } as unknown as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+
+    expect(await screen.findByTestId("knowledge-graph-error")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
+  });
 });
