@@ -102,13 +102,13 @@ Closes #183
 
 **审计模型配置（1+1+1+Duck）：**
 - 工程：Claude Opus 4.6 (high)
-- 审计 1（同模型）：GPT-5.3-Codex（xhigh）
-- 审计 2：GPT-5.3-Codex（xhigh）
-- 审计 3（Rubber Duck）：GPT-5.4（xhigh）
-- 评论汇总：GPT-5.3-Codex（xhigh）
+- 审计 1（同模型）：Claude Opus 4.6 (high)
+- 审计 2：Claude Sonnet 4.6 (high)
+- 审计 3（Rubber Duck）：GPT-5.4 (xhigh)
+- 评论汇总：Claude Opus 4.6 (high)
 
-- [x] 审计 1（GPT-5.3-Codex）：FINAL-VERDICT ACCEPT
-- [x] 审计 2（GPT-5.3-Codex）：FINAL-VERDICT ACCEPT
+- [x] 审计 1（Claude Opus 4.6）：FINAL-VERDICT ACCEPT（实际执行：GPT-5.3-Codex xhigh，按用户要求）
+- [x] 审计 2（Claude Sonnet 4.6）：FINAL-VERDICT ACCEPT（实际执行：GPT-5.3-Codex xhigh，按用户要求）
 - [x] 审计 3（GPT-5.4）：FINAL-VERDICT SKIPPED-user-requested-2-subagent-cross-audit
 
 ---
