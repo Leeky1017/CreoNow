@@ -312,7 +312,7 @@ export function createQualityCheckHook(
 
       // Fire-and-forget: don't await — avoids blocking Stage 8 on an LLM call.
       void deps.skillExecutor
-        .executeSkill("consistency-check", {
+        .executeSkill("builtin:consistency-check", {
           projectId: ctx.projectId,
           documentId: ctx.documentId,
           documentContent: ctx.fullText,

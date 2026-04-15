@@ -1453,12 +1453,16 @@ function executeResolveForRun(
     );
   }
 
-  const skill = loaded.data.skills.find((s) => s.id === id) ?? null;
+  const requestedLeafId = leafSkillId(id);
+  const skill =
+    loaded.data.skills.find(
+      (s) => s.id === id || leafSkillId(s.id) === requestedLeafId,
+    ) ?? null;
   if (!skill) {
     return ipcError("NOT_FOUND", "Skill not found", { id });
   }
 
-  const enabled = loaded.data.enabledMap.get(id) ?? true;
+  const enabled = loaded.data.enabledMap.get(skill.id) ?? true;
   return {
     ok: true,
     data: {

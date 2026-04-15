@@ -159,10 +159,16 @@ describe("P3 runtime skill chain", () => {
       const consistency = svc.resolveForRun({ id: "consistency-check" });
       const dialogue = svc.resolveForRun({ id: "dialogue-gen" });
       const outline = svc.resolveForRun({ id: "outline-expand" });
+      const prefixedConsistency = svc.resolveForRun({ id: "builtin:consistency-check" });
+      const prefixedDialogue = svc.resolveForRun({ id: "builtin:dialogue-gen" });
+      const prefixedOutline = svc.resolveForRun({ id: "builtin:outline-expand" });
 
       expect(consistency.ok && consistency.data.inputType).toBe("document");
       expect(dialogue.ok && dialogue.data.inputType).toBe("selection");
       expect(outline.ok && outline.data.inputType).toBe("selection");
+      expect(prefixedConsistency.ok && prefixedConsistency.data.inputType).toBe("document");
+      expect(prefixedDialogue.ok && prefixedDialogue.data.inputType).toBe("selection");
+      expect(prefixedOutline.ok && prefixedOutline.data.inputType).toBe("selection");
     } finally {
       db.close();
     }

@@ -840,6 +840,25 @@ System prompt.`;
       });
       expect(validResult.success).toBe(true);
     });
+
+    it("支持 builtin: 前缀别名调用 consistency-check", async () => {
+      aiService.complete.mockResolvedValue({
+        content: JSON.stringify({ passed: true, issues: [] }),
+      });
+
+      const result = await executor.executeSkill("builtin:consistency-check", {
+        projectId: "proj-1",
+        documentId: "doc-1",
+        documentContent: "文本",
+      });
+
+      expect(result.success).toBe(true);
+      expect(aiService.complete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skillId: "builtin:consistency-check",
+        }),
+      );
+    });
   });
 
   // ── Skill registration ─────────────────────────────────────────
@@ -851,15 +870,18 @@ System prompt.`;
       expect(toolRegistry.register).toHaveBeenCalled();
     });
 
-    it("注册三个 P3 技能", () => {
+    it("同时注册 canonical 与 builtin 前缀技能 ID", () => {
       executor.registerSkills();
 
       const registeredIds = toolRegistry.register.mock.calls.map(
         (call: any) => call[0]?.id || call[0]?.name,
       );
       expect(registeredIds).toContain("consistency-check");
+      expect(registeredIds).toContain("builtin:consistency-check");
       expect(registeredIds).toContain("dialogue-gen");
+      expect(registeredIds).toContain("builtin:dialogue-gen");
       expect(registeredIds).toContain("outline-expand");
+      expect(registeredIds).toContain("builtin:outline-expand");
     });
   });
 

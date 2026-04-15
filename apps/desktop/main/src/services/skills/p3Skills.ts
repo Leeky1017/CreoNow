@@ -40,6 +40,14 @@ export interface SkillManifest {
 
 type JsonObject = Record<string, unknown>;
 
+const P3_SKILL_CANONICAL_IDS = [
+  "consistency-check",
+  "dialogue-gen",
+  "outline-expand",
+] as const;
+
+const P3_SKILL_CANONICAL_ID_SET = new Set<string>(P3_SKILL_CANONICAL_IDS);
+
 // L1: severity union type instead of string
 export interface ConsistencyIssue {
   location: string;
@@ -294,11 +302,7 @@ export function loadP3SkillManifestRegistry(options?: {
 }): SkillManifestRegistry {
   const manifests: Record<string, SkillManifest> = {};
   const errors: SkillManifestRegistry["errors"] = {};
-  const skillDirs = options?.skillDirs ?? [
-    "consistency-check",
-    "dialogue-gen",
-    "outline-expand",
-  ];
+  const skillDirs = options?.skillDirs ?? [...P3_SKILL_CANONICAL_IDS];
 
   for (const skillDir of skillDirs) {
     try {
@@ -317,6 +321,21 @@ export function loadP3SkillManifestRegistry(options?: {
 }
 
 const DEFAULT_MANIFEST_REGISTRY = loadP3SkillManifestRegistry();
+
+function normalizeP3SkillId(skillId: string): string {
+  const trimmed = skillId.trim();
+  if (trimmed.startsWith("builtin:")) {
+    const leaf = trimmed.slice("builtin:".length);
+    if (P3_SKILL_CANONICAL_ID_SET.has(leaf)) {
+      return leaf;
+    }
+  }
+  return trimmed;
+}
+
+function runtimeP3SkillIds(canonicalId: string): string[] {
+  return [`builtin:${canonicalId}`, canonicalId];
+}
 
 // ─── Implementation ─────────────────────────────────────────────────
 
@@ -345,9 +364,10 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
         return { success: false, error: { code: "SKILL_DISPOSED", message: "技能执行器已销毁" } };
       }
 
-      const manifest = skillManifests[skillId];
+      const canonicalSkillId = normalizeP3SkillId(skillId);
+      const manifest = skillManifests[canonicalSkillId];
       if (!manifest) {
-        const manifestError = manifestErrors[skillId];
+        const manifestError = manifestErrors[canonicalSkillId];
         if (manifestError) {
           return {
             success: false,
@@ -415,7 +435,7 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
         return { success: false, error: { code: "SKILL_OUTPUT_INVALID", message: "AI 返回格式错误" } };
       }
 
-      if (skillId === "consistency-check") {
+      if (canonicalSkillId === "consistency-check") {
         const rawIssues = (parsed.issues as Array<Record<string, unknown>>) || [];
         const result: ConsistencyCheckResult = {
           passed: (parsed.passed as boolean) ?? true,
@@ -439,7 +459,7 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
         return { success: true, data: result };
       }
 
-      if (skillId === "dialogue-gen") {
+      if (canonicalSkillId === "dialogue-gen") {
         const result: DialogueGenResult = {
           dialogue: parsed.dialogue as string,
           characterId: parsed.characterId as string | undefined,
@@ -447,7 +467,7 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
         return { success: true, data: result };
       }
 
-      if (skillId === "outline-expand") {
+      if (canonicalSkillId === "outline-expand") {
         const result: OutlineExpandResult = {
           expandedContent: parsed.expandedContent as string,
           paragraphCount: parsed.paragraphCount as number | undefined,
@@ -459,21 +479,25 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
     },
 
     registerSkills(): void {
-      for (const [id, manifest] of Object.entries(skillManifests)) {
-        toolRegistry.register({
-          id,
-          name: id,
-          description: manifest.description,
-          category: manifest.category,
-          execute: (input: SkillInput) => executor.executeSkill(id, input),
-        });
+      for (const [canonicalId, manifest] of Object.entries(skillManifests)) {
+        for (const runtimeId of runtimeP3SkillIds(canonicalId)) {
+          toolRegistry.register({
+            id: runtimeId,
+            name: runtimeId,
+            description: manifest.description,
+            category: manifest.category,
+            execute: (input: SkillInput) => executor.executeSkill(runtimeId, input),
+          });
+        }
       }
     },
 
     dispose(): void {
       disposed = true;
-      for (const id of Object.keys(skillManifests)) {
-        toolRegistry.unregister?.(id);
+      for (const canonicalId of Object.keys(skillManifests)) {
+        for (const runtimeId of runtimeP3SkillIds(canonicalId)) {
+          toolRegistry.unregister?.(runtimeId);
+        }
       }
     },
   };

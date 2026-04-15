@@ -407,7 +407,7 @@ describe("createQualityCheckHook", () => {
     expect(hook.priority).toBe(QUALITY_CHECK_PRIORITY);
   });
 
-  it("calls consistency-check skill with correct args (fire-and-forget)", async () => {
+  it("calls builtin:consistency-check skill with correct args (fire-and-forget)", async () => {
     const deps = makeQualityCheckDeps();
     const hook = createQualityCheckHook(deps);
     const ctx = makeContext();
@@ -415,7 +415,7 @@ describe("createQualityCheckHook", () => {
     await hook.execute(ctx);
     // executeSkill is called immediately (fire-and-forget)
     expect(deps.skillExecutor.executeSkill).toHaveBeenCalledWith(
-      "consistency-check",
+      "builtin:consistency-check",
       {
         projectId: "proj-001",
         documentId: "doc-001",
