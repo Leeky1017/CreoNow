@@ -881,6 +881,61 @@ button {
   padding: var(--space-panel-padding);
 }
 
+.ai-stream-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  padding: var(--space-2) var(--space-3);
+}
+
+.ai-stream-strip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-fg-subtle);
+}
+
+.ai-stream-strip--running .ai-stream-strip__dot {
+  background: var(--color-accent-strong);
+  animation: ai-stream-dot-pulse 1.3s ease-in-out infinite;
+}
+
+.ai-stream-strip--ready .ai-stream-strip__dot {
+  background: var(--color-success);
+}
+
+.ai-stream-strip--error .ai-stream-strip__dot {
+  background: var(--color-error);
+}
+
+.ai-stream-strip__content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-stream-strip__title,
+.ai-stream-strip__state {
+  margin: 0;
+  font-family: var(--font-family-ui);
+}
+
+.ai-stream-strip__title {
+  font-size: var(--text-status-size);
+  color: var(--color-fg-subtle);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ai-stream-strip__state {
+  font-size: var(--text-body-size);
+  color: var(--color-fg-muted);
+}
+
 .skill-launcher {
   border: 1px solid var(--color-separator);
   border-radius: var(--radius-md);
@@ -909,6 +964,12 @@ button {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.panel-row--meta {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
 }
 
 .reference-card,
@@ -976,6 +1037,74 @@ button {
 .preview-body--suggestion {
   color: var(--color-success);
   background: var(--color-success-subtle);
+}
+
+.ai-stream-progress {
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  padding: var(--space-3);
+}
+
+.ai-stream-progress__stages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--color-fg-muted);
+  font-size: var(--text-body-size);
+}
+
+.ai-stream-progress__stages li {
+  position: relative;
+  padding-left: var(--space-4);
+}
+
+.ai-stream-progress__stages li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-fg-subtle);
+  transform: translateY(-50%);
+}
+
+.ai-stream-progress__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.ai-stream-progress__line {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-bg-hover) 92%, transparent) 0%,
+    color-mix(in srgb, var(--color-bg-selected) 85%, transparent) 50%,
+    color-mix(in srgb, var(--color-bg-hover) 92%, transparent) 100%
+  );
+  background-size: 220% 100%;
+  animation: ai-stream-shimmer 1.2s linear infinite;
+}
+
+.ai-stream-progress__line--long {
+  width: 100%;
+}
+
+.ai-stream-progress__line--mid {
+  width: 74%;
+}
+
+.ai-stream-progress__line--short {
+  width: 52%;
 }
 
 .panel-row,
@@ -1299,6 +1428,27 @@ button {
   50% {
     opacity: 1;
     transform: scale(1.15);
+  }
+}
+
+@keyframes ai-stream-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes ai-stream-shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -40% 0;
   }
 }
 

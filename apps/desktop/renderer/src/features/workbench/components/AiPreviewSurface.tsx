@@ -51,6 +51,11 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
   const skillKey = toSkillKey(props.activeSkill);
   const reference = props.activeSkill !== "builtin:continue" ? props.reference : null;
   const insertionPreview = props.preview?.changeType === "insert";
+  const streamState = props.busy ? "running" : props.errorMessage
+    ? "error"
+    : props.preview
+      ? "ready"
+      : "idle";
   const previewOriginalHeading = insertionPreview ? t("panel.ai.previewInsertionTarget") : t("panel.ai.previewOriginal");
   const previewOriginalBody = insertionPreview ? t("panel.ai.previewInsertionBody") : props.preview?.originalText ?? "";
   const previewOriginalBodyClassName = insertionPreview ? "preview-body preview-body--anchor" : "preview-body preview-body--original";
@@ -63,6 +68,14 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         <p className="panel-subtitle">{t("panel.ai.subtitle")}</p>
       </div>
     </header>
+
+    <div className={`ai-stream-strip ai-stream-strip--${streamState}`} role="status" aria-live="polite">
+      <span className="ai-stream-strip__dot" aria-hidden="true" />
+      <div className="ai-stream-strip__content">
+        <p className="ai-stream-strip__title">{t("panel.ai.stream.title")}</p>
+        <p className="ai-stream-strip__state">{t(`panel.ai.stream.${streamState}`)}</p>
+      </div>
+    </div>
 
     <div className="panel-section skill-launcher">
       <div className="panel-row">
@@ -145,6 +158,10 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
     {props.preview ? (
       <div className="panel-section preview-stack">
         <p className="panel-meta">{t("panel.ai.ready")}</p>
+        <div className="panel-row panel-row--meta">
+          <span className="panel-meta">{t("panel.ai.previewModeValueLabel", { mode: t(`panel.ai.previewModeValue.${props.preview.changeType}`) })}</span>
+          <span className="panel-meta">{t("panel.ai.previewRunId", { runId: props.preview.runId.slice(0, 8) })}</span>
+        </div>
         <div className="preview-grid">
           <article className="preview-column preview-column--original">
             <h3 className="preview-heading">{previewOriginalHeading}</h3>
@@ -158,6 +175,20 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         <div className="panel-actions">
           <Button tone="primary" onClick={props.onAccept}>{t("panel.ai.accept")}</Button>
           <Button tone="ghost" onClick={props.onReject}>{t("panel.ai.reject")}</Button>
+        </div>
+      </div>
+    ) : props.busy ? (
+      <div className="panel-section ai-stream-progress" aria-live="polite">
+        <p className="panel-meta">{t("panel.ai.stream.caption")}</p>
+        <ul className="ai-stream-progress__stages">
+          <li>{t("panel.ai.stream.stage.context")}</li>
+          <li>{t("panel.ai.stream.stage.reasoning")}</li>
+          <li>{t("panel.ai.stream.stage.diff")}</li>
+        </ul>
+        <div className="ai-stream-progress__skeleton" aria-hidden="true">
+          <span className="ai-stream-progress__line ai-stream-progress__line--long" />
+          <span className="ai-stream-progress__line ai-stream-progress__line--mid" />
+          <span className="ai-stream-progress__line ai-stream-progress__line--short" />
         </div>
       </div>
     ) : (

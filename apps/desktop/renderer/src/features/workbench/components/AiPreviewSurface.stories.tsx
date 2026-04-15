@@ -101,7 +101,7 @@ export const ContinueReady: Story = {
   },
 };
 
-export const Loading: Story = {
+export const Streaming: Story = {
   args: {
     ...ReferenceOnly.args,
     busy: true,

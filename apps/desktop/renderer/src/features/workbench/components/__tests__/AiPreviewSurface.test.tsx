@@ -11,6 +11,35 @@ const reference = {
 };
 
 describe("AiPreviewSurface", () => {
+  it("shows streaming progress stages while busy without a preview", () => {
+    render(
+      <AiPreviewSurface
+        activeSkill="builtin:polish"
+        busy={true}
+        errorMessage={null}
+        generateDisabled={true}
+        instruction=""
+        instructionHint="已选 10 个字符"
+        model="gpt-4.1-mini"
+        onAccept={() => undefined}
+        onClearReference={() => undefined}
+        onGenerate={() => undefined}
+        onInstructionChange={() => undefined}
+        onModelChange={() => undefined}
+        onReject={() => undefined}
+        onSkillChange={() => undefined}
+        preview={null}
+        reference={reference}
+      />,
+    );
+
+    expect(screen.getByText("Neural Stream")).toBeInTheDocument();
+    expect(screen.getByText("正在分析上下文并生成建议……")).toBeInTheDocument();
+    expect(screen.getByText("提取选区与上下文")).toBeInTheDocument();
+    expect(screen.getByText("规划改写策略")).toBeInTheDocument();
+    expect(screen.getByText("生成可写回预览")).toBeInTheDocument();
+  });
+
   it("renders continue previews as insertion instead of replacement", () => {
     render(
       <AiPreviewSurface
