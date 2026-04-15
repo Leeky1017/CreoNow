@@ -80,6 +80,24 @@ const DEFAULT_NODE_COLORS: Record<KnowledgeGraphNodeType, string> = {
 
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 2.4;
+const FORCE_LAYOUT_NODE_LIMIT = 180;
+
+export function shouldUseForceLayout(nodeCount: number): boolean {
+  return nodeCount <= FORCE_LAYOUT_NODE_LIMIT;
+}
+
+export function resolveForceLayoutIterations(nodeCount: number): number {
+  if (nodeCount <= 24) {
+    return 120;
+  }
+  if (nodeCount <= 60) {
+    return 92;
+  }
+  if (nodeCount <= 120) {
+    return 68;
+  }
+  return 40;
+}
 
 function clamp(value: number, min: number, max: number): number {
   if (value < min) {
@@ -122,7 +140,11 @@ function createInitialLayoutNodes(
   });
 }
 
-function runForceLayout(nodes: LayoutNode[], edges: KnowledgeGraphEdge[]): LayoutNode[] {
+function runForceLayout(
+  nodes: LayoutNode[],
+  edges: KnowledgeGraphEdge[],
+  iterations: number,
+): LayoutNode[] {
   if (nodes.length <= 1) {
     return nodes;
   }
@@ -139,8 +161,6 @@ function runForceLayout(nodes: LayoutNode[], edges: KnowledgeGraphEdge[]): Layou
   const centeringStrength = 0.006;
   const damping = 0.86;
   const timeStep = 0.9;
-  const iterations = 120;
-
   for (let iteration = 0; iteration < iterations; iteration += 1) {
     for (let i = 0; i < nextNodes.length; i += 1) {
       const nodeA = nextNodes[i];
@@ -228,7 +248,14 @@ export function KnowledgeGraphCanvas(props: KnowledgeGraphCanvasProps) {
       ]),
     );
     const seededNodes = createInitialLayoutNodes(props.nodes, width, height, persistedPositions);
-    setLayoutNodes(runForceLayout(seededNodes, props.edges));
+    // Guard rail for very large graphs: skip O(n²) force layout to keep the panel responsive.
+    if (!shouldUseForceLayout(seededNodes.length)) {
+      setLayoutNodes(seededNodes);
+      return;
+    }
+    setLayoutNodes(
+      runForceLayout(seededNodes, props.edges, resolveForceLayoutIterations(seededNodes.length)),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.nodes, props.edges, width, height]);
 

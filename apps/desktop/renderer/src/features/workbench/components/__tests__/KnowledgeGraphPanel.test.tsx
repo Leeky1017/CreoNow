@@ -144,5 +144,6 @@ describe("KnowledgeGraphPanel", () => {
 
     fireEvent.change(screen.getByTestId("knowledge-graph-search"), { target: { value: "不存在关键词" } });
     expect(screen.getByTestId("knowledge-graph-no-match")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "显示全部" })).not.toBeInTheDocument();
   });
 });

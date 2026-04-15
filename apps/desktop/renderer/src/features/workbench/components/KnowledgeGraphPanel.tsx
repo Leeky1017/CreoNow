@@ -119,6 +119,10 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
     () => filteredNodesByQuery.filter((node) => activeTypeFilters[node.type]),
     [activeTypeFilters, filteredNodesByQuery],
   );
+  const hasQueryMatch = filteredNodesByQuery.length > 0;
+  const hasTypeMatch = filteredNodes.length > 0;
+  const shouldShowQueryEmptyState = !hasQueryMatch;
+  const shouldShowTypeFilterEmptyState = hasQueryMatch && !hasTypeMatch;
   const filteredEdges = useMemo(
     () =>
       edges.filter(
@@ -299,14 +303,14 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
         </div>
       ) : null}
 
-      {status === "ready" && nodes.length > 0 && filteredNodes.length === 0 ? (
+      {status === "ready" && nodes.length > 0 && shouldShowQueryEmptyState ? (
         <div className="knowledge-graph-panel__state" data-testid="knowledge-graph-no-match">
           <p>{t("sidebar.knowledgeGraph.noMatch.title")}</p>
           <p>{t("sidebar.knowledgeGraph.noMatch.desc")}</p>
         </div>
       ) : null}
 
-      {status === "ready" && nodes.length > 0 && view === "graph" ? (
+      {status === "ready" && nodes.length > 0 && !shouldShowQueryEmptyState && view === "graph" ? (
         <>
           <div
             style={{
@@ -341,7 +345,7 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
             ))}
           </div>
 
-          {filteredNodes.length === 0 ? (
+          {shouldShowTypeFilterEmptyState ? (
             <div
               style={{
                 alignItems: "flex-start",
