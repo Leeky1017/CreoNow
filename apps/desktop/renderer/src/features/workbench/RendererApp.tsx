@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { IpcResponseData } from "@shared/types/ipc-generated";
 
 import { DashboardPage, type Project as DashboardProject } from "@/features/dashboard/DashboardPage";
+import { WelcomeScreen } from "@/features/onboarding/WelcomeScreen";
 import { WorkbenchApp } from "@/features/workbench/WorkbenchApp";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { getPreloadApi } from "@/lib/preloadApi";
@@ -16,6 +17,8 @@ type DashboardRetryAction =
   | null;
 
 const PROJECT_SWITCH_PROGRESS_DELAY_MS = 1_000;
+const WELCOME_COMPLETED_KEY = "creonow:onboarding:welcome-completed";
+const WELCOME_SCENARIOS_KEY = "creonow:onboarding:welcome-scenarios";
 
 type ProjectListItem = IpcResponseData<"project:project:list">["items"][number];
 type ProjectStatsItem = {
@@ -141,6 +144,7 @@ export function RendererApp() {
   const [showProjectSwitchProgress, setShowProjectSwitchProgress] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [retryAction, setRetryAction] = useState<DashboardRetryAction>({ kind: "load" });
+  const [showWelcome, setShowWelcome] = useState(false);
   const switchInFlightRef = useRef(false);
   const createInFlightRef = useRef(false);
   const switchProgressTimerRef = useRef<number | null>(null);
@@ -315,6 +319,24 @@ export function RendererApp() {
     await handleOpenProject(retryAction.projectId);
   }, [handleCreateProject, handleOpenProject, loadProjects, retryAction]);
 
+  useEffect(() => {
+    if (view !== "dashboard" || dashboardLoading) {
+      return;
+    }
+    if (errorMessage !== null) {
+      setShowWelcome(false);
+      return;
+    }
+    const completed = window.localStorage.getItem(WELCOME_COMPLETED_KEY) === "1";
+    setShowWelcome(completed === false && projects.length === 0);
+  }, [dashboardLoading, errorMessage, projects.length, view]);
+
+  const handleWelcomeComplete = useCallback((selectedScenarios: string[]) => {
+    window.localStorage.setItem(WELCOME_COMPLETED_KEY, "1");
+    window.localStorage.setItem(WELCOME_SCENARIOS_KEY, JSON.stringify(selectedScenarios));
+    setShowWelcome(false);
+  }, []);
+
   const dashboardInteractionsDisabled = isProjectSwitching || isProjectCreating;
 
   if (view === "workbench") {
@@ -330,30 +352,33 @@ export function RendererApp() {
   }
 
   return (
-    <DashboardPage
-      projects={projects}
-      loading={dashboardLoading}
-      disabled={dashboardInteractionsDisabled}
-      progressActive={showProjectSwitchProgress}
-      error={errorMessage}
-      onOpenProject={(projectId) => {
-        if (switchInFlightRef.current || createInFlightRef.current) {
-          return;
-        }
-        void handleOpenProject(projectId);
-      }}
-      onCreateProject={() => {
-        if (switchInFlightRef.current || createInFlightRef.current) {
-          return;
-        }
-        void handleCreateProject();
-      }}
-      onRetryError={() => {
-        if (switchInFlightRef.current || createInFlightRef.current) {
-          return;
-        }
-        void handleRetryAction();
-      }}
-    />
+    <>
+      <DashboardPage
+        projects={projects}
+        loading={dashboardLoading}
+        disabled={dashboardInteractionsDisabled}
+        progressActive={showProjectSwitchProgress}
+        error={errorMessage}
+        onOpenProject={(projectId) => {
+          if (switchInFlightRef.current || createInFlightRef.current) {
+            return;
+          }
+          void handleOpenProject(projectId);
+        }}
+        onCreateProject={() => {
+          if (switchInFlightRef.current || createInFlightRef.current) {
+            return;
+          }
+          void handleCreateProject();
+        }}
+        onRetryError={() => {
+          if (switchInFlightRef.current || createInFlightRef.current) {
+            return;
+          }
+          void handleRetryAction();
+        }}
+      />
+      {showWelcome ? <WelcomeScreen onComplete={handleWelcomeComplete} /> : null}
+    </>
   );
 }

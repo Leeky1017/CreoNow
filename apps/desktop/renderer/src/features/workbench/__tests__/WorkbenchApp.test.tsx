@@ -3676,6 +3676,41 @@ describe("WorkbenchApp", () => {
     expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).toBe("false");
   });
 
+  it("expands right panel and focuses quality tab when conflict quick tool is clicked", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
+    expect(screen.queryByLabelText("右侧面板")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "人物" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agent 冲突检测" }));
+
+    expect(await screen.findByLabelText("右侧面板")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "质量" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("normalizes export failures to human-friendly messages", async () => {
+    const api = window.api as PreloadApi;
+    api.export = {
+      docx: vi.fn(async () => ({ ok: true as const, data: { bytesWritten: 128, relativePath: "exports/demo.docx" } })),
+      markdown: vi.fn(async () => ({ ok: true as const, data: { bytesWritten: 96, relativePath: "exports/demo.md" } })),
+      pdf: vi.fn(async () => ({ ok: false as const, error: { code: "DB_ERROR" as const, message: "SQLITE_CONSTRAINT failed" } })),
+      txt: vi.fn(async () => ({ ok: true as const, data: { bytesWritten: 72, relativePath: "exports/demo.txt" } })),
+    };
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "人物" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出设定集" }));
+    fireEvent.click(screen.getByTestId("export-format-pdf"));
+
+    const errorNode = await screen.findByTestId("export-modal-error");
+    expect(errorNode).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+    expect(errorNode).not.toHaveTextContent("SQLITE_CONSTRAINT");
+  });
+
   it("toggles zen mode via button, hides sidebar/panel/status-bar, and persists to localStorage", async () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
