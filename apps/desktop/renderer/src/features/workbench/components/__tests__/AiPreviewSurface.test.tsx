@@ -17,6 +17,7 @@ describe("AiPreviewSurface", () => {
         activeSkill="builtin:polish"
         busy={true}
         errorMessage={null}
+        generating={true}
         generateDisabled={true}
         instruction=""
         instructionHint="已选 10 个字符"
@@ -30,6 +31,7 @@ describe("AiPreviewSurface", () => {
         onSkillChange={() => undefined}
         preview={null}
         reference={reference}
+        streamError={false}
       />,
     );
 
@@ -47,6 +49,7 @@ describe("AiPreviewSurface", () => {
         activeSkill="builtin:rewrite"
         busy={false}
         errorMessage={null}
+        generating={false}
         generateDisabled={false}
         instruction="改成更冷峻的语气"
         instructionHint="请输入改写指令"
@@ -69,6 +72,7 @@ describe("AiPreviewSurface", () => {
           suggestedText: "建议片段",
         }}
         reference={reference}
+        streamError={false}
       />,
     );
 
@@ -83,6 +87,7 @@ describe("AiPreviewSurface", () => {
         activeSkill="builtin:polish"
         busy={false}
         errorMessage="请求失败，请重试。"
+        generating={false}
         generateDisabled={false}
         instruction=""
         instructionHint="已选 10 个字符"
@@ -96,6 +101,7 @@ describe("AiPreviewSurface", () => {
         onSkillChange={() => undefined}
         preview={null}
         reference={reference}
+        streamError={true}
       />,
     );
 
@@ -109,6 +115,7 @@ describe("AiPreviewSurface", () => {
         activeSkill="builtin:continue"
         busy={false}
         errorMessage={null}
+        generating={false}
         generateDisabled={false}
         instruction=""
         instructionHint="将基于光标前 7 个字符续写。"
@@ -131,6 +138,7 @@ describe("AiPreviewSurface", () => {
           suggestedText: "新的段落在这里继续展开。",
         }}
         reference={null}
+        streamError={false}
       />,
     );
 
@@ -147,6 +155,7 @@ describe("AiPreviewSurface", () => {
         activeSkill="builtin:polish"
         busy={false}
         errorMessage={null}
+        generating={false}
         generateDisabled={false}
         instruction="润色这段文字"
         instructionHint="已选 10 个字符"
@@ -160,6 +169,7 @@ describe("AiPreviewSurface", () => {
         onSkillChange={() => undefined}
         preview={null}
         reference={reference}
+        streamError={false}
       />,
     );
 

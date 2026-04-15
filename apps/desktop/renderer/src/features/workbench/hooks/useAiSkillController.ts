@@ -20,6 +20,7 @@ import type { AutosaveController } from "./useAutosaveController";
 import type { MutableRef } from "./types";
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
+type AiSkillOperation = "generate" | "accept" | "reject" | null;
 
 export interface AiSkillControllerDeps {
   api: PreloadApi;
@@ -37,11 +38,13 @@ export interface AiSkillControllerDeps {
 export interface AiSkillController {
   activeSkill: WorkbenchSkillId;
   busy: boolean;
+  currentOperation: AiSkillOperation;
   handleAcceptPreview: () => Promise<void>;
   handleGeneratePreview: () => Promise<void>;
   handleRejectPreview: () => Promise<void>;
   instruction: string;
   isLatestBusyOperation: (operationId: number) => boolean;
+  lastOperation: AiSkillOperation;
   model: string;
   reserveBusyOperation: () => number;
   resetAiConversation: () => void;
@@ -78,6 +81,8 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [instruction, setInstruction] = useState("");
   const [busy, setBusy] = useState(false);
+  const [currentOperation, setCurrentOperation] = useState<AiSkillOperation>(null);
+  const [lastOperation, setLastOperation] = useState<AiSkillOperation>(null);
 
   const reserveBusyOperation = useCallback(() => {
     latestBusyOperationRef.current += 1;
@@ -98,6 +103,8 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
   const resetAiConversation = useCallback(() => {
     setInstruction("");
     setPreview(null);
+    setCurrentOperation(null);
+    setLastOperation(null);
     autosave.clearAcceptSaveFailure();
     autosave.setWorkbenchError(null, null);
     setStickySelection(null);
@@ -118,6 +125,8 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     const acceptStartedAtEditorContextRevision = editorContextRevisionRef.current;
 
     try {
+      setCurrentOperation("accept");
+      setLastOperation("accept");
       setBusy(true);
       autosave.setWorkbenchError(null, null);
       autosave.setSaveUiState("saving");
@@ -174,6 +183,7 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     } finally {
       if (isLatestBusyOperation(busyOperationId)) {
         setBusy(false);
+        setCurrentOperation(null);
       }
     }
   }, [api, autosave.isCurrentContextToken, autosave.clearPendingAutosaveTimer, autosave.pendingAutosaveDraftRef, autosave.clearAutosaveController, autosave.acceptSaveRetryControllerRef, autosave.reserveSaveRequest, autosave.clearAcceptSaveRetryController, autosave.setWorkbenchError, autosave.setSaveUiState, autosave.queueSaveRequest, autosave.runWithoutAutosave, autosave.isLatestSaveRequest, autosave.setLastSavedAt, autosave.armSavedStateDecayTimer, editorBridge, editorContextRevisionRef, isLatestBusyOperation, reserveBusyOperation, setPreview, t, userEditRevisionRef]);
@@ -203,6 +213,8 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     const previewContext = preview.context;
     const busyOperationId = reserveBusyOperation();
     try {
+      setCurrentOperation("reject");
+      setLastOperation("reject");
       setBusy(true);
       await rejectAiPreview(api, preview);
       if (autosave.isCurrentContextToken(previewContext)) {
@@ -217,6 +229,7 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     } finally {
       if (isLatestBusyOperation(busyOperationId)) {
         setBusy(false);
+        setCurrentOperation(null);
       }
     }
   }, [api, autosave.isCurrentContextToken, autosave.clearAcceptSaveRetryController, autosave.clearAcceptSaveFailure, autosave.runWithoutAutosave, autosave.setWorkbenchError, isLatestBusyOperation, preview, reserveBusyOperation, setPreview, t]);
@@ -260,6 +273,8 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
 
     const busyOperationId = reserveBusyOperation();
     try {
+      setCurrentOperation("generate");
+      setLastOperation("generate");
       setBusy(true);
       autosave.setWorkbenchError(null, null);
       const nextPreview = nextSkillId === "builtin:continue"
@@ -298,6 +313,7 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     } finally {
       if (isLatestBusyOperation(busyOperationId)) {
         setBusy(false);
+        setCurrentOperation(null);
       }
     }
   }, [activeContextTokenRef, activeSkill, api, autosave.clearAcceptSaveFailure, autosave.isCurrentContextToken, autosave.setWorkbenchError, editorBridge, instruction, isLatestBusyOperation, model, reserveBusyOperation, setPreview, setStickySelection, stickySelection, t, userEditRevisionRef]);
@@ -319,11 +335,13 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
   return {
     activeSkill,
     busy,
+    currentOperation,
     handleAcceptPreview,
     handleGeneratePreview,
     handleRejectPreview,
     instruction,
     isLatestBusyOperation,
+    lastOperation,
     model,
     reserveBusyOperation,
     resetAiConversation,

@@ -948,10 +948,18 @@ function WorkbenchShell() {
 
   const renderRightPanelContent = () => {
     if (layout.activeRightPanel === "ai") {
+      const isGeneratingPreview = aiSkill.currentOperation === "generate";
+      const streamError = autosave.errorMessage !== null
+        && autosave.errorMessageSourceRef.current === "general"
+        && aiSkill.currentOperation === null
+        && aiSkill.lastOperation === "generate"
+        && preview === null;
+
       return <AiPreviewSurface
         activeSkill={aiSkill.activeSkill}
         busy={aiSkill.busy || isVersionPreviewActive}
         errorMessage={autosave.errorMessage}
+        generating={isGeneratingPreview}
         generateDisabled={aiSkill.activeSkill === "builtin:continue" ? continueReady === false : stickySelection === null}
         instruction={aiSkill.instruction}
         instructionHint={instructionHint}
@@ -965,6 +973,7 @@ function WorkbenchShell() {
         onSkillChange={aiSkill.selectAiSkill}
         preview={preview}
         reference={stickySelection}
+        streamError={streamError}
       />;
     }
 

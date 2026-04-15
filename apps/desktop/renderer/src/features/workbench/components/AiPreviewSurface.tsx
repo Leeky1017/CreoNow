@@ -13,6 +13,7 @@ interface AiPreviewSurfaceProps {
   activeSkill: WorkbenchSkillId;
   busy: boolean;
   errorMessage: string | null;
+  generating: boolean;
   generateDisabled: boolean;
   instruction: string;
   instructionHint: string;
@@ -26,6 +27,7 @@ interface AiPreviewSurfaceProps {
   onSkillChange: (skillId: WorkbenchSkillId) => void;
   preview: AiPreview | null;
   reference: SelectionRef | null;
+  streamError: boolean;
 }
 
 function truncateReference(text: string): string {
@@ -51,12 +53,12 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
   const skillKey = toSkillKey(props.activeSkill);
   const reference = props.activeSkill !== "builtin:continue" ? props.reference : null;
   const insertionPreview = props.preview?.changeType === "insert";
-  const streamState = props.preview
-    ? "ready"
-    : props.busy
-      ? "running"
-      : props.errorMessage
-        ? "error"
+  const streamState = props.generating
+    ? "running"
+    : props.streamError
+      ? "error"
+      : props.preview
+        ? "ready"
         : "idle";
   const previewOriginalHeading = insertionPreview ? t("panel.ai.previewInsertionTarget") : t("panel.ai.previewOriginal");
   const previewOriginalBody = insertionPreview ? t("panel.ai.previewInsertionBody") : props.preview?.originalText ?? "";
@@ -156,7 +158,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
       />
       <p className="panel-meta">{props.instructionHint}</p>
       <Button tone="primary" disabled={props.busy || props.generateDisabled} onClick={props.onGenerate}>
-        {props.busy ? t("panel.ai.generating") : t("panel.ai.generate")}
+        {props.generating ? t("panel.ai.generating") : t("panel.ai.generate")}
       </Button>
     </div>
 
@@ -184,7 +186,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
           <Button tone="ghost" onClick={props.onReject}>{t("panel.ai.reject")}</Button>
         </div>
       </div>
-    ) : props.busy ? (
+    ) : props.generating ? (
       <div className="panel-section ai-stream-progress">
         <p className="panel-meta">{t("panel.ai.stream.caption")}</p>
         <ul className="ai-stream-progress__stages">

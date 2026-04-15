@@ -22,6 +22,7 @@ const baseArgs = {
   activeSkill: "builtin:polish" as const,
   busy: false,
   errorMessage: null,
+  generating: false,
   generateDisabled: false,
   instruction: "润色这段文字，让节奏更紧凑。",
   instructionHint: "已选 21 个字符",
@@ -34,12 +35,13 @@ const baseArgs = {
   onReject: () => undefined,
   onSkillChange: () => undefined,
   reference,
+  streamError: false,
 };
 
 export const Ready: Story = {
   args: {
     ...baseArgs,
-    preview: {
+  preview: {
       changeType: "replace",
       context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
       executionId: "exec-demo",
@@ -105,6 +107,7 @@ export const Streaming: Story = {
   args: {
     ...ReferenceOnly.args,
     busy: true,
+    generating: true,
   },
 };
 
@@ -112,5 +115,6 @@ export const ErrorState: Story = {
   args: {
     ...ReferenceOnly.args,
     errorMessage: "AI 服务暂时不可用，请稍后再试。",
+    streamError: true,
   },
 };
