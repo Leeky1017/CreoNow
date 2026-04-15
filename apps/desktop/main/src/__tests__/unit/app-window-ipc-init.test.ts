@@ -88,6 +88,11 @@ const mocks = vi.hoisted(() => {
   const registerProjectIpcHandlers = vi.fn();
   const registerSettingsIpcHandlers = vi.fn();
   const createProjectContextRebinder = vi.fn();
+  const createEpisodicMemoryService = vi.fn(() => ({
+    listSemanticMemory: vi.fn(),
+    evictProjectCache: vi.fn(),
+  }));
+  const createSqliteEpisodeRepository = vi.fn(() => ({}));
 
   return {
     app,
@@ -104,6 +109,8 @@ const mocks = vi.hoisted(() => {
     registerProjectIpcHandlers,
     registerSettingsIpcHandlers,
     createProjectContextRebinder,
+    createEpisodicMemoryService,
+    createSqliteEpisodeRepository,
     initDb: vi.fn(() => ({ ok: true, db: { close: vi.fn() } })),
     createMainLogger: vi.fn(() => ({ info: vi.fn(), error: vi.fn(), logPath: "<test>" })),
     applyBrowserWindowSecurityPolicy: vi.fn(),
@@ -202,6 +209,10 @@ vi.mock("../../services/projects/projectLifecycle", () => ({
 vi.mock("../../services/project/contextRebinder", () => ({
   createProjectContextRebinder: mocks.createProjectContextRebinder,
 }));
+vi.mock("../../services/memory/episodicMemoryService", () => ({
+  createEpisodicMemoryService: mocks.createEpisodicMemoryService,
+  createSqliteEpisodeRepository: mocks.createSqliteEpisodeRepository,
+}));
 vi.mock("../../services/kg/trieCache", () => ({
   trieCacheInvalidate: vi.fn(),
 }));
@@ -275,6 +286,13 @@ describe("index.ts app/window/ipc 初始化", () => {
     expect(mocks.registerProjectIpcHandlers).toHaveBeenCalledTimes(1);
     expect(mocks.registerSettingsIpcHandlers).toHaveBeenCalledTimes(1);
     expect(mocks.createProjectContextRebinder).toHaveBeenCalledTimes(1);
+    expect(mocks.createProjectContextRebinder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        episodicMemoryCache: expect.objectContaining({
+          evictProjectCache: expect.any(Function),
+        }),
+      }),
+    );
   });
 
   it("second-instance 事件会恢复并聚焦已有窗口", async () => {

@@ -341,6 +341,7 @@ export type EpisodicMemoryService = {
     deletedEpisodes: number;
     deletedRules: number;
   }>;
+  evictProjectCache: (projectId: string) => void;
   distillSemanticMemory: (args: {
     projectId: string;
     trigger?: DistillTrigger;
@@ -2623,6 +2624,27 @@ export function createEpisodicMemoryService(
     ...createEpisodicTriggerOps(ctx),
     ...createEpisodicSemanticOps(ctx),
     ...createEpisodicManagementOps(ctx),
+    evictProjectCache: (projectId) => {
+      const normalizedProjectId = projectId.trim();
+      if (normalizedProjectId.length === 0) {
+        return;
+      }
+
+      for (let index = retryQueue.length - 1; index >= 0; index -= 1) {
+        if (retryQueue[index]?.projectId === normalizedProjectId) {
+          retryQueue.splice(index, 1);
+        }
+      }
+
+      knownProjectIds.delete(normalizedProjectId);
+      pendingEpisodeCountByProject.delete(normalizedProjectId);
+      retryPendingByProject.delete(normalizedProjectId);
+      scheduledBatchDistillProjects.delete(normalizedProjectId);
+      distillingProjects.delete(normalizedProjectId);
+      semanticRulesByProject.delete(normalizedProjectId);
+      conflictQueueByProject.delete(normalizedProjectId);
+      distillIoDegradedProjects.delete(normalizedProjectId);
+    },
   };
 
   return service;

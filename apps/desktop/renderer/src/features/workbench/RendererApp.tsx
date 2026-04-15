@@ -15,6 +15,8 @@ type DashboardRetryAction =
   | { kind: "switch"; projectId: string }
   | null;
 
+const PROJECT_SWITCH_PROGRESS_DELAY_MS = 1_000;
+
 type ProjectListItem = IpcResponseData<"project:project:list">["items"][number];
 type ProjectStatsItem = {
   projectId: string;
@@ -135,12 +137,34 @@ export function RendererApp() {
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [isProjectSwitching, setIsProjectSwitching] = useState(false);
+  const [isProjectCreating, setIsProjectCreating] = useState(false);
+  const [showProjectSwitchProgress, setShowProjectSwitchProgress] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [retryAction, setRetryAction] = useState<DashboardRetryAction>({ kind: "load" });
   const switchInFlightRef = useRef(false);
+  const createInFlightRef = useRef(false);
+  const switchProgressTimerRef = useRef<number | null>(null);
+
+  const clearProjectSwitchProgress = useCallback(() => {
+    if (switchProgressTimerRef.current !== null) {
+      window.clearTimeout(switchProgressTimerRef.current);
+      switchProgressTimerRef.current = null;
+    }
+    setShowProjectSwitchProgress(false);
+  }, []);
+
+  const scheduleProjectSwitchProgress = useCallback(() => {
+    clearProjectSwitchProgress();
+    switchProgressTimerRef.current = window.setTimeout(() => {
+      switchProgressTimerRef.current = null;
+      setShowProjectSwitchProgress(true);
+    }, PROJECT_SWITCH_PROGRESS_DELAY_MS);
+  }, [clearProjectSwitchProgress]);
 
   const loadProjects = useCallback(async () => {
     setDashboardLoading(true);
+    setErrorMessage(null);
+    setRetryAction(null);
     try {
       const [listResult, statsResult] = await Promise.all([
         api.project.list({ includeArchived: false }),
@@ -168,6 +192,15 @@ export function RendererApp() {
       setDashboardLoading(false);
     }
   }, [api.project, t]);
+
+  useEffect(() => {
+    return () => {
+      if (switchProgressTimerRef.current !== null) {
+        window.clearTimeout(switchProgressTimerRef.current);
+        switchProgressTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -202,13 +235,12 @@ export function RendererApp() {
     };
   }, [api.project, loadProjects, t]);
 
-  const handleOpenProject = useCallback(async (projectId: string) => {
-    if (switchInFlightRef.current) {
-      return;
-    }
+  const performProjectSwitch = useCallback(async (projectId: string) => {
     switchInFlightRef.current = true;
     setIsProjectSwitching(true);
     setErrorMessage(null);
+    setRetryAction(null);
+    scheduleProjectSwitchProgress();
     const traceId = `dashboard-${Date.now().toString(36)}`;
     try {
       const switchResult = await api.project.switchProject({
@@ -231,23 +263,39 @@ export function RendererApp() {
     } finally {
       switchInFlightRef.current = false;
       setIsProjectSwitching(false);
+      clearProjectSwitchProgress();
     }
-  }, [api.project, currentProjectId, t]);
+  }, [api.project, clearProjectSwitchProgress, currentProjectId, scheduleProjectSwitchProgress, t]);
+
+  const handleOpenProject = useCallback(async (projectId: string) => {
+    if (switchInFlightRef.current || createInFlightRef.current) {
+      return;
+    }
+    await performProjectSwitch(projectId);
+  }, [performProjectSwitch]);
 
   const handleCreateProject = useCallback(async () => {
-    if (switchInFlightRef.current) {
+    if (switchInFlightRef.current || createInFlightRef.current) {
       return;
     }
+    createInFlightRef.current = true;
+    setIsProjectCreating(true);
     setErrorMessage(null);
-    const createResult = await api.project.create({ name: t("project.defaultName"), type: "novel" });
-    if (!createResult.ok) {
-      setErrorMessage(getHumanErrorMessage(createResult.error, t));
-      setRetryAction({ kind: "create" });
-      return;
-    }
+    setRetryAction(null);
+    try {
+      const createResult = await api.project.create({ name: t("project.defaultName"), type: "novel" });
+      if (!createResult.ok) {
+        setErrorMessage(getHumanErrorMessage(createResult.error, t));
+        setRetryAction({ kind: "create" });
+        return;
+      }
 
-    await handleOpenProject(createResult.data.projectId);
-  }, [api.project, handleOpenProject, t]);
+      await performProjectSwitch(createResult.data.projectId);
+    } finally {
+      createInFlightRef.current = false;
+      setIsProjectCreating(false);
+    }
+  }, [api.project, performProjectSwitch, t]);
 
   const handleRetryAction = useCallback(async () => {
     if (!retryAction) {
@@ -267,7 +315,7 @@ export function RendererApp() {
     await handleOpenProject(retryAction.projectId);
   }, [handleCreateProject, handleOpenProject, loadProjects, retryAction]);
 
-  const dashboardBusy = dashboardLoading || isProjectSwitching;
+  const dashboardInteractionsDisabled = isProjectSwitching || isProjectCreating;
 
   if (view === "workbench") {
     return <WorkbenchApp />;
@@ -282,31 +330,30 @@ export function RendererApp() {
   }
 
   return (
-    <>
-      {isProjectSwitching ? <p data-testid="dashboard-project-switching">{t("dashboard.loading")}</p> : null}
-      <DashboardPage
-        projects={projects}
-        loading={dashboardBusy}
-        error={errorMessage}
-        onOpenProject={(projectId) => {
-          if (switchInFlightRef.current) {
-            return;
-          }
-          void handleOpenProject(projectId);
-        }}
-        onCreateProject={() => {
-          if (switchInFlightRef.current) {
-            return;
-          }
-          void handleCreateProject();
-        }}
-        onRetryError={() => {
-          if (switchInFlightRef.current) {
-            return;
-          }
-          void handleRetryAction();
-        }}
-      />
-    </>
+    <DashboardPage
+      projects={projects}
+      loading={dashboardLoading}
+      disabled={dashboardInteractionsDisabled}
+      progressActive={showProjectSwitchProgress}
+      error={errorMessage}
+      onOpenProject={(projectId) => {
+        if (switchInFlightRef.current || createInFlightRef.current) {
+          return;
+        }
+        void handleOpenProject(projectId);
+      }}
+      onCreateProject={() => {
+        if (switchInFlightRef.current || createInFlightRef.current) {
+          return;
+        }
+        void handleCreateProject();
+      }}
+      onRetryError={() => {
+        if (switchInFlightRef.current || createInFlightRef.current) {
+          return;
+        }
+        void handleRetryAction();
+      }}
+    />
   );
 }

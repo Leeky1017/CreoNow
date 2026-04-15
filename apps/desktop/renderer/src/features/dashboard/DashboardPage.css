@@ -1,9 +1,41 @@
 .cn-dashboard {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 100%;
   background: var(--color-bg-base);
   font-family: var(--font-family-ui);
+}
+
+.cn-dashboard__switch-progress {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 2px;
+  overflow: hidden;
+  background: var(--color-bg-muted);
+}
+
+.cn-dashboard__switch-progress-bar {
+  width: 32%;
+  height: 100%;
+  background: var(--color-accent-strong);
+  animation: cn-dashboard-switch-progress 1.1s var(--ease-default) infinite;
+  transform-origin: left center;
+}
+
+@keyframes cn-dashboard-switch-progress {
+  0% {
+    transform: translateX(-120%) scaleX(0.85);
+  }
+
+  50% {
+    transform: translateX(140%) scaleX(1.1);
+  }
+
+  100% {
+    transform: translateX(360%) scaleX(0.9);
+  }
 }
 
 /* ── Header ────────────────────────────────── */
@@ -106,6 +138,16 @@
 
 .cn-dashboard__card.cn-button:hover {
   background: var(--color-bg-hover);
+}
+
+.cn-dashboard__card.cn-button:disabled,
+.cn-dashboard__filter-chip.cn-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.cn-dashboard__card.cn-button:disabled:hover {
+  background: transparent;
 }
 
 .cn-dashboard__card.cn-button:active {

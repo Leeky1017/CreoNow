@@ -28,6 +28,8 @@ const STAGE_LABEL_KEY: Record<ProjectStage, string> = {
 interface DashboardPageProps {
   projects?: Project[];
   loading?: boolean;
+  disabled?: boolean;
+  progressActive?: boolean;
   error?: string | null;
   onCreateProject?: () => void;
   onOpenProject?: (projectId: string) => void;
@@ -45,6 +47,8 @@ function normalizeUpdatedAt(value: number | string): number {
 export function DashboardPage({
   projects = [],
   loading = false,
+  disabled = false,
+  progressActive = false,
   error = null,
   onCreateProject,
   onOpenProject,
@@ -96,6 +100,11 @@ export function DashboardPage({
 
   return (
     <div className="cn-dashboard" data-testid="dashboard-page">
+      {progressActive ? (
+        <div className="cn-dashboard__switch-progress" data-testid="dashboard-project-switch-progress">
+          <div className="cn-dashboard__switch-progress-bar" />
+        </div>
+      ) : null}
       <header className="cn-dashboard__header">
         <div className="cn-dashboard__brand">
           <span className="cn-dashboard__brand-icon">
@@ -106,7 +115,7 @@ export function DashboardPage({
         <Button
           tone="primary"
           onClick={onCreateProject}
-          disabled={loading}
+          disabled={loading || disabled}
           data-testid="dashboard-create-project-btn"
         >
           <Plus size={14} />
@@ -128,6 +137,7 @@ export function DashboardPage({
               tone="ghost"
               className={cn("cn-dashboard__filter-chip", filter === item.key && "cn-dashboard__filter-chip--active")}
               onClick={() => setFilter(item.key)}
+              disabled={disabled}
               data-testid={`dashboard-filter-${item.key}`}
             >
               {item.label}
@@ -142,7 +152,7 @@ export function DashboardPage({
           <Button
             tone="secondary"
             onClick={onRetryError ?? onCreateProject}
-            disabled={loading}
+            disabled={loading || disabled}
             data-testid="dashboard-error-retry-btn"
           >
             {t("actions.retry")}
@@ -169,6 +179,7 @@ export function DashboardPage({
               key={project.id}
               project={project}
               onOpenProject={onOpenProject}
+              disabled={disabled}
             />
           ))}
         </div>
@@ -185,7 +196,7 @@ export function DashboardPage({
           title={t("dashboard.empty.title")}
           description={t("dashboard.empty.description")}
           action={
-            <Button tone="primary" onClick={onCreateProject} data-testid="dashboard-empty-create-btn">
+            <Button tone="primary" onClick={onCreateProject} disabled={disabled} data-testid="dashboard-empty-create-btn">
               <Plus size={14} />
               {t("dashboard.newProject")}
             </Button>
@@ -199,6 +210,7 @@ export function DashboardPage({
 function ProjectCard(props: {
   project: Project;
   onOpenProject?: (projectId: string) => void;
+  disabled?: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -223,6 +235,7 @@ function ProjectCard(props: {
       tone="ghost"
       className="cn-dashboard__card"
       onClick={() => props.onOpenProject?.(props.project.id)}
+      disabled={props.disabled}
       data-testid={`dashboard-project-card-${props.project.id}`}
     >
       <div className="cn-dashboard__card-icon">

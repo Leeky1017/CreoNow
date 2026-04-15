@@ -31,6 +31,7 @@ import { createMemoryService } from "../services/memory/memoryService";
 import {
   createEpisodicMemoryService,
   createSqliteEpisodeRepository,
+  type EpisodicMemoryService,
 } from "../services/memory/episodicMemoryService";
 import {
   recordSkillFeedbackAndLearn,
@@ -1183,6 +1184,7 @@ type AiIpcDeps = {
   projectSessionBinding?: ProjectSessionBindingRegistry;
   costTracker?: CostTracker;
   eventBus?: EventBusLike;
+  episodicMemoryService?: Pick<EpisodicMemoryService, "listSemanticMemory">;
 };
 
 type AiIpcContext = {
@@ -1488,7 +1490,8 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         })
       : undefined;
   const episodicMemoryServiceForContext =
-    deps.db !== null
+    deps.episodicMemoryService ??
+    (deps.db !== null
       ? createEpisodicMemoryService({
           repository: createSqliteEpisodeRepository({
             db: deps.db,
@@ -1496,7 +1499,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           }),
           logger: deps.logger,
         })
-      : undefined;
+      : undefined);
   const contextAssemblyService = createContextLayerAssemblyService(
     undefined,
     deps.db

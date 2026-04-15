@@ -16,6 +16,7 @@ import {
 import { DegradationCounter } from "../services/shared/degradationCounter";
 import type { CreonowWatchService } from "../services/context/watchService";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
+import type { EpisodicMemoryService } from "../services/memory/episodicMemoryService";
 
 export function registerContextIpcHandlers(deps: {
   ipcMain: IpcMain;
@@ -25,6 +26,7 @@ export function registerContextIpcHandlers(deps: {
   watchService: CreonowWatchService;
   projectSessionBinding?: ProjectSessionBindingRegistry;
   contextAssemblyService?: ContextLayerAssemblyService;
+  episodicMemoryService?: Pick<EpisodicMemoryService, "listSemanticMemory">;
 }): void {
   const degradationCounter = new DegradationCounter();
   const kgService =
@@ -43,7 +45,8 @@ export function registerContextIpcHandlers(deps: {
         })
       : undefined;
   const episodicMemoryService =
-    deps.db !== null
+    deps.episodicMemoryService ??
+    (deps.db !== null
       ? createEpisodicMemoryService({
           repository: createSqliteEpisodeRepository({
             db: deps.db,
@@ -51,7 +54,7 @@ export function registerContextIpcHandlers(deps: {
           }),
           logger: deps.logger,
         })
-      : undefined;
+      : undefined);
   const synopsisStore =
     deps.db !== null
       ? createSqliteSynopsisStore({

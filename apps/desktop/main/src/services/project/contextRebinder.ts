@@ -50,10 +50,9 @@ export interface KgTrieCachePort {
 /**
  * Minimal port for episodic memory in-memory cache eviction.
  *
- * @why L1 session cache eviction is planned (INV-4). Interface ready for future
- * implementation. Currently episodicMemoryService has no lightweight flush API —
- * only the destructive `clearProjectMemory` which deletes DB data.
- * This port will be connected when a non-destructive evict API is added.
+ * @why L1 session cache eviction keeps project-local semantic memory from leaking
+ * across switches without deleting persisted records (INV-4). The concrete adapter
+ * is `episodicMemoryService.evictProjectCache(projectId)`.
  */
 export interface EpisodicMemoryCachePort {
   evictProjectCache(projectId: string): void;

@@ -30,6 +30,14 @@ export const SingleProject: Story = {
   },
 };
 
+export const Switching: Story = {
+  args: {
+    projects: mockProjects,
+    disabled: true,
+    progressActive: true,
+  },
+};
+
 export const SwitchRetry: Story = {
   args: {
     projects: mockProjects,

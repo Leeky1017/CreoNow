@@ -151,6 +151,7 @@ function createMockEpisodicService(): EpisodicMemoryService {
       ok: true,
       data: { ok: true, deletedEpisodes: 10, deletedRules: 4 },
     }),
+    evictProjectCache: vi.fn(),
     distillSemanticMemory: vi.fn().mockResolvedValue({
       ok: true,
       data: { accepted: true, runId: "run-1" },

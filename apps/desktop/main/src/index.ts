@@ -52,6 +52,10 @@ import { createCostTracker } from "./services/ai/costTracker";
 import { estimateTokens } from "./services/context/tokenEstimation";
 import { createContextProjectScopedCache } from "./services/context/projectScopedCache";
 import { createCreonowWatchService } from "./services/context/watchService";
+import {
+  createEpisodicMemoryService,
+  createSqliteEpisodeRepository,
+} from "./services/memory/episodicMemoryService";
 import { createProjectContextRebinder } from "./services/project/contextRebinder";
 import { createProjectLifecycle } from "./services/projects/projectLifecycle";
 import { createUtilityProcessFoundation } from "./services/utilityprocess/utilityProcessFoundation";
@@ -317,6 +321,16 @@ function registerIpcHandlers(deps: {
     watchService,
   });
   const eventBus = createMainEventBus();
+  const episodicMemoryService =
+    deps.db !== null
+      ? createEpisodicMemoryService({
+          repository: createSqliteEpisodeRepository({
+            db: deps.db,
+            logger: deps.logger,
+          }),
+          logger: deps.logger,
+        })
+      : undefined;
   const projectLifecycle = createProjectLifecycle({
     logger: deps.logger,
     timeoutMs: 5_000,
@@ -329,6 +343,15 @@ function registerIpcHandlers(deps: {
         trieCacheInvalidate(projectId);
       },
     },
+    ...(episodicMemoryService
+      ? {
+          episodicMemoryCache: {
+            evictProjectCache: (projectId: string) => {
+              episodicMemoryService.evictProjectCache(projectId);
+            },
+          },
+        }
+      : {}),
   });
   projectLifecycle.register({
     id: "context",
@@ -468,6 +491,7 @@ function registerIpcHandlers(deps: {
     projectSessionBinding,
     costTracker,
     eventBus,
+    episodicMemoryService,
   });
 
   registerAiProxyIpcHandlers({
@@ -494,6 +518,7 @@ function registerIpcHandlers(deps: {
     userDataDir: deps.userDataDir,
     watchService,
     projectSessionBinding,
+    episodicMemoryService,
   });
 
   registerConstraintsIpcHandlers({
@@ -582,6 +607,7 @@ function registerIpcHandlers(deps: {
     ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
+    episodicService: episodicMemoryService,
     projectSessionBinding,
   });
 

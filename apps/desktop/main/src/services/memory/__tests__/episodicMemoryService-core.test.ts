@@ -1079,6 +1079,60 @@ describe("clearAllMemory", () => {
   });
 });
 
+describe("evictProjectCache", () => {
+  it("drops cached semantic state for one project without deleting persisted rules", () => {
+    svc.addSemanticMemory({
+      projectId: "proj-1",
+      rule: "cached-rule",
+      category: "style",
+      confidence: 0.5,
+    });
+
+    const first = svc.listSemanticMemory({ projectId: "proj-1" });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.data.items).toHaveLength(1);
+
+    repo.upsertSemanticPlaceholder({
+      id: "rule-2",
+      projectId: "proj-1",
+      scope: "project",
+      version: 1,
+      rule: "repo-only-rule",
+      confidence: 0.7,
+      createdAt: BASE_TS,
+      updatedAt: BASE_TS,
+    });
+
+    const stillCached = svc.listSemanticMemory({ projectId: "proj-1" });
+    expect(stillCached.ok).toBe(true);
+    if (!stillCached.ok) return;
+    expect(stillCached.data.items).toHaveLength(1);
+
+    svc.evictProjectCache("proj-1");
+
+    const reloaded = svc.listSemanticMemory({ projectId: "proj-1" });
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    expect(reloaded.data.items).toHaveLength(2);
+    expect(
+      repo.dump().semanticRules.filter((rule) => rule.projectId === "proj-1"),
+    ).toHaveLength(2);
+  });
+
+  it("removes retry queue entries for the evicted project only", async () => {
+    repo = createInMemoryEpisodeRepository({ failInsertAttempts: 10 });
+    svc = createService({ repository: repo });
+
+    await svc.recordEpisode(makeInput({ projectId: "proj-1" }));
+    await svc.recordEpisode(makeInput({ projectId: "proj-2", chapterId: "ch-2" }));
+    expect(svc.getRetryQueueSize()).toBe(2);
+
+    svc.evictProjectCache("proj-1");
+    expect(svc.getRetryQueueSize()).toBe(1);
+  });
+});
+
 describe("getRetryQueueSize", () => {
   it("returns 0 initially", () => {
     expect(svc.getRetryQueueSize()).toBe(0);
