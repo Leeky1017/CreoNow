@@ -132,7 +132,10 @@ function toWorldbuildingStatus(rawStatus: string | undefined, description: strin
   if (normalized === "unknown") {
     return "unknown";
   }
-  return description.trim().length > 0 ? "detailed" : "draft";
+  if (normalized === undefined || normalized.length === 0) {
+    return description.trim().length > 0 ? "detailed" : "draft";
+  }
+  return "unknown";
 }
 
 function mapLocationToWorldbuildingEntry(
@@ -418,6 +421,7 @@ function WorkbenchShell() {
     }
 
     let cancelled = false;
+    setWorldbuildingEntries([]);
     setWorldbuildingStatus("loading");
     setWorldbuildingErrorMessage(null);
 

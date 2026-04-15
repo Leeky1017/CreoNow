@@ -92,4 +92,25 @@ describe("WorldbuildingPanel", () => {
     fireEvent.click(screen.getByTestId("worldbuilding-tab-map"));
     expect(onTabChange).toHaveBeenCalledWith("map");
   });
+
+  it("ready 但无条目时渲染 empty 状态", () => {
+    renderPanel({ entries: [] });
+    expect(screen.getByTestId("worldbuilding-empty")).toBeInTheDocument();
+  });
+
+  it("map 视图渲染占位态", () => {
+    renderPanel({ tab: "map" });
+    expect(screen.getByTestId("worldbuilding-map")).toBeInTheDocument();
+  });
+
+  it("timeline 视图渲染时间轴条目", () => {
+    renderPanel({ tab: "timeline" });
+    expect(screen.getByTestId("worldbuilding-timeline")).toBeInTheDocument();
+    expect(screen.getByTestId("worldbuilding-timeline-loc-1")).toBeInTheDocument();
+  });
+
+  it("timeline 无条目时渲染空状态", () => {
+    renderPanel({ tab: "timeline", entries: [] });
+    expect(screen.getByTestId("worldbuilding-timeline-empty")).toBeInTheDocument();
+  });
 });

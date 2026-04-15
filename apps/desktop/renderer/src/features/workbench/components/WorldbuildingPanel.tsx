@@ -105,11 +105,13 @@ export function WorldbuildingPanel(props: WorldbuildingPanelProps) {
         ))}
       </div>
 
-      <div className="worldbuilding-panel__meta" data-testid="worldbuilding-meta">
-        <span>{t("sidebar.worldbuilding.meta.detailed", { count: detailedCount })}</span>
-        <span>{t("sidebar.worldbuilding.meta.draft", { count: draftCount })}</span>
-        {unknownCount > 0 ? <span>{t("sidebar.worldbuilding.meta.unknown", { count: unknownCount })}</span> : null}
-      </div>
+      {props.status === "ready" ? (
+        <div className="worldbuilding-panel__meta" data-testid="worldbuilding-meta">
+          <span>{t("sidebar.worldbuilding.meta.detailed", { count: detailedCount })}</span>
+          <span>{t("sidebar.worldbuilding.meta.draft", { count: draftCount })}</span>
+          {unknownCount > 0 ? <span>{t("sidebar.worldbuilding.meta.unknown", { count: unknownCount })}</span> : null}
+        </div>
+      ) : null}
 
       {props.status === "loading" ? (
         <div className="worldbuilding-panel__state" data-testid="worldbuilding-loading">
