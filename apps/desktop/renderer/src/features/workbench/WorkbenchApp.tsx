@@ -24,13 +24,17 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
-import { createEditorBridge } from "@/editor/bridge";
+import {
+  createEditorBridge,
+  type SelectionViewportAnchor,
+} from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import { VersionHistoryPanel } from "@/features/version-history/VersionHistoryPanel";
 import type { VersionHistorySnapshotDetail } from "@/features/version-history/types";
 import { useVersionHistoryController } from "@/features/version-history/useVersionHistoryController";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
+import { EditorSelectionToolbar } from "@/features/workbench/components/EditorSelectionToolbar";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
   bootstrapWorkspace,
@@ -195,12 +199,17 @@ function WorkbenchShell() {
   const editorContextRevisionRef = useRef(0);
   const activeContextTokenRef = useRef<WorkbenchContextToken | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
+  const selectionToolbarPromptOpenRef = useRef(false);
 
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>("loading");
   const [project, setProject] = useState<ProjectListItem | null>(null);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [activeDocument, setActiveDocument] = useState<DocumentRead | null>(null);
   const [liveSelection, setLiveSelection] = useState<SelectionRef | null>(null);
+  const [selectionToolbarAnchor, setSelectionToolbarAnchor] =
+    useState<SelectionViewportAnchor | null>(null);
+  const [selectionToolbarPromptOpen, setSelectionToolbarPromptOpen] = useState(false);
+  const [selectionToolbarResetKey, setSelectionToolbarResetKey] = useState<string | null>(null);
   const [stickySelection, setStickySelection] = useState<SelectionRef | null>(null);
   const [preview, setPreview] = useState<AiPreview | null>(null);
   const [versionPreviewState, setVersionPreviewState] = useState<VersionPreviewState | null>(null);
@@ -230,6 +239,16 @@ function WorkbenchShell() {
   useEffect(() => {
     bootstrapStatusRef.current = bootstrapStatus;
   }, [bootstrapStatus]);
+
+  useEffect(() => {
+    selectionToolbarPromptOpenRef.current = selectionToolbarPromptOpen;
+  }, [selectionToolbarPromptOpen]);
+
+  const dismissSelectionToolbar = useCallback(() => {
+    setSelectionToolbarAnchor(null);
+    setSelectionToolbarResetKey(null);
+    setSelectionToolbarPromptOpen(false);
+  }, []);
 
   useEffect(() => {
     const updateElapsedMinutes = () => {
@@ -271,9 +290,20 @@ function WorkbenchShell() {
           setLiveSelection(nextSelection);
 
           if (bootstrapStatusRef.current !== "ready" || isMeaningfulSelection(nextSelection) === false) {
+            const activeElement = document.activeElement;
+            const keepPromptOpen = selectionToolbarPromptOpenRef.current
+              && activeElement instanceof Element
+              && activeElement.closest(".editor-selection-toolbar") !== null;
+            if (keepPromptOpen === false) {
+              dismissSelectionToolbar();
+            }
             return;
           }
 
+          setSelectionToolbarResetKey(
+            `${nextSelection.from}:${nextSelection.to}:${nextSelection.selectionTextHash}`,
+          );
+          setSelectionToolbarAnchor(editorBridge.getSelectionViewportAnchor());
           setStickySelection(nextSelection);
           setPreview(null);
           autosave.clearAcceptSaveFailure();
@@ -296,6 +326,7 @@ function WorkbenchShell() {
     userEditRevisionRef,
     editorContextRevisionRef,
   });
+  const resetAiConversation = aiSkill.resetAiConversation;
 
   const versionHistoryDocument = useMemo(
     () => activeDocument === null
@@ -414,9 +445,9 @@ function WorkbenchShell() {
         setActiveDocument(workspace.activeDocument);
         autosave.setSaveUiState("idle");
         autosave.setLastSavedAt(workspace.activeDocument.updatedAt);
-        setPreview(null);
-        setStickySelection(null);
+        resetAiConversation();
         setLiveSelection(null);
+        dismissSelectionToolbar();
         setBootstrapStatus("ready");
       } catch (error) {
         if (disposed === false) {
@@ -431,7 +462,77 @@ function WorkbenchShell() {
     return () => {
       disposed = true;
     };
-  }, [api, autosave.clearPendingAutosaveTimer, autosave.clearSavedStateDecayTimer, autosave.setWorkbenchError, autosave.setSaveUiState, autosave.setLastSavedAt, replaceEditorContextContent, t]);
+  }, [
+    api,
+    resetAiConversation,
+    autosave.clearPendingAutosaveTimer,
+    autosave.clearSavedStateDecayTimer,
+    autosave.setWorkbenchError,
+    autosave.setSaveUiState,
+    autosave.setLastSavedAt,
+    dismissSelectionToolbar,
+    replaceEditorContextContent,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (bootstrapStatus !== "ready" || preview !== null || isVersionPreviewActive) {
+      dismissSelectionToolbar();
+      return;
+    }
+  }, [
+    bootstrapStatus,
+    dismissSelectionToolbar,
+    isVersionPreviewActive,
+    preview,
+  ]);
+
+  useEffect(() => {
+    if (selectionToolbarAnchor === null) {
+      return;
+    }
+
+    const syncSelectionToolbarAnchor = () => {
+      if (selectionToolbarPromptOpenRef.current) {
+        return;
+      }
+      setSelectionToolbarAnchor(editorBridge.getSelectionViewportAnchor());
+    };
+
+    window.addEventListener("resize", syncSelectionToolbarAnchor);
+    window.addEventListener("scroll", dismissSelectionToolbar, true);
+    return () => {
+      window.removeEventListener("resize", syncSelectionToolbarAnchor);
+      window.removeEventListener("scroll", dismissSelectionToolbar, true);
+    };
+  }, [dismissSelectionToolbar, editorBridge, selectionToolbarAnchor]);
+
+  useEffect(() => {
+    if (selectionToolbarAnchor === null) {
+      return;
+    }
+
+    const dismissSelectionToolbarFromOutsideClick = (event: MouseEvent) => {
+      const target = event.target;
+      if ((target instanceof Element) === false) {
+        return;
+      }
+
+      if (
+        target.closest(".editor-selection-toolbar") !== null
+        || target.closest(".ProseMirror") !== null
+      ) {
+        return;
+      }
+
+      dismissSelectionToolbar();
+    };
+
+    document.addEventListener("mousedown", dismissSelectionToolbarFromOutsideClick, true);
+    return () => {
+      document.removeEventListener("mousedown", dismissSelectionToolbarFromOutsideClick, true);
+    };
+  }, [dismissSelectionToolbar, selectionToolbarAnchor]);
 
   const handleCreateDocument = async () => {
     if (project === null) {
@@ -454,9 +555,9 @@ function WorkbenchShell() {
       });
       setDocuments(result.documents);
       setActiveDocument(result.activeDocument);
-      setPreview(null);
-      setStickySelection(null);
+      resetAiConversation();
       setLiveSelection(null);
+      dismissSelectionToolbar();
       autosave.setSaveUiState("idle");
       autosave.setLastSavedAt(result.activeDocument.updatedAt);
       autosave.setWorkbenchError(null, null);
@@ -499,9 +600,9 @@ function WorkbenchShell() {
         projectId: readDocument.projectId,
       });
       setActiveDocument(readDocument);
-      setPreview(null);
-      setStickySelection(null);
+      resetAiConversation();
       setLiveSelection(null);
+      dismissSelectionToolbar();
       autosave.setWorkbenchError(null, null);
       autosave.setSaveUiState("idle");
       autosave.setLastSavedAt(readDocument.updatedAt);
@@ -524,6 +625,7 @@ function WorkbenchShell() {
     api,
     autosave,
     layout,
+    dismissSelectionToolbar,
     project,
     replaceEditorContextContent,
     t,
@@ -558,13 +660,21 @@ function WorkbenchShell() {
           }
         : document,
     ));
-    setPreview(null);
-    setStickySelection(null);
+    resetAiConversation();
     setLiveSelection(null);
+    dismissSelectionToolbar();
     autosave.setSaveUiState("idle");
     autosave.setLastSavedAt(readDocument.data.updatedAt);
     return readDocument.data;
-  }, [activeDocument, api.file, autosave.setSaveUiState, autosave.setLastSavedAt, replaceEditorContextContent]);
+  }, [
+    api.file,
+    activeDocument,
+    resetAiConversation,
+    autosave.setSaveUiState,
+    autosave.setLastSavedAt,
+    dismissSelectionToolbar,
+    replaceEditorContextContent,
+  ]);
 
   const handleVersionHistoryRestore = useCallback(async () => {
     const busyOperationId = aiSkill.reserveBusyOperation();
@@ -609,7 +719,37 @@ function WorkbenchShell() {
 
   const clearReference = () => {
     setStickySelection(null);
+    dismissSelectionToolbar();
   };
+
+  const handleToolbarSubmitInstruction = useCallback((nextInstruction: string) => {
+    layout.handleRightPanelSelect("ai");
+    void aiSkill.runQuickAction({
+      instruction: nextInstruction,
+      skillId: "builtin:rewrite",
+    });
+  }, [aiSkill, layout]);
+
+  const handleToolbarPolish = useCallback(() => {
+    layout.handleRightPanelSelect("ai");
+    void aiSkill.runQuickAction({ skillId: "builtin:polish" });
+  }, [aiSkill, layout]);
+
+  const handleToolbarFixGrammar = useCallback(() => {
+    layout.handleRightPanelSelect("ai");
+    void aiSkill.runQuickAction({
+      instruction: t("editorToolbar.presets.fixGrammar"),
+      skillId: "builtin:rewrite",
+    });
+  }, [aiSkill, layout, t]);
+
+  const handleToolbarChangeTone = useCallback(() => {
+    layout.handleRightPanelSelect("ai");
+    void aiSkill.runQuickAction({
+      instruction: t("editorToolbar.presets.changeTone"),
+      skillId: "builtin:rewrite",
+    });
+  }, [aiSkill, layout, t]);
 
   const handleStatusBarAction = () => {
     if (autosave.saveState !== "error") {
@@ -1059,6 +1199,18 @@ function WorkbenchShell() {
         <div className="editor-scroll">
           <div ref={containerRef} className={versionPreviewSnapshot === null ? "editor-host" : "editor-host editor-host--readonly"} />
         </div>
+        <EditorSelectionToolbar
+          anchor={selectionToolbarAnchor}
+          busy={aiSkill.busy || isVersionPreviewActive}
+          defaultPromptOpen={false}
+          onChangeTone={handleToolbarChangeTone}
+          onFixGrammar={handleToolbarFixGrammar}
+          onPolish={handleToolbarPolish}
+          onPromptOpenChange={setSelectionToolbarPromptOpen}
+          onSubmitInstruction={handleToolbarSubmitInstruction}
+          resetKey={selectionToolbarResetKey}
+          visible={bootstrapStatus === "ready" && preview === null && isVersionPreviewActive === false}
+        />
       </section>
 
       {layout.rightPanelCollapsed ? null : <div

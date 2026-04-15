@@ -660,6 +660,122 @@ button {
   padding: var(--space-6);
 }
 
+.editor-selection-toolbar {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  min-width: min(360px, calc(100vw - var(--space-8)));
+  max-width: min(360px, calc(100vw - var(--space-8)));
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-separator-bold);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-bg-panel) 92%, transparent);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(18px);
+}
+
+.editor-selection-toolbar__row,
+.editor-selection-toolbar__actions {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.editor-selection-toolbar__row--primary {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-separator);
+}
+
+.editor-selection-toolbar__primary-action.cn-button,
+.editor-selection-toolbar__secondary-action.cn-button {
+  min-height: 32px;
+}
+
+.editor-selection-toolbar__prompt-row {
+  display: flex;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-separator);
+}
+
+.editor-selection-toolbar__prompt-input-shell {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-separator-bold);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-base) 56%, transparent);
+}
+
+.editor-selection-toolbar__prompt-icon {
+  color: var(--color-fg-base);
+  flex: none;
+}
+
+.editor-selection-toolbar__prompt-input.cn-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.editor-selection-toolbar__prompt-submit.cn-button {
+  flex: none;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+  color: var(--color-fg-muted);
+}
+
+.editor-selection-toolbar__prompt-submit.cn-button:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-fg-base);
+}
+
+.editor-selection-toolbar__primary-action.cn-button {
+  flex: 1;
+  justify-content: flex-start;
+  background: color-mix(in srgb, var(--color-bg-base) 48%, transparent);
+  color: var(--color-fg-base);
+}
+
+.editor-selection-toolbar__secondary-action.cn-button {
+  justify-content: center;
+  color: var(--color-fg-muted);
+}
+
+.editor-selection-toolbar__quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.editor-selection-toolbar__label {
+  color: var(--color-fg-subtle);
+  font-size: var(--text-caption-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.editor-selection-toolbar__action.cn-button {
+  flex: 1;
+  justify-content: flex-start;
+  min-height: 34px;
+  background: transparent;
+  color: var(--color-fg-muted);
+}
+
+.editor-selection-toolbar__action.cn-button:hover,
+.editor-selection-toolbar__primary-action.cn-button:hover {
+  background: var(--color-bg-hover);
+}
+
 .editor-host {
   max-width: 760px;
   margin: 0 auto;
