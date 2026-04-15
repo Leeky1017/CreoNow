@@ -461,6 +461,30 @@ describe("WorkbenchApp", () => {
     });
   });
 
+  it("dismisses the floating toolbar on outside icon clicks, including svg targets", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("外部 icon 点击也该收起。", 11));
+    });
+
+    expect(await screen.findByTestId("editor-selection-toolbar")).toBeInTheDocument();
+
+    const outsideButton = document.createElement("button");
+    const outsideSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    outsideButton.append(outsideSvg);
+    document.body.append(outsideButton);
+
+    fireEvent.mouseDown(outsideSvg);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("editor-selection-toolbar")).not.toBeInTheDocument();
+    });
+
+    outsideButton.remove();
+  });
+
   it("runs continue from cursor context without any selection", async () => {
     render(<WorkbenchApp />);
 

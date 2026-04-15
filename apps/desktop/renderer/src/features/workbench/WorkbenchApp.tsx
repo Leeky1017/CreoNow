@@ -499,7 +499,7 @@ function WorkbenchShell() {
 
     const dismissSelectionToolbarFromOutsideClick = (event: MouseEvent) => {
       const target = event.target;
-      if ((target instanceof HTMLElement) === false) {
+      if ((target instanceof Element) === false) {
         return;
       }
 
