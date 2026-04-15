@@ -31,22 +31,39 @@ function toTestIdSuffix(value: string): string {
 
 function categoryLabel(category: string, t: (key: string) => string): string {
   const normalized = category.trim().toLocaleLowerCase();
-  if (normalized === "style") {
+  if (normalized === "style-rule" || normalized === "style") {
     return t("sidebar.memory.category.style");
   }
   if (normalized === "preference") {
     return t("sidebar.memory.category.preference");
   }
+  if (normalized === "character-setting") {
+    return t("sidebar.memory.category.characterSetting");
+  }
+  if (normalized === "location-setting") {
+    return t("sidebar.memory.category.locationSetting");
+  }
   if (normalized === "reference") {
     return t("sidebar.memory.category.reference");
-  }
-  if (normalized === "note") {
-    return t("sidebar.memory.category.note");
   }
   if (normalized.length === 0) {
     return t("sidebar.memory.category.misc");
   }
   return category;
+}
+
+function sourceLabel(source: string, t: (key: string) => string): string {
+  const normalized = source.trim().toLocaleLowerCase();
+  if (normalized === "user") {
+    return t("sidebar.memory.source.user");
+  }
+  if (normalized === "system") {
+    return t("sidebar.memory.source.system");
+  }
+  if (normalized.length === 0) {
+    return t("sidebar.memory.source.unknown");
+  }
+  return source;
 }
 
 export function MemoryPanel(props: MemoryPanelProps) {
@@ -166,6 +183,7 @@ export function MemoryPanel(props: MemoryPanelProps) {
                 type="button"
                 className={selectedEntryId === entry.id ? "memory-entry-card is-active" : "memory-entry-card"}
                 onClick={() => setSelectedEntryId(entry.id)}
+                aria-pressed={selectedEntryId === entry.id}
                 data-testid={`memory-entry-${toTestIdSuffix(entry.id)}`}
               >
                 <div className="memory-entry-card__header">
@@ -215,7 +233,7 @@ export function MemoryPanel(props: MemoryPanelProps) {
                   <p>
                     <Database size={14} aria-hidden="true" />
                     <span>
-                      {t("sidebar.memory.detail.source")}: {selectedEntry.source}
+                      {t("sidebar.memory.detail.source")}: {sourceLabel(selectedEntry.source, t)}
                     </span>
                   </p>
                 </div>

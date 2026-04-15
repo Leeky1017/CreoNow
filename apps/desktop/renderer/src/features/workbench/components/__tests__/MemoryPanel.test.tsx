@@ -7,19 +7,19 @@ import { MemoryPanel } from "../MemoryPanel";
 const baseEntries = [
   {
     id: "mem-1",
-    key: "深渊设定：硫磺与湿气的感官联系",
+    key: "角色设定：艾琳娜的目击者身份",
     value: "雷恩对深渊的第一感官是硫磺味。",
-    category: "reference",
-    source: "manual",
+    category: "character-setting",
+    source: "system",
     createdAt: 1,
     updatedAt: 3,
   },
   {
     id: "mem-2",
-    key: "角色动机：艾琳娜的目击者身份",
+    key: "写作偏好：场景描写先于对白",
     value: "冷静外表下隐藏创伤。",
-    category: "style",
-    source: "session",
+    category: "preference",
+    source: "user",
     createdAt: 1,
     updatedAt: 2,
   },
@@ -46,13 +46,14 @@ describe("MemoryPanel", () => {
   it("ready 态渲染列表和详情", () => {
     renderPanel();
     expect(screen.getByTestId("memory-entry-list")).toBeInTheDocument();
-    expect(screen.getByTestId("memory-detail")).toHaveTextContent("深渊设定：硫磺与湿气的感官联系");
+    expect(screen.getByTestId("memory-detail")).toHaveTextContent("角色设定：艾琳娜的目击者身份");
   });
 
   it("点击词条后详情切换", () => {
     renderPanel();
     fireEvent.click(screen.getByTestId("memory-entry-mem-2"));
-    expect(screen.getByTestId("memory-detail")).toHaveTextContent("角色动机：艾琳娜的目击者身份");
+    expect(screen.getByTestId("memory-detail")).toHaveTextContent("写作偏好：场景描写先于对白");
+    expect(screen.getByTestId("memory-entry-mem-2")).toHaveAttribute("aria-pressed", "true");
   });
 
   it("搜索无命中时渲染 no-match", () => {
