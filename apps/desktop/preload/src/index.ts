@@ -109,6 +109,10 @@ const api = {
     delete: (payload: Parameters<typeof creonowInvoke<"settings:location:delete">>[1]) =>
       creonowInvoke("settings:location:delete", payload),
   },
+  memory: {
+    list: (payload: Parameters<typeof creonowInvoke<"memory:simple:list">>[1]) =>
+      creonowInvoke("memory:simple:list", payload),
+  },
   search: {
     query: (payload: Parameters<typeof creonowInvoke<"search:fts:query">>[1]) =>
       creonowInvoke("search:fts:query", payload),

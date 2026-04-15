@@ -211,6 +211,14 @@ function createApiMock(): PreloadApi {
     },
     character: {} as PreloadApi["character"],
     location: {} as PreloadApi["location"],
+    memory: {
+      list: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          items: [],
+        },
+      })),
+    },
     search: {} as PreloadApi["search"],
   } as PreloadApi;
 }
@@ -4251,5 +4259,70 @@ describe("WorkbenchApp", () => {
 
     expect(await screen.findByTestId("knowledge-graph-error")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
+  });
+
+  it("memory 面板会从 memory:simple:list IPC 加载词条", async () => {
+    const api = window.api as PreloadApi;
+    const list = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            id: "mem-1",
+            projectId: "project-1",
+            key: "角色动机：艾琳娜的目击者身份",
+            value: "冷静外表下隐藏创伤。",
+            category: "character-setting",
+            source: "system",
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+      },
+    }));
+    api.memory = { list };
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "记忆" }));
+
+    await waitFor(() => {
+      expect(list).toHaveBeenCalledWith({ projectId: "project-1" });
+    });
+    expect(await screen.findByTestId("memory-entry-mem-1")).toBeInTheDocument();
+    expect(screen.getByTestId("memory-detail")).toHaveTextContent("角色动机：艾琳娜的目击者身份");
+  });
+
+  it("memory 数据桥缺失时显示错误态", async () => {
+    const api = window.api as PreloadApi;
+    delete api.memory;
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "记忆" }));
+
+    expect(await screen.findByTestId("memory-error")).toBeInTheDocument();
+    expect(screen.getByText("当前环境未提供记忆数据接口。")).toBeInTheDocument();
+  });
+
+  it("memory IPC 返回错误时渲染错误态", async () => {
+    const api = window.api as PreloadApi;
+    api.memory = {
+      list: vi.fn(async () => ({
+        ok: false as const,
+        error: { code: "INTERNAL" as const, message: "memory list failed" },
+      })),
+    };
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "记忆" }));
+
+    const errorPanel = await screen.findByTestId("memory-error");
+    expect(errorPanel).toBeInTheDocument();
+    expect(within(errorPanel).getByRole("button", { name: "重试" })).toBeInTheDocument();
   });
 });

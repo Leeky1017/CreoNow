@@ -47,6 +47,11 @@ import {
   type KnowledgeGraphPanelView,
 } from "@/features/workbench/components/KnowledgeGraphPanel";
 import {
+  MemoryPanel,
+  type MemoryPanelEntry,
+  type MemoryPanelStatus,
+} from "@/features/workbench/components/MemoryPanel";
+import {
   WorldbuildingPanel,
   type WorldbuildingEntry,
   type WorldbuildingEntryStatus,
@@ -84,6 +89,7 @@ import {
 const MAX_REFERENCE_LENGTH = 120;
 type LocationListItem = IpcResponseData<"settings:location:list">["items"][number];
 type CharacterListItem = IpcResponseData<"settings:character:list">["items"][number];
+type MemorySimpleListItem = IpcResponseData<"memory:simple:list">["items"][number];
 
 type BootstrapStatus = "loading" | "ready" | "error";
 
@@ -181,6 +187,18 @@ function mapLocationToKnowledgeNode(location: LocationListItem): KnowledgeGraphN
     name: location.name,
     type: "location",
     updatedAt: location.updatedAt,
+  };
+}
+
+function mapMemoryItemToPanelEntry(item: MemorySimpleListItem): MemoryPanelEntry {
+  return {
+    category: item.category ?? "",
+    createdAt: item.createdAt,
+    id: item.id,
+    key: item.key,
+    source: item.source,
+    updatedAt: item.updatedAt,
+    value: item.value,
   };
 }
 
@@ -304,6 +322,11 @@ function WorkbenchShell() {
   const [knowledgeGraphQuery, setKnowledgeGraphQuery] = useState("");
   const [knowledgeGraphView, setKnowledgeGraphView] = useState<KnowledgeGraphPanelView>("graph");
   const [knowledgeGraphReloadToken, setKnowledgeGraphReloadToken] = useState(0);
+  const [memoryEntries, setMemoryEntries] = useState<MemoryPanelEntry[]>([]);
+  const [memoryStatus, setMemoryStatus] = useState<MemoryPanelStatus>("loading");
+  const [memoryErrorMessage, setMemoryErrorMessage] = useState<string | null>(null);
+  const [memoryQuery, setMemoryQuery] = useState("");
+  const [memoryReloadToken, setMemoryReloadToken] = useState(0);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
   const [zenDotExpanded, setZenDotExpanded] = useState(false);
@@ -428,6 +451,10 @@ function WorkbenchShell() {
     setKnowledgeGraphReloadToken((value) => value + 1);
   }, []);
 
+  const triggerMemoryReload = useCallback(() => {
+    setMemoryReloadToken((value) => value + 1);
+  }, []);
+
   const handleCreateWorldbuildingEntry = useCallback(() => {
     layout.setActiveLeftPanel("settings");
   }, [layout]);
@@ -446,6 +473,10 @@ function WorkbenchShell() {
     }
     setKnowledgeGraphQuery("");
     setKnowledgeGraphView("graph");
+  }, [project?.projectId]);
+
+  useEffect(() => {
+    setMemoryQuery("");
   }, [project?.projectId]);
 
   useEffect(() => {
@@ -582,6 +613,55 @@ function WorkbenchShell() {
       cancelled = true;
     };
   }, [api, knowledgeGraphReloadToken, layout.activeLeftPanel, project?.projectId, t]);
+
+  useEffect(() => {
+    if (layout.activeLeftPanel !== "memory") {
+      return;
+    }
+
+    const listMemory = api.memory?.list;
+    if (typeof listMemory !== "function") {
+      setMemoryEntries([]);
+      setMemoryStatus("error");
+      setMemoryErrorMessage(t("sidebar.memory.errorBridgeUnavailable"));
+      return;
+    }
+
+    let cancelled = false;
+    setMemoryEntries([]);
+    setMemoryStatus("loading");
+    setMemoryErrorMessage(null);
+
+    void listMemory({ projectId: project?.projectId ?? null })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        if (!result.ok) {
+          setMemoryEntries([]);
+          setMemoryStatus("error");
+          setMemoryErrorMessage(getHumanErrorMessage(result.error, t));
+          return;
+        }
+        const entries = result.data.items
+          .map(mapMemoryItemToPanelEntry)
+          .sort((left, right) => right.updatedAt - left.updatedAt);
+        setMemoryEntries(entries);
+        setMemoryStatus("ready");
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setMemoryEntries([]);
+        setMemoryStatus("error");
+        setMemoryErrorMessage(getHumanErrorMessage(error as Error, t));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api.memory, layout.activeLeftPanel, memoryReloadToken, project?.projectId, t]);
 
   const editorBridge = useMemo(
     () =>
@@ -1361,6 +1441,17 @@ function WorkbenchShell() {
         query={knowledgeGraphQuery}
         status={knowledgeGraphStatus}
         view={knowledgeGraphView}
+      />;
+    }
+
+    if (layout.activeLeftPanel === "memory") {
+      return <MemoryPanel
+        entries={memoryEntries}
+        errorMessage={memoryErrorMessage}
+        onQueryChange={setMemoryQuery}
+        onRetry={triggerMemoryReload}
+        query={memoryQuery}
+        status={memoryStatus}
       />;
     }
 
