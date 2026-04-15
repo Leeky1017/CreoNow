@@ -4070,4 +4070,97 @@ describe("WorkbenchApp", () => {
     fireEvent.keyDown(window, { shiftKey: true, key: "Z" });
     expect(frame).not.toHaveClass("workbench-frame--zen");
   });
+
+  it("worldbuilding 面板会从 location IPC 加载词条", async () => {
+    const api = window.api as PreloadApi;
+    const locationList = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            id: "loc-1",
+            projectId: "project-1",
+            name: "阿卡迪亚",
+            description: "霓虹都市核心区。",
+            attributes: { type: "都市", status: "detailed" },
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+      },
+    }));
+    api.location = { list: locationList } as unknown as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "世界观" }));
+
+    await waitFor(() => {
+      expect(locationList).toHaveBeenCalledWith({ projectId: "project-1" });
+    });
+    expect(await screen.findByTestId("worldbuilding-entry-loc-1")).toBeInTheDocument();
+  });
+
+  it("worldbuilding 数据桥缺失时显示错误态", async () => {
+    const api = window.api as PreloadApi;
+    api.location = {} as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "世界观" }));
+
+    expect(await screen.findByTestId("worldbuilding-error")).toBeInTheDocument();
+    expect(screen.getByText("当前环境未提供世界观数据接口。")).toBeInTheDocument();
+  });
+
+  it("worldbuilding IPC 返回错误时渲染错误态", async () => {
+    const api = window.api as PreloadApi;
+    api.location = {
+      list: vi.fn(async () => ({
+        ok: false as const,
+        error: { code: "INTERNAL", message: "location list failed" },
+      })),
+    } as unknown as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "世界观" }));
+
+    expect(await screen.findByTestId("worldbuilding-error")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
+  });
+
+  it("worldbuilding 未知状态映射到 unknown", async () => {
+    const api = window.api as PreloadApi;
+    api.location = {
+      list: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          items: [
+            {
+              id: "loc-unknown",
+              projectId: "project-1",
+              name: "旧城遗迹",
+              description: "有描述但状态未知。",
+              attributes: { status: "archived", type: "遗迹" },
+              createdAt: 1,
+              updatedAt: 2,
+            },
+          ],
+        },
+      })),
+    } as unknown as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "世界观" }));
+
+    expect(await screen.findByTestId("worldbuilding-entry-loc-unknown")).toBeInTheDocument();
+    expect(screen.getByText("未归类")).toBeInTheDocument();
+    expect(screen.getByText("1 未归类")).toBeInTheDocument();
+  });
 });
