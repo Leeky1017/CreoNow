@@ -9,10 +9,12 @@ const LAYOUT_STORAGE_KEYS = {
   panelWidth: "creonow.layout.panelWidth",
   sidebarCollapsed: "creonow.layout.sidebarCollapsed",
   sidebarWidth: "creonow.layout.sidebarWidth",
+  zenMode: "creonow.layout.zenMode",
 } as const;
 
 const LEFT_SIDEBAR_BOUNDS = {
-  defaultWidth: 240,
+  /** @why 260px matches the golden design source (figma_design/前端完整参考/layout.tsx line 176). */
+  defaultWidth: 260,
   minWidth: 180,
   maxWidth: 400,
 } as const;
@@ -24,12 +26,16 @@ const RIGHT_PANEL_BOUNDS = {
 } as const;
 
 const LEFT_PANEL_IDS: LeftPanelId[] = [
+  "dashboard",
   "files",
   "search",
+  "calendar",
   "outline",
+  "scenarios",
   "versionHistory",
   "memory",
   "characters",
+  "worldbuilding",
   "knowledgeGraph",
   "settings",
 ];
@@ -112,6 +118,9 @@ export function usePanelLayout() {
     readStoredWidth(LAYOUT_STORAGE_KEYS.panelWidth, RIGHT_PANEL_BOUNDS),
   );
   const [dragState, setDragState] = useState<DragState>(null);
+  const [zenMode, setZenMode] = useState(() =>
+    readStoredBoolean(LAYOUT_STORAGE_KEYS.zenMode, false),
+  );
 
   useEffect(() => {
     writeLayoutValue(LAYOUT_STORAGE_KEYS.activeLeftPanel, activeLeftPanel);
@@ -138,7 +147,20 @@ export function usePanelLayout() {
   }, [rightPanelWidth]);
 
   useEffect(() => {
+    writeLayoutValue(LAYOUT_STORAGE_KEYS.zenMode, zenMode);
+  }, [zenMode]);
+
+  useEffect(() => {
     if (dragState === null) {
+      return;
+    }
+
+    // @why Cancel any in-flight resize when zen mode activates (FE-01 R7).
+    // Without this guard, a user who is mid-drag on a resizer and presses
+    // Shift+Z would keep mutating sidebarWidth/rightPanelWidth via mousemove
+    // while zen is visually active.
+    if (zenMode) {
+      setDragState(null);
       return;
     }
 
@@ -165,11 +187,43 @@ export function usePanelLayout() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragState]);
+  }, [dragState, zenMode]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Shift+Z toggles Zen Mode — but only when NOT in an editable field.
+      // @why Without this guard, typing uppercase "Z" in the ProseMirror editor,
+      // AI textarea, or any <input> would fire preventDefault() and toggle zen
+      // mode instead of inserting the character.
+      // @risk isContentEditable alone may not be computed in all DOM environments
+      // (e.g. jsdom), so we also check the contenteditable attribute directly.
+      if (event.shiftKey && event.key.toLowerCase() === "z" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const target = event.target as HTMLElement;
+        if (
+          target.isContentEditable
+          || target.contentEditable === "true"
+          || target.closest?.("[contenteditable='true']") != null
+          || target.tagName === "INPUT"
+          || target.tagName === "TEXTAREA"
+          || target.tagName === "SELECT"
+        ) {
+          return;
+        }
+        event.preventDefault();
+        setZenMode((current) => !current);
+        return;
+      }
+
       if ((event.metaKey || event.ctrlKey) === false || event.altKey || event.shiftKey) {
+        return;
+      }
+
+      // @why Block Ctrl+\ and Ctrl+L shortcuts while zen mode is active (FE-01 R4).
+      // Without this guard the user could enter zen mode, press Ctrl+\ or Ctrl+L,
+      // mutate sidebar/panel collapse state, and then exit zen into a layout that
+      // differs from what they expect. Shift+Z (above) is intentionally exempt so
+      // the user can always exit zen via keyboard.
+      if (zenMode) {
         return;
       }
 
@@ -195,7 +249,7 @@ export function usePanelLayout() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [rightPanelCollapsed]);
+  }, [rightPanelCollapsed, zenMode]);
 
   const handleLeftPanelSelect = useCallback((panelId: LeftPanelId) => {
     if (activeLeftPanel === panelId) {
@@ -214,6 +268,10 @@ export function usePanelLayout() {
 
   const handleToggleRightPanel = useCallback(() => {
     setRightPanelCollapsed((current) => !current);
+  }, []);
+
+  const toggleZenMode = useCallback(() => {
+    setZenMode((current) => !current);
   }, []);
 
   const startResize = useCallback((panel: "left" | "right") => (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -248,5 +306,7 @@ export function usePanelLayout() {
     sidebarCollapsed,
     sidebarWidth,
     startResize,
+    toggleZenMode,
+    zenMode,
   };
 }

@@ -1,12 +1,18 @@
 import {
+  BookOpen,
   Brain,
+  Calendar,
   ChevronLeft,
-  FolderTree,
-  History,
-  ListTree,
+  Files,
+  Globe,
+  Layers,
+  LayoutDashboard,
+  Maximize2,
+  Minimize2,
   Network,
   Search,
   Settings,
+  Type,
   Users,
 } from "lucide-react";
 import type { Meta, StoryObj } from "@storybook/react";
@@ -16,14 +22,20 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/primitives/Button";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 
+const ICON_SIZE = 20;
+
 const leftItems = [
-  { id: "files", icon: FolderTree, labelKey: "iconBar.files", placement: "top" },
+  { id: "dashboard", icon: LayoutDashboard, labelKey: "iconBar.dashboard", placement: "top" },
   { id: "search", icon: Search, labelKey: "iconBar.search", placement: "top" },
-  { id: "outline", icon: ListTree, labelKey: "iconBar.outline", placement: "top" },
-  { id: "versionHistory", icon: History, labelKey: "iconBar.versionHistory", placement: "top" },
-  { id: "memory", icon: Brain, labelKey: "iconBar.memory", placement: "top" },
+  { id: "calendar", icon: Calendar, labelKey: "iconBar.calendar", placement: "top" },
+  { id: "files", icon: Files, labelKey: "iconBar.files", placement: "top" },
+  { id: "outline", icon: Type, labelKey: "iconBar.outline", placement: "top" },
+  { id: "versionHistory", icon: BookOpen, labelKey: "iconBar.versionHistory", placement: "top" },
+  { id: "scenarios", icon: Layers, labelKey: "iconBar.scenarios", placement: "top" },
   { id: "characters", icon: Users, labelKey: "iconBar.characters", placement: "top" },
+  { id: "worldbuilding", icon: Globe, labelKey: "iconBar.worldbuilding", placement: "top" },
   { id: "knowledgeGraph", icon: Network, labelKey: "iconBar.knowledgeGraph", placement: "top" },
+  { id: "memory", icon: Brain, labelKey: "iconBar.memory", placement: "top" },
   { id: "settings", icon: Settings, labelKey: "iconBar.settings", placement: "bottom" },
 ] as const;
 
@@ -34,27 +46,31 @@ type WorkbenchShellStoryProps = {
   rightPanelWidth: number;
   sidebarCollapsed: boolean;
   sidebarWidth: number;
+  zenMode: boolean;
 };
 
 function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
   const { t } = useTranslation();
+  const zenInertProps = args.zenMode ? { inert: "" as const } : {};
 
   return <main className="workbench-shell">
     <div
-      className="workbench-frame"
+      className={["workbench-frame", args.zenMode && "workbench-frame--zen"].filter(Boolean).join(" ")}
       style={{
-        "--left-resizer-width": args.sidebarCollapsed ? "0px" : "8px",
-        "--left-sidebar-width": args.sidebarCollapsed ? "0px" : `${args.sidebarWidth}px`,
-        "--right-panel-width": args.rightPanelCollapsed ? "0px" : `${args.rightPanelWidth}px`,
-        "--right-resizer-width": args.rightPanelCollapsed ? "0px" : "8px",
+        "--icon-rail-width": args.zenMode ? "0px" : "48px",
+        "--left-resizer-width": (args.zenMode || args.sidebarCollapsed) ? "0px" : "8px",
+        "--left-sidebar-width": (args.zenMode || args.sidebarCollapsed) ? "0px" : `${args.sidebarWidth}px`,
+        "--right-panel-width": (args.zenMode || args.rightPanelCollapsed) ? "0px" : `${args.rightPanelWidth}px`,
+        "--right-resizer-width": (args.zenMode || args.rightPanelCollapsed) ? "0px" : "8px",
       } as CSSProperties}
     >
-      <aside className="icon-rail" aria-label={t("app.title")}>
+      <aside className="icon-rail" hidden={args.zenMode} {...zenInertProps} aria-label={t("app.title")}>
         <div className="icon-rail__group">
           {leftItems.filter((item) => item.placement === "top").map((item) => {
             const Icon = item.icon;
             return <Button key={item.id} tone="ghost" className={item.id === args.activeLeftPanel ? "rail-button rail-button--active" : "rail-button"} aria-label={t(item.labelKey)}>
-              <Icon size={18} />
+              <Icon size={ICON_SIZE} />
+              <span className="rail-button__tooltip">{t(item.labelKey)}</span>
             </Button>;
           })}
         </div>
@@ -62,13 +78,14 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
           {leftItems.filter((item) => item.placement === "bottom").map((item) => {
             const Icon = item.icon;
             return <Button key={item.id} tone="ghost" className={item.id === args.activeLeftPanel ? "rail-button rail-button--active" : "rail-button"} aria-label={t(item.labelKey)}>
-              <Icon size={18} />
+              <Icon size={ICON_SIZE} />
+              <span className="rail-button__tooltip">{t(item.labelKey)}</span>
             </Button>;
           })}
         </div>
       </aside>
 
-      {args.sidebarCollapsed ? null : <aside className="sidebar" aria-label={t("sidebar.title")}>
+      {args.sidebarCollapsed ? null : <aside className="sidebar" hidden={args.zenMode} {...zenInertProps} aria-label={t("sidebar.title")}>
         <div className="sidebar-header">
           <div>
             <h1 className="screen-title">{t("project.defaultName")}</h1>
@@ -88,7 +105,7 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
         </div>
       </aside>}
 
-      {args.sidebarCollapsed ? null : <div className="panel-resizer" role="separator" aria-label={t("sidebar.resizeHandle")} aria-orientation="vertical" />}
+      {args.sidebarCollapsed ? null : <div className="panel-resizer" hidden={args.zenMode} {...zenInertProps} role="separator" aria-label={t("sidebar.resizeHandle")} aria-orientation="vertical" />}
 
       <section className="editor-column">
         <header className="editor-header">
@@ -96,7 +113,12 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
             <h2 className="screen-title">{t("document.defaultTitle")}</h2>
             <p className="panel-meta">{t("editor.selectionHint")}</p>
           </div>
-          {args.rightPanelCollapsed ? <Button tone="ghost">{t("panel.actions.openAi")}</Button> : null}
+          <div className="editor-header__actions">
+            <Button tone="ghost" className="zen-toggle" aria-label={args.zenMode ? t("zenMode.exit") : t("zenMode.enter")} aria-pressed={args.zenMode} title={`${args.zenMode ? t("zenMode.exit") : t("zenMode.enter")} (Shift+Z)`}>
+              {args.zenMode ? <Minimize2 size={ICON_SIZE} /> : <Maximize2 size={ICON_SIZE} />}
+            </Button>
+            {!args.zenMode && args.rightPanelCollapsed ? <Button tone="ghost">{t("panel.actions.openAi")}</Button> : null}
+          </div>
         </header>
         <div className="editor-scroll">
           <div className="editor-host">
@@ -105,9 +127,9 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
         </div>
       </section>
 
-      {args.rightPanelCollapsed ? null : <div className="panel-resizer" role="separator" aria-label={t("panel.resizeHandle")} aria-orientation="vertical" />}
+      {args.rightPanelCollapsed ? null : <div className="panel-resizer" hidden={args.zenMode} {...zenInertProps} role="separator" aria-label={t("panel.resizeHandle")} aria-orientation="vertical" />}
 
-      {args.rightPanelCollapsed ? null : <aside className="right-panel" aria-label={t("panel.title")}>
+      {args.rightPanelCollapsed ? null : <aside className="right-panel" hidden={args.zenMode} {...zenInertProps} aria-label={t("panel.title")}>
         <div className="right-tabs">
           <div className="right-tabs__list" role="tablist" aria-label={t("panel.tabs")}>
             {(["ai", "info", "quality"] as const).map((panelId) => (
@@ -146,7 +168,7 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
             </section>}
       </aside>}
     </div>
-    <footer className="status-bar">
+    <footer className="status-bar" hidden={args.zenMode} {...zenInertProps}>
       <span className="status-bar__group">{t("status.projectDocument", { project: t("project.defaultName"), document: t("document.defaultTitle") })}</span>
       <span className="status-bar__group">{t("status.wordCount", { count: 128 })}</span>
       <span className="status-bar__group">{t("status.saved")}</span>
@@ -164,7 +186,8 @@ const meta = {
     rightPanelCollapsed: false,
     rightPanelWidth: 320,
     sidebarCollapsed: false,
-    sidebarWidth: 240,
+    sidebarWidth: 260,
+    zenMode: false,
   },
 } satisfies Meta<WorkbenchShellStoryProps>;
 
@@ -211,5 +234,11 @@ export const ResizedPanels: Story = {
     activeRightPanel: "info",
     rightPanelWidth: 420,
     sidebarWidth: 320,
+  },
+};
+
+export const ZenMode: Story = {
+  args: {
+    zenMode: true,
   },
 };

@@ -465,10 +465,12 @@ describe("WorkbenchApp", () => {
       },
     };
 
+    window.localStorage.setItem("creonow.layout.activeLeftPanel", "versionHistory");
+    window.localStorage.setItem("creonow.layout.sidebarCollapsed", "false");
+
     render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
-    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
 
     expect(await screen.findByText("AI 改写版本")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /AI 接受/ }));
@@ -580,10 +582,12 @@ describe("WorkbenchApp", () => {
       },
     };
 
+    window.localStorage.setItem("creonow.layout.activeLeftPanel", "versionHistory");
+    window.localStorage.setItem("creonow.layout.sidebarCollapsed", "false");
+
     render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
-    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
     expect(await screen.findByText("回退后的版本")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /回退结果/ }));
 
@@ -614,6 +618,109 @@ describe("WorkbenchApp", () => {
         content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的版本" }] }],
       });
     });
+  });
+
+  it("opens version history from the visible rail instead of requiring persisted layout state", async () => {
+    const listSnapshots = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          createSnapshotSummary({
+            versionId: "snapshot-2",
+            actor: "ai",
+            reason: "ai-accept",
+            wordCount: 8,
+            parentSnapshotId: "snapshot-1",
+            createdAt: 2,
+          }),
+          createSnapshotSummary(),
+        ],
+      },
+    }));
+    const readSnapshot = vi.fn(async ({ versionId }: { versionId: string }) => ({
+      ok: true as const,
+      data: versionId === "snapshot-2"
+        ? createSnapshotDetail({
+            versionId: "snapshot-2",
+            actor: "ai",
+            reason: "ai-accept",
+            contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "AI 改写版本" }] }] }),
+            contentText: "AI 改写版本",
+            contentMd: "AI 改写版本",
+            contentHash: "snapshot-hash-2",
+            wordCount: 8,
+            parentSnapshotId: "snapshot-1",
+            createdAt: 2,
+          })
+        : createSnapshotDetail(),
+    }));
+
+    window.api = {
+      ...createApiMock(),
+      version: {
+        ...createApiMock().version,
+        listSnapshots: listSnapshots as PreloadApi["version"]["listSnapshots"],
+        readSnapshot: readSnapshot as PreloadApi["version"]["readSnapshot"],
+      },
+    };
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+
+    await screen.findByRole("heading", { name: "历史版本" });
+    await waitFor(() => {
+      expect(window.api?.version.listSnapshots).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        projectId: "project-1",
+      });
+    });
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe("versionHistory");
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+
+    fireEvent.click(await screen.findByRole("button", { name: /AI 接受/ }));
+    expect(await screen.findByText("AI 改写版本")).toBeInTheDocument();
+  });
+
+  it("opens outline from the visible rail and persists the selected left panel", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "大纲" }));
+
+    await screen.findByRole("heading", { name: "大纲" });
+    expect(screen.getByText("等待结构同步")).toBeInTheDocument();
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe("outline");
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+  });
+
+  it("shows every document in the files sidebar instead of truncating after eight entries", async () => {
+    const documents = Array.from({ length: 10 }, (_, index) => ({
+      documentId: `doc-${index + 1}`,
+      title: `第${index + 1}章`,
+      type: "chapter" as const,
+      status: "draft" as const,
+      sortOrder: index,
+      updatedAt: index + 1,
+    }));
+
+    window.api = {
+      ...createApiMock(),
+      file: {
+        ...createApiMock().file,
+        listDocuments: vi.fn(async () => ({
+          ok: true as const,
+          data: { items: documents },
+        })) as PreloadApi["file"]["listDocuments"],
+      },
+    };
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    expect(screen.getByText("第9章")).toBeInTheDocument();
+    expect(screen.getByText("第10章")).toBeInTheDocument();
   });
 
   it("keeps the AI reference sticky until clear, replacement, send, and new chat", async () => {
@@ -2891,7 +2998,7 @@ describe("WorkbenchApp", () => {
       action: "accept",
       projectId: "project-1",
     });
-    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("云端同步中");
     expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
   });
 
@@ -2921,8 +3028,7 @@ describe("WorkbenchApp", () => {
     fireEvent.click(screen.getByRole("button", { name: "接受" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("当前账号没有执行该操作的权限。");
-    expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "已保存" })).toBeNull();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("云端同步中");
     expect(screen.getByText("改写后的句子")).toBeInTheDocument();
     expect(bridgeMock.setContent).toHaveBeenCalled();
   });
@@ -3019,7 +3125,7 @@ describe("WorkbenchApp", () => {
       expect(bridgeMock.setContent).toHaveBeenCalledWith(persistedDocument);
     });
     expect(currentContent).toEqual(persistedDocument);
-    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("云端同步中");
   });
 
   it("surfaces reject confirm failures without dismissing the preview", async () => {
@@ -3078,8 +3184,8 @@ describe("WorkbenchApp", () => {
 
     fireEvent.doubleClick(leftHandle);
     await waitFor(() => {
-      expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe("240px");
-      expect(window.localStorage.getItem("creonow.layout.sidebarWidth")).toBe("240");
+      expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe("260px");
+      expect(window.localStorage.getItem("creonow.layout.sidebarWidth")).toBe("260");
     });
 
     const rightHandle = screen.getByRole("separator", { name: "调整右侧面板宽度" });
@@ -3234,19 +3340,22 @@ describe("WorkbenchApp", () => {
     const iconRail = screen.getByLabelText("CreoNow 工作台");
     const railButtons = within(iconRail).getAllByRole("button");
     expect(railButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
-      "文件",
+      "仪表盘",
       "搜索",
+      "日历",
+      "文件",
       "大纲",
       "历史版本",
-      "记忆",
+      "场景",
       "人物",
+      "世界观",
       "知识图谱",
+      "记忆",
       "设置",
     ]);
     expect(screen.getByRole("button", { name: "文件" })).toHaveClass("rail-button--active");
 
     fireEvent.click(screen.getByRole("button", { name: "文件" }));
-    expect(screen.queryByLabelText("左侧边栏")).toBeNull();
     expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
@@ -3277,5 +3386,359 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("button", { name: "新对话" })).toBeInTheDocument();
     expect(window.localStorage.getItem("creonow.layout.activePanelTab")).toBe("ai");
     expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).toBe("false");
+  });
+
+  it("toggles zen mode via button, hides sidebar/panel/status-bar, and persists to localStorage", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    try {
+      render(<WorkbenchApp />);
+      await screen.findByRole("heading", { name: "第一章" });
+
+      const frame = screen.getByTestId("workbench-frame");
+
+      // Zen mode off by default — panels visible.
+      expect(frame).not.toHaveClass("workbench-frame--zen");
+      expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument(); // icon rail
+      expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+      expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
+      expect(screen.getByRole("contentinfo")).toBeInTheDocument(); // status bar via <footer>
+
+      // Enter zen mode via button.
+      fireEvent.click(screen.getByRole("button", { name: "进入专注模式" }));
+      expect(frame).toHaveClass("workbench-frame--zen");
+      // During animation exit, elements may stay mounted briefly in jsdom.
+      expect(screen.getByLabelText("右侧面板")).toHaveAttribute("hidden");
+      expect(screen.getByRole("contentinfo", { hidden: true })).toHaveAttribute("hidden");
+      expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+
+      // Toggle back off.
+      fireEvent.click(screen.getByRole("button", { name: "退出专注模式" }));
+      expect(frame).not.toHaveClass("workbench-frame--zen");
+      expect(screen.getByLabelText("CreoNow 工作台")).toBeInTheDocument();
+      expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+      expect(screen.getByLabelText("右侧面板")).not.toHaveAttribute("hidden");
+      expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+      expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("false");
+
+      expect(
+        consoleErrorSpy.mock.calls.some(([message]) => {
+          if (typeof message !== "string") {
+            return false;
+          }
+          return message.includes("non-boolean attribute") && message.includes("inert");
+        }),
+      ).toBe(false);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("persists zen mode state to localStorage and restores it on next render", async () => {
+    window.localStorage.setItem("creonow.layout.zenMode", "true");
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+    expect(frame).toHaveClass("workbench-frame--zen");
+    expect(screen.queryByLabelText("CreoNow 工作台")).toBeNull();
+    expect(screen.getByRole("contentinfo", { hidden: true })).toHaveAttribute("hidden");
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+  });
+
+  it("does NOT toggle zen mode via Shift+Z when focus is inside an editable element", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // Simulate Shift+Z from inside an input element.
+    const inputEl = document.createElement("input");
+    document.body.appendChild(inputEl);
+    inputEl.focus();
+
+    fireEvent.keyDown(inputEl, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // Simulate Shift+Z from inside a contentEditable element.
+    const editableEl = document.createElement("div");
+    editableEl.contentEditable = "true";
+    document.body.appendChild(editableEl);
+    editableEl.focus();
+
+    fireEvent.keyDown(editableEl, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // Simulate Shift+Z from inside a textarea element.
+    const textareaEl = document.createElement("textarea");
+    document.body.appendChild(textareaEl);
+    textareaEl.focus();
+
+    fireEvent.keyDown(textareaEl, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // Now dispatch from window (non-editable) — SHOULD toggle.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).toHaveClass("workbench-frame--zen");
+
+    // Cleanup.
+    document.body.removeChild(inputEl);
+    document.body.removeChild(editableEl);
+    document.body.removeChild(textareaEl);
+  });
+
+  it("toggles zen mode via Shift+Z keyboard shortcut from non-editable context", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).toHaveClass("workbench-frame--zen");
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("false");
+  });
+
+  it("blocks Ctrl+\\ and Ctrl+L shortcuts while zen mode is active", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+
+    // Verify sidebar and right panel are visible before zen mode.
+    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+    expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).not.toBe("true");
+    expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).not.toBe("true");
+
+    // Enter zen mode.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).toHaveClass("workbench-frame--zen");
+
+    // Attempt Ctrl+\ (toggle sidebar) — should be blocked in zen mode.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).not.toBe("true");
+
+    // Attempt Ctrl+L (toggle right panel) — should be blocked in zen mode.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
+    expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).not.toBe("true");
+
+    // Exit zen mode.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+
+    // After exiting zen, sidebar and panel should still be in their original state.
+    expect(screen.getByLabelText("左侧边栏")).toBeInTheDocument();
+    expect(screen.getByLabelText("右侧面板")).toBeInTheDocument();
+
+    // Now Ctrl+\ and Ctrl+L should work normally outside zen mode.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
+    expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).toBe("true");
+  });
+
+  it("hides 'Open AI Panel' button during zen mode when right panel is collapsed", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Collapse the right panel first.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
+
+    // Verify the button appears when not in zen mode.
+    expect(screen.getByRole("button", { name: "打开 AI 面板" })).toBeInTheDocument();
+
+    // Enter zen mode.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+
+    // Button should be hidden during zen.
+    expect(screen.queryByRole("button", { name: "打开 AI 面板" })).not.toBeInTheDocument();
+
+    // Exit zen — button should reappear.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(screen.getByRole("button", { name: "打开 AI 面板" })).toBeInTheDocument();
+  });
+
+  it("does not mutate layout when async document creation resolves during zen mode", async () => {
+    // Deferred promise lets us control when createDocument resolves.
+    let resolveCreate!: (value: { ok: true; data: { documentId: string } }) => void;
+    const createPromise = new Promise<{ ok: true; data: { documentId: string } }>((resolve) => {
+      resolveCreate = resolve;
+    });
+    window.api!.file!.createDocument = vi.fn(() => createPromise) as NonNullable<typeof window.api>["file"]["createDocument"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Trigger async createDocument (the promise is still pending).
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建文档" }));
+      await Promise.resolve();
+    });
+
+    // Move layout to a NON-default state that differs from what the handler
+    // would set (activeLeftPanel="files", sidebarCollapsed=false). This ensures
+    // the assertion is meaningful — if the zen guard were absent, the handler
+    // would overwrite these values back to the defaults and the test would fail.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" }); // collapse sidebar
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
+
+    // Switch to settings panel (away from "files").
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe("settings");
+
+    // Enter zen mode while the async operation is in-flight.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+
+    // Record non-default sidebar state before resolution.
+    const sidebarStateBefore = window.localStorage.getItem("creonow.layout.sidebarCollapsed");
+    const activeLeftBefore = window.localStorage.getItem("creonow.layout.activeLeftPanel");
+
+    // Resolve the createDocument promise during zen mode.
+    await act(async () => {
+      resolveCreate({ ok: true, data: { documentId: "doc-2" } });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Layout state must be unchanged — the async callback must NOT call
+    // setActiveLeftPanel("files") or setSidebarCollapsed(false) while zen is active.
+    // Because we set sidebar to collapsed + settings panel, any unguarded
+    // mutation would change these values — making this test fail.
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe(sidebarStateBefore);
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe(activeLeftBefore);
+  });
+
+  it("does not mutate layout when async document open resolves during zen mode", async () => {
+    const secondDocument = {
+      documentId: "doc-2",
+      title: "第二章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: 2,
+    } as const;
+
+    // List two documents so we can click the second one to trigger handleOpenDocument.
+    window.api!.file!.listDocuments = vi.fn(async () => ({
+      ok: true,
+      data: {
+        items: [
+          { documentId: "doc-1", title: "第一章", type: "chapter", status: "draft", sortOrder: 0, updatedAt: 1 },
+          secondDocument,
+        ],
+      },
+    })) as NonNullable<typeof window.api>["file"]["listDocuments"];
+
+    window.api!.file!.setCurrentDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: { documentId },
+    })) as NonNullable<typeof window.api>["file"]["setCurrentDocument"];
+
+    // Deferred readDocument lets us control when the open-document IPC resolves.
+    let resolveRead!: (value: { ok: true; data: Record<string, unknown> }) => void;
+    const readPromise = new Promise<{ ok: true; data: Record<string, unknown> }>((resolve) => {
+      resolveRead = resolve;
+    });
+    const originalReadDocument = window.api!.file!.readDocument;
+    let callCount = 0;
+    window.api!.file!.readDocument = vi.fn(async (args) => {
+      callCount++;
+      // First call (bootstrap) resolves immediately; second call (user click) defers.
+      if (callCount <= 1) {
+        return (originalReadDocument as Function)(args);
+      }
+      return readPromise;
+    }) as NonNullable<typeof window.api>["file"]["readDocument"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Click second document — triggers handleOpenDocument with pending readDocument.
+    await act(async () => {
+      fireEvent.click(screen.getByText("第二章"));
+      await Promise.resolve();
+    });
+
+    // Move layout to a NON-default state that differs from what handleOpenDocument
+    // would set (activeLeftPanel="files", sidebarCollapsed=false). Without the zen
+    // guard, the handler would overwrite these values — making the test fail.
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" }); // collapse sidebar
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe("settings");
+
+    // Enter zen mode while the openDocument IPC is in-flight.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+    expect(window.localStorage.getItem("creonow.layout.zenMode")).toBe("true");
+
+    const sidebarStateBefore = window.localStorage.getItem("creonow.layout.sidebarCollapsed");
+    const activeLeftBefore = window.localStorage.getItem("creonow.layout.activeLeftPanel");
+
+    // Resolve the deferred readDocument during zen mode.
+    await act(async () => {
+      resolveRead({
+        ok: true,
+        data: {
+          documentId: "doc-2",
+          projectId: "project-1",
+          title: "第二章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 1,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "第二章内容",
+          contentMd: "",
+          contentHash: "hash-2",
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Layout state must be unchanged — handleOpenDocument must NOT call
+    // setActiveLeftPanel or setSidebarCollapsed while zen mode is active.
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe(sidebarStateBefore);
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe(activeLeftBefore);
+  });
+
+  it("cancels active panel resize when entering zen mode", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const leftHandle = screen.getByRole("separator", { name: "调整左侧边栏宽度" });
+    const frame = screen.getByTestId("workbench-frame");
+
+    const widthBefore = frame.style.getPropertyValue("--left-sidebar-width");
+
+    // Start a resize drag on the left panel.
+    fireEvent.mouseDown(leftHandle, { clientX: 260, button: 0 });
+
+    // Enter zen mode mid-drag.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+
+    // Simulate mouse movement after zen — width should NOT change.
+    fireEvent.mouseMove(window, { clientX: 400 });
+    fireEvent.mouseUp(window);
+
+    // Exit zen mode.
+    fireEvent.keyDown(window, { key: "Z", shiftKey: true });
+
+    // Sidebar width should be unchanged from before the aborted drag.
+    expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe(widthBefore);
   });
 });
