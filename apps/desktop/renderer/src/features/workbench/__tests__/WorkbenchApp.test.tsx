@@ -465,6 +465,25 @@ describe("WorkbenchApp", () => {
     });
   });
 
+  it("does not swallow Escape when command palette is closed and prompt input handles it", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("Escape 应该交给输入框处理。", 12));
+    });
+
+    const toolbar = await screen.findByTestId("editor-selection-toolbar");
+    fireEvent.click(within(toolbar).getByRole("button", { name: "告诉 AI 如何改写…" }));
+    const promptInput = await within(toolbar).findByTestId("editor-selection-toolbar-prompt-input");
+
+    fireEvent.keyDown(promptInput, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("editor-selection-toolbar-prompt-input")).not.toBeInTheDocument();
+    });
+  });
+
   it("dismisses the prompt toolbar when selection collapses from editor focus", async () => {
     render(<WorkbenchApp />);
 
@@ -851,6 +870,9 @@ describe("WorkbenchApp", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "恢复到此版本" }));
     expect(await screen.findByRole("dialog", { name: "确认恢复历史版本" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "命令面板" })).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+    expect(screen.queryByRole("dialog", { name: "命令面板" })).not.toBeInTheDocument();
     expect(window.api?.version.restoreSnapshot).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "取消" }));

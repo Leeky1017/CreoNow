@@ -321,7 +321,8 @@ function WorkbenchShell() {
         return;
       }
 
-      if (event.key === "Escape") {
+      if (commandPaletteOpen && event.key === "Escape") {
+        event.preventDefault();
         event.stopPropagation();
         setCommandPaletteOpen(false);
       }
