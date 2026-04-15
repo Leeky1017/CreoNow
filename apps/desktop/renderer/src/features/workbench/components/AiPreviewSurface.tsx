@@ -13,6 +13,7 @@ interface AiPreviewSurfaceProps {
   activeSkill: WorkbenchSkillId;
   busy: boolean;
   errorMessage: string | null;
+  generating: boolean;
   generateDisabled: boolean;
   instruction: string;
   instructionHint: string;
@@ -26,6 +27,7 @@ interface AiPreviewSurfaceProps {
   onSkillChange: (skillId: WorkbenchSkillId) => void;
   preview: AiPreview | null;
   reference: SelectionRef | null;
+  streamError: boolean;
 }
 
 function truncateReference(text: string): string {
@@ -51,6 +53,13 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
   const skillKey = toSkillKey(props.activeSkill);
   const reference = props.activeSkill !== "builtin:continue" ? props.reference : null;
   const insertionPreview = props.preview?.changeType === "insert";
+  const streamState = props.generating
+    ? "running"
+    : props.streamError
+      ? "error"
+      : props.preview
+        ? "ready"
+        : "idle";
   const previewOriginalHeading = insertionPreview ? t("panel.ai.previewInsertionTarget") : t("panel.ai.previewOriginal");
   const previewOriginalBody = insertionPreview ? t("panel.ai.previewInsertionBody") : props.preview?.originalText ?? "";
   const previewOriginalBodyClassName = insertionPreview ? "preview-body preview-body--anchor" : "preview-body preview-body--original";
@@ -63,6 +72,19 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         <p className="panel-subtitle">{t("panel.ai.subtitle")}</p>
       </div>
     </header>
+
+    <div
+      className={`ai-stream-strip ai-stream-strip--${streamState}`}
+      role={streamState === "error" ? undefined : "status"}
+      aria-live={streamState === "error" ? "off" : "polite"}
+      aria-atomic={streamState === "error" ? undefined : "true"}
+    >
+      <span className="ai-stream-strip__dot" aria-hidden="true" />
+      <div className="ai-stream-strip__content">
+        <p className="ai-stream-strip__title">{t("panel.ai.stream.title")}</p>
+        <p className="ai-stream-strip__state">{t(`panel.ai.stream.${streamState}`)}</p>
+      </div>
+    </div>
 
     <div className="panel-section skill-launcher">
       <div className="panel-row">
@@ -136,15 +158,33 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
       />
       <p className="panel-meta">{props.instructionHint}</p>
       <Button tone="primary" disabled={props.busy || props.generateDisabled} onClick={props.onGenerate}>
-        {props.busy ? t("panel.ai.generating") : t("panel.ai.generate")}
+        {props.generating ? t("panel.ai.generating") : t("panel.ai.generate")}
       </Button>
     </div>
 
     {props.errorMessage ? <p className="panel-error" role="alert">{props.errorMessage}</p> : null}
 
-    {props.preview ? (
+    {props.generating ? (
+      <div className="panel-section ai-stream-progress">
+        <p className="panel-meta">{t("panel.ai.stream.caption")}</p>
+        <ul className="ai-stream-progress__stages">
+          <li>{t("panel.ai.stream.stage.context")}</li>
+          <li>{t("panel.ai.stream.stage.reasoning")}</li>
+          <li>{t("panel.ai.stream.stage.diff")}</li>
+        </ul>
+        <div className="ai-stream-progress__skeleton" aria-hidden="true">
+          <span className="ai-stream-progress__line ai-stream-progress__line--long" />
+          <span className="ai-stream-progress__line ai-stream-progress__line--mid" />
+          <span className="ai-stream-progress__line ai-stream-progress__line--short" />
+        </div>
+      </div>
+    ) : props.preview ? (
       <div className="panel-section preview-stack">
         <p className="panel-meta">{t("panel.ai.ready")}</p>
+        <div className="panel-row panel-row--meta">
+          <span className="panel-meta">{t("panel.ai.previewModeValueLabel", { mode: t(`panel.ai.previewModeValue.${props.preview.changeType}`) })}</span>
+          <span className="panel-meta">{t("panel.ai.previewRunId", { runId: props.preview.runId.slice(0, 8) })}</span>
+        </div>
         <div className="preview-grid">
           <article className="preview-column preview-column--original">
             <h3 className="preview-heading">{previewOriginalHeading}</h3>
