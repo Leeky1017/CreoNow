@@ -62,6 +62,9 @@ export interface PreloadApi {
     update: InvokeHandler<"settings:location:update">;
     delete: InvokeHandler<"settings:location:delete">;
   };
+  memory?: {
+    list: InvokeHandler<"memory:simple:list">;
+  };
   search: {
     query: InvokeHandler<"search:fts:query">;
   };
