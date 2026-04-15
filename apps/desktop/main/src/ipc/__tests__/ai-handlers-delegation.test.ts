@@ -399,7 +399,7 @@ describe("AI IPC channel registration", () => {
     expect(hookNames).toContain("quality-check");
   });
 
-  it("触发 quality-check hook 时经 P3 executor 执行 consistency-check", async () => {
+  it("触发 quality-check hook 时经 P3 executor 执行 builtin:consistency-check", async () => {
     createHarness(false, true, true);
     const firstCall =
       mocks.createWritingOrchestratorMock.mock.calls[0] as unknown[] | undefined;
@@ -436,7 +436,7 @@ describe("AI IPC channel registration", () => {
     });
 
     expect(executorInstance?.executeSkill).toHaveBeenCalledWith(
-      "consistency-check",
+      "builtin:consistency-check",
       expect.objectContaining({
         projectId: "proj-001",
         documentId: "doc-001",

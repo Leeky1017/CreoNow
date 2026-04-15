@@ -153,6 +153,12 @@ type SkillRegistryCacheEntry = {
   skills: LoadedSkill[];
 };
 
+const P3_SKILL_ALIAS_LEAF_IDS = new Set<string>([
+  "consistency-check",
+  "dialogue-gen",
+  "outline-expand",
+]);
+
 function normalizeCustomSkillId(id: string): string {
   if (id.startsWith("custom:")) {
     return id.slice("custom:".length);
@@ -163,6 +169,24 @@ function normalizeCustomSkillId(id: string): string {
 function leafSkillId(id: string): string {
   const parts = id.split(":");
   return parts[parts.length - 1] ?? id;
+}
+
+function resolveRunSkillIdCandidates(id: string): string[] {
+  const trimmed = id.trim();
+  if (trimmed.length === 0) {
+    return [];
+  }
+  if (trimmed.startsWith("builtin:")) {
+    const leaf = trimmed.slice("builtin:".length);
+    if (P3_SKILL_ALIAS_LEAF_IDS.has(leaf)) {
+      return [trimmed, leaf];
+    }
+    return [trimmed];
+  }
+  if (P3_SKILL_ALIAS_LEAF_IDS.has(trimmed)) {
+    return [trimmed, `builtin:${trimmed}`];
+  }
+  return [trimmed];
 }
 
 function encodeCustomListId(id: string): string {
@@ -1453,12 +1477,16 @@ function executeResolveForRun(
     );
   }
 
-  const skill = loaded.data.skills.find((s) => s.id === id) ?? null;
+  const skillIdCandidates = resolveRunSkillIdCandidates(id);
+  const skill =
+    loaded.data.skills.find(
+      (s) => skillIdCandidates.includes(s.id),
+    ) ?? null;
   if (!skill) {
     return ipcError("NOT_FOUND", "Skill not found", { id });
   }
 
-  const enabled = loaded.data.enabledMap.get(id) ?? true;
+  const enabled = loaded.data.enabledMap.get(skill.id) ?? true;
   return {
     ok: true,
     data: {
