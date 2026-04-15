@@ -453,6 +453,12 @@ function registerRankingHandlers(args: {
         };
       }>
     > => {
+      if (!hasProjectId(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
       if (!db || !hybridRankingService) {
         return {
           ok: false,
@@ -525,6 +531,12 @@ function registerRankingHandlers(args: {
         };
       }>
     > => {
+      if (!hasProjectId(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
       if (!db || !hybridRankingService) {
         return {
           ok: false,

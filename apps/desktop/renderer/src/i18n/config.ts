@@ -50,6 +50,7 @@ const resources = {
       "sidebar.search.strategy.hybrid": "混合",
       "sidebar.search.meta.total": "{{count}} 条结果",
       "sidebar.search.meta.strategy": "当前策略：{{strategy}}",
+      "sidebar.search.meta.fallback": "请求策略：{{strategy}}",
       "sidebar.search.loading": "正在检索…",
       "sidebar.search.errorNoProject": "当前未激活项目，无法执行检索。",
       "sidebar.search.errorBridgeUnavailable": "当前环境未提供检索接口。",

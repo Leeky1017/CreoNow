@@ -1,3 +1,4 @@
+import { Info, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -9,16 +10,21 @@ import {
   type KnowledgeGraphNodeType,
 } from "@/features/workbench/components/KnowledgeGraphCanvas";
 
-type KnowledgeGraphPanelStatus = "ready" | "loading" | "error";
+export type KnowledgeGraphPanelStatus = "ready" | "loading" | "error";
+export type KnowledgeGraphPanelView = "graph" | "summary";
 
 export interface KnowledgeGraphPanelProps {
   edges: KnowledgeGraphEdge[];
   errorMessage?: string | null;
   nodes: KnowledgeGraphNode[];
+  onQueryChange?: (value: string) => void;
   onRetry?: () => void;
   onSelectNode?: (nodeId: string | null) => void;
+  onViewChange?: (view: KnowledgeGraphPanelView) => void;
+  query?: string;
   selectedNodeId?: string | null;
   status?: KnowledgeGraphPanelStatus;
+  view?: KnowledgeGraphPanelView;
 }
 
 const NODE_TYPE_ORDER: KnowledgeGraphNodeType[] = [
@@ -50,37 +56,68 @@ function createInitialTypeFilterState(): Record<KnowledgeGraphNodeType, boolean>
   };
 }
 
+function toTestIdSuffix(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
 export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     edges,
     errorMessage,
     nodes,
+    onQueryChange,
     onRetry,
     onSelectNode,
+    onViewChange,
+    query: controlledQuery,
     selectedNodeId: controlledSelectedNodeId,
     status: statusProp,
+    view: controlledView,
   } = props;
   const status = statusProp ?? "ready";
+
+  const [internalQuery, setInternalQuery] = useState("");
+  const [internalView, setInternalView] = useState<KnowledgeGraphPanelView>("graph");
   const [activeTypeFilters, setActiveTypeFilters] = useState<Record<KnowledgeGraphNodeType, boolean>>(
     createInitialTypeFilterState,
   );
-  const [internalSelectedNodeId, setInternalSelectedNodeId] = useState<string | null>(controlledSelectedNodeId ?? null);
+  const [internalSelectedNodeId, setInternalSelectedNodeId] = useState<string | null>(
+    controlledSelectedNodeId ?? null,
+  );
 
+  const query = controlledQuery ?? internalQuery;
+  const view = controlledView ?? internalView;
   const selectedNodeId = controlledSelectedNodeId ?? internalSelectedNodeId;
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+
+  const filteredNodesByQuery = useMemo(
+    () =>
+      nodes.filter((node) => {
+        if (normalizedQuery.length === 0) {
+          return true;
+        }
+        return [node.name, node.description ?? "", node.id]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(normalizedQuery);
+      }),
+    [nodes, normalizedQuery],
+  );
+
   const activeNodeIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const node of nodes) {
+    for (const node of filteredNodesByQuery) {
       if (activeTypeFilters[node.type]) {
         ids.add(node.id);
       }
     }
     return ids;
-  }, [activeTypeFilters, nodes]);
+  }, [activeTypeFilters, filteredNodesByQuery]);
 
   const filteredNodes = useMemo(
-    () => nodes.filter((node) => activeTypeFilters[node.type]),
-    [activeTypeFilters, nodes],
+    () => filteredNodesByQuery.filter((node) => activeTypeFilters[node.type]),
+    [activeTypeFilters, filteredNodesByQuery],
   );
   const filteredEdges = useMemo(
     () =>
@@ -94,6 +131,37 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
     () => filteredNodes.find((node) => node.id === selectedNodeId) ?? null,
     [filteredNodes, selectedNodeId],
   );
+  const selectedNodeRelationCount = useMemo(() => {
+    if (selectedNode === null) {
+      return 0;
+    }
+    return filteredEdges.filter(
+      (edge) =>
+        edge.sourceId === selectedNode.id || edge.targetId === selectedNode.id,
+    ).length;
+  }, [filteredEdges, selectedNode]);
+  const selectedNodeAttributes = useMemo(() => {
+    if (selectedNode?.attributes === undefined) {
+      return [];
+    }
+    return Object.entries(selectedNode.attributes);
+  }, [selectedNode]);
+  const characterCount = filteredNodes.filter((node) => node.type === "character").length;
+  const locationCount = filteredNodes.filter((node) => node.type === "location").length;
+  const summaryNodes = useMemo(
+    () => [...filteredNodes].sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0)),
+    [filteredNodes],
+  );
+  const summaryTimestampFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.resolvedLanguage ?? undefined, {
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        month: "2-digit",
+      }),
+    [i18n.resolvedLanguage],
+  );
 
   useEffect(() => {
     if (selectedNodeId === null) {
@@ -105,6 +173,31 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
     setInternalSelectedNodeId(null);
     onSelectNode?.(null);
   }, [activeNodeIds, onSelectNode, selectedNodeId]);
+
+  const resolveNodeTypeLabel = useCallback(
+    (type: KnowledgeGraphNodeType) => t(`sidebar.knowledgeGraph.type.${type}`),
+    [t],
+  );
+
+  const handleQueryChange = useCallback(
+    (value: string) => {
+      if (controlledQuery === undefined) {
+        setInternalQuery(value);
+      }
+      onQueryChange?.(value);
+    },
+    [controlledQuery, onQueryChange],
+  );
+
+  const handleViewChange = useCallback(
+    (nextView: KnowledgeGraphPanelView) => {
+      if (controlledView === undefined) {
+        setInternalView(nextView);
+      }
+      onViewChange?.(nextView);
+    },
+    [controlledView, onViewChange],
+  );
 
   const handleNodeSelect = useCallback(
     (nodeId: string | null) => {
@@ -127,65 +220,93 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
     setActiveTypeFilters(createInitialTypeFilterState());
   }, []);
 
-  const selectedNodeRelationCount = useMemo(() => {
-    if (selectedNode === null) {
-      return 0;
-    }
-    return filteredEdges.filter(
-      (edge) =>
-        edge.sourceId === selectedNode.id || edge.targetId === selectedNode.id,
-    ).length;
-  }, [filteredEdges, selectedNode]);
-
-  const selectedNodeAttributes = useMemo(() => {
-    if (selectedNode === null || selectedNode.attributes === undefined) {
-      return [];
-    }
-    return Object.entries(selectedNode.attributes);
-  }, [selectedNode]);
-
-  const resolveNodeTypeLabel = useCallback(
-    (type: KnowledgeGraphNodeType) => t(`sidebar.knowledgeGraph.type.${type}`),
-    [t],
-  );
-
   return (
     <section
       aria-label={t("sidebar.knowledgeGraph.title")}
-      className="sidebar-surface"
+      className="sidebar-surface knowledge-graph-panel"
+      data-testid="knowledge-graph-panel"
       style={{
         gap: "var(--space-3)",
       }}
     >
       <header className="panel-section">
-        <div>
-          <h1 className="screen-title">{t("sidebar.knowledgeGraph.title")}</h1>
-          <p className="panel-subtitle">{t("sidebar.knowledgeGraph.subtitle")}</p>
-        </div>
+        <h1 className="screen-title">{t("sidebar.knowledgeGraph.title")}</h1>
+        <p className="panel-subtitle">{t("sidebar.knowledgeGraph.subtitle")}</p>
       </header>
 
+      <div className="knowledge-graph-panel__toolbar">
+        <label className="knowledge-graph-panel__search">
+          <Search size={14} aria-hidden="true" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => handleQueryChange(event.target.value)}
+            placeholder={t("sidebar.knowledgeGraph.searchPlaceholder")}
+            aria-label={t("sidebar.knowledgeGraph.searchLabel")}
+            data-testid="knowledge-graph-search"
+          />
+        </label>
+        <div className="knowledge-graph-panel__view-switch" role="group" aria-label={t("sidebar.knowledgeGraph.viewLabel")}>
+          <button
+            type="button"
+            aria-pressed={view === "graph"}
+            className={view === "graph" ? "knowledge-graph-panel__view-tab is-active" : "knowledge-graph-panel__view-tab"}
+            onClick={() => handleViewChange("graph")}
+            data-testid="knowledge-graph-view-graph"
+          >
+            {t("sidebar.knowledgeGraph.view.graph")}
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "summary"}
+            className={view === "summary" ? "knowledge-graph-panel__view-tab is-active" : "knowledge-graph-panel__view-tab"}
+            onClick={() => handleViewChange("summary")}
+            data-testid="knowledge-graph-view-summary"
+          >
+            {t("sidebar.knowledgeGraph.view.summary")}
+          </button>
+        </div>
+      </div>
+
+      {status === "ready" ? (
+        <div className="knowledge-graph-panel__meta" data-testid="knowledge-graph-meta">
+          <span>{t("sidebar.knowledgeGraph.meta.total", { count: filteredNodes.length })}</span>
+          <span>{t("sidebar.knowledgeGraph.meta.characters", { count: characterCount })}</span>
+          <span>{t("sidebar.knowledgeGraph.meta.locations", { count: locationCount })}</span>
+        </div>
+      ) : null}
+
       {status === "loading" ? (
-        <p className="panel-meta" role="status">
-          {t("bootstrap.loading")}
-        </p>
+        <div className="knowledge-graph-panel__state" data-testid="knowledge-graph-loading">
+          {t("sidebar.knowledgeGraph.loading")}
+        </div>
       ) : null}
 
       {status === "error" ? (
-        <>
-          <p className="panel-error" data-testid="knowledge-graph-error" role="alert">
-            {errorMessage ?? t("errors.generic")}
-          </p>
-          {onRetry ? (
-            <div style={{ display: "flex", justifyContent: "flex-start" }}>
-              <Button tone="ghost" onClick={onRetry}>
-                {t("actions.retry")}
-              </Button>
-            </div>
-          ) : null}
-        </>
+        <div
+          className="knowledge-graph-panel__state knowledge-graph-panel__state--error"
+          data-testid="knowledge-graph-error"
+          role="alert"
+        >
+          <p>{errorMessage ?? t("errors.generic")}</p>
+          {onRetry ? <Button tone="secondary" onClick={onRetry}>{t("actions.retry")}</Button> : null}
+        </div>
       ) : null}
 
-      {status === "ready" ? (
+      {status === "ready" && nodes.length === 0 ? (
+        <div className="knowledge-graph-panel__state" data-testid="knowledge-graph-empty">
+          <p>{t("sidebar.knowledgeGraph.state")}</p>
+        </div>
+      ) : null}
+
+      {status === "ready" && nodes.length > 0 && filteredNodes.length === 0 ? (
+        <div className="knowledge-graph-panel__state" data-testid="knowledge-graph-no-match">
+          <p>{t("sidebar.knowledgeGraph.noMatch.title")}</p>
+          <p>{t("sidebar.knowledgeGraph.noMatch.desc")}</p>
+        </div>
+      ) : null}
+
+      {status === "ready" && nodes.length > 0 && view === "graph" ? (
         <>
           <div
             style={{
@@ -220,8 +341,6 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
             ))}
           </div>
 
-          <p className="panel-meta">{t("sidebar.knowledgeGraph.meta.total", { count: filteredNodes.length })}</p>
-
           {filteredNodes.length === 0 ? (
             <div
               style={{
@@ -232,13 +351,11 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
               }}
             >
               <p className="panel-meta">
-                {nodes.length === 0 ? t("sidebar.knowledgeGraph.state") : t("sidebar.knowledgeGraph.filter.empty")}
+                {t("sidebar.knowledgeGraph.filter.empty")}
               </p>
-              {nodes.length > 0 ? (
-                <Button tone="ghost" onClick={restoreAllFilters}>
-                  {t("sidebar.knowledgeGraph.filter.reset")}
-                </Button>
-              ) : null}
+              <Button tone="ghost" onClick={restoreAllFilters}>
+                {t("sidebar.knowledgeGraph.filter.reset")}
+              </Button>
             </div>
           ) : (
             <div
@@ -268,6 +385,10 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
                   padding: "var(--space-3)",
                 }}
               >
+                <div className="knowledge-graph-panel__detail-label">
+                  <Info size={14} aria-hidden="true" />
+                  <span>{t("sidebar.knowledgeGraph.detail.title")}</span>
+                </div>
                 {selectedNode === null ? (
                   <p className="panel-meta">{t("sidebar.knowledgeGraph.selectNodeHint")}</p>
                 ) : (
@@ -344,6 +465,29 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
             </div>
           )}
         </>
+      ) : null}
+
+      {status === "ready" && filteredNodes.length > 0 && view === "summary" ? (
+        <section className="knowledge-graph-panel__summary-list" data-testid="knowledge-graph-summary-list">
+          {summaryNodes.map((node) => (
+            <article key={node.id} className="knowledge-graph-summary-card" data-testid={`knowledge-graph-summary-${toTestIdSuffix(node.id)}`}>
+              <header className="knowledge-graph-summary-card__header">
+                <h3 className="knowledge-graph-summary-card__title">{node.name}</h3>
+                <span>{resolveNodeTypeLabel(node.type)}</span>
+              </header>
+              <p className="knowledge-graph-summary-card__description">
+                {node.description?.trim().length
+                  ? node.description
+                  : t("sidebar.knowledgeGraph.detail.emptyDescription")}
+              </p>
+              <p className="knowledge-graph-summary-card__meta">
+                {t("sidebar.knowledgeGraph.summary.updatedAt", {
+                  timestamp: summaryTimestampFormatter.format(node.updatedAt ?? 0),
+                })}
+              </p>
+            </article>
+          ))}
+        </section>
       ) : null}
     </section>
   );

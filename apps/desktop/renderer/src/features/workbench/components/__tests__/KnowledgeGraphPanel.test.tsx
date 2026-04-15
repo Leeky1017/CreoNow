@@ -127,4 +127,22 @@ describe("KnowledgeGraphPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it("supports query filtering and graph/summary view switch", () => {
+    render(
+      <KnowledgeGraphPanel
+        edges={graphEdges}
+        nodes={graphNodes}
+        status="ready"
+      />,
+    );
+
+    expect(screen.getByTestId("knowledge-graph-view-graph")).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByTestId("knowledge-graph-view-summary"));
+    expect(screen.getByTestId("knowledge-graph-view-summary")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("knowledge-graph-summary-list")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("knowledge-graph-search"), { target: { value: "不存在关键词" } });
+    expect(screen.getByTestId("knowledge-graph-no-match")).toBeInTheDocument();
+  });
 });

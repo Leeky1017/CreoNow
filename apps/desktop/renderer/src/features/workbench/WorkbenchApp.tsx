@@ -53,6 +53,7 @@ import {
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
   KnowledgeGraphPanel,
+  type KnowledgeGraphPanelView,
 } from "@/features/workbench/components/KnowledgeGraphPanel";
 import type {
   KnowledgeGraphEdge,
@@ -257,7 +258,7 @@ function parseTimestampToMs(input: string | number | null | undefined): number {
       return parsed;
     }
   }
-  return Date.now();
+  return 0;
 }
 
 function mapKnowledgeEntityToNode(entity: KnowledgeEntityListItem): WorkbenchKnowledgeGraphNode {
@@ -441,10 +442,14 @@ function WorkbenchShell() {
   const [knowledgeGraphEdges, setKnowledgeGraphEdges] = useState<KnowledgeGraphEdge[]>([]);
   const [knowledgeGraphStatus, setKnowledgeGraphStatus] = useState<"loading" | "ready" | "error">("loading");
   const [knowledgeGraphErrorMessage, setKnowledgeGraphErrorMessage] = useState<string | null>(null);
+  const [knowledgeGraphQuery, setKnowledgeGraphQuery] = useState("");
+  const [knowledgeGraphView, setKnowledgeGraphView] = useState<KnowledgeGraphPanelView>("graph");
   const [knowledgeGraphReloadToken, setKnowledgeGraphReloadToken] = useState(0);
   const [searchResults, setSearchResults] = useState<SearchPanelResult[]>([]);
   const [searchStatus, setSearchStatus] = useState<SearchPanelStatus>("ready");
   const [searchErrorMessage, setSearchErrorMessage] = useState<string | null>(null);
+  const [searchEffectiveStrategy, setSearchEffectiveStrategy] = useState<SearchStrategy>("hybrid");
+  const [searchNotice, setSearchNotice] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchStrategy, setSearchStrategy] = useState<SearchStrategy>("hybrid");
   const [searchReloadToken, setSearchReloadToken] = useState(0);
@@ -748,6 +753,11 @@ function WorkbenchShell() {
   }, [project?.projectId]);
 
   useEffect(() => {
+    setKnowledgeGraphQuery("");
+    setKnowledgeGraphView("graph");
+  }, [project?.projectId]);
+
+  useEffect(() => {
     if (layout.activeLeftPanel !== "search") {
       return;
     }
@@ -755,6 +765,8 @@ function WorkbenchShell() {
       setSearchResults([]);
       setSearchStatus("error");
       setSearchErrorMessage(t("sidebar.search.errorNoProject"));
+      setSearchEffectiveStrategy(searchStrategy);
+      setSearchNotice(null);
       return;
     }
 
@@ -763,6 +775,8 @@ function WorkbenchShell() {
       setSearchResults([]);
       setSearchStatus("ready");
       setSearchErrorMessage(null);
+      setSearchEffectiveStrategy(searchStrategy);
+      setSearchNotice(null);
       return;
     }
 
@@ -777,6 +791,8 @@ function WorkbenchShell() {
       setSearchResults([]);
       setSearchStatus("error");
       setSearchErrorMessage(t("sidebar.search.errorBridgeUnavailable"));
+      setSearchEffectiveStrategy(searchStrategy);
+      setSearchNotice(null);
       return;
     }
 
@@ -798,11 +814,56 @@ function WorkbenchShell() {
         strategy,
         updatedAt: item.updatedAt,
       }));
+    const applyRankedResponse = (payload: {
+      notice?: string;
+      results: Array<{
+        chunkId: string;
+        documentId: string;
+        finalScore: number;
+        snippet: string;
+        updatedAt: number;
+      }>;
+      strategy: SearchStrategy;
+    }) => {
+      setSearchResults(mapRankedResult(payload.results, payload.strategy));
+      setSearchEffectiveStrategy(payload.strategy);
+      setSearchNotice(payload.notice ?? null);
+      setSearchStatus("ready");
+      setSearchErrorMessage(null);
+    };
+    const applyFtsResponse = (
+      items: Array<{
+        anchor: { end: number; start: number };
+        documentId: string;
+        documentTitle: string;
+        score: number;
+        snippet: string;
+        updatedAt: number;
+      }>,
+    ) => {
+      setSearchResults(
+        items.map((item) => ({
+          documentId: item.documentId,
+          id: `${item.documentId}:${item.anchor.start}-${item.anchor.end}`,
+          score: item.score,
+          snippet: item.snippet,
+          strategy: "fts" as const,
+          title: item.documentTitle,
+          updatedAt: item.updatedAt,
+        })),
+      );
+      setSearchEffectiveStrategy("fts");
+      setSearchNotice(null);
+      setSearchStatus("ready");
+      setSearchErrorMessage(null);
+    };
 
     let cancelled = false;
     setSearchResults([]);
     setSearchStatus("loading");
     setSearchErrorMessage(null);
+    setSearchEffectiveStrategy(searchStrategy);
+    setSearchNotice(null);
 
     void (async () => {
       try {
@@ -820,24 +881,13 @@ function WorkbenchShell() {
             setSearchResults([]);
             setSearchStatus("error");
             setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+            setSearchNotice(null);
             return;
           }
           if (cancelled) {
             return;
           }
-          setSearchResults(
-            result.data.results.map((item) => ({
-              documentId: item.documentId,
-              id: `${item.documentId}:${item.anchor.start}-${item.anchor.end}`,
-              score: item.score,
-              snippet: item.snippet,
-              strategy: "fts" as const,
-              title: item.documentTitle,
-              updatedAt: item.updatedAt,
-            })),
-          );
-          setSearchStatus("ready");
-          setSearchErrorMessage(null);
+          applyFtsResponse(result.data.results);
           return;
         }
 
@@ -857,14 +907,17 @@ function WorkbenchShell() {
               setSearchResults([]);
               setSearchStatus("error");
               setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+              setSearchNotice(null);
               return;
             }
             if (cancelled) {
               return;
             }
-            setSearchResults(mapRankedResult(result.data.results, "semantic"));
-            setSearchStatus("ready");
-            setSearchErrorMessage(null);
+            applyRankedResponse({
+              notice: result.data.notice,
+              results: result.data.results,
+              strategy: result.data.strategy,
+            });
             return;
           }
 
@@ -883,14 +936,17 @@ function WorkbenchShell() {
               setSearchResults([]);
               setSearchStatus("error");
               setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+              setSearchNotice(null);
               return;
             }
             if (cancelled) {
               return;
             }
-            setSearchResults(mapRankedResult(result.data.results, "semantic"));
-            setSearchStatus("ready");
-            setSearchErrorMessage(null);
+            applyRankedResponse({
+              notice: result.data.notice,
+              results: result.data.results,
+              strategy: result.data.strategy,
+            });
             return;
           }
         }
@@ -910,14 +966,17 @@ function WorkbenchShell() {
             setSearchResults([]);
             setSearchStatus("error");
             setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+            setSearchNotice(null);
             return;
           }
           if (cancelled) {
             return;
           }
-          setSearchResults(mapRankedResult(result.data.results, searchStrategy));
-          setSearchStatus("ready");
-          setSearchErrorMessage(null);
+          applyRankedResponse({
+            notice: result.data.notice,
+            results: result.data.results,
+            strategy: result.data.strategy,
+          });
           return;
         }
 
@@ -936,14 +995,17 @@ function WorkbenchShell() {
             setSearchResults([]);
             setSearchStatus("error");
             setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+            setSearchNotice(null);
             return;
           }
           if (cancelled) {
             return;
           }
-          setSearchResults(mapRankedResult(result.data.results, "hybrid"));
-          setSearchStatus("ready");
-          setSearchErrorMessage(null);
+          applyRankedResponse({
+            notice: result.data.notice,
+            results: result.data.results,
+            strategy: result.data.strategy,
+          });
           return;
         }
 
@@ -961,24 +1023,13 @@ function WorkbenchShell() {
             setSearchResults([]);
             setSearchStatus("error");
             setSearchErrorMessage(getHumanErrorMessage(result.error, t));
+            setSearchNotice(null);
             return;
           }
           if (cancelled) {
             return;
           }
-          setSearchResults(
-            result.data.results.map((item) => ({
-              documentId: item.documentId,
-              id: `${item.documentId}:${item.anchor.start}-${item.anchor.end}`,
-              score: item.score,
-              snippet: item.snippet,
-              strategy: "fts" as const,
-              title: item.documentTitle,
-              updatedAt: item.updatedAt,
-            })),
-          );
-          setSearchStatus("ready");
-          setSearchErrorMessage(null);
+          applyFtsResponse(result.data.results);
         }
       } catch (error) {
         if (cancelled) {
@@ -987,6 +1038,7 @@ function WorkbenchShell() {
         setSearchResults([]);
         setSearchStatus("error");
         setSearchErrorMessage(getHumanErrorMessage(error as Error, t));
+        setSearchNotice(null);
       }
     })();
 
@@ -1230,6 +1282,8 @@ function WorkbenchShell() {
           const semanticResult = await listSemanticRules({ projectId: activeProjectId });
           if (semanticResult.ok) {
             merged.push(...semanticResult.data.items.map(mapSemanticRuleToPanelEntry));
+          } else {
+            throw new Error(getHumanErrorMessage(semanticResult.error, t));
           }
         }
 
@@ -1241,6 +1295,8 @@ function WorkbenchShell() {
           });
           if (episodicResult.ok) {
             merged.push(...episodicResult.data.items.map(mapEpisodeToPanelEntry));
+          } else {
+            throw new Error(getHumanErrorMessage(episodicResult.error, t));
           }
         }
 
@@ -2009,7 +2065,9 @@ function WorkbenchShell() {
 
     if (layout.activeLeftPanel === "search") {
       return <SearchPanel
+        effectiveStrategy={searchEffectiveStrategy}
         errorMessage={searchErrorMessage}
+        notice={searchNotice}
         onQueryChange={setSearchQuery}
         onRetry={triggerSearchReload}
         onStrategyChange={setSearchStrategy}
@@ -2050,8 +2108,12 @@ function WorkbenchShell() {
         edges={knowledgeGraphEdges}
         errorMessage={knowledgeGraphErrorMessage}
         nodes={knowledgeGraphNodes}
+        onQueryChange={setKnowledgeGraphQuery}
         onRetry={triggerKnowledgeGraphReload}
+        onViewChange={setKnowledgeGraphView}
+        query={knowledgeGraphQuery}
         status={knowledgeGraphStatus}
+        view={knowledgeGraphView}
       />;
     }
 

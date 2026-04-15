@@ -18,7 +18,9 @@ export interface SearchPanelResult {
 }
 
 interface SearchPanelProps {
+  effectiveStrategy?: SearchStrategy;
   errorMessage: string | null;
+  notice?: string | null;
   onQueryChange: (value: string) => void;
   onRetry: () => void;
   onStrategyChange: (strategy: SearchStrategy) => void;
@@ -47,20 +49,8 @@ function formatScore(score: number): string {
 
 export function SearchPanel(props: SearchPanelProps) {
   const { t, i18n } = useTranslation();
-  const normalizedQuery = props.query.trim().toLocaleLowerCase();
-  const filteredResults = useMemo(
-    () =>
-      props.results.filter((result) => {
-        if (normalizedQuery.length === 0) {
-          return true;
-        }
-        return [result.title ?? "", result.snippet, result.documentId]
-          .join(" ")
-          .toLocaleLowerCase()
-          .includes(normalizedQuery);
-      }),
-    [normalizedQuery, props.results],
-  );
+  const normalizedQuery = props.query.trim();
+  const activeStrategy = props.effectiveStrategy ?? props.strategy;
   const timestampFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(i18n.resolvedLanguage ?? undefined, {
@@ -114,8 +104,16 @@ export function SearchPanel(props: SearchPanelProps) {
 
       {props.status === "ready" ? (
         <div className="search-panel__meta" data-testid="search-meta">
-          <span>{t("sidebar.search.meta.total", { count: filteredResults.length })}</span>
-          <span>{t("sidebar.search.meta.strategy", { strategy: strategyLabel(props.strategy, t) })}</span>
+          <span>{t("sidebar.search.meta.total", { count: props.results.length })}</span>
+          <span>{t("sidebar.search.meta.strategy", { strategy: strategyLabel(activeStrategy, t) })}</span>
+          {activeStrategy !== props.strategy ? (
+            <span>{t("sidebar.search.meta.fallback", { strategy: strategyLabel(props.strategy, t) })}</span>
+          ) : null}
+        </div>
+      ) : null}
+      {props.status === "ready" && props.notice?.trim() ? (
+        <div className="search-panel__meta" data-testid="search-notice">
+          <span>{props.notice}</span>
         </div>
       ) : null}
 
@@ -126,7 +124,11 @@ export function SearchPanel(props: SearchPanelProps) {
       ) : null}
 
       {props.status === "error" ? (
-        <div className="search-panel__state search-panel__state--error" data-testid="search-error">
+        <div
+          className="search-panel__state search-panel__state--error"
+          data-testid="search-error"
+          role="alert"
+        >
           <p>{props.errorMessage ?? t("errors.generic")}</p>
           <Button tone="secondary" onClick={props.onRetry}>{t("actions.retry")}</Button>
         </div>
@@ -139,16 +141,16 @@ export function SearchPanel(props: SearchPanelProps) {
         </div>
       ) : null}
 
-      {props.status === "ready" && normalizedQuery.length > 0 && filteredResults.length === 0 ? (
+      {props.status === "ready" && normalizedQuery.length > 0 && props.results.length === 0 ? (
         <div className="search-panel__state" data-testid="search-no-match">
           <p>{t("sidebar.search.noMatch.title")}</p>
           <p>{t("sidebar.search.noMatch.desc")}</p>
         </div>
       ) : null}
 
-      {props.status === "ready" && filteredResults.length > 0 ? (
+      {props.status === "ready" && props.results.length > 0 ? (
         <section className="search-panel__results" data-testid="search-result-list">
-          {filteredResults.map((result) => {
+          {props.results.map((result) => {
             const scoreValue = formatScore(result.score);
             const scoreKey = toTestIdSuffix(result.id);
             const resolvedTitle = result.title?.trim().length
@@ -176,7 +178,7 @@ export function SearchPanel(props: SearchPanelProps) {
                 <p className="search-result-card__snippet">{resolvedSnippet}</p>
                 <footer className="search-result-card__meta">
                   <span>{t("sidebar.search.result.documentId", { documentId: result.documentId })}</span>
-                  <span>{t("sidebar.search.result.strategy", { strategy: strategyLabel(result.strategy ?? props.strategy, t) })}</span>
+                  <span>{t("sidebar.search.result.strategy", { strategy: strategyLabel(result.strategy ?? activeStrategy, t) })}</span>
                   <span>
                     {t("sidebar.search.result.updatedAt", {
                       timestamp: timestampFormatter.format(result.updatedAt),

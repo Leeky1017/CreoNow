@@ -103,8 +103,30 @@ describe("SearchPanel", () => {
   });
 
   it("ready 且无匹配时渲染 no-match", () => {
-    renderPanel({ query: "不存在关键词" });
+    renderPanel({ query: "不存在关键词", results: [] });
     expect(screen.getByTestId("search-no-match")).toBeInTheDocument();
+  });
+
+  it("不对后端返回的语义结果做二次关键词过滤", () => {
+    renderPanel({
+      query: "风暴",
+      results: [
+        {
+          id: "doc-3/chunk-9",
+          documentId: "doc-3",
+          title: "语义命中",
+          snippet: "她在寂静走廊里停下脚步，忽然想起旧约。",
+          score: 0.781,
+          strategy: "semantic",
+          updatedAt: 1_700_000_200_000,
+        },
+      ],
+      strategy: "semantic",
+    });
+
+    expect(screen.getByTestId("search-result-list")).toBeInTheDocument();
+    expect(screen.getByTestId("search-result-doc-3-chunk-9")).toBeInTheDocument();
+    expect(screen.queryByTestId("search-no-match")).not.toBeInTheDocument();
   });
 
   it("重试按钮触发 onRetry", () => {

@@ -22,6 +22,7 @@ export interface KnowledgeGraphNode {
   id: string;
   name: string;
   type: KnowledgeGraphNodeType;
+  updatedAt?: number;
 }
 
 export interface KnowledgeGraphEdge {
@@ -396,7 +397,6 @@ export function KnowledgeGraphCanvas(props: KnowledgeGraphCanvasProps) {
     <svg
       ref={svgRef}
       aria-label="知识图谱画布"
-      role="img"
       viewBox={`0 0 ${width} ${height}`}
       onClick={handleBackgroundClick}
       onMouseDown={handleBackgroundMouseDown}
