@@ -29,3 +29,11 @@ export const SingleProject: Story = {
     projects: [mockProjects[0]],
   },
 };
+
+export const SwitchRetry: Story = {
+  args: {
+    projects: mockProjects,
+    error: "Project switch timed out. Retry to restore the target project context.",
+    onRetryError: () => {},
+  },
+};
