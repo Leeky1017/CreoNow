@@ -164,7 +164,21 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
 
     {props.errorMessage ? <p className="panel-error" role="alert">{props.errorMessage}</p> : null}
 
-    {props.preview ? (
+    {props.generating ? (
+      <div className="panel-section ai-stream-progress">
+        <p className="panel-meta">{t("panel.ai.stream.caption")}</p>
+        <ul className="ai-stream-progress__stages">
+          <li>{t("panel.ai.stream.stage.context")}</li>
+          <li>{t("panel.ai.stream.stage.reasoning")}</li>
+          <li>{t("panel.ai.stream.stage.diff")}</li>
+        </ul>
+        <div className="ai-stream-progress__skeleton" aria-hidden="true">
+          <span className="ai-stream-progress__line ai-stream-progress__line--long" />
+          <span className="ai-stream-progress__line ai-stream-progress__line--mid" />
+          <span className="ai-stream-progress__line ai-stream-progress__line--short" />
+        </div>
+      </div>
+    ) : props.preview ? (
       <div className="panel-section preview-stack">
         <p className="panel-meta">{t("panel.ai.ready")}</p>
         <div className="panel-row panel-row--meta">
@@ -184,20 +198,6 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         <div className="panel-actions">
           <Button tone="primary" onClick={props.onAccept}>{t("panel.ai.accept")}</Button>
           <Button tone="ghost" onClick={props.onReject}>{t("panel.ai.reject")}</Button>
-        </div>
-      </div>
-    ) : props.generating ? (
-      <div className="panel-section ai-stream-progress">
-        <p className="panel-meta">{t("panel.ai.stream.caption")}</p>
-        <ul className="ai-stream-progress__stages">
-          <li>{t("panel.ai.stream.stage.context")}</li>
-          <li>{t("panel.ai.stream.stage.reasoning")}</li>
-          <li>{t("panel.ai.stream.stage.diff")}</li>
-        </ul>
-        <div className="ai-stream-progress__skeleton" aria-hidden="true">
-          <span className="ai-stream-progress__line ai-stream-progress__line--long" />
-          <span className="ai-stream-progress__line ai-stream-progress__line--mid" />
-          <span className="ai-stream-progress__line ai-stream-progress__line--short" />
         </div>
       </div>
     ) : (
