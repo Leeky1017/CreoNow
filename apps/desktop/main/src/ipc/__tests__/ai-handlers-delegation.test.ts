@@ -84,9 +84,26 @@ const mocks = vi.hoisted(() => {
       cancel: vi.fn(),
     })),
     createContextLayerAssemblyServiceMock: vi.fn(() => ({
-      assemble: vi.fn().mockReturnValue({ ok: true, data: { layers: [] } }),
+      assemble: vi.fn().mockResolvedValue({
+        prompt: "ctx",
+        tokenCount: 10,
+        stablePrefixHash: "hash",
+        stablePrefixUnchanged: false,
+        warnings: [],
+        compressionApplied: false,
+        capacityPercent: 1,
+        layers: [],
+      }),
     })),
-    createKnowledgeGraphServiceMock: vi.fn(() => ({})),
+    createKnowledgeGraphServiceMock: vi.fn(() => ({
+      entityList: vi.fn(() => ({
+        ok: true,
+        data: {
+          items: [] as Array<{ id: string; type: string }>,
+          totalCount: 0,
+        },
+      })),
+    })),
     createMemoryServiceMock: vi.fn(() => ({})),
     createEpisodicMemoryServiceMock: vi.fn(() => ({})),
     createSqliteEpisodeRepositoryMock: vi.fn(() => ({})),
@@ -95,6 +112,14 @@ const mocks = vi.hoisted(() => {
     })),
     createDocumentServiceMock: vi.fn(() => ({
       read: vi.fn(),
+    })),
+    createP3SkillExecutorMock: vi.fn(() => ({
+      executeSkill: vi.fn().mockResolvedValue({
+        success: true,
+        data: { passed: true, issues: [] },
+      }),
+      registerSkills: vi.fn(),
+      dispose: vi.fn(),
     })),
   };
 });
@@ -140,6 +165,9 @@ vi.mock("../../services/stats/statsService", () => ({
 vi.mock("../../services/documents/documentService", () => ({
   createDocumentService: mocks.createDocumentServiceMock,
 }));
+vi.mock("../../services/skills/p3Skills", () => ({
+  createP3SkillExecutor: mocks.createP3SkillExecutorMock,
+}));
 vi.mock("../../services/skills/writingTooling", () => ({
   createWritingToolRegistry: vi.fn(() => ({ getTools: () => [] })),
   createAgenticToolRegistry: vi.fn(() => ({ getTools: () => [] })),
@@ -148,6 +176,8 @@ vi.mock("../../services/skills/toolRegistry", () => ({
   createToolRegistry: vi.fn(() => ({
     getAllTools: () => [],
     getToolsByCategory: () => [],
+    register: vi.fn(),
+    unregister: vi.fn(),
   })),
 }));
 vi.mock("../../services/skills/toolUseHandler", () => ({
@@ -199,7 +229,11 @@ interface IpcResponse<T> {
   error?: { code: string; message: string };
 }
 
-function createHarness(dbNull = false, withCostTracker = false) {
+function createHarness(
+  dbNull = false,
+  withCostTracker = false,
+  withEventBus = false,
+) {
   const handlers = new Map<string, Handler>();
 
   const ipcMain = {
@@ -249,6 +283,15 @@ function createHarness(dbNull = false, withCostTracker = false) {
               totalRequests: 0,
               budgetStatus: "ok" as const,
             })),
+          } as unknown as never,
+        }
+      : {}),
+    ...(withEventBus
+      ? {
+          eventBus: {
+            emit: vi.fn(),
+            on: vi.fn(),
+            off: vi.fn(),
           } as unknown as never,
         }
       : {}),
@@ -340,6 +383,143 @@ describe("AI IPC channel registration", () => {
         validSkillIds: [],
       }),
     );
+  });
+
+  it("提供 eventBus 时接通 quality-check post-writing hook", () => {
+    createHarness(false, true, true);
+    expect(mocks.createP3SkillExecutorMock).toHaveBeenCalledTimes(1);
+    const firstCall =
+      mocks.createWritingOrchestratorMock.mock.calls[0] as unknown[] | undefined;
+    const orchestratorConfig = firstCall?.[0] as
+      | { postWritingHooks?: Array<{ name: string }> }
+      | undefined;
+    const hookNames = (orchestratorConfig?.postWritingHooks ?? []).map(
+      (hook: { name: string }) => hook.name,
+    );
+    expect(hookNames).toContain("quality-check");
+  });
+
+  it("触发 quality-check hook 时经 P3 executor 执行 consistency-check", async () => {
+    createHarness(false, true, true);
+    const firstCall =
+      mocks.createWritingOrchestratorMock.mock.calls[0] as unknown[] | undefined;
+    const orchestratorConfig = firstCall?.[0] as
+      | {
+          postWritingHooks?: Array<{
+            name: string;
+            execute: (ctx: {
+              requestId: string;
+              documentId: string;
+              projectId?: string;
+              sessionId?: string;
+              fullText: string;
+            }) => Promise<void>;
+          }>;
+        }
+      | undefined;
+    const qualityHook = orchestratorConfig?.postWritingHooks?.find(
+      (hook) => hook.name === "quality-check",
+    );
+    const executorInstance = mocks.createP3SkillExecutorMock.mock.results[0]?.value as
+      | { executeSkill: ReturnType<typeof vi.fn> }
+      | undefined;
+
+    expect(qualityHook).toBeDefined();
+    expect(executorInstance).toBeDefined();
+
+    await qualityHook?.execute({
+      requestId: "req-001",
+      documentId: "doc-001",
+      projectId: "proj-001",
+      sessionId: "sess-001",
+      fullText: "李明在青云城门口看见了与设定不符的细节。",
+    });
+
+    expect(executorInstance?.executeSkill).toHaveBeenCalledWith(
+      "consistency-check",
+      expect.objectContaining({
+        projectId: "proj-001",
+        documentId: "doc-001",
+        documentContent: "李明在青云城门口看见了与设定不符的细节。",
+      }),
+    );
+  });
+
+  it("P3 bridge contextEngine 透传 skill-aware 组装参数并单独探测设定存在性", async () => {
+    const characterEntityList = vi.fn(() => ({
+      ok: true,
+      data: {
+        items: [
+          {
+            id: "ent-1",
+            type: "character",
+          },
+        ],
+        totalCount: 1,
+      },
+    }));
+    mocks.createKnowledgeGraphServiceMock.mockReturnValueOnce({
+      entityList: characterEntityList,
+    });
+
+    createHarness(false, true, true);
+    const firstExecutorCall =
+      mocks.createP3SkillExecutorMock.mock.calls[0] as unknown[] | undefined;
+    const p3Deps = firstExecutorCall?.[0] as
+      | {
+          contextEngine?: {
+            assembleContext: (params: {
+              projectId: string;
+              documentId: string;
+              skillId: string;
+              input: string;
+              selection?: { text: string };
+              injectCharacterSettings: boolean;
+              injectLocationSettings: boolean;
+              injectMemory: boolean;
+            }) => Promise<{ success: boolean; data: Record<string, unknown> }>;
+          };
+        }
+      | undefined;
+    const layerAssembly =
+      mocks.createContextLayerAssemblyServiceMock.mock.results[0]?.value as
+        | { assemble: ReturnType<typeof vi.fn> }
+        | undefined;
+
+    const result = await p3Deps?.contextEngine?.assembleContext({
+      projectId: "proj-001",
+      documentId: "doc-001",
+      skillId: "consistency-check",
+      input: "整段正文",
+      selection: { text: "选区正文" },
+      injectCharacterSettings: true,
+      injectLocationSettings: true,
+      injectMemory: false,
+    });
+
+    expect(layerAssembly?.assemble).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "proj-001",
+        documentId: "doc-001",
+        cursorPosition: 0,
+        skillId: "consistency-check",
+        additionalInput: "选区正文",
+        additionalInputIsSelection: true,
+      }),
+    );
+    expect(characterEntityList).toHaveBeenCalledWith({
+      projectId: "proj-001",
+      limit: 5000,
+    });
+    expect(result).toEqual({
+      success: true,
+      data: {
+        prompt: "ctx",
+        hasCharacterSettings: true,
+        hasLocationSettings: false,
+        hasMemory: false,
+      },
+    });
   });
 
   it("预热 list 失败时记录 skill_registry_warmup_failed 错误日志", () => {
