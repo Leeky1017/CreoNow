@@ -35,9 +35,21 @@ import { VersionHistoryPanel } from "@/features/version-history/VersionHistoryPa
 import type { VersionHistorySnapshotDetail } from "@/features/version-history/types";
 import { useVersionHistoryController } from "@/features/version-history/useVersionHistoryController";
 import { SettingsPage } from "@/features/settings/SettingsPage";
+import { SettingsModal } from "@/features/settings/SettingsModal";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
+import {
+  CalendarPanel,
+  type CalendarEvent,
+  type CalendarMilestone,
+  type CalendarPanelStatus,
+} from "@/features/workbench/components/CalendarPanel";
 import { CommandPalette, type CommandPaletteItem } from "@/features/workbench/components/CommandPalette";
 import { EditorSelectionToolbar } from "@/features/workbench/components/EditorSelectionToolbar";
+import {
+  ExportPublishModal,
+  type ExportFormat,
+  type ExportPublishMode,
+} from "@/features/workbench/components/ExportPublishModal";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
   KnowledgeGraphPanel,
@@ -51,6 +63,11 @@ import {
   type MemoryPanelEntry,
   type MemoryPanelStatus,
 } from "@/features/workbench/components/MemoryPanel";
+import {
+  ScenariosPanel,
+  type ScenarioTemplate,
+  type ScenariosPanelStatus,
+} from "@/features/workbench/components/ScenariosPanel";
 import {
   WorldbuildingPanel,
   type WorldbuildingEntry,
@@ -87,6 +104,7 @@ import {
 } from "./hooks";
 
 const MAX_REFERENCE_LENGTH = 120;
+const WELCOME_SCENARIOS_KEY = "creonow:onboarding:welcome-scenarios";
 type LocationListItem = IpcResponseData<"settings:location:list">["items"][number];
 type CharacterListItem = IpcResponseData<"settings:character:list">["items"][number];
 type MemorySimpleListItem = IpcResponseData<"memory:simple:list">["items"][number];
@@ -122,11 +140,37 @@ const LEFT_PANEL_ITEMS: Array<{
 ];
 
 const SCENARIO_ITEMS = [
-  { id: "novel", labelKey: "scenario.novel" },
-  { id: "diary", labelKey: "scenario.diary" },
-  { id: "script", labelKey: "scenario.script" },
-  { id: "social", labelKey: "scenario.social" },
+  {
+    id: "novel",
+    labelKey: "scenario.novel",
+    description: "章节级长线叙事与角色冲突主导。",
+    profileKey: "sidebar.scenarios.profile.novel",
+  },
+  {
+    id: "diary",
+    labelKey: "scenario.diary",
+    description: "碎片化记录与情绪流写作。",
+    profileKey: "sidebar.scenarios.profile.diary",
+  },
+  {
+    id: "script",
+    labelKey: "scenario.script",
+    description: "场次切换与对白节奏优先。",
+    profileKey: "sidebar.scenarios.profile.script",
+  },
+  {
+    id: "social",
+    labelKey: "scenario.social",
+    description: "传播导向短文与结构化选题。",
+    profileKey: "sidebar.scenarios.profile.social",
+  },
 ] as const;
+
+type ScenarioId = (typeof SCENARIO_ITEMS)[number]["id"];
+
+function isScenarioId(value: string): value is ScenarioId {
+  return SCENARIO_ITEMS.some((scenario) => scenario.id === value);
+}
 
 const QUICK_TOOL_ITEMS = [
   "sidebar.quickTools.search",
@@ -306,7 +350,7 @@ function WorkbenchShell() {
   const [preview, setPreview] = useState<AiPreview | null>(null);
   const [versionPreviewState, setVersionPreviewState] = useState<VersionPreviewState | null>(null);
   const [restoreDialogSnapshot, setRestoreDialogSnapshot] = useState<VersionHistorySnapshotDetail | null>(null);
-  const [activeScenarioId, setActiveScenarioId] = useState<(typeof SCENARIO_ITEMS)[number]["id"]>("novel");
+  const [activeScenarioId, setActiveScenarioId] = useState<ScenarioId>("novel");
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [scenarioMenuOpen, setScenarioMenuOpen] = useState(false);
   const [worldbuildingEntries, setWorldbuildingEntries] = useState<WorldbuildingEntry[]>([]);
@@ -327,6 +371,16 @@ function WorkbenchShell() {
   const [memoryErrorMessage, setMemoryErrorMessage] = useState<string | null>(null);
   const [memoryQuery, setMemoryQuery] = useState("");
   const [memoryReloadToken, setMemoryReloadToken] = useState(0);
+  const [scenariosStatus, setScenariosStatus] = useState<ScenariosPanelStatus>("ready");
+  const [scenariosErrorMessage, setScenariosErrorMessage] = useState<string | null>(null);
+  const [calendarStatus, setCalendarStatus] = useState<CalendarPanelStatus>("ready");
+  const [calendarErrorMessage, setCalendarErrorMessage] = useState<string | null>(null);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportModalMode, setExportModalMode] = useState<ExportPublishMode>("export");
+  const [exporting, setExporting] = useState(false);
+  const [exportResultPath, setExportResultPath] = useState<string | null>(null);
+  const [exportErrorMessage, setExportErrorMessage] = useState<string | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
   const [zenDotExpanded, setZenDotExpanded] = useState(false);
@@ -453,6 +507,138 @@ function WorkbenchShell() {
 
   const triggerMemoryReload = useCallback(() => {
     setMemoryReloadToken((value) => value + 1);
+  }, []);
+
+  const scenarioTemplates = useMemo<ScenarioTemplate[]>(
+    () =>
+      SCENARIO_ITEMS.map((scenario) => ({
+        description: scenario.description,
+        id: scenario.id,
+        labelKey: scenario.labelKey,
+        profileKey: scenario.profileKey,
+      })),
+    [],
+  );
+
+  useEffect(() => {
+    const rawValue = window.localStorage.getItem(WELCOME_SCENARIOS_KEY);
+    if (rawValue === null) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(rawValue);
+      if (Array.isArray(parsed) === false) {
+        return;
+      }
+      const preferredScenario = parsed.find((value): value is ScenarioId => (
+        typeof value === "string" && isScenarioId(value)
+      ));
+      if (preferredScenario !== undefined) {
+        setActiveScenarioId(preferredScenario);
+      }
+    } catch {
+      // ignore malformed onboarding payload
+    }
+  }, []);
+
+  const handleScenarioSelect = useCallback((scenarioId: string) => {
+    if (isScenarioId(scenarioId) === false) {
+      return;
+    }
+    setActiveScenarioId(scenarioId);
+  }, []);
+
+  const calendarMilestones = useMemo<CalendarMilestone[]>(
+    () => [
+      {
+        id: "milestone-chapter",
+        dateLabel: t("sidebar.calendar.milestoneDate.current"),
+        description: t("sidebar.calendar.milestoneDesc.current"),
+        status: "active",
+        title: t("sidebar.calendar.milestoneTitle.current"),
+      },
+      {
+        id: "milestone-conflict",
+        dateLabel: t("sidebar.calendar.milestoneDate.upcoming"),
+        description: t("sidebar.calendar.milestoneDesc.upcoming"),
+        status: "upcoming",
+        title: t("sidebar.calendar.milestoneTitle.upcoming"),
+      },
+      {
+        id: "milestone-publish",
+        dateLabel: t("sidebar.calendar.milestoneDate.draft"),
+        description: t("sidebar.calendar.milestoneDesc.draft"),
+        status: "draft",
+        title: t("sidebar.calendar.milestoneTitle.draft"),
+      },
+    ],
+    [t],
+  );
+
+  const calendarEvents = useMemo<CalendarEvent[]>(
+    () =>
+      documents.slice(0, 8).map((document, index) => ({
+        day: (index % 28) + 1,
+        id: document.documentId,
+        title: document.title,
+        type: index % 3 === 0 ? "fiction" : index % 3 === 1 ? "script" : "media",
+      })),
+    [documents],
+  );
+
+  const openExportModal = useCallback((mode: ExportPublishMode = "export") => {
+    setExportModalMode(mode);
+    setExportErrorMessage(null);
+    setExportResultPath(null);
+    setExportModalOpen(true);
+  }, []);
+
+  const handleExportDocument = useCallback(async (format: ExportFormat) => {
+    if (project === null) {
+      setExportErrorMessage(t("export.modal.error.noProject"));
+      return;
+    }
+    const exportApi = api.export;
+    if (!exportApi) {
+      setExportErrorMessage(t("export.modal.error.unavailable"));
+      return;
+    }
+    const invokeExport = format === "docx"
+      ? exportApi.docx
+      : format === "markdown"
+        ? exportApi.markdown
+        : format === "pdf"
+          ? exportApi.pdf
+          : exportApi.txt;
+
+    setExporting(true);
+    setExportErrorMessage(null);
+    setExportResultPath(null);
+    try {
+      const result = await invokeExport({
+        documentId: activeDocument?.documentId,
+        projectId: project.projectId,
+      });
+      if (result.ok === false) {
+        setExportErrorMessage(getHumanErrorMessage(result.error, t));
+        return;
+      }
+      setExportResultPath(result.data?.relativePath ?? t("export.modal.success.fallbackPath"));
+    } catch (error) {
+      setExportErrorMessage(getHumanErrorMessage(error as Error, t));
+    } finally {
+      setExporting(false);
+    }
+  }, [activeDocument?.documentId, api, project, t]);
+
+  const handleScenarioRetry = useCallback(() => {
+    setScenariosStatus("ready");
+    setScenariosErrorMessage(null);
+  }, []);
+
+  const handleCalendarRetry = useCallback(() => {
+    setCalendarStatus("ready");
+    setCalendarErrorMessage(null);
   }, []);
 
   const handleCreateWorldbuildingEntry = useCallback(() => {
@@ -1253,9 +1439,11 @@ function WorkbenchShell() {
     }
 
     if (item.id.startsWith("scenario-")) {
-      const scenarioId = item.id.slice("scenario-".length) as (typeof SCENARIO_ITEMS)[number]["id"];
+      const scenarioId = item.id.slice("scenario-".length);
       runCommandPaletteAction(() => {
-        setActiveScenarioId(scenarioId);
+        if (isScenarioId(scenarioId)) {
+          setActiveScenarioId(scenarioId);
+        }
         openLeftPanel("scenarios");
       });
       return;
@@ -1393,27 +1581,25 @@ function WorkbenchShell() {
       </>;
     }
 
+    if (layout.activeLeftPanel === "calendar") {
+      return <CalendarPanel
+        errorMessage={calendarErrorMessage}
+        events={calendarEvents}
+        milestones={calendarMilestones}
+        onRetry={handleCalendarRetry}
+        status={calendarStatus}
+      />;
+    }
+
     if (layout.activeLeftPanel === "scenarios") {
-      return <div className="sidebar-surface">
-        <div className="panel-section">
-          <h1 className="screen-title">{t("sidebar.scenarios.title")}</h1>
-          <p className="panel-subtitle">{t("sidebar.scenarios.subtitle")}</p>
-        </div>
-        <div className="sidebar-list">
-          {SCENARIO_ITEMS.map((scenario) => (
-            <button
-              key={scenario.id}
-              className={activeScenarioId === scenario.id ? "sidebar-item sidebar-item--active" : "sidebar-item"}
-              onClick={() => {
-                setActiveScenarioId(scenario.id);
-              }}
-              type="button"
-            >
-              <span className="sidebar-item__title">{t(scenario.labelKey)}</span>
-            </button>
-          ))}
-        </div>
-      </div>;
+      return <ScenariosPanel
+        activeScenarioId={activeScenarioId}
+        errorMessage={scenariosErrorMessage}
+        onRetry={handleScenarioRetry}
+        onSelectScenario={handleScenarioSelect}
+        scenarios={scenarioTemplates}
+        status={scenariosStatus}
+      />;
     }
 
     if (layout.activeLeftPanel === "worldbuilding") {
@@ -1463,7 +1649,30 @@ function WorkbenchShell() {
         </div>
         <div className="sidebar-quick-tools">
           {QUICK_TOOL_ITEMS.map((toolKey) => (
-            <button key={toolKey} type="button" className="sidebar-quick-tools__item">{t(toolKey)}</button>
+            <button
+              key={toolKey}
+              type="button"
+              className="sidebar-quick-tools__item"
+              onClick={() => {
+                if (toolKey === "sidebar.quickTools.search") {
+                  layout.setActiveLeftPanel("search");
+                  return;
+                }
+                if (toolKey === "sidebar.quickTools.tree") {
+                  layout.setActiveLeftPanel("knowledgeGraph");
+                  return;
+                }
+                if (toolKey === "sidebar.quickTools.conflict") {
+                  layout.handleRightPanelSelect("quality");
+                  return;
+                }
+                if (toolKey === "sidebar.quickTools.export") {
+                  openExportModal("export");
+                }
+              }}
+            >
+              {t(toolKey)}
+            </button>
           ))}
         </div>
         <div className="sidebar-summary-card">
@@ -1495,7 +1704,14 @@ function WorkbenchShell() {
     }
 
     if (layout.activeLeftPanel === "settings") {
-      return <SettingsPage />;
+      return <div className="sidebar-surface settings-surface">
+        <div className="settings-surface__actions">
+          <Button tone="secondary" onClick={() => setSettingsModalOpen(true)} data-testid="settings-open-modal-btn">
+            {t("settingsModal.open")}
+          </Button>
+        </div>
+        <SettingsPage />
+      </div>;
     }
 
     const surfaceKey = `sidebar.${layout.activeLeftPanel}`;
@@ -1933,6 +2149,24 @@ function WorkbenchShell() {
       query={commandPaletteQuery}
       shortcutHint={t("commandPalette.shortcutHint")}
       title={t("commandPalette.title")}
+    />
+
+    <ExportPublishModal
+      errorMessage={exportErrorMessage}
+      exporting={exporting}
+      isOpen={exportModalOpen}
+      mode={exportModalMode}
+      onClose={() => setExportModalOpen(false)}
+      onExport={(format) => {
+        void handleExportDocument(format);
+      }}
+      onModeChange={setExportModalMode}
+      resultPath={exportResultPath}
+    />
+
+    <SettingsModal
+      isOpen={settingsModalOpen}
+      onClose={() => setSettingsModalOpen(false)}
     />
 
     {restoreDialogSnapshot === null ? null : <div className="version-restore-dialog-backdrop">

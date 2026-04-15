@@ -57,6 +57,7 @@ function createProjectApi() {
 describe("RendererApp", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   afterEach(() => {
@@ -236,5 +237,64 @@ describe("RendererApp", () => {
 
     await waitFor(() => expect(projectApi.switchProject).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByTestId("workbench-app")).toBeInTheDocument());
+  });
+
+  it("首次进入且无项目时显示欢迎引导，完成后写入本地标记", async () => {
+    const projectApi = {
+      getCurrent: vi.fn(async () => ({ ok: false, error: { code: "NOT_FOUND", message: "missing" } })),
+      list: vi.fn(async () => ({ ok: true, data: { items: [] } })),
+      setCurrent: vi.fn(async () => ({ ok: true, data: { projectId: "proj-1", rootPath: "/projects/proj-1" } })),
+      stats: vi.fn(async () => ({
+        ok: true,
+        data: {
+          total: 0,
+          active: 0,
+          archived: 0,
+          totalWordCount: 0,
+          overallProgressPercent: 0,
+          perProject: [],
+        },
+      })),
+      create: vi.fn(async () => ({ ok: true, data: { projectId: "proj-2", rootPath: "/projects/proj-2" } })),
+      switchProject: vi.fn(async ({ projectId }) => ({
+        ok: true,
+        data: { currentProjectId: projectId, switchedAt: "2026-01-01T00:00:00.000Z" },
+      })),
+    };
+    window.api = ({
+      project: projectApi,
+      file: {} as never,
+      ai: {} as never,
+      version: {} as never,
+    } as unknown) as NonNullable<typeof window.api>;
+
+    render(<RendererApp />);
+
+    await waitFor(() => expect(screen.getByTestId("dashboard-page")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("welcome-screen")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("welcome-start-btn"));
+    fireEvent.click(screen.getByTestId("welcome-scenario-novel"));
+    fireEvent.click(screen.getByTestId("welcome-complete-btn"));
+
+    await waitFor(() => expect(screen.queryByTestId("welcome-screen")).not.toBeInTheDocument());
+    expect(window.localStorage.getItem("creonow:onboarding:welcome-completed")).toBe("1");
+    expect(window.localStorage.getItem("creonow:onboarding:welcome-scenarios")).toBe("[\"novel\"]");
+  });
+
+  it("项目加载失败时不展示欢迎引导遮罩", async () => {
+    const projectApi = createProjectApi();
+    projectApi.list = (vi.fn(async () => ({ ok: false as const, error: { code: "DB_ERROR", message: "boom" } })) as unknown) as typeof projectApi.list;
+    window.api = ({
+      project: projectApi,
+      file: {} as never,
+      ai: {} as never,
+      version: {} as never,
+    } as unknown) as NonNullable<typeof window.api>;
+
+    render(<RendererApp />);
+
+    await waitFor(() => expect(screen.getByTestId("dashboard-error-banner")).toBeInTheDocument());
+    expect(screen.queryByTestId("welcome-screen")).not.toBeInTheDocument();
   });
 });

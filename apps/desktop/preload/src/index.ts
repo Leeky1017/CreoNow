@@ -113,6 +113,16 @@ const api = {
     list: (payload: Parameters<typeof creonowInvoke<"memory:simple:list">>[1]) =>
       creonowInvoke("memory:simple:list", payload),
   },
+  export: {
+    docx: (payload: Parameters<typeof creonowInvoke<"export:document:docx">>[1]) =>
+      creonowInvoke("export:document:docx", payload),
+    markdown: (payload: Parameters<typeof creonowInvoke<"export:document:markdown">>[1]) =>
+      creonowInvoke("export:document:markdown", payload),
+    pdf: (payload: Parameters<typeof creonowInvoke<"export:document:pdf">>[1]) =>
+      creonowInvoke("export:document:pdf", payload),
+    txt: (payload: Parameters<typeof creonowInvoke<"export:document:txt">>[1]) =>
+      creonowInvoke("export:document:txt", payload),
+  },
   search: {
     query: (payload: Parameters<typeof creonowInvoke<"search:fts:query">>[1]) =>
       creonowInvoke("search:fts:query", payload),

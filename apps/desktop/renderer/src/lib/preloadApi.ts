@@ -65,6 +65,12 @@ export interface PreloadApi {
   memory?: {
     list: InvokeHandler<"memory:simple:list">;
   };
+  export?: {
+    docx: InvokeHandler<"export:document:docx">;
+    markdown: InvokeHandler<"export:document:markdown">;
+    pdf: InvokeHandler<"export:document:pdf">;
+    txt: InvokeHandler<"export:document:txt">;
+  };
   search: {
     query: InvokeHandler<"search:fts:query">;
   };
