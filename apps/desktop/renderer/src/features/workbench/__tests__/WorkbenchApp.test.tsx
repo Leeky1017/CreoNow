@@ -4017,4 +4017,35 @@ describe("WorkbenchApp", () => {
       expect(screen.queryByRole("dialog", { name: "命令面板" })).not.toBeInTheDocument();
     });
   });
+
+  it("does not collapse sidebar when selecting the current panel from command palette", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+    const palette = screen.getByRole("dialog", { name: "命令面板" });
+    fireEvent.click(within(palette).getByRole("button", { name: /文件项目文稿与章节入口/ }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "命令面板" })).not.toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+  });
+
+  it("blocks layout-level global shortcuts while command palette is open", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+    const frame = screen.getByTestId("workbench-frame");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+    expect(screen.getByRole("dialog", { name: "命令面板" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "\\" });
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("false");
+
+    fireEvent.keyDown(window, { shiftKey: true, key: "Z" });
+    expect(frame).not.toHaveClass("workbench-frame--zen");
+  });
 });

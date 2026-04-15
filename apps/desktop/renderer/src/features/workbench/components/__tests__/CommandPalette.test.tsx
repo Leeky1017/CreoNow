@@ -61,4 +61,17 @@ describe("CommandPalette", () => {
     fireEvent.mouseDown(screen.getByRole("dialog", { name: "命令面板" }).parentElement as HTMLElement);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("traps Tab focus inside the dialog", () => {
+    render(<CommandPalette {...baseProps} />);
+
+    const dialog = screen.getByRole("dialog", { name: "命令面板" });
+    const input = screen.getByPlaceholderText("搜索页面、场景或命令…");
+    const buttons = screen.getAllByRole("button");
+    const last = buttons[buttons.length - 1];
+
+    last.focus();
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(input).toHaveFocus();
+  });
 });

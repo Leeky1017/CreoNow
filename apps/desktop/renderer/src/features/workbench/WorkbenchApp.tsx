@@ -287,10 +287,20 @@ function WorkbenchShell() {
   }, [layout.zenMode]);
 
   useEffect(() => {
+    if (restoreDialogSnapshot !== null) {
+      setCommandPaletteOpen(false);
+    }
+  }, [restoreDialogSnapshot]);
+
+  useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       if ((event.metaKey || event.ctrlKey) && key === "k") {
+        if (restoreDialogSnapshot !== null) {
+          return;
+        }
         event.preventDefault();
+        event.stopPropagation();
         setCommandPaletteOpen((current) => {
           const next = !current;
           if (next) {
@@ -301,16 +311,27 @@ function WorkbenchShell() {
         return;
       }
 
+      const blocksLayoutShortcut = commandPaletteOpen && (
+        (event.shiftKey && key === "z" && !event.metaKey && !event.ctrlKey && !event.altKey)
+        || ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && (event.key === "\\" || key === "l"))
+      );
+      if (blocksLayoutShortcut) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       if (event.key === "Escape") {
+        event.stopPropagation();
         setCommandPaletteOpen(false);
       }
     };
 
-    window.addEventListener("keydown", handleWindowKeyDown);
+    window.addEventListener("keydown", handleWindowKeyDown, true);
     return () => {
-      window.removeEventListener("keydown", handleWindowKeyDown);
+      window.removeEventListener("keydown", handleWindowKeyDown, true);
     };
-  }, []);
+  }, [commandPaletteOpen, restoreDialogSnapshot]);
 
   const editorBridge = useMemo(
     () =>
@@ -801,6 +822,11 @@ function WorkbenchShell() {
     action();
   }, []);
 
+  const openLeftPanel = useCallback((panelId: LeftPanelId) => {
+    layout.setActiveLeftPanel(panelId);
+    layout.setSidebarCollapsed(false);
+  }, [layout]);
+
   const commandPaletteItems = useMemo<CommandPaletteItem[]>(() => {
     const navigationItems: CommandPaletteItem[] = [
       {
@@ -900,29 +926,29 @@ function WorkbenchShell() {
       const scenarioId = item.id.slice("scenario-".length) as (typeof SCENARIO_ITEMS)[number]["id"];
       runCommandPaletteAction(() => {
         setActiveScenarioId(scenarioId);
-        layout.handleLeftPanelSelect("scenarios");
+        openLeftPanel("scenarios");
       });
       return;
     }
 
     switch (item.id) {
       case "nav-dashboard":
-        runCommandPaletteAction(() => layout.handleLeftPanelSelect("dashboard"));
+        runCommandPaletteAction(() => openLeftPanel("dashboard"));
         return;
       case "nav-files":
-        runCommandPaletteAction(() => layout.handleLeftPanelSelect("files"));
+        runCommandPaletteAction(() => openLeftPanel("files"));
         return;
       case "nav-search":
-        runCommandPaletteAction(() => layout.handleLeftPanelSelect("search"));
+        runCommandPaletteAction(() => openLeftPanel("search"));
         return;
       case "nav-scenarios":
-        runCommandPaletteAction(() => layout.handleLeftPanelSelect("scenarios"));
+        runCommandPaletteAction(() => openLeftPanel("scenarios"));
         return;
       case "nav-memory":
-        runCommandPaletteAction(() => layout.handleLeftPanelSelect("memory"));
+        runCommandPaletteAction(() => openLeftPanel("memory"));
         return;
       case "nav-settings":
-        runCommandPaletteAction(() => layout.handleLeftPanelSelect("settings"));
+        runCommandPaletteAction(() => openLeftPanel("settings"));
         return;
       case "nav-ai":
         runCommandPaletteAction(() => layout.handleRightPanelSelect("ai"));
@@ -944,7 +970,7 @@ function WorkbenchShell() {
       default:
         runCommandPaletteAction(() => undefined);
     }
-  }, [aiSkill, handleCreateDocument, handleOpenDocument, layout, runCommandPaletteAction]);
+  }, [aiSkill, handleCreateDocument, handleOpenDocument, layout, openLeftPanel, runCommandPaletteAction]);
 
   const saveLabel =
     autosave.saveState === "saving"
@@ -1533,7 +1559,7 @@ function WorkbenchShell() {
       onClose={() => setCommandPaletteOpen(false)}
       onQueryChange={setCommandPaletteQuery}
       onSelect={handleCommandPaletteSelect}
-      open={commandPaletteOpen}
+      open={commandPaletteOpen && restoreDialogSnapshot === null}
       placeholder={t("commandPalette.placeholder")}
       query={commandPaletteQuery}
       shortcutHint={t("commandPalette.shortcutHint")}

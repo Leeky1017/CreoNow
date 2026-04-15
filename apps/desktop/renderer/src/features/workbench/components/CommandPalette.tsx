@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { useMemo } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef } from "react";
 
 import { Button } from "@/components/primitives/Button";
 import { Input } from "@/components/primitives/Input";
@@ -45,6 +45,7 @@ function matchesQuery(item: CommandPaletteItem, normalizedQuery: string): boolea
 }
 
 export function CommandPalette(props: CommandPaletteProps) {
+  const dialogRef = useRef<HTMLElement | null>(null);
   const normalizedQuery = props.query.trim().toLowerCase();
 
   const groupedItems = useMemo(() => {
@@ -66,16 +67,57 @@ export function CommandPalette(props: CommandPaletteProps) {
 
   const hasResults = Array.from(groupedItems.values()).some((items) => items.length > 0);
 
+  useEffect(() => {
+    if (props.open === false) {
+      return;
+    }
+
+    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      previousActiveElement?.focus();
+    };
+  }, [props.open]);
+
   if (props.open === false) {
     return null;
   }
+
+  const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex='-1'])",
+    );
+    if (!focusable || focusable.length === 0) {
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const activeElement = document.activeElement;
+
+    if (event.shiftKey && activeElement === first) {
+      event.preventDefault();
+      last.focus();
+      return;
+    }
+
+    if (event.shiftKey === false && activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   return <div className="command-palette-backdrop" onMouseDown={props.onClose}>
     <section
       aria-label={props.title}
       aria-modal="true"
       className="command-palette"
+      onKeyDown={handleDialogKeyDown}
       onMouseDown={(event) => event.stopPropagation()}
+      ref={dialogRef}
       role="dialog"
     >
       <header className="command-palette__header">
