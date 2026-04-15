@@ -354,10 +354,9 @@ export interface PostWritingHookChainDeps {
   kgUpdate: KgUpdateHookDeps;
   memoryExtract: MemoryExtractHookDeps;
   /**
-   * Optional — quality-check requires P3SkillExecutor which depends on
-   * contextEngine + eventBus (not yet available in the IPC scope).
+   * Optional — some callers only have the fast local hook dependencies and
+   * deliberately omit the LLM-backed quality-check leg.
    * When omitted the quality-check hook is simply not registered.
-   * @todo Wire when P3 skill infrastructure lands in IPC scope.
    */
   qualityCheck?: QualityCheckHookDeps;
 }

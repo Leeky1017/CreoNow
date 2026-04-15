@@ -386,6 +386,7 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
       let aiResponse: { content: string };
       try {
         aiResponse = await aiService.complete({
+          skillId,
           systemPrompt: manifest.systemPromptTemplate,
           context: contextData,
           input: input.documentContent,

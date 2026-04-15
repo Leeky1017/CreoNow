@@ -456,6 +456,7 @@ function registerIpcHandlers(deps: {
     secretStorage,
     projectSessionBinding,
     costTracker,
+    eventBus,
   });
 
   registerAiProxyIpcHandlers({

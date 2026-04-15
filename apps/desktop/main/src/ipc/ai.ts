@@ -78,6 +78,11 @@ import { buildPostWritingHookChain } from "../services/skills/postWritingHooks";
 import { matchEntitiesCached } from "../services/kg/entityMatcher";
 import { createSessionMemoryService } from "../services/memory/sessionMemoryService";
 import { createKgMutationSkill } from "../services/skills/kgMutationSkill";
+import {
+  NOOP_EVENT_BUS,
+  type EventBusLike,
+} from "./helpers";
+import { createP3SkillExecutor } from "../services/skills/p3Skills";
 
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
@@ -114,6 +119,143 @@ type SkillRunPayload = {
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
   stream: boolean;
 };
+
+type P3ContextRequest = {
+  projectId: string;
+  documentId: string;
+  input: string;
+  skillId: string;
+  injectCharacterSettings: boolean;
+  injectLocationSettings: boolean;
+  injectMemory: boolean;
+  selection?: {
+    text: string;
+  };
+};
+
+function buildP3UserMessage(args: {
+  input: string;
+  selection?: { text: string };
+  context?: Record<string, unknown> | null;
+}): string {
+  const sections = [
+    args.context
+      ? `Context:\n${JSON.stringify(args.context, null, 2)}`
+      : "",
+    args.selection?.text ? `Selection:\n${args.selection.text}` : "",
+    `Document:\n${args.input}`,
+  ].filter((section) => section.length > 0);
+  return sections.join("\n\n");
+}
+
+function createP3AiServiceAdapter(args: {
+  bridgeAiService: ReturnType<typeof createAiServiceBridge>;
+}): {
+  complete: (params: {
+    skillId: string;
+    systemPrompt: string;
+    input: string;
+    context?: Record<string, unknown> | null;
+    selection?: { text: string };
+  }) => Promise<{ content: string }>;
+  stream: (params: Record<string, unknown>) => Promise<unknown>;
+} {
+  return {
+    complete: async (params) => {
+      const signal = AbortSignal.timeout(30_000);
+      let bridgeError: unknown = null;
+      let content = "";
+      const stream = args.bridgeAiService.streamChat(
+        [
+          { role: "system", content: params.systemPrompt },
+          {
+            role: "user",
+            content: buildP3UserMessage({
+              input: params.input,
+              selection: params.selection,
+              context: params.context,
+            }),
+          },
+        ],
+        {
+          signal,
+          skillId: params.skillId,
+          onComplete: () => undefined,
+          onError: (error) => {
+            bridgeError = error;
+          },
+        },
+      );
+      try {
+        for await (const chunk of stream) {
+          content += chunk.delta;
+        }
+      } catch (error) {
+        throw bridgeError ?? error;
+      }
+      if (bridgeError) {
+        throw bridgeError;
+      }
+      return { content };
+    },
+    stream: async (_params) => {
+      throw new Error("P3 quality-check bridge does not support stream");
+    },
+  };
+}
+
+function createP3ContextEngineAdapter(args: {
+  contextAssemblyService: ReturnType<typeof createContextLayerAssemblyService>;
+  logger: Logger;
+}): {
+  assembleContext: (params: P3ContextRequest) => Promise<{
+    success: boolean;
+    data: Record<string, unknown>;
+  }>;
+} {
+  return {
+    assembleContext: async (params) => {
+      try {
+        const assembled = await args.contextAssemblyService.assemble({
+          projectId: params.projectId,
+          documentId: params.documentId,
+          cursorPosition: 0,
+          skillId: params.skillId,
+          additionalInput: params.selection?.text ?? params.input,
+          ...(params.selection
+            ? { additionalInputIsSelection: true as const }
+            : {}),
+        });
+        return {
+          success: true,
+          data: {
+            prompt: assembled.prompt,
+            characterSettings: params.injectCharacterSettings
+              ? assembled.prompt
+              : "",
+            locationSettings: params.injectLocationSettings
+              ? assembled.prompt
+              : "",
+            memory: params.injectMemory
+              ? assembled.prompt
+              : "",
+          },
+        };
+      } catch (error) {
+        args.logger.error("p3_context_engine_assembly_failed", {
+          message: error instanceof Error ? error.message : String(error),
+          projectId: params.projectId,
+          documentId: params.documentId,
+          skillId: params.skillId,
+        });
+        return {
+          success: false,
+          data: {},
+        };
+      }
+    },
+  };
+}
 
 function resolveCursorPosition(payload: SkillRunPayload): number | undefined {
   if (payload.selection) {
@@ -1002,6 +1144,7 @@ type AiIpcDeps = {
   secretStorage?: SecretStorageAdapter;
   projectSessionBinding?: ProjectSessionBindingRegistry;
   costTracker?: CostTracker;
+  eventBus?: EventBusLike;
 };
 
 type AiIpcContext = {
@@ -1561,23 +1704,41 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   // INV-7: Build the WritingOrchestrator's AI service adapter using factories from
   // the services layer. ai.ts must not hold bare aiService.runSkill() calls directly;
   // all AI calling logic is encapsulated in writingOrchestratorAiService + writingGenerateText.
-  const writingOrchestratorAiSvc = (() => {
-    if (deps.db === null || !deps.costTracker) {
-      return createNullWritingOrchestratorAiService();
-    }
-    const bridgeAiService = createAiServiceBridge({
-      db: deps.db,
-      logger: deps.logger,
-      costTracker: deps.costTracker,
-      env: deps.env,
-      runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
-      getProxySettings: readProxySettings,
-    });
-    return createWritingOrchestratorAiService({
-      aiService,
-      bridgeAiService,
-    });
-  })();
+  const bridgeAiService =
+    deps.db === null || !deps.costTracker
+      ? undefined
+      : createAiServiceBridge({
+          db: deps.db,
+          logger: deps.logger,
+          costTracker: deps.costTracker,
+          env: deps.env,
+          runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
+          getProxySettings: readProxySettings,
+        });
+  const writingOrchestratorAiSvc = bridgeAiService
+    ? createWritingOrchestratorAiService({
+        aiService,
+        bridgeAiService,
+      })
+    : createNullWritingOrchestratorAiService();
+  const p3QualityCheckExecutor =
+    bridgeAiService && deps.eventBus
+        ? createP3SkillExecutor({
+            aiService: createP3AiServiceAdapter({
+              bridgeAiService,
+            }),
+            contextEngine: createP3ContextEngineAdapter({
+              contextAssemblyService,
+              logger: deps.logger,
+            }),
+            eventBus: deps.eventBus ?? NOOP_EVENT_BUS,
+            toolRegistry: {
+              register: () => undefined,
+              get: () => undefined,
+              unregister: () => undefined,
+            },
+          })
+        : undefined;
   const generateText = createWritingGenerateText({
     aiService,
     skillExecutor,
@@ -1627,11 +1788,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           return;
         },
       },
-       // INV-8: Wire the post-writing hooks from the hook chain factory.
-      // kg-update and memory-extract are fully activated with real services.
-      // quality-check is omitted: P3SkillExecutor needs contextEngine +
-      // eventBus which are not yet available in the IPC scope. It will be
-      // registered once the P3 skill infrastructure is wired here.
+      // INV-8: Wire the post-writing hooks from the hook chain factory.
+      // When the main-process event bus is available we can also activate
+      // the final quality-check leg via the P3 executor bridge.
       ...buildPostWritingHookChain({
         kgUpdate: {
           scanEntities: matchEntitiesCached,
@@ -1663,10 +1822,14 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               },
           logger: deps.logger,
         },
-        // qualityCheck intentionally omitted — P3SkillExecutor requires
-        // contextEngine + eventBus which are not yet available in the IPC
-        // scope. The quality-check hook will be registered once the P3 skill
-        // infrastructure lands. See PostWritingHookChainDeps.qualityCheck.
+        ...(p3QualityCheckExecutor
+          ? {
+              qualityCheck: {
+                skillExecutor: p3QualityCheckExecutor,
+                logger: deps.logger,
+              },
+            }
+          : {}),
       }),
     ],
     defaultTimeoutMs: 30_000,

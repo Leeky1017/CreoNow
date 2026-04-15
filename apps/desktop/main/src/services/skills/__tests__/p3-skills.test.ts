@@ -371,6 +371,24 @@ System prompt.`;
   // ── consistency-check skill ─────────────────────────────────────
 
   describe("consistency-check", () => {
+    it("向 aiService.complete 透传 skillId 以保持桥接层路由语义", async () => {
+      aiService.complete.mockResolvedValue({
+        content: JSON.stringify({ passed: true, issues: [] }),
+      });
+
+      await executor.executeSkill("consistency-check", {
+        projectId: "proj-1",
+        documentId: "doc-1",
+        documentContent: "林远走进了废弃仓库",
+      });
+
+      expect(aiService.complete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skillId: "consistency-check",
+        }),
+      );
+    });
+
     it("发现矛盾时返回 ConsistencyCheckResult with issues", async () => {
       aiService.complete.mockResolvedValue({
         content: JSON.stringify({
