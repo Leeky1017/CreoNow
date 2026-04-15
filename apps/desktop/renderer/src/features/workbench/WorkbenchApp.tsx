@@ -326,6 +326,7 @@ function WorkbenchShell() {
     userEditRevisionRef,
     editorContextRevisionRef,
   });
+  const resetAiConversation = aiSkill.resetAiConversation;
 
   const versionHistoryDocument = useMemo(
     () => activeDocument === null
@@ -444,8 +445,7 @@ function WorkbenchShell() {
         setActiveDocument(workspace.activeDocument);
         autosave.setSaveUiState("idle");
         autosave.setLastSavedAt(workspace.activeDocument.updatedAt);
-        setPreview(null);
-        setStickySelection(null);
+        resetAiConversation();
         setLiveSelection(null);
         dismissSelectionToolbar();
         setBootstrapStatus("ready");
@@ -464,6 +464,7 @@ function WorkbenchShell() {
     };
   }, [
     api,
+    resetAiConversation,
     autosave.clearPendingAutosaveTimer,
     autosave.clearSavedStateDecayTimer,
     autosave.setWorkbenchError,
@@ -554,8 +555,7 @@ function WorkbenchShell() {
       });
       setDocuments(result.documents);
       setActiveDocument(result.activeDocument);
-      setPreview(null);
-      setStickySelection(null);
+      resetAiConversation();
       setLiveSelection(null);
       dismissSelectionToolbar();
       autosave.setSaveUiState("idle");
@@ -600,8 +600,7 @@ function WorkbenchShell() {
         projectId: readDocument.projectId,
       });
       setActiveDocument(readDocument);
-      setPreview(null);
-      setStickySelection(null);
+      resetAiConversation();
       setLiveSelection(null);
       dismissSelectionToolbar();
       autosave.setWorkbenchError(null, null);
@@ -661,16 +660,16 @@ function WorkbenchShell() {
           }
         : document,
     ));
-    setPreview(null);
-    setStickySelection(null);
+    resetAiConversation();
     setLiveSelection(null);
     dismissSelectionToolbar();
     autosave.setSaveUiState("idle");
     autosave.setLastSavedAt(readDocument.data.updatedAt);
     return readDocument.data;
   }, [
-    activeDocument,
     api.file,
+    activeDocument,
+    resetAiConversation,
     autosave.setSaveUiState,
     autosave.setLastSavedAt,
     dismissSelectionToolbar,

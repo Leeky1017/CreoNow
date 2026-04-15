@@ -310,7 +310,10 @@ export function useAiSkillController(deps: AiSkillControllerDeps): AiSkillContro
     instruction?: string;
     skillId: Extract<WorkbenchSkillId, "builtin:polish" | "builtin:rewrite">;
   }) => {
-    await executePreviewRequest(args);
+    await executePreviewRequest({
+      instruction: args.instruction ?? "",
+      skillId: args.skillId,
+    });
   }, [executePreviewRequest]);
 
   return {

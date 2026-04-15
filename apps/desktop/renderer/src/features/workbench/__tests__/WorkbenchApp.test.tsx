@@ -314,6 +314,9 @@ describe("WorkbenchApp", () => {
     render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.change(screen.getByLabelText("指令"), {
+      target: { value: "这条旧指令不应被润色快捷动作复用。" },
+    });
     const selection = createSelection("需要润色的一段文字。", 16);
     await act(async () => {
       bridgeOptions?.onSelectionChange?.(selection);
@@ -328,6 +331,7 @@ describe("WorkbenchApp", () => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
         skillId: "builtin:polish",
         selection,
+        userInstruction: "",
       }));
     });
   });
@@ -517,6 +521,9 @@ describe("WorkbenchApp", () => {
     render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.change(screen.getByLabelText("指令"), {
+      target: { value: "旧文档的指令不应被带到新文档。" },
+    });
     await act(async () => {
       bridgeOptions?.onSelectionChange?.(createSelection("切文档前先打开 prompt。", 10));
     });
@@ -533,6 +540,7 @@ describe("WorkbenchApp", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("editor-selection-toolbar")).not.toBeInTheDocument();
     });
+    expect(screen.getByLabelText("指令")).toHaveValue("");
   });
 
   it("dismisses the floating toolbar on outside icon clicks, including svg targets", async () => {
