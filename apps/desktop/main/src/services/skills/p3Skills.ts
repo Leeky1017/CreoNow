@@ -370,6 +370,9 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
         const ctxResult = await contextEngine.assembleContext({
           projectId: input.projectId,
           documentId: input.documentId,
+          skillId,
+          input: input.documentContent,
+          selection: input.selection,
           injectCharacterSettings: manifest.contextRules.injectCharacterSettings,
           injectLocationSettings: manifest.contextRules.injectLocationSettings,
           injectMemory: manifest.contextRules.injectMemory,
@@ -378,7 +381,15 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
       }
 
       if (manifest.contextRequirement.requiresProjectContext && contextData && manifest.category === "analysis") {
-        if (!contextData.characterSettings && !contextData.locationSettings) {
+        const hasCharacterSettings =
+          (typeof contextData.characterSettings === "string" &&
+            contextData.characterSettings.trim().length > 0) ||
+          contextData.hasCharacterSettings === true;
+        const hasLocationSettings =
+          (typeof contextData.locationSettings === "string" &&
+            contextData.locationSettings.trim().length > 0) ||
+          contextData.hasLocationSettings === true;
+        if (!hasCharacterSettings && !hasLocationSettings) {
           return { success: false, error: { code: "SKILL_CONTEXT_EMPTY", message: "请先添加角色/地点设定" } };
         }
       }

@@ -315,14 +315,25 @@ System prompt.`;
   // ── SkillContextRequirement behavior ────────────────────────────
 
   describe("SkillContextRequirement", () => {
-    it("requiresProjectContext=true 时注入角色/地点设定", async () => {
+    it("requiresProjectContext=true 时按 skill-aware 入参组装上下文", async () => {
       await executor.executeSkill("consistency-check", {
         projectId: "proj-1",
         documentId: "doc-1",
         documentContent: "林远走进了废弃仓库",
       });
 
-      expect(contextEngine.assembleContext).toHaveBeenCalled();
+      expect(contextEngine.assembleContext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: "proj-1",
+          documentId: "doc-1",
+          skillId: "consistency-check",
+          input: "林远走进了废弃仓库",
+          selection: undefined,
+          injectCharacterSettings: true,
+          injectLocationSettings: true,
+          injectMemory: false,
+        }),
+      );
     });
 
     it("requiresSelection=true 但无选区时返回错误", async () => {
@@ -340,9 +351,9 @@ System prompt.`;
       contextEngine.assembleContext.mockResolvedValue({
         success: true,
         data: {
-          characterSettings: "",
-          locationSettings: "",
-          documentContent: "文本",
+          prompt: "文本",
+          hasCharacterSettings: false,
+          hasLocationSettings: false,
         },
       });
 
@@ -353,6 +364,28 @@ System prompt.`;
       });
 
       expect(result.success).toBe(false);
+    });
+
+    it("bridge 用布尔设定标记时仍允许 analysis skill 继续执行", async () => {
+      contextEngine.assembleContext.mockResolvedValue({
+        success: true,
+        data: {
+          prompt: "角色设定已注入到 prompt",
+          hasCharacterSettings: true,
+          hasLocationSettings: false,
+        },
+      });
+      aiService.complete.mockResolvedValue({
+        content: JSON.stringify({ passed: true, issues: [] }),
+      });
+
+      const result = await executor.executeSkill("consistency-check", {
+        projectId: "proj-1",
+        documentId: "doc-1",
+        documentContent: "林远走进了废弃仓库",
+      });
+
+      expect(result.success).toBe(true);
     });
 
     it("minInputLength 不满足时返回错误", async () => {

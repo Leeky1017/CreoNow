@@ -95,7 +95,15 @@ const mocks = vi.hoisted(() => {
         layers: [],
       }),
     })),
-    createKnowledgeGraphServiceMock: vi.fn(() => ({})),
+    createKnowledgeGraphServiceMock: vi.fn(() => ({
+      entityList: vi.fn(() => ({
+        ok: true,
+        data: {
+          items: [] as Array<{ id: string; type: string }>,
+          totalCount: 0,
+        },
+      })),
+    })),
     createMemoryServiceMock: vi.fn(() => ({})),
     createEpisodicMemoryServiceMock: vi.fn(() => ({})),
     createSqliteEpisodeRepositoryMock: vi.fn(() => ({})),
@@ -435,6 +443,83 @@ describe("AI IPC channel registration", () => {
         documentContent: "李明在青云城门口看见了与设定不符的细节。",
       }),
     );
+  });
+
+  it("P3 bridge contextEngine 透传 skill-aware 组装参数并单独探测设定存在性", async () => {
+    const characterEntityList = vi.fn(() => ({
+      ok: true,
+      data: {
+        items: [
+          {
+            id: "ent-1",
+            type: "character",
+          },
+        ],
+        totalCount: 1,
+      },
+    }));
+    mocks.createKnowledgeGraphServiceMock.mockReturnValueOnce({
+      entityList: characterEntityList,
+    });
+
+    createHarness(false, true, true);
+    const firstExecutorCall =
+      mocks.createP3SkillExecutorMock.mock.calls[0] as unknown[] | undefined;
+    const p3Deps = firstExecutorCall?.[0] as
+      | {
+          contextEngine?: {
+            assembleContext: (params: {
+              projectId: string;
+              documentId: string;
+              skillId: string;
+              input: string;
+              selection?: { text: string };
+              injectCharacterSettings: boolean;
+              injectLocationSettings: boolean;
+              injectMemory: boolean;
+            }) => Promise<{ success: boolean; data: Record<string, unknown> }>;
+          };
+        }
+      | undefined;
+    const layerAssembly =
+      mocks.createContextLayerAssemblyServiceMock.mock.results[0]?.value as
+        | { assemble: ReturnType<typeof vi.fn> }
+        | undefined;
+
+    const result = await p3Deps?.contextEngine?.assembleContext({
+      projectId: "proj-001",
+      documentId: "doc-001",
+      skillId: "consistency-check",
+      input: "整段正文",
+      selection: { text: "选区正文" },
+      injectCharacterSettings: true,
+      injectLocationSettings: true,
+      injectMemory: false,
+    });
+
+    expect(layerAssembly?.assemble).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "proj-001",
+        documentId: "doc-001",
+        cursorPosition: 0,
+        skillId: "consistency-check",
+        additionalInput: "选区正文",
+        additionalInputIsSelection: true,
+      }),
+    );
+    expect(characterEntityList).toHaveBeenCalledWith({
+      projectId: "proj-001",
+      limit: 5000,
+    });
+    expect(result).toEqual({
+      success: true,
+      data: {
+        prompt: "ctx",
+        hasCharacterSettings: true,
+        hasLocationSettings: false,
+        hasMemory: false,
+      },
+    });
   });
 
   it("预热 list 失败时记录 skill_registry_warmup_failed 错误日志", () => {

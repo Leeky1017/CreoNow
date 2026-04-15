@@ -43,6 +43,7 @@ import { normalizeAssembledContextPrompt } from "../services/skills/contextPromp
 import { renderPromptTemplate } from "../services/skills/promptTemplate";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
+import type { KnowledgeGraphService } from "../services/kg/types";
 import { DegradationCounter } from "../services/shared/degradationCounter";
 import { createDbNotReadyError } from "./dbError";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
@@ -206,6 +207,7 @@ function createP3AiServiceAdapter(args: {
 
 function createP3ContextEngineAdapter(args: {
   contextAssemblyService: ReturnType<typeof createContextLayerAssemblyService>;
+  kgService?: Pick<KnowledgeGraphService, "entityList">;
   logger: Logger;
 }): {
   assembleContext: (params: P3ContextRequest) => Promise<{
@@ -216,29 +218,65 @@ function createP3ContextEngineAdapter(args: {
   return {
     assembleContext: async (params) => {
       try {
-        const assembled = await args.contextAssemblyService.assemble({
-          projectId: params.projectId,
-          documentId: params.documentId,
-          cursorPosition: 0,
-          skillId: params.skillId,
-          additionalInput: params.selection?.text ?? params.input,
-          ...(params.selection
-            ? { additionalInputIsSelection: true as const }
-            : {}),
-        });
+        const [assembled, settingsProbe] = await Promise.all([
+          args.contextAssemblyService.assemble({
+            projectId: params.projectId,
+            documentId: params.documentId,
+            cursorPosition: 0,
+            skillId: params.skillId,
+            additionalInput: params.selection?.text ?? params.input,
+            ...(params.selection
+              ? { additionalInputIsSelection: true as const }
+              : {}),
+          }),
+          Promise.resolve().then(() => {
+            if (!args.kgService) {
+              return {
+                hasCharacterSettings: false,
+                hasLocationSettings: false,
+              };
+            }
+
+            const listed = args.kgService.entityList({
+              projectId: params.projectId,
+              limit: 5000,
+            });
+            if (!listed.ok) {
+              args.logger.error("p3_context_engine_settings_probe_failed", {
+                code: listed.error.code,
+                message: listed.error.message,
+                projectId: params.projectId,
+                documentId: params.documentId,
+                skillId: params.skillId,
+              });
+              return {
+                hasCharacterSettings: false,
+                hasLocationSettings: false,
+              };
+            }
+
+            return {
+              hasCharacterSettings: listed.data.items.some(
+                (entity: { type: string }) => entity.type === "character",
+              ),
+              hasLocationSettings: listed.data.items.some(
+                (entity: { type: string }) => entity.type === "location",
+              ),
+            };
+          }),
+        ]);
+
         return {
           success: true,
           data: {
             prompt: assembled.prompt,
-            characterSettings: params.injectCharacterSettings
-              ? assembled.prompt
-              : "",
-            locationSettings: params.injectLocationSettings
-              ? assembled.prompt
-              : "",
-            memory: params.injectMemory
-              ? assembled.prompt
-              : "",
+            hasCharacterSettings: params.injectCharacterSettings
+              ? settingsProbe.hasCharacterSettings
+              : false,
+            hasLocationSettings: params.injectLocationSettings
+              ? settingsProbe.hasLocationSettings
+              : false,
+            hasMemory: params.injectMemory,
           },
         };
       } catch (error) {
@@ -1729,6 +1767,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             }),
             contextEngine: createP3ContextEngineAdapter({
               contextAssemblyService,
+              kgService: kgServiceForContext ?? undefined,
               logger: deps.logger,
             }),
             eventBus: deps.eventBus ?? NOOP_EVENT_BUS,
