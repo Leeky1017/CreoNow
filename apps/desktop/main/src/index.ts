@@ -47,10 +47,12 @@ import { createAdvancedCheckRunner } from "./services/ai/judgeAdvancedRunner";
 import { createAiProxySettingsService } from "./services/ai/aiProxySettingsService";
 import { createKgRecognitionRuntime } from "./services/kg/kgRecognitionRuntime";
 import { createStateExtractor } from "./services/kg/stateExtractor";
+import { trieCacheInvalidate } from "./services/kg/trieCache";
 import { createCostTracker } from "./services/ai/costTracker";
 import { estimateTokens } from "./services/context/tokenEstimation";
 import { createContextProjectScopedCache } from "./services/context/projectScopedCache";
 import { createCreonowWatchService } from "./services/context/watchService";
+import { createProjectContextRebinder } from "./services/project/contextRebinder";
 import { createProjectLifecycle } from "./services/projects/projectLifecycle";
 import { createUtilityProcessFoundation } from "./services/utilityprocess/utilityProcessFoundation";
 import { createMainEventBus } from "./services/shared/eventBus";
@@ -318,6 +320,15 @@ function registerIpcHandlers(deps: {
   const projectLifecycle = createProjectLifecycle({
     logger: deps.logger,
     timeoutMs: 5_000,
+  });
+  createProjectContextRebinder({
+    logger: deps.logger,
+    lifecycle: projectLifecycle,
+    kgTrieCache: {
+      invalidate: (projectId: string) => {
+        trieCacheInvalidate(projectId);
+      },
+    },
   });
   projectLifecycle.register({
     id: "context",

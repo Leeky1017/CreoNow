@@ -31,6 +31,7 @@ interface DashboardPageProps {
   error?: string | null;
   onCreateProject?: () => void;
   onOpenProject?: (projectId: string) => void;
+  onRetryError?: () => void;
 }
 
 function normalizeUpdatedAt(value: number | string): number {
@@ -47,6 +48,7 @@ export function DashboardPage({
   error = null,
   onCreateProject,
   onOpenProject,
+  onRetryError,
 }: DashboardPageProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -101,7 +103,12 @@ export function DashboardPage({
           </span>
           <h1 className="cn-dashboard__title">{t("dashboard.title")}</h1>
         </div>
-        <Button tone="primary" onClick={onCreateProject} data-testid="dashboard-create-project-btn">
+        <Button
+          tone="primary"
+          onClick={onCreateProject}
+          disabled={loading}
+          data-testid="dashboard-create-project-btn"
+        >
           <Plus size={14} />
           {t("dashboard.newProject")}
         </Button>
@@ -132,7 +139,12 @@ export function DashboardPage({
       {error ? (
         <div className="cn-dashboard__error" data-testid="dashboard-error-banner" role="alert">
           <p className="cn-dashboard__error-text">{error}</p>
-          <Button tone="secondary" onClick={onCreateProject} data-testid="dashboard-error-retry-btn">
+          <Button
+            tone="secondary"
+            onClick={onRetryError ?? onCreateProject}
+            disabled={loading}
+            data-testid="dashboard-error-retry-btn"
+          >
             {t("actions.retry")}
           </Button>
         </div>

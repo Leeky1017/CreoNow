@@ -118,7 +118,12 @@ interface IpcResponse<T> {
   error?: { code: string; message: string };
 }
 
-function createHarness(dbNull = false) {
+function createHarness(
+  dbNull = false,
+  projectLifecycle?: {
+    switchProject: ReturnType<typeof vi.fn>;
+  },
+) {
   const handlers = new Map<string, Handler>();
 
   const ipcMain = {
@@ -158,6 +163,9 @@ function createHarness(dbNull = false) {
     userDataDir: "/mock/user-data",
     logger: logger as never,
     projectSessionBinding: projectSessionBinding as never,
+    ...(projectLifecycle
+      ? { projectLifecycle: projectLifecycle as never }
+      : {}),
   });
 
   return {
@@ -340,6 +348,55 @@ describe("project:project:setcurrent", () => {
       "project:project:setcurrent",
       { projectId: "proj-2" },
     );
+    expect(res.ok).toBe(true);
+    expect(harness.bindMock).toHaveBeenCalledWith({
+      webContentsId: 1,
+      projectId: "proj-2",
+    });
+  });
+});
+
+describe("project:project:switch", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("提供 projectLifecycle 时通过 lifecycle 执行切换", async () => {
+    const lifecycleSwitchProject = vi.fn(async ({
+      persist,
+    }: {
+      persist: () => Promise<{
+        ok: boolean;
+        data?: { currentProjectId: string; switchedAt: string };
+      }>;
+    }) => persist());
+    const harness = createHarness(false, {
+      switchProject: lifecycleSwitchProject,
+    });
+
+    const res = await harness.invoke<{
+      currentProjectId: string;
+      switchedAt: string;
+    }>("project:project:switch", {
+      projectId: "proj-2",
+      fromProjectId: "proj-1",
+      operatorId: "user-1",
+      traceId: "trace-1",
+    });
+
+    expect(lifecycleSwitchProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromProjectId: "proj-1",
+        toProjectId: "proj-2",
+        traceId: "trace-1",
+        persist: expect.any(Function),
+        resolveBindProjectId: expect.any(Function),
+      }),
+    );
+    expect(mocks.switchProjectMock).toHaveBeenCalledWith({
+      projectId: "proj-2",
+      fromProjectId: "proj-1",
+      operatorId: "user-1",
+      traceId: "trace-1",
+    });
     expect(res.ok).toBe(true);
     expect(harness.bindMock).toHaveBeenCalledWith({
       webContentsId: 1,

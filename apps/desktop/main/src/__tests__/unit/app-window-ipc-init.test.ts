@@ -87,6 +87,7 @@ const mocks = vi.hoisted(() => {
   const registerAiIpcHandlers = vi.fn();
   const registerProjectIpcHandlers = vi.fn();
   const registerSettingsIpcHandlers = vi.fn();
+  const createProjectContextRebinder = vi.fn();
 
   return {
     app,
@@ -102,6 +103,7 @@ const mocks = vi.hoisted(() => {
     registerAiIpcHandlers,
     registerProjectIpcHandlers,
     registerSettingsIpcHandlers,
+    createProjectContextRebinder,
     initDb: vi.fn(() => ({ ok: true, db: { close: vi.fn() } })),
     createMainLogger: vi.fn(() => ({ info: vi.fn(), error: vi.fn(), logPath: "<test>" })),
     applyBrowserWindowSecurityPolicy: vi.fn(),
@@ -197,6 +199,12 @@ vi.mock("../../services/context/watchService", () => ({ createCreonowWatchServic
 vi.mock("../../services/projects/projectLifecycle", () => ({
   createProjectLifecycle: vi.fn(() => ({ register: vi.fn() })),
 }));
+vi.mock("../../services/project/contextRebinder", () => ({
+  createProjectContextRebinder: mocks.createProjectContextRebinder,
+}));
+vi.mock("../../services/kg/trieCache", () => ({
+  trieCacheInvalidate: vi.fn(),
+}));
 vi.mock("../../services/utilityprocess/utilityProcessFoundation", () => ({
   createUtilityProcessFoundation: vi.fn(() => ({
     compute: { getRole: vi.fn(() => "compute") },
@@ -266,6 +274,7 @@ describe("index.ts app/window/ipc 初始化", () => {
     expect(mocks.registerAiIpcHandlers).toHaveBeenCalledTimes(1);
     expect(mocks.registerProjectIpcHandlers).toHaveBeenCalledTimes(1);
     expect(mocks.registerSettingsIpcHandlers).toHaveBeenCalledTimes(1);
+    expect(mocks.createProjectContextRebinder).toHaveBeenCalledTimes(1);
   });
 
   it("second-instance 事件会恢复并聚焦已有窗口", async () => {

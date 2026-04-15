@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { IpcResponseData } from "@shared/types/ipc-generated";
@@ -9,6 +9,11 @@ import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { getPreloadApi } from "@/lib/preloadApi";
 
 type AppView = "loading" | "dashboard" | "workbench" | "error";
+type DashboardRetryAction =
+  | { kind: "load" }
+  | { kind: "create" }
+  | { kind: "switch"; projectId: string }
+  | null;
 
 type ProjectListItem = IpcResponseData<"project:project:list">["items"][number];
 type ProjectStatsItem = {
@@ -129,7 +134,10 @@ export function RendererApp() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [isProjectSwitching, setIsProjectSwitching] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [retryAction, setRetryAction] = useState<DashboardRetryAction>({ kind: "load" });
+  const switchInFlightRef = useRef(false);
 
   const loadProjects = useCallback(async () => {
     setDashboardLoading(true);
@@ -140,17 +148,22 @@ export function RendererApp() {
       ]);
       if (!listResult.ok) {
         setErrorMessage(getHumanErrorMessage(listResult.error, t));
+        setRetryAction({ kind: "load" });
         return;
       }
       if (!statsResult.ok) {
         setErrorMessage(getHumanErrorMessage(statsResult.error, t));
+        setRetryAction({ kind: "load" });
         return;
       }
 
       setProjects(mergeDashboardProjects(listResult.data.items, readPerProjectStats(statsResult.data)));
+      setErrorMessage(null);
+      setRetryAction(null);
     } catch (error) {
       console.error("[RendererApp] failed to load dashboard projects", error);
       setErrorMessage(getHumanErrorMessage(error as Error, t));
+      setRetryAction({ kind: "load" });
     } finally {
       setDashboardLoading(false);
     }
@@ -190,33 +203,71 @@ export function RendererApp() {
   }, [api.project, loadProjects, t]);
 
   const handleOpenProject = useCallback(async (projectId: string) => {
-    const traceId = `dashboard-${Date.now().toString(36)}`;
-    const switchResult = await api.project.switchProject({
-      projectId,
-      fromProjectId: currentProjectId ?? "dashboard",
-      operatorId: "renderer-dashboard",
-      traceId,
-    });
-
-    if (!switchResult.ok) {
-      setErrorMessage(getHumanErrorMessage(switchResult.error, t));
+    if (switchInFlightRef.current) {
       return;
     }
-
-    setCurrentProjectId(projectId);
+    switchInFlightRef.current = true;
+    setIsProjectSwitching(true);
     setErrorMessage(null);
-    setView("workbench");
+    const traceId = `dashboard-${Date.now().toString(36)}`;
+    try {
+      const switchResult = await api.project.switchProject({
+        projectId,
+        fromProjectId: currentProjectId ?? "dashboard",
+        operatorId: "renderer-dashboard",
+        traceId,
+      });
+
+      if (!switchResult.ok) {
+        setErrorMessage(getHumanErrorMessage(switchResult.error, t));
+        setRetryAction({ kind: "switch", projectId });
+        return;
+      }
+
+      setCurrentProjectId(projectId);
+      setErrorMessage(null);
+      setRetryAction(null);
+      setView("workbench");
+    } finally {
+      switchInFlightRef.current = false;
+      setIsProjectSwitching(false);
+    }
   }, [api.project, currentProjectId, t]);
 
   const handleCreateProject = useCallback(async () => {
+    if (switchInFlightRef.current) {
+      return;
+    }
+    setErrorMessage(null);
     const createResult = await api.project.create({ name: t("project.defaultName"), type: "novel" });
     if (!createResult.ok) {
       setErrorMessage(getHumanErrorMessage(createResult.error, t));
+      setRetryAction({ kind: "create" });
       return;
     }
 
     await handleOpenProject(createResult.data.projectId);
   }, [api.project, handleOpenProject, t]);
+
+  const handleRetryAction = useCallback(async () => {
+    if (!retryAction) {
+      return;
+    }
+
+    if (retryAction.kind === "load") {
+      await loadProjects();
+      return;
+    }
+
+    if (retryAction.kind === "create") {
+      await handleCreateProject();
+      return;
+    }
+
+    await handleOpenProject(retryAction.projectId);
+  }, [handleCreateProject, handleOpenProject, loadProjects, retryAction]);
+
+  const dashboardBusy = dashboardLoading || isProjectSwitching;
 
   if (view === "workbench") {
     return <WorkbenchApp />;
@@ -232,15 +283,28 @@ export function RendererApp() {
 
   return (
     <>
-      {errorMessage ? <p data-testid="dashboard-error">{errorMessage}</p> : null}
+      {isProjectSwitching ? <p data-testid="dashboard-project-switching">{t("dashboard.loading")}</p> : null}
       <DashboardPage
         projects={projects}
-        loading={dashboardLoading}
+        loading={dashboardBusy}
+        error={errorMessage}
         onOpenProject={(projectId) => {
+          if (switchInFlightRef.current) {
+            return;
+          }
           void handleOpenProject(projectId);
         }}
         onCreateProject={() => {
+          if (switchInFlightRef.current) {
+            return;
+          }
           void handleCreateProject();
+        }}
+        onRetryError={() => {
+          if (switchInFlightRef.current) {
+            return;
+          }
+          void handleRetryAction();
         }}
       />
     </>
