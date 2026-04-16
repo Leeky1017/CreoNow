@@ -4539,6 +4539,76 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByText("互信")).toBeInTheDocument();
   });
 
+  it("knowledge graph 关系命中预算上限且已扫描完时不显示截断提示", async () => {
+    const api = window.api as PreloadApi;
+    const listEntities = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            id: "entity-1",
+            projectId: "project-1",
+            name: "雷恩",
+            type: "character" as const,
+            description: "契约守护者。",
+            attributes: {},
+            aliases: [],
+            aiContextLevel: "when_detected" as const,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:02.000Z",
+            version: 1,
+          },
+          {
+            id: "entity-2",
+            projectId: "project-1",
+            name: "暮潮港",
+            type: "location" as const,
+            description: "第二幕冲突地。",
+            attributes: {},
+            aliases: [],
+            aiContextLevel: "when_detected" as const,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:03.000Z",
+            version: 1,
+          },
+        ],
+        totalCount: 2,
+      },
+    }));
+    const listRelations = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: Array.from({ length: 360 }, (_, index) => ({
+          id: `rel-${index}`,
+          projectId: "project-1",
+          sourceEntityId: "entity-1",
+          targetEntityId: "entity-2",
+          relationType: `关系-${index}`,
+          description: "预算边界测试",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        })),
+        totalCount: 360,
+      },
+    }));
+
+    api.knowledge = {
+      listEntities,
+      listRelations,
+    } as unknown as PreloadApi["knowledge"];
+    api.character = { list: vi.fn() } as unknown as PreloadApi["character"];
+    api.location = { list: vi.fn() } as unknown as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+
+    await waitFor(() => {
+      expect(listRelations).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId("knowledge-graph-notice")).not.toBeInTheDocument();
+    });
+  });
+
   it("knowledge graph 分页返回不完整数据时显示截断提示", async () => {
     const api = window.api as PreloadApi;
     const listEntities = vi.fn(async ({ offset }: { offset: number }) => {

@@ -1265,6 +1265,7 @@ function WorkbenchShell() {
           const collectedVisibleRelations: KnowledgeRelationListItem[] = [];
           let relationOffset = 0;
           let relationTotalCount = 0;
+          let relationBudgetOverflow = false;
 
           for (
             let pageIndex = 0;
@@ -1304,6 +1305,9 @@ function WorkbenchShell() {
             );
             if (filteredVisibleRelations.length > 0) {
               const remaining = Math.max(KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS - collectedVisibleRelations.length, 0);
+              if (filteredVisibleRelations.length > remaining) {
+                relationBudgetOverflow = true;
+              }
               collectedVisibleRelations.push(...filteredVisibleRelations.slice(0, remaining));
             }
 
@@ -1314,9 +1318,7 @@ function WorkbenchShell() {
             }
           }
 
-          const relationsTruncated =
-            (relationTotalCount > relationOffset)
-            || (relationTotalCount > 0 && collectedVisibleRelations.length >= KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS);
+          const relationsTruncated = (relationTotalCount > relationOffset) || relationBudgetOverflow;
 
           setKnowledgeGraphNodes(sortedNodes);
           setKnowledgeGraphEdges(collectedVisibleRelations.map(mapKnowledgeRelationToEdge));
