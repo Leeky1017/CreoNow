@@ -317,6 +317,7 @@ export const IPC_CHANNELS = [
   "search:rank:explain",
   "search:replace:execute",
   "search:replace:preview",
+  "search:semantic:query",
   "settings:character:create",
   "settings:character:delete",
   "settings:character:list",
@@ -3655,6 +3656,41 @@ export type IpcChannelSpec = {
       previewId?: string;
       totalMatches: number;
       warnings: Array<string>;
+    };
+  };
+  "search:semantic:query": {
+    request: {
+      limit?: number;
+      offset?: number;
+      projectId: string;
+      query: string;
+      strategy?: "semantic" | "hybrid";
+    };
+    response: {
+      backpressure: {
+        candidateCount: number;
+        candidateLimit: number;
+        truncated: boolean;
+      };
+      costMs: number;
+      fallback: "fts" | "none";
+      hasMore: boolean;
+      notice?: string;
+      results: Array<{
+        chunkId: string;
+        documentId: string;
+        finalScore: number;
+        scoreBreakdown: {
+          bm25: number;
+          recency: number;
+          semantic: number;
+        };
+        snippet: string;
+        updatedAt: number;
+      }>;
+      strategy: "fts" | "semantic" | "hybrid";
+      total: number;
+      traceId: string;
     };
   };
   "settings:character:create": {

@@ -453,6 +453,12 @@ function registerRankingHandlers(args: {
         };
       }>
     > => {
+      if (!hasProjectId(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
       if (!db || !hybridRankingService) {
         return {
           ok: false,
@@ -480,6 +486,92 @@ function registerRankingHandlers(args: {
         return toInternalSearchError(
           logger,
           "search_query_strategy_exception",
+          error,
+        );
+      }
+    },
+  );
+
+  handleWithProjectAccess(
+    "search:semantic:query",
+    async (
+      _e,
+      payload: {
+        projectId: string;
+        query: string;
+        strategy?: "semantic" | "hybrid";
+        limit?: number;
+        offset?: number;
+      },
+    ): Promise<
+      IpcResponse<{
+        traceId: string;
+        costMs: number;
+        strategy: "fts" | "semantic" | "hybrid";
+        fallback: "fts" | "none";
+        notice?: string;
+        results: Array<{
+          documentId: string;
+          chunkId: string;
+          snippet: string;
+          finalScore: number;
+          scoreBreakdown: {
+            bm25: number;
+            semantic: number;
+            recency: number;
+          };
+          updatedAt: number;
+        }>;
+        total: number;
+        hasMore: boolean;
+        backpressure: {
+          candidateLimit: number;
+          candidateCount: number;
+          truncated: boolean;
+        };
+      }>
+    > => {
+      if (!hasProjectId(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
+      if (!db || !hybridRankingService) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      try {
+        const strategy = payload.strategy ?? "hybrid";
+        const res = hybridRankingService.queryByStrategy({
+          projectId: payload.projectId,
+          query: payload.query,
+          strategy,
+          limit: payload.limit,
+          offset: payload.offset,
+        });
+        if (!res.ok) {
+          logger.error("search_semantic_query_failed", {
+            code: res.error.code,
+            message: res.error.message,
+            strategy,
+          });
+          return { ok: false, error: res.error };
+        }
+
+        logger.info("search_semantic_query", {
+          strategy,
+          resultCount: res.data.results.length,
+          total: res.data.total,
+        });
+        return { ok: true, data: res.data };
+      } catch (error) {
+        return toInternalSearchError(
+          logger,
+          "search_semantic_query_exception",
           error,
         );
       }

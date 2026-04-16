@@ -34,6 +34,18 @@ function categoryLabel(category: string, t: (key: string) => string): string {
   if (normalized === "style-rule" || normalized === "style") {
     return t("sidebar.memory.category.style");
   }
+  if (normalized === "structure") {
+    return t("sidebar.memory.category.structure");
+  }
+  if (normalized === "character") {
+    return t("sidebar.memory.category.character");
+  }
+  if (normalized === "pacing") {
+    return t("sidebar.memory.category.pacing");
+  }
+  if (normalized === "vocabulary") {
+    return t("sidebar.memory.category.vocabulary");
+  }
   if (normalized === "preference") {
     return t("sidebar.memory.category.preference");
   }
@@ -45,6 +57,9 @@ function categoryLabel(category: string, t: (key: string) => string): string {
   }
   if (normalized === "reference") {
     return t("sidebar.memory.category.reference");
+  }
+  if (normalized === "episodic") {
+    return t("sidebar.memory.category.episodic");
   }
   if (normalized.length === 0) {
     return t("sidebar.memory.category.misc");

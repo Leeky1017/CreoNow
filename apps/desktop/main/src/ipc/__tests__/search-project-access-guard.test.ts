@@ -9,7 +9,7 @@
  *  - A renderer bound to project-a CAN invoke search:* for project-a.
  *  - The guard applies to all project-scoped search channels:
  *      search:fts:query, search:fts:reindex, search:fts:indexstatus,
- *      search:query:strategy, search:rank:explain,
+ *      search:query:strategy, search:semantic:query, search:rank:explain,
  *      search:replace:preview, search:replace:execute
  */
 
@@ -141,6 +141,10 @@ const PROJECT_SCOPED_CHANNELS: Array<{ channel: string; payload: Record<string, 
   {
     channel: "search:query:strategy",
     payload: { projectId: "project-b", query: "hello", strategy: "fts" },
+  },
+  {
+    channel: "search:semantic:query",
+    payload: { projectId: "project-b", query: "hello", strategy: "semantic" },
   },
   {
     channel: "search:rank:explain",
@@ -290,6 +294,26 @@ describe("search IPC project access guard — legitimate binding passes", () => 
     assert.equal(result.ok, true, `expected ok=true, got: ${JSON.stringify(result.error)}`);
   });
 
+  it("allows search:semantic:query when renderer is bound to the requested project", async () => {
+    const binding = createProjectSessionBindingRegistry();
+    binding.bind({ webContentsId: 306, projectId: "project-a" });
+
+    const harness = createIpcHarness();
+    registerSearchIpcHandlers({
+      ipcMain: harness.ipcMain,
+      db: fakeDb(),
+      logger: makeLogger() as never,
+      projectSessionBinding: binding,
+    });
+
+    const result = await harness.invoke(
+      "search:semantic:query",
+      makeEvent(306),
+      { projectId: "project-a", query: "hello", strategy: "semantic" },
+    );
+    assert.equal(result.ok, true, `expected ok=true, got: ${JSON.stringify(result.error)}`);
+  });
+
   it("allows search:replace:preview when renderer is bound to the requested project", async () => {
     const binding = createProjectSessionBindingRegistry();
     binding.bind({ webContentsId: 304, projectId: "project-a" });
@@ -338,5 +362,51 @@ describe("search IPC project access guard — legitimate binding passes", () => 
       },
     );
     assert.equal(result.ok, true, `expected ok=true, got: ${JSON.stringify(result.error)}`);
+  });
+});
+
+describe("search IPC validates required projectId for strategy channels", () => {
+  it("returns INVALID_ARGUMENT for search:query:strategy when projectId is missing", async () => {
+    const binding = createProjectSessionBindingRegistry();
+    binding.bind({ webContentsId: 401, projectId: "project-a" });
+
+    const harness = createIpcHarness();
+    registerSearchIpcHandlers({
+      ipcMain: harness.ipcMain,
+      db: fakeDb(),
+      logger: makeLogger() as never,
+      projectSessionBinding: binding,
+    });
+
+    const result = await harness.invoke(
+      "search:query:strategy",
+      makeEvent(401),
+      { query: "hello", strategy: "hybrid" },
+    );
+
+    assert.equal(result.ok, false);
+    assert.equal(result.error?.code, "INVALID_ARGUMENT");
+  });
+
+  it("returns INVALID_ARGUMENT for search:semantic:query when projectId is missing", async () => {
+    const binding = createProjectSessionBindingRegistry();
+    binding.bind({ webContentsId: 402, projectId: "project-a" });
+
+    const harness = createIpcHarness();
+    registerSearchIpcHandlers({
+      ipcMain: harness.ipcMain,
+      db: fakeDb(),
+      logger: makeLogger() as never,
+      projectSessionBinding: binding,
+    });
+
+    const result = await harness.invoke(
+      "search:semantic:query",
+      makeEvent(402),
+      { query: "hello", strategy: "semantic" },
+    );
+
+    assert.equal(result.ok, false);
+    assert.equal(result.error?.code, "INVALID_ARGUMENT");
   });
 });
