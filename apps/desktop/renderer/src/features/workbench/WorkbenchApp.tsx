@@ -1257,44 +1257,77 @@ function WorkbenchShell() {
             return;
           }
 
-          const relationsResult = await loadPagedKnowledgeItems<KnowledgeRelationListItem>({
-            isCancelled: () => cancelled,
-            maxItems: KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS,
-            pageSize: KNOWLEDGE_GRAPH_RELATION_PAGE_SIZE,
-            queryPage: (offset, limit) =>
-              listRelations({
-                limit,
-                offset,
-                projectId: project.projectId,
-              }),
-          });
-
-          if (cancelled) {
-            return;
-          }
-
-          if (!relationsResult.ok) {
-            setKnowledgeGraphNodes([]);
-            setKnowledgeGraphEdges([]);
-            setKnowledgeGraphStatus("error");
-            setKnowledgeGraphErrorMessage(getHumanErrorMessage(relationsResult.error, t));
-            setKnowledgeGraphNoticeMessage(null);
-            return;
-          }
-
           const sortedNodes = entitiesResult.data.items
             .map(mapKnowledgeEntityToNode)
             .sort((left, right) => right.updatedAt - left.updatedAt);
+          const visibleNodeIds = new Set(sortedNodes.map((node) => node.id));
+
+          const collectedVisibleRelations: KnowledgeRelationListItem[] = [];
+          let relationOffset = 0;
+          let relationTotalCount = 0;
+
+          for (
+            let pageIndex = 0;
+            pageIndex < KNOWLEDGE_GRAPH_MAX_PAGE_REQUESTS
+            && collectedVisibleRelations.length < KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS;
+            pageIndex += 1
+          ) {
+            if (cancelled) {
+              return;
+            }
+
+            const relationPageResult = await listRelations({
+              limit: KNOWLEDGE_GRAPH_RELATION_PAGE_SIZE,
+              offset: relationOffset,
+              projectId: project.projectId,
+            });
+
+            if (cancelled) {
+              return;
+            }
+
+            if (!relationPageResult.ok) {
+              setKnowledgeGraphNodes([]);
+              setKnowledgeGraphEdges([]);
+              setKnowledgeGraphStatus("error");
+              setKnowledgeGraphErrorMessage(getHumanErrorMessage(relationPageResult.error, t));
+              setKnowledgeGraphNoticeMessage(null);
+              return;
+            }
+
+            relationTotalCount = relationPageResult.data.totalCount;
+            relationOffset += relationPageResult.data.items.length;
+
+            const filteredVisibleRelations = relationPageResult.data.items.filter(
+              (relation) =>
+                visibleNodeIds.has(relation.sourceEntityId) && visibleNodeIds.has(relation.targetEntityId),
+            );
+            if (filteredVisibleRelations.length > 0) {
+              const remaining = Math.max(KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS - collectedVisibleRelations.length, 0);
+              collectedVisibleRelations.push(...filteredVisibleRelations.slice(0, remaining));
+            }
+
+            const reachedTotalCount = relationTotalCount > 0 && relationOffset >= relationTotalCount;
+            const reachedPageEnd = relationPageResult.data.items.length === 0;
+            if (reachedTotalCount || reachedPageEnd) {
+              break;
+            }
+          }
+
+          const relationsTruncated =
+            (relationTotalCount > relationOffset)
+            || (relationTotalCount > 0 && collectedVisibleRelations.length >= KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS);
+
           setKnowledgeGraphNodes(sortedNodes);
-          setKnowledgeGraphEdges(relationsResult.data.items.map(mapKnowledgeRelationToEdge));
+          setKnowledgeGraphEdges(collectedVisibleRelations.map(mapKnowledgeRelationToEdge));
           setKnowledgeGraphStatus("ready");
           setKnowledgeGraphErrorMessage(null);
-          if (entitiesResult.data.truncated || relationsResult.data.truncated) {
+          if (entitiesResult.data.truncated || relationsTruncated) {
             setKnowledgeGraphNoticeMessage(
               t("sidebar.knowledgeGraph.notice.truncated", {
-                loadedEdges: relationsResult.data.items.length,
+                loadedEdges: collectedVisibleRelations.length,
                 loadedNodes: entitiesResult.data.items.length,
-                totalEdges: relationsResult.data.totalCount,
+                totalEdges: relationTotalCount,
                 totalNodes: entitiesResult.data.totalCount,
               }),
             );
