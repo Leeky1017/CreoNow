@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   resolveForceLayoutIterations,
+  shouldRenderEdgeLabels,
   shouldUseForceLayout,
 } from "@/features/workbench/components/KnowledgeGraphCanvas";
 
@@ -22,5 +23,12 @@ describe("KnowledgeGraphCanvas layout guards", () => {
     expect(resolveForceLayoutIterations(40)).toBe(92);
     expect(resolveForceLayoutIterations(100)).toBe(68);
     expect(resolveForceLayoutIterations(180)).toBe(40);
+  });
+
+  it("hides edge labels for dense graphs or low zoom", () => {
+    expect(shouldRenderEdgeLabels(60, 1, 40)).toBe(true);
+    expect(shouldRenderEdgeLabels(300, 1, 40)).toBe(false);
+    expect(shouldRenderEdgeLabels(60, 0.7, 40)).toBe(false);
+    expect(shouldRenderEdgeLabels(60, 1, 220)).toBe(false);
   });
 });

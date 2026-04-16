@@ -33,6 +33,7 @@ export interface KnowledgeGraphEdge {
 }
 
 interface KnowledgeGraphCanvasProps {
+  ariaLabel: string;
   edges: KnowledgeGraphEdge[];
   height?: number;
   nodeColorMap?: Partial<Record<KnowledgeGraphNodeType, string>>;
@@ -81,6 +82,10 @@ const DEFAULT_NODE_COLORS: Record<KnowledgeGraphNodeType, string> = {
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 2.4;
 const FORCE_LAYOUT_NODE_LIMIT = 180;
+const EDGE_LABEL_MAX_COUNT = 240;
+const EDGE_LABEL_MIN_SCALE = 0.78;
+const SPIRAL_SEED_THRESHOLD = 48;
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 export function shouldUseForceLayout(nodeCount: number): boolean {
   return nodeCount <= FORCE_LAYOUT_NODE_LIMIT;
@@ -97,6 +102,20 @@ export function resolveForceLayoutIterations(nodeCount: number): number {
     return 68;
   }
   return 40;
+}
+
+export function shouldRenderEdgeLabels(
+  edgeCount: number,
+  scale: number,
+  nodeCount: number,
+): boolean {
+  if (nodeCount > FORCE_LAYOUT_NODE_LIMIT) {
+    return false;
+  }
+  if (edgeCount > EDGE_LABEL_MAX_COUNT) {
+    return false;
+  }
+  return scale >= EDGE_LABEL_MIN_SCALE;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -117,6 +136,10 @@ function createInitialLayoutNodes(
 ): LayoutNode[] {
   const radius = Math.max(60, Math.min(width, height) * 0.24);
   const angleStep = nodes.length > 0 ? (Math.PI * 2) / nodes.length : 0;
+  const useSpiralSeed = nodes.length > SPIRAL_SEED_THRESHOLD;
+  const spiralBaseRadius = Math.max(42, Math.min(width, height) * 0.08);
+  const spiralStep = Math.max(18, Math.min(width, height) * 0.045);
+
   return nodes.map((node, index) => {
     const cached = persistedPositions.get(node.id);
     if (cached !== undefined) {
@@ -126,6 +149,18 @@ function createInitialLayoutNodes(
         vy: 0,
         x: cached.x,
         y: cached.y,
+      };
+    }
+
+    if (useSpiralSeed) {
+      const angle = index * GOLDEN_ANGLE;
+      const spiralRadius = spiralBaseRadius + Math.sqrt(index + 1) * spiralStep;
+      return {
+        ...node,
+        vx: 0,
+        vy: 0,
+        x: Math.cos(angle) * spiralRadius,
+        y: Math.sin(angle) * spiralRadius,
       };
     }
 
@@ -419,11 +454,15 @@ export function KnowledgeGraphCanvas(props: KnowledgeGraphCanvasProps) {
     }
     return items;
   }, [layoutNodeById, props.edges]);
+  const renderEdgeLabels = useMemo(
+    () => shouldRenderEdgeLabels(props.edges.length, viewport.scale, layoutNodes.length),
+    [layoutNodes.length, props.edges.length, viewport.scale],
+  );
 
   return (
     <svg
       ref={svgRef}
-      aria-label="知识图谱画布"
+      aria-label={props.ariaLabel}
       viewBox={`0 0 ${width} ${height}`}
       onClick={handleBackgroundClick}
       onMouseDown={handleBackgroundMouseDown}
@@ -453,17 +492,19 @@ export function KnowledgeGraphCanvas(props: KnowledgeGraphCanvasProps) {
                 y1={source.y}
                 y2={target.y}
               />
-              <text
-                dominantBaseline="middle"
-                fill="var(--color-fg-muted)"
-                fontFamily="var(--font-family-ui)"
-                fontSize={11}
-                textAnchor="middle"
-                x={midX}
-                y={midY}
-              >
-                {edge.label}
-              </text>
+              {renderEdgeLabels ? (
+                <text
+                  dominantBaseline="middle"
+                  fill="var(--color-fg-muted)"
+                  fontFamily="var(--font-family-ui)"
+                  fontSize={11}
+                  textAnchor="middle"
+                  x={midX}
+                  y={midY}
+                >
+                  {edge.label}
+                </text>
+              ) : null}
             </g>
           );
         })}

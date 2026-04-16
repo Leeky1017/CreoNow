@@ -192,6 +192,8 @@ const resources = {
       "sidebar.knowledgeGraph.empty.desc": "先创建角色或地点，图谱会自动形成结构。",
       "sidebar.knowledgeGraph.noMatch.title": "未找到匹配实体",
       "sidebar.knowledgeGraph.noMatch.desc": "调整关键词后继续检索。",
+      "sidebar.knowledgeGraph.notice.truncated": "图谱过大，当前仅加载 {{loadedNodes}}/{{totalNodes}} 个实体与 {{loadedEdges}}/{{totalEdges}} 条关系。",
+      "sidebar.knowledgeGraph.canvasAriaLabel": "知识图谱画布",
       "sidebar.knowledgeGraph.zoomIn": "放大图谱",
       "sidebar.knowledgeGraph.zoomOut": "缩小图谱",
       "sidebar.knowledgeGraph.resetZoom": "重置缩放",

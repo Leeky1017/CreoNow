@@ -16,6 +16,7 @@ export type KnowledgeGraphPanelView = "graph" | "summary";
 export interface KnowledgeGraphPanelProps {
   edges: KnowledgeGraphEdge[];
   errorMessage?: string | null;
+  noticeMessage?: string | null;
   nodes: KnowledgeGraphNode[];
   onQueryChange?: (value: string) => void;
   onRetry?: () => void;
@@ -65,6 +66,7 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
   const {
     edges,
     errorMessage,
+    noticeMessage,
     nodes,
     onQueryChange,
     onRetry,
@@ -297,9 +299,16 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
         </div>
       ) : null}
 
+      {status === "ready" && noticeMessage ? (
+        <div className="knowledge-graph-panel__state" data-testid="knowledge-graph-notice" role="status">
+          <p>{noticeMessage}</p>
+        </div>
+      ) : null}
+
       {status === "ready" && nodes.length === 0 ? (
         <div className="knowledge-graph-panel__state" data-testid="knowledge-graph-empty">
-          <p>{t("sidebar.knowledgeGraph.state")}</p>
+          <p>{t("sidebar.knowledgeGraph.empty.title")}</p>
+          <p>{t("sidebar.knowledgeGraph.empty.desc")}</p>
         </div>
       ) : null}
 
@@ -307,6 +316,26 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
         <div className="knowledge-graph-panel__state" data-testid="knowledge-graph-no-match">
           <p>{t("sidebar.knowledgeGraph.noMatch.title")}</p>
           <p>{t("sidebar.knowledgeGraph.noMatch.desc")}</p>
+        </div>
+      ) : null}
+
+      {status === "ready" && nodes.length > 0 && shouldShowTypeFilterEmptyState ? (
+        <div
+          className="knowledge-graph-panel__state"
+          data-testid="knowledge-graph-filter-empty"
+          style={{
+            alignItems: "flex-start",
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--space-2)",
+          }}
+        >
+          <p className="panel-meta">
+            {t("sidebar.knowledgeGraph.filter.empty")}
+          </p>
+          <Button tone="ghost" onClick={restoreAllFilters}>
+            {t("sidebar.knowledgeGraph.filter.reset")}
+          </Button>
         </div>
       ) : null}
 
@@ -345,23 +374,7 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
             ))}
           </div>
 
-          {shouldShowTypeFilterEmptyState ? (
-            <div
-              style={{
-                alignItems: "flex-start",
-                display: "flex",
-                flexDirection: "column",
-                gap: "var(--space-2)",
-              }}
-            >
-              <p className="panel-meta">
-                {t("sidebar.knowledgeGraph.filter.empty")}
-              </p>
-              <Button tone="ghost" onClick={restoreAllFilters}>
-                {t("sidebar.knowledgeGraph.filter.reset")}
-              </Button>
-            </div>
-          ) : (
+          {hasTypeMatch ? (
             <div
               style={{
                 display: "grid",
@@ -371,6 +384,7 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
               }}
             >
               <KnowledgeGraphCanvas
+                ariaLabel={t("sidebar.knowledgeGraph.canvasAriaLabel")}
                 edges={filteredEdges}
                 nodeColorMap={NODE_TYPE_COLORS}
                 nodes={filteredNodes}
@@ -467,11 +481,11 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
                 )}
               </aside>
             </div>
-          )}
+          ) : null}
         </>
       ) : null}
 
-      {status === "ready" && filteredNodes.length > 0 && view === "summary" ? (
+      {status === "ready" && hasTypeMatch && view === "summary" ? (
         <section className="knowledge-graph-panel__summary-list" data-testid="knowledge-graph-summary-list">
           {summaryNodes.map((node) => (
             <article key={node.id} className="knowledge-graph-summary-card" data-testid={`knowledge-graph-summary-${toTestIdSuffix(node.id)}`}>

@@ -85,6 +85,30 @@ describe("KnowledgeGraphPanel", () => {
     expect(screen.getByRole("button", { name: "林远" })).toBeInTheDocument();
   });
 
+  it("shows filter-empty recovery state in summary view", () => {
+    render(
+      <KnowledgeGraphPanel
+        edges={graphEdges}
+        nodes={graphNodes}
+        status="ready"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "角色" }));
+    fireEvent.click(screen.getByRole("button", { name: "地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "阵营" }));
+    fireEvent.click(screen.getByRole("button", { name: "事件" }));
+    fireEvent.click(screen.getByRole("button", { name: "物品" }));
+    fireEvent.click(screen.getByRole("button", { name: "其他" }));
+
+    fireEvent.click(screen.getByTestId("knowledge-graph-view-summary"));
+    expect(screen.getByTestId("knowledge-graph-filter-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("knowledge-graph-summary-list")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "显示全部" }));
+    expect(screen.getByTestId("knowledge-graph-summary-list")).toBeInTheDocument();
+  });
+
   it("switches node selection and updates detail panel", () => {
     render(
       <KnowledgeGraphPanel
@@ -112,7 +136,8 @@ describe("KnowledgeGraphPanel", () => {
         status="ready"
       />,
     );
-    expect(screen.getByText("等待图谱索引接入")).toBeInTheDocument();
+    expect(screen.getByText("暂无知识图谱实体")).toBeInTheDocument();
+    expect(screen.getByText("先创建角色或地点，图谱会自动形成结构。")).toBeInTheDocument();
 
     rerender(
       <KnowledgeGraphPanel
@@ -145,5 +170,18 @@ describe("KnowledgeGraphPanel", () => {
     fireEvent.change(screen.getByTestId("knowledge-graph-search"), { target: { value: "不存在关键词" } });
     expect(screen.getByTestId("knowledge-graph-no-match")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "显示全部" })).not.toBeInTheDocument();
+  });
+
+  it("renders notice message when provided", () => {
+    render(
+      <KnowledgeGraphPanel
+        edges={graphEdges}
+        nodes={graphNodes}
+        noticeMessage="图谱过大，仅加载前 500 条数据。"
+        status="ready"
+      />,
+    );
+
+    expect(screen.getByTestId("knowledge-graph-notice")).toHaveTextContent("图谱过大，仅加载前 500 条数据。");
   });
 });

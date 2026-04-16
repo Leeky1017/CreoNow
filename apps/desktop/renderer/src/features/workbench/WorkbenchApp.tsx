@@ -23,7 +23,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { IpcResponseData } from "@shared/types/ipc-generated";
+import type { IpcError, IpcResponseData } from "@shared/types/ipc-generated";
 
 import { Button } from "@/components/primitives/Button";
 import {
@@ -111,6 +111,11 @@ import {
 } from "./hooks";
 
 const MAX_REFERENCE_LENGTH = 120;
+const KNOWLEDGE_GRAPH_ENTITY_PAGE_SIZE = 500;
+const KNOWLEDGE_GRAPH_RELATION_PAGE_SIZE = 1000;
+const KNOWLEDGE_GRAPH_MAX_PAGE_REQUESTS = 12;
+const KNOWLEDGE_GRAPH_MAX_ENTITY_ITEMS = 6000;
+const KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS = 12000;
 const WELCOME_SCENARIOS_KEY = "creonow:onboarding:welcome-scenarios";
 type LocationListItem = IpcResponseData<"settings:location:list">["items"][number];
 type CharacterListItem = IpcResponseData<"settings:character:list">["items"][number];
@@ -120,6 +125,32 @@ type MemorySemanticRuleItem = IpcResponseData<"memory:semantic:list">["items"][n
 type KnowledgeEntityListItem = IpcResponseData<"knowledge:entity:list">["items"][number];
 type KnowledgeRelationListItem = IpcResponseData<"knowledge:relation:list">["items"][number];
 type WorkbenchKnowledgeGraphNode = KnowledgeGraphNode & { updatedAt: number };
+type PagedKnowledgeResponse<TItem> =
+  | {
+      ok: true;
+      data: {
+        items: TItem[];
+        totalCount: number;
+      };
+    }
+  | {
+      ok: false;
+      error: IpcError;
+    };
+
+type PagedKnowledgeLoadResult<TItem> =
+  | {
+      ok: true;
+      data: {
+        items: TItem[];
+        totalCount: number;
+        truncated: boolean;
+      };
+    }
+  | {
+      ok: false;
+      error: IpcError;
+    };
 
 type BootstrapStatus = "loading" | "ready" | "error";
 
@@ -127,6 +158,51 @@ type VersionPreviewState = {
   currentContentJson: string;
   snapshot: VersionHistorySnapshotDetail;
 };
+
+async function loadPagedKnowledgeItems<TItem>(options: {
+  maxItems: number;
+  pageSize: number;
+  queryPage: (offset: number, limit: number) => Promise<PagedKnowledgeResponse<TItem>>;
+}): Promise<PagedKnowledgeLoadResult<TItem>> {
+  const { maxItems, pageSize, queryPage } = options;
+  const collected: TItem[] = [];
+  let totalCount = 0;
+  let offset = 0;
+
+  for (let pageIndex = 0; pageIndex < KNOWLEDGE_GRAPH_MAX_PAGE_REQUESTS; pageIndex += 1) {
+    const pageResult = await queryPage(offset, pageSize);
+    if (!pageResult.ok) {
+      return {
+        ok: false,
+        error: pageResult.error,
+      };
+    }
+
+    totalCount = pageResult.data.totalCount;
+    const remaining = Math.max(maxItems - collected.length, 0);
+    if (remaining > 0) {
+      collected.push(...pageResult.data.items.slice(0, remaining));
+    }
+
+    offset += pageResult.data.items.length;
+    const reachedTotalCount = totalCount > 0 && collected.length >= totalCount;
+    const reachedPageEnd = pageResult.data.items.length === 0;
+    const reachedLimitCap = collected.length >= maxItems;
+
+    if (reachedTotalCount || reachedPageEnd || reachedLimitCap) {
+      break;
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      items: collected,
+      totalCount,
+      truncated: totalCount > collected.length,
+    },
+  };
+}
 
 /** @why 20px matches golden design source icon size (figma_design/layout.tsx line 150). */
 const ICON_SIZE = 20;
@@ -442,6 +518,7 @@ function WorkbenchShell() {
   const [knowledgeGraphEdges, setKnowledgeGraphEdges] = useState<KnowledgeGraphEdge[]>([]);
   const [knowledgeGraphStatus, setKnowledgeGraphStatus] = useState<"loading" | "ready" | "error">("loading");
   const [knowledgeGraphErrorMessage, setKnowledgeGraphErrorMessage] = useState<string | null>(null);
+  const [knowledgeGraphNoticeMessage, setKnowledgeGraphNoticeMessage] = useState<string | null>(null);
   const [knowledgeGraphQuery, setKnowledgeGraphQuery] = useState("");
   const [knowledgeGraphView, setKnowledgeGraphView] = useState<KnowledgeGraphPanelView>("graph");
   const [knowledgeGraphReloadToken, setKnowledgeGraphReloadToken] = useState(0);
@@ -1117,6 +1194,7 @@ function WorkbenchShell() {
       setKnowledgeGraphEdges([]);
       setKnowledgeGraphStatus("error");
       setKnowledgeGraphErrorMessage(t("sidebar.knowledgeGraph.errorNoProject"));
+      setKnowledgeGraphNoticeMessage(null);
       return;
     }
 
@@ -1131,6 +1209,7 @@ function WorkbenchShell() {
       setKnowledgeGraphEdges([]);
       setKnowledgeGraphStatus("error");
       setKnowledgeGraphErrorMessage(t("sidebar.knowledgeGraph.errorBridgeUnavailable"));
+      setKnowledgeGraphNoticeMessage(null);
       return;
     }
 
@@ -1139,14 +1218,21 @@ function WorkbenchShell() {
     setKnowledgeGraphEdges([]);
     setKnowledgeGraphStatus("loading");
     setKnowledgeGraphErrorMessage(null);
+    setKnowledgeGraphNoticeMessage(null);
 
     void (async () => {
       if (hasKnowledgeApi && typeof listEntities === "function" && typeof listRelations === "function") {
         try {
-          const [entitiesResult, relationsResult] = await Promise.all([
-            listEntities({ limit: 500, offset: 0, projectId: project.projectId }),
-            listRelations({ limit: 1000, offset: 0, projectId: project.projectId }),
-          ]);
+          const entitiesResult = await loadPagedKnowledgeItems<KnowledgeEntityListItem>({
+            maxItems: KNOWLEDGE_GRAPH_MAX_ENTITY_ITEMS,
+            pageSize: KNOWLEDGE_GRAPH_ENTITY_PAGE_SIZE,
+            queryPage: (offset, limit) =>
+              listEntities({
+                limit,
+                offset,
+                projectId: project.projectId,
+              }),
+          });
 
           if (cancelled) {
             return;
@@ -1157,6 +1243,22 @@ function WorkbenchShell() {
             setKnowledgeGraphEdges([]);
             setKnowledgeGraphStatus("error");
             setKnowledgeGraphErrorMessage(getHumanErrorMessage(entitiesResult.error, t));
+            setKnowledgeGraphNoticeMessage(null);
+            return;
+          }
+
+          const relationsResult = await loadPagedKnowledgeItems<KnowledgeRelationListItem>({
+            maxItems: KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS,
+            pageSize: KNOWLEDGE_GRAPH_RELATION_PAGE_SIZE,
+            queryPage: (offset, limit) =>
+              listRelations({
+                limit,
+                offset,
+                projectId: project.projectId,
+              }),
+          });
+
+          if (cancelled) {
             return;
           }
 
@@ -1165,6 +1267,7 @@ function WorkbenchShell() {
             setKnowledgeGraphEdges([]);
             setKnowledgeGraphStatus("error");
             setKnowledgeGraphErrorMessage(getHumanErrorMessage(relationsResult.error, t));
+            setKnowledgeGraphNoticeMessage(null);
             return;
           }
 
@@ -1175,6 +1278,18 @@ function WorkbenchShell() {
           setKnowledgeGraphEdges(relationsResult.data.items.map(mapKnowledgeRelationToEdge));
           setKnowledgeGraphStatus("ready");
           setKnowledgeGraphErrorMessage(null);
+          if (entitiesResult.data.truncated || relationsResult.data.truncated) {
+            setKnowledgeGraphNoticeMessage(
+              t("sidebar.knowledgeGraph.notice.truncated", {
+                loadedEdges: relationsResult.data.items.length,
+                loadedNodes: entitiesResult.data.items.length,
+                totalEdges: relationsResult.data.totalCount,
+                totalNodes: entitiesResult.data.totalCount,
+              }),
+            );
+          } else {
+            setKnowledgeGraphNoticeMessage(null);
+          }
           return;
         } catch (error) {
           if (cancelled) {
@@ -1184,6 +1299,7 @@ function WorkbenchShell() {
           setKnowledgeGraphEdges([]);
           setKnowledgeGraphStatus("error");
           setKnowledgeGraphErrorMessage(getHumanErrorMessage(error as Error, t));
+          setKnowledgeGraphNoticeMessage(null);
           return;
         }
       }
@@ -1226,6 +1342,7 @@ function WorkbenchShell() {
         setKnowledgeGraphEdges([]);
         setKnowledgeGraphStatus("error");
         setKnowledgeGraphErrorMessage(firstError);
+        setKnowledgeGraphNoticeMessage(null);
         return;
       }
 
@@ -1234,6 +1351,7 @@ function WorkbenchShell() {
       setKnowledgeGraphEdges([]);
       setKnowledgeGraphStatus("ready");
       setKnowledgeGraphErrorMessage(null);
+      setKnowledgeGraphNoticeMessage(null);
     })();
 
     return () => {
@@ -2107,6 +2225,7 @@ function WorkbenchShell() {
       return <KnowledgeGraphPanel
         edges={knowledgeGraphEdges}
         errorMessage={knowledgeGraphErrorMessage}
+        noticeMessage={knowledgeGraphNoticeMessage}
         nodes={knowledgeGraphNodes}
         onQueryChange={setKnowledgeGraphQuery}
         onRetry={triggerKnowledgeGraphReload}

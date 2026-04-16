@@ -4335,6 +4335,193 @@ describe("WorkbenchApp", () => {
     expect(screen.getByText("1 个实体")).toBeInTheDocument();
   });
 
+  it("knowledge graph 面板会按 totalCount 分页拉取实体与关系", async () => {
+    const api = window.api as PreloadApi;
+    const listEntities = vi.fn(async ({ offset }: { offset: number }) => {
+      if (offset === 0) {
+        return {
+          ok: true as const,
+          data: {
+            items: [
+              {
+                id: "entity-1",
+                projectId: "project-1",
+                name: "雷恩",
+                type: "character" as const,
+                description: "契约守护者。",
+                attributes: {},
+                aliases: [],
+                aiContextLevel: "when_detected" as const,
+                createdAt: "2026-01-01T00:00:00.000Z",
+                updatedAt: "2026-01-01T00:00:02.000Z",
+                version: 1,
+              },
+            ],
+            totalCount: 2,
+          },
+        };
+      }
+      return {
+        ok: true as const,
+        data: {
+          items: [
+            {
+              id: "entity-2",
+              projectId: "project-1",
+              name: "暮潮港",
+              type: "location" as const,
+              description: "第二幕冲突地。",
+              attributes: {},
+              aliases: [],
+              aiContextLevel: "when_detected" as const,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:03.000Z",
+              version: 1,
+            },
+          ],
+          totalCount: 2,
+        },
+      };
+    });
+    const listRelations = vi.fn(async ({ offset }: { offset: number }) => {
+      if (offset === 0) {
+        return {
+          ok: true as const,
+          data: {
+            items: [
+              {
+                id: "rel-1",
+                projectId: "project-1",
+                sourceEntityId: "entity-1",
+                targetEntityId: "entity-2",
+                relationType: "前往",
+                description: "角色移动关系",
+                createdAt: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+            totalCount: 2,
+          },
+        };
+      }
+      return {
+        ok: true as const,
+        data: {
+          items: [
+            {
+              id: "rel-2",
+              projectId: "project-1",
+              sourceEntityId: "entity-2",
+              targetEntityId: "entity-1",
+              relationType: "回忆",
+              description: "反向关系",
+              createdAt: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+          totalCount: 2,
+        },
+      };
+    });
+
+    api.knowledge = {
+      listEntities,
+      listRelations,
+    } as unknown as PreloadApi["knowledge"];
+    api.character = { list: vi.fn() } as unknown as PreloadApi["character"];
+    api.location = { list: vi.fn() } as unknown as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+
+    await waitFor(() => {
+      expect(listEntities).toHaveBeenNthCalledWith(1, { projectId: "project-1", limit: 500, offset: 0 });
+      expect(listEntities).toHaveBeenNthCalledWith(2, { projectId: "project-1", limit: 500, offset: 1 });
+      expect(listRelations).toHaveBeenNthCalledWith(1, { projectId: "project-1", limit: 1000, offset: 0 });
+      expect(listRelations).toHaveBeenNthCalledWith(2, { projectId: "project-1", limit: 1000, offset: 1 });
+    });
+
+    expect(await screen.findByTestId("knowledge-graph-node-location-entity-2")).toBeInTheDocument();
+    expect(screen.getByText("2 个实体")).toBeInTheDocument();
+  });
+
+  it("knowledge graph 分页返回不完整数据时显示截断提示", async () => {
+    const api = window.api as PreloadApi;
+    const listEntities = vi.fn(async ({ offset }: { offset: number }) => {
+      if (offset === 0) {
+        return {
+          ok: true as const,
+          data: {
+            items: [
+              {
+                id: "entity-1",
+                projectId: "project-1",
+                name: "雷恩",
+                type: "character" as const,
+                description: "契约守护者。",
+                attributes: {},
+                aliases: [],
+                aiContextLevel: "when_detected" as const,
+                createdAt: "2026-01-01T00:00:00.000Z",
+                updatedAt: "2026-01-01T00:00:02.000Z",
+                version: 1,
+              },
+            ],
+            totalCount: 3,
+          },
+        };
+      }
+      return {
+        ok: true as const,
+        data: {
+          items: [],
+          totalCount: 3,
+        },
+      };
+    });
+    const listRelations = vi.fn(async ({ offset }: { offset: number }) => {
+      if (offset === 0) {
+        return {
+          ok: true as const,
+          data: {
+            items: [
+              {
+                id: "rel-1",
+                projectId: "project-1",
+                sourceEntityId: "entity-1",
+                targetEntityId: "entity-1",
+                relationType: "自省",
+                description: "自我映射关系",
+                createdAt: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+            totalCount: 2,
+          },
+        };
+      }
+      return {
+        ok: true as const,
+        data: {
+          items: [],
+          totalCount: 2,
+        },
+      };
+    });
+
+    api.knowledge = {
+      listEntities,
+      listRelations,
+    } as unknown as PreloadApi["knowledge"];
+    api.character = { list: vi.fn() } as unknown as PreloadApi["character"];
+    api.location = { list: vi.fn() } as unknown as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+    expect(await screen.findByTestId("knowledge-graph-notice")).toHaveTextContent("图谱过大，当前仅加载 1/3 个实体与 1/2 条关系。");
+  });
+
   it("knowledge graph 面板会聚合 character/location 词条", async () => {
     const api = window.api as PreloadApi;
     const characterList = vi.fn(async () => ({
