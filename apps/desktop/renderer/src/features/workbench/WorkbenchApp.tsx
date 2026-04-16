@@ -229,7 +229,7 @@ function mapLocationToWorldbuildingEntry(
 function mapCharacterToKnowledgeNode(character: CharacterListItem): KnowledgeGraphNode {
   return {
     description: character.description ?? "",
-    id: `character:${character.id}`,
+    id: character.id,
     name: character.name,
     type: "character",
     updatedAt: character.updatedAt,
@@ -239,7 +239,7 @@ function mapCharacterToKnowledgeNode(character: CharacterListItem): KnowledgeGra
 function mapLocationToKnowledgeNode(location: LocationListItem): KnowledgeGraphNode {
   return {
     description: location.description ?? "",
-    id: `location:${location.id}`,
+    id: location.id,
     name: location.name,
     type: "location",
     updatedAt: location.updatedAt,
@@ -1018,7 +1018,10 @@ function WorkbenchShell() {
 
           const sortedNodes = entitiesResult.data.items
             .map(mapKnowledgeEntityToNode)
-            .sort((left, right) => right.updatedAt - left.updatedAt);
+            .sort(
+              (left, right) =>
+                (right.updatedAt ?? 0) - (left.updatedAt ?? 0),
+            );
           const visibleNodeIds = new Set(sortedNodes.map((node) => node.id));
           const visibleLinks = relationsResult.data.items
             .filter(
@@ -1086,7 +1089,9 @@ function WorkbenchShell() {
         return;
       }
 
-      const sortedNodes = collectedNodes.sort((left, right) => right.updatedAt - left.updatedAt);
+      const sortedNodes = collectedNodes.sort(
+        (left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0),
+      );
       setKnowledgeGraphNodes(sortedNodes);
       setKnowledgeGraphLinks([]);
       setKnowledgeGraphStatus("ready");
