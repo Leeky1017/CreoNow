@@ -228,6 +228,7 @@ function mapLocationToWorldbuildingEntry(
 
 function mapCharacterToKnowledgeNode(character: CharacterListItem): KnowledgeGraphNode {
   return {
+    attributes: character.attributes,
     description: character.description ?? "",
     id: character.id,
     name: character.name,
@@ -238,6 +239,7 @@ function mapCharacterToKnowledgeNode(character: CharacterListItem): KnowledgeGra
 
 function mapLocationToKnowledgeNode(location: LocationListItem): KnowledgeGraphNode {
   return {
+    attributes: location.attributes,
     description: location.description ?? "",
     id: location.id,
     name: location.name,
@@ -261,6 +263,7 @@ function parseTimestampToMs(input: string | number | null | undefined): number {
 
 function mapKnowledgeEntityToNode(entity: KnowledgeEntityListItem): KnowledgeGraphNode {
   return {
+    attributes: entity.attributes,
     description: entity.description ?? "",
     id: entity.id,
     name: entity.name,
@@ -277,6 +280,9 @@ function mapKnowledgeRelationToLink(relation: KnowledgeRelationListItem): Knowle
     targetId: relation.targetEntityId,
   };
 }
+
+const KNOWLEDGE_GRAPH_ENTITY_PAGE_LIMIT = 500;
+const KNOWLEDGE_GRAPH_RELATION_PAGE_LIMIT = 1000;
 
 function mapMemoryItemToPanelEntry(item: MemorySimpleListItem): MemoryPanelEntry {
   return {
@@ -456,6 +462,7 @@ function WorkbenchShell() {
   const [knowledgeGraphLinks, setKnowledgeGraphLinks] = useState<KnowledgeGraphLink[]>([]);
   const [knowledgeGraphStatus, setKnowledgeGraphStatus] = useState<KnowledgeGraphPanelStatus>("loading");
   const [knowledgeGraphErrorMessage, setKnowledgeGraphErrorMessage] = useState<string | null>(null);
+  const [knowledgeGraphNoticeMessage, setKnowledgeGraphNoticeMessage] = useState<string | null>(null);
   const [knowledgeGraphQuery, setKnowledgeGraphQuery] = useState("");
   const [knowledgeGraphView, setKnowledgeGraphView] = useState<KnowledgeGraphPanelView>("graph");
   const [knowledgeGraphReloadToken, setKnowledgeGraphReloadToken] = useState(0);
@@ -959,6 +966,7 @@ function WorkbenchShell() {
       setKnowledgeGraphLinks([]);
       setKnowledgeGraphStatus("error");
       setKnowledgeGraphErrorMessage(t("sidebar.knowledgeGraph.errorNoProject"));
+      setKnowledgeGraphNoticeMessage(null);
       return;
     }
 
@@ -973,6 +981,7 @@ function WorkbenchShell() {
       setKnowledgeGraphLinks([]);
       setKnowledgeGraphStatus("error");
       setKnowledgeGraphErrorMessage(t("sidebar.knowledgeGraph.errorBridgeUnavailable"));
+      setKnowledgeGraphNoticeMessage(null);
       return;
     }
 
@@ -981,6 +990,7 @@ function WorkbenchShell() {
     setKnowledgeGraphLinks([]);
     setKnowledgeGraphStatus("loading");
     setKnowledgeGraphErrorMessage(null);
+    setKnowledgeGraphNoticeMessage(null);
 
     void (async () => {
       if (hasKnowledgeApi && typeof listEntities === "function" && typeof listRelations === "function") {
@@ -988,12 +998,12 @@ function WorkbenchShell() {
           const [entitiesResult, relationsResult] = await Promise.all([
             listEntities({
               projectId: project.projectId,
-              limit: 500,
+              limit: KNOWLEDGE_GRAPH_ENTITY_PAGE_LIMIT,
               offset: 0,
             }),
             listRelations({
               projectId: project.projectId,
-              limit: 1000,
+              limit: KNOWLEDGE_GRAPH_RELATION_PAGE_LIMIT,
               offset: 0,
             }),
           ]);
@@ -1006,6 +1016,7 @@ function WorkbenchShell() {
             setKnowledgeGraphLinks([]);
             setKnowledgeGraphStatus("error");
             setKnowledgeGraphErrorMessage(getHumanErrorMessage(entitiesResult.error, t));
+            setKnowledgeGraphNoticeMessage(null);
             return;
           }
           if (!relationsResult.ok) {
@@ -1013,6 +1024,7 @@ function WorkbenchShell() {
             setKnowledgeGraphLinks([]);
             setKnowledgeGraphStatus("error");
             setKnowledgeGraphErrorMessage(getHumanErrorMessage(relationsResult.error, t));
+            setKnowledgeGraphNoticeMessage(null);
             return;
           }
 
@@ -1035,6 +1047,21 @@ function WorkbenchShell() {
           setKnowledgeGraphLinks(visibleLinks);
           setKnowledgeGraphStatus("ready");
           setKnowledgeGraphErrorMessage(null);
+          if (
+            entitiesResult.data.items.length < entitiesResult.data.totalCount
+            || relationsResult.data.items.length < relationsResult.data.totalCount
+          ) {
+            setKnowledgeGraphNoticeMessage(
+              t("sidebar.knowledgeGraph.notice.truncated", {
+                loadedEdges: relationsResult.data.items.length,
+                loadedNodes: entitiesResult.data.items.length,
+                totalEdges: relationsResult.data.totalCount,
+                totalNodes: entitiesResult.data.totalCount,
+              }),
+            );
+          } else {
+            setKnowledgeGraphNoticeMessage(null);
+          }
           return;
         } catch (error) {
           if (cancelled) {
@@ -1044,6 +1071,7 @@ function WorkbenchShell() {
           setKnowledgeGraphLinks([]);
           setKnowledgeGraphStatus("error");
           setKnowledgeGraphErrorMessage(getHumanErrorMessage(error as Error, t));
+          setKnowledgeGraphNoticeMessage(null);
           return;
         }
       }
@@ -1086,6 +1114,7 @@ function WorkbenchShell() {
         setKnowledgeGraphLinks([]);
         setKnowledgeGraphStatus("error");
         setKnowledgeGraphErrorMessage(firstError);
+        setKnowledgeGraphNoticeMessage(null);
         return;
       }
 
@@ -1096,6 +1125,7 @@ function WorkbenchShell() {
       setKnowledgeGraphLinks([]);
       setKnowledgeGraphStatus("ready");
       setKnowledgeGraphErrorMessage(null);
+      setKnowledgeGraphNoticeMessage(null);
     })();
 
     return () => {
@@ -2037,6 +2067,7 @@ function WorkbenchShell() {
       return <KnowledgeGraphPanel
         errorMessage={knowledgeGraphErrorMessage}
         links={knowledgeGraphLinks}
+        noticeMessage={knowledgeGraphNoticeMessage}
         nodes={knowledgeGraphNodes}
         onQueryChange={setKnowledgeGraphQuery}
         onRetry={triggerKnowledgeGraphReload}

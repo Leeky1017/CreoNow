@@ -4404,11 +4404,11 @@ describe("WorkbenchApp", () => {
       data: {
         items: [
           {
+            attributes: { 身份: "契约守护者" },
             id: "char-1",
             projectId: "project-1",
             name: "雷恩",
             description: "契约守护者。",
-            attributes: {},
             createdAt: 1,
             updatedAt: 2,
           },
@@ -4420,11 +4420,11 @@ describe("WorkbenchApp", () => {
       data: {
         items: [
           {
+            attributes: { 区域: "主线冲突地带" },
             id: "loc-1",
             projectId: "project-1",
             name: "深渊洞窟",
             description: "主线冲突地带。",
-            attributes: {},
             createdAt: 1,
             updatedAt: 2,
           },
@@ -4446,6 +4446,9 @@ describe("WorkbenchApp", () => {
 
     expect(await screen.findByTestId("knowledge-graph-node-character-char-1")).toBeInTheDocument();
     expect(screen.getByText("2 个实体")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "雷恩" }));
+    expect(screen.getByText("身份")).toBeInTheDocument();
+    expect(screen.getByText("契约守护者")).toBeInTheDocument();
   });
 
   it("knowledge graph 面板优先消费 knowledge entity/relation 链路", async () => {
@@ -4457,7 +4460,9 @@ describe("WorkbenchApp", () => {
           {
             aiContextLevel: "when_detected" as const,
             aliases: [],
-            attributes: {},
+            attributes: {
+              阵营: "守序",
+            } as Record<string, string>,
             createdAt: "2026-04-16T00:00:00.000Z",
             description: "契约守护者",
             id: "entity-char-1",
@@ -4470,7 +4475,9 @@ describe("WorkbenchApp", () => {
           {
             aiContextLevel: "when_detected" as const,
             aliases: [],
-            attributes: {},
+            attributes: {
+              地貌: "洞窟",
+            } as Record<string, string>,
             createdAt: "2026-04-16T00:00:00.000Z",
             description: "主线冲突地带",
             id: "entity-loc-1",
@@ -4528,6 +4535,68 @@ describe("WorkbenchApp", () => {
 
     expect(await screen.findByTestId("knowledge-graph-node-entity-char-1")).toBeInTheDocument();
     expect(screen.getByText("ally")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "雷恩" }));
+    expect(screen.getByText("守序")).toBeInTheDocument();
+  });
+
+  it("knowledge graph 面板在分页截断时显示提示", async () => {
+    const api = window.api as PreloadApi;
+    const listEntities = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            aiContextLevel: "when_detected" as const,
+            aliases: [],
+            attributes: {},
+            createdAt: "2026-04-16T00:00:00.000Z",
+            description: "契约守护者",
+            id: "entity-char-1",
+            name: "雷恩",
+            projectId: "project-1",
+            type: "character" as const,
+            updatedAt: "2026-04-16T01:00:00.000Z",
+            version: 1,
+          },
+        ],
+        totalCount: 1200,
+      },
+    }));
+    const listRelations = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [],
+        totalCount: 1800,
+      },
+    }));
+    api.knowledge = {
+      listEntities,
+      listRelations,
+    };
+    api.character = {} as PreloadApi["character"];
+    api.location = {} as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+
+    await waitFor(() => {
+      expect(listEntities).toHaveBeenCalledWith({
+        projectId: "project-1",
+        limit: 500,
+        offset: 0,
+      });
+      expect(listRelations).toHaveBeenCalledWith({
+        projectId: "project-1",
+        limit: 1000,
+        offset: 0,
+      });
+    });
+
+    expect(await screen.findByTestId("knowledge-graph-notice")).toHaveTextContent("图谱过大");
+    expect(screen.getByTestId("knowledge-graph-notice")).toHaveTextContent("1/1200");
+    expect(screen.getByTestId("knowledge-graph-notice")).toHaveTextContent("0/1800");
   });
 
   it("knowledge graph 数据桥缺失时显示错误态", async () => {
