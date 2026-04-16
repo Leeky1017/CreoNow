@@ -47,6 +47,7 @@ import documentCoverImageSql from "./migrations/0025_document_cover_image.sql?ra
 import versionParentSnapshotSql from "./migrations/0026_version_parent_snapshot_id.sql?raw";
 import versionParentSnapshotRowidOrderSql from "./migrations/0027_version_parent_snapshot_rowid_order.sql?raw";
 import sessionMemorySql from "./migrations/0028_session_memory.sql?raw";
+import projectMilestonesSql from "./migrations/0029_project_milestones.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -179,6 +180,11 @@ const MIGRATIONS_BASE: readonly Migration[] = [
     version: 29,
     name: "0028_session_memory",
     sql: sessionMemorySql,
+  },
+  {
+    version: 30,
+    name: "0029_project_milestones",
+    sql: projectMilestonesSql,
   },
 ];
 

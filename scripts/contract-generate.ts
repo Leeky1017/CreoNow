@@ -54,6 +54,7 @@ const DOMAIN_REGISTRY: Readonly<Record<string, string>> = {
   db: "Database",
   dialog: "Workbench",
   embedding: "Search and Retrieval",
+  engagement: "Engagement Engine",
   export: "Document Management",
   file: "Document Management",
   judge: "AI Service",

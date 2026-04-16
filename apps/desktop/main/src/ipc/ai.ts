@@ -85,6 +85,12 @@ import {
   type EventBusLike,
 } from "./helpers";
 import { createP3SkillExecutor } from "../services/skills/p3Skills";
+import {
+  createAiPersonaService,
+  type AiPersonaService,
+} from "../services/engagement/aiPersonaService";
+import { createMilestoneService } from "../services/engagement/milestoneService";
+import { createWorldScaleService } from "../services/engagement/worldScaleService";
 
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
@@ -724,6 +730,7 @@ export async function prepareWritingRequest(args: {
   }
 
   const systemPrompt = resolvedData.skill.prompt?.system?.trim() ?? "";
+  const personaMemoryOverlay = args.ctx.aiPersonaService.buildMemoryOverlay();
   const userPrompt = renderPromptTemplate({
     template: resolvedData.skill.prompt?.user ?? "",
     values: {
@@ -736,7 +743,9 @@ export async function prepareWritingRequest(args: {
   const messages = [
     {
       role: "system",
-      content: [systemPrompt, contextPrompt].filter(Boolean).join("\n\n"),
+      content: [systemPrompt, personaMemoryOverlay, contextPrompt]
+        .filter(Boolean)
+        .join("\n\n"),
     },
     {
       role: "user",
@@ -1195,6 +1204,7 @@ type AiIpcContext = {
    * 所有写作执行 / 取消 / 反馈 / 模型列表均通过 skillOrchestrator 路由。
    */
   skillOrchestrator: SkillOrchestrator;
+  aiPersonaService: AiPersonaService;
   skillServiceFactory: () => ReturnType<typeof createSkillService>;
   contextAssemblyService: ReturnType<typeof createContextLayerAssemblyService>;
   runRegistry: Map<
@@ -1432,11 +1442,43 @@ function recordSkillRunUsage(
  */
 export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   const runtimeGovernance = resolveRuntimeGovernanceFromEnv(deps.env);
+  const aiPersonaService = createAiPersonaService({ db: deps.db });
   const pushBackpressureByRenderer = new Map<
     number,
     ReturnType<typeof createIpcPushBackpressureGate>
   >();
   const previewLifecycleRegisteredRendererIds = new Set<number>();
+  let cachedEngagementMilestoneServices:
+    | {
+        worldScaleService: ReturnType<typeof createWorldScaleService>;
+        milestoneService: ReturnType<typeof createMilestoneService>;
+      }
+    | null
+    | undefined;
+  const resolveEngagementMilestoneServices = () => {
+    if (cachedEngagementMilestoneServices !== undefined) {
+      return cachedEngagementMilestoneServices;
+    }
+    if (
+      !deps.db ||
+      typeof (deps.db as { prepare?: unknown }).prepare !== "function"
+    ) {
+      cachedEngagementMilestoneServices = null;
+      return cachedEngagementMilestoneServices;
+    }
+    try {
+      cachedEngagementMilestoneServices = {
+        worldScaleService: createWorldScaleService({ db: deps.db }),
+        milestoneService: createMilestoneService({ db: deps.db }),
+      };
+    } catch (error) {
+      cachedEngagementMilestoneServices = null;
+      deps.logger.info("engagement_milestone_hook_unavailable", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return cachedEngagementMilestoneServices;
+  };
 
   const readProxySettings = () => {
     if (!deps.db) {
@@ -1830,6 +1872,40 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           return;
         },
       },
+      {
+        name: "engagement-milestone",
+        priority: 35,
+        async execute(context) {
+          const projectId = context.projectId?.trim();
+          if (!projectId) {
+            return;
+          }
+          const services = resolveEngagementMilestoneServices();
+          if (!services) {
+            return;
+          }
+          try {
+            services.worldScaleService.invalidateCache(projectId);
+            const current = services.worldScaleService.getWorldScale(projectId);
+            const events = services.milestoneService.evaluateFromCurrentScale({
+              projectId,
+              current,
+            });
+            if (events.length > 0) {
+              deps.logger.info("engagement_milestone_recorded", {
+                projectId,
+                count: events.length,
+                source: "post-writing-hook",
+              });
+            }
+          } catch (error) {
+            deps.logger.error("engagement_milestone_hook_failed", {
+              projectId,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+        },
+      },
       // INV-8: Wire the post-writing hooks from the hook chain factory.
       // When the main-process event bus is available we can also activate
       // the final quality-check leg via the P3 executor bridge.
@@ -1885,6 +1961,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           // prepareWritingRequest does not use skillOrchestrator;
           // pass a dummy to satisfy the type while keeping the type boundary clean.
           skillOrchestrator: undefined as never,
+          aiPersonaService,
           skillServiceFactory,
           contextAssemblyService,
           runRegistry: new Map(),
@@ -1948,6 +2025,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     deps,
     runtimeGovernance,
     skillOrchestrator,
+    aiPersonaService,
     skillServiceFactory,
     contextAssemblyService,
     runRegistry,

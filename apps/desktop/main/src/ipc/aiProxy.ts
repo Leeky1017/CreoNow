@@ -13,6 +13,7 @@ type ProxySettingsPatch = Partial<{
   enabled: boolean;
   baseUrl: string;
   apiKey: string;
+  personaHumorEnabled: boolean;
   providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
   openAiCompatibleBaseUrl: string;
   openAiCompatibleApiKey: string;
@@ -36,6 +37,7 @@ const ALLOWED_PROXY_SETTINGS_PATCH_KEYS = new Set<string>([
   "enabled",
   "baseUrl",
   "apiKey",
+  "personaHumorEnabled",
   "providerMode",
   "openAiCompatibleBaseUrl",
   "openAiCompatibleApiKey",
@@ -103,6 +105,7 @@ export function registerAiProxyIpcHandlers(deps: {
         enabled: boolean;
         baseUrl: string;
         apiKeyConfigured: boolean;
+        personaHumorEnabled: boolean;
         providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
         openAiCompatibleBaseUrl: string;
         openAiCompatibleApiKeyConfigured: boolean;
@@ -140,6 +143,7 @@ export function registerAiProxyIpcHandlers(deps: {
         enabled: boolean;
         baseUrl: string;
         apiKeyConfigured: boolean;
+        personaHumorEnabled: boolean;
         providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
         openAiCompatibleBaseUrl: string;
         openAiCompatibleApiKeyConfigured: boolean;

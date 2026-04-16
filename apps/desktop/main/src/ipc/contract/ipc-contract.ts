@@ -569,6 +569,7 @@ const AI_PROXY_SETTINGS_SCHEMA = s.object({
   enabled: s.boolean(),
   baseUrl: s.string(),
   apiKeyConfigured: s.boolean(),
+  personaHumorEnabled: s.boolean(),
   providerMode: s.union(
     s.literal("openai-compatible"),
     s.literal("openai-byok"),
@@ -961,6 +962,72 @@ const SETTINGS_LOCATION_SCHEMA = s.object({
   updatedAt: s.number(),
 });
 
+const ENGAGEMENT_WORLD_SCALE_SCHEMA = s.object({
+  totalWords: s.number(),
+  characters: s.number(),
+  relations: s.number(),
+  locations: s.number(),
+  foreshadowings: s.object({
+    total: s.number(),
+    resolved: s.number(),
+  }),
+  chapters: s.number(),
+});
+
+const ENGAGEMENT_MILESTONE_SCHEMA = s.object({
+  id: s.string(),
+  projectId: s.string(),
+  metric: s.string(),
+  threshold: s.number(),
+  value: s.number(),
+  reachedAt: s.number(),
+  createdAt: s.number(),
+});
+
+const ENGAGEMENT_STYLE_SCOPE_SCHEMA = s.union(
+  s.literal("recent"),
+  s.literal("full"),
+);
+
+const ENGAGEMENT_NARRATIVE_PATTERN_SCHEMA = s.object({
+  pattern: s.string(),
+  frequency: s.number(),
+  examples: s.array(s.string()),
+});
+
+const ENGAGEMENT_CHARACTER_ARCHETYPE_SCHEMA = s.object({
+  archetype: s.string(),
+  characters: s.array(s.string()),
+  evidence: s.string(),
+});
+
+const ENGAGEMENT_WRITING_PROFILE_SCHEMA = s.object({
+  narrativePatterns: s.array(ENGAGEMENT_NARRATIVE_PATTERN_SCHEMA),
+  characterArchetypes: s.array(ENGAGEMENT_CHARACTER_ARCHETYPE_SCHEMA),
+  rhythmStats: s.object({
+    avgChapterLength: s.number(),
+    dialogueRatio: s.number(),
+    paceVariation: s.number(),
+  }),
+  writingSchedule: s.object({
+    peakHours: s.array(s.number()),
+    avgSessionDuration: s.number(),
+    streakDays: s.number(),
+  }),
+});
+
+const ENGAGEMENT_COMPLETION_ESTIMATE_SCHEMA = s.object({
+  currentWordCount: s.number(),
+  estimatedTotalWords: s.number(),
+  estimatedCompletionDate: s.union(s.string(), s.literal(null)),
+  confidenceLevel: s.union(
+    s.literal("high"),
+    s.literal("medium"),
+    s.literal("low"),
+  ),
+  dailyAverage: s.number(),
+});
+
 const PROJECT_CONFIG_SCHEMA = s.object({
   id: s.string(),
   name: s.string(),
@@ -1096,6 +1163,33 @@ export const ipcContract = {
         days: s.array(STATS_DAY_SCHEMA),
         summary: STATS_SUMMARY_SCHEMA,
       }),
+    },
+    "engagement:worldscale:get": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: ENGAGEMENT_WORLD_SCALE_SCHEMA,
+    },
+    "engagement:milestone:list": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        items: s.array(ENGAGEMENT_MILESTONE_SCHEMA),
+      }),
+    },
+    "engagement:style:analyze": {
+      request: s.object({
+        projectId: s.string(),
+        scope: s.optional(ENGAGEMENT_STYLE_SCOPE_SCHEMA),
+      }),
+      response: ENGAGEMENT_WRITING_PROFILE_SCHEMA,
+    },
+    "engagement:completion:estimate": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: ENGAGEMENT_COMPLETION_ESTIMATE_SCHEMA,
     },
     "export:document:markdown": {
       request: s.object({
@@ -1353,6 +1447,7 @@ export const ipcContract = {
           enabled: s.optional(s.boolean()),
           baseUrl: s.optional(s.string()),
           apiKey: s.optional(s.string()),
+          personaHumorEnabled: s.optional(s.boolean()),
           providerMode: s.optional(
             s.union(
               s.literal("openai-compatible"),

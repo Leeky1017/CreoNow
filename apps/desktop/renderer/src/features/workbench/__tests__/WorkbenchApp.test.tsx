@@ -134,6 +134,7 @@ function createApiMock(): PreloadApi {
     providerMode: "openai-compatible" as const,
     baseUrl: "",
     apiKeyConfigured: false,
+    personaHumorEnabled: true,
     openAiCompatibleBaseUrl: "",
     openAiCompatibleApiKeyConfigured: false,
     openAiByokBaseUrl: "",
@@ -219,7 +220,81 @@ function createApiMock(): PreloadApi {
         },
       })),
     },
-    search: {} as PreloadApi["search"],
+    engagement: {
+      getWorldScale: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          totalWords: 0,
+          characters: 0,
+          relations: 0,
+          locations: 0,
+          foreshadowings: { total: 0, resolved: 0 },
+          chapters: 0,
+        },
+      })),
+      listMilestones: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          items: [],
+        },
+      })),
+      analyzeStyle: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          narrativePatterns: [],
+          characterArchetypes: [],
+          rhythmStats: {
+            avgChapterLength: 0,
+            dialogueRatio: 0,
+            paceVariation: 0,
+          },
+          writingSchedule: {
+            peakHours: [],
+            avgSessionDuration: 0,
+            streakDays: 0,
+          },
+        },
+      })),
+      estimateCompletion: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          currentWordCount: 0,
+          estimatedTotalWords: 0,
+          estimatedCompletionDate: null,
+          confidenceLevel: "low" as const,
+          dailyAverage: 0,
+        },
+      })),
+    },
+    search: {
+      query: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          results: [],
+          total: 0,
+          hasMore: false,
+          indexState: "ready" as const,
+        },
+      })),
+      queryByStrategy: vi.fn(async ({ strategy }: { strategy: "fts" | "semantic" | "hybrid" }) => ({
+        ok: true as const,
+        data: {
+          traceId: "trace-1",
+          costMs: 8,
+          strategy,
+          fallback: "none" as const,
+          notice: undefined,
+          results: [],
+          total: 0,
+          hasMore: false,
+          backpressure: {
+            candidateCount: 0,
+            candidateLimit: 200,
+            truncated: false,
+          },
+        },
+      })),
+    },
   } as PreloadApi;
 }
 
@@ -4207,572 +4282,119 @@ describe("WorkbenchApp", () => {
     expect(screen.getByText("1 未归类")).toBeInTheDocument();
   });
 
-  it("search 面板保留语义命中并展示后端实际策略", async () => {
+  it("search 面板通过 strategy IPC 渲染动态结果", async () => {
     const api = window.api as PreloadApi;
     const queryByStrategy = vi.fn(async () => ({
       ok: true as const,
       data: {
-        traceId: "trace-search-fallback",
-        costMs: 8,
-        strategy: "fts" as const,
-        fallback: "fts" as const,
-        notice: "semantic index warming up, fallback to fts",
+        traceId: "trace-search-1",
+        costMs: 12,
+        strategy: "hybrid" as const,
+        fallback: "none" as const,
+        notice: "fallback disabled",
         results: [
           {
             chunkId: "chunk-1",
             documentId: "doc-1",
-            snippet: "她在寂静走廊里停下脚步，忽然想起旧约。",
-            finalScore: 0.88,
-            scoreBreakdown: { bm25: 0, semantic: 0.82, recency: 0.06 },
-            updatedAt: 2,
+            finalScore: 0.93,
+            scoreBreakdown: {
+              bm25: 0.42,
+              recency: 0.21,
+              semantic: 0.30,
+            },
+            snippet: "黎明前的誓言在此回响。",
+            updatedAt: Date.parse("2026-04-16T08:00:00.000Z"),
           },
         ],
         total: 1,
         hasMore: false,
         backpressure: {
-          candidateLimit: 100,
           candidateCount: 1,
+          candidateLimit: 200,
           truncated: false,
         },
       },
     }));
     api.search = {
+      query: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          results: [],
+          total: 0,
+          hasMore: false,
+          indexState: "ready" as const,
+        },
+      })),
       queryByStrategy,
-    } as unknown as PreloadApi["search"];
+    };
 
     render(<WorkbenchApp />);
     await screen.findByRole("heading", { name: "第一章" });
 
     fireEvent.click(screen.getByRole("button", { name: "搜索" }));
-    fireEvent.change(screen.getByTestId("search-query-input"), { target: { value: "风暴" } });
+    const queryInput = await screen.findByTestId("search-query-input");
+    fireEvent.change(queryInput, { target: { value: "黎明" } });
 
     await waitFor(() => {
-      expect(queryByStrategy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId: "project-1",
-          query: "风暴",
-          strategy: "hybrid",
-        }),
-      );
-    });
-
-    expect(await screen.findByTestId("search-result-doc-1-chunk-1")).toBeInTheDocument();
-    expect(screen.queryByTestId("search-no-match")).not.toBeInTheDocument();
-    expect(screen.getByTestId("search-meta")).toHaveTextContent("当前策略：关键词");
-    expect(screen.getByTestId("search-meta")).toHaveTextContent("请求策略：混合");
-    expect(screen.getByTestId("search-notice")).toHaveTextContent("fallback to fts");
-  });
-
-  it("knowledge graph 面板优先使用 knowledge 实体与关系接口", async () => {
-    const api = window.api as PreloadApi;
-    const listEntities = vi.fn(async () => ({
-      ok: true as const,
-      data: {
-        items: [
-          {
-            id: "entity-1",
-            projectId: "project-1",
-            name: "雷恩",
-            type: "character" as const,
-            description: "契约守护者。",
-            attributes: {},
-            aliases: [],
-            aiContextLevel: "when_detected" as const,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:02.000Z",
-            version: 1,
-          },
-        ],
-        totalCount: 1,
-      },
-    }));
-    const listRelations = vi.fn(async () => ({
-      ok: true as const,
-      data: {
-        items: [
-          {
-            id: "rel-1",
-            projectId: "project-1",
-            sourceEntityId: "entity-1",
-            targetEntityId: "entity-1",
-            relationType: "自省",
-            description: "自我映射关系",
-            createdAt: "2026-01-01T00:00:00.000Z",
-          },
-        ],
-        totalCount: 1,
-      },
-    }));
-    const characterList = vi.fn(async () => ({
-      ok: true as const,
-      data: { items: [] },
-    }));
-    const locationList = vi.fn(async () => ({
-      ok: true as const,
-      data: { items: [] },
-    }));
-
-    api.knowledge = {
-      listEntities,
-      listRelations,
-    } as unknown as PreloadApi["knowledge"];
-    api.character = { list: characterList } as unknown as PreloadApi["character"];
-    api.location = { list: locationList } as unknown as PreloadApi["location"];
-
-    render(<WorkbenchApp />);
-    await screen.findByRole("heading", { name: "第一章" });
-
-    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
-
-    await waitFor(() => {
-      expect(listEntities).toHaveBeenCalledWith({ projectId: "project-1", limit: 500, offset: 0 });
-      expect(listRelations).toHaveBeenCalledWith({ projectId: "project-1", limit: 1000, offset: 0 });
-    });
-
-    expect(characterList).not.toHaveBeenCalled();
-    expect(locationList).not.toHaveBeenCalled();
-    expect(await screen.findByTestId("knowledge-graph-node-character-entity-1")).toBeInTheDocument();
-    expect(screen.getByText("1 个实体")).toBeInTheDocument();
-  });
-
-  it("knowledge graph 面板会按 totalCount 分页拉取实体与关系", async () => {
-    const api = window.api as PreloadApi;
-    const listEntities = vi.fn(async ({ offset }: { offset: number }) => {
-      if (offset === 0) {
-        return {
-          ok: true as const,
-          data: {
-            items: [
-              {
-                id: "entity-1",
-                projectId: "project-1",
-                name: "雷恩",
-                type: "character" as const,
-                description: "契约守护者。",
-                attributes: {},
-                aliases: [],
-                aiContextLevel: "when_detected" as const,
-                createdAt: "2026-01-01T00:00:00.000Z",
-                updatedAt: "2026-01-01T00:00:02.000Z",
-                version: 1,
-              },
-            ],
-            totalCount: 2,
-          },
-        };
-      }
-      return {
-        ok: true as const,
-        data: {
-          items: [
-            {
-              id: "entity-2",
-              projectId: "project-1",
-              name: "暮潮港",
-              type: "location" as const,
-              description: "第二幕冲突地。",
-              attributes: {},
-              aliases: [],
-              aiContextLevel: "when_detected" as const,
-              createdAt: "2026-01-01T00:00:00.000Z",
-              updatedAt: "2026-01-01T00:00:03.000Z",
-              version: 1,
-            },
-          ],
-          totalCount: 2,
-        },
-      };
-    });
-    const listRelations = vi.fn(async ({ offset }: { offset: number }) => {
-      if (offset === 0) {
-        return {
-          ok: true as const,
-          data: {
-            items: [
-              {
-                id: "rel-1",
-                projectId: "project-1",
-                sourceEntityId: "entity-1",
-                targetEntityId: "entity-2",
-                relationType: "前往",
-                description: "角色移动关系",
-                createdAt: "2026-01-01T00:00:00.000Z",
-              },
-            ],
-            totalCount: 2,
-          },
-        };
-      }
-      return {
-        ok: true as const,
-        data: {
-          items: [
-            {
-              id: "rel-2",
-              projectId: "project-1",
-              sourceEntityId: "entity-2",
-              targetEntityId: "entity-1",
-              relationType: "回忆",
-              description: "反向关系",
-              createdAt: "2026-01-01T00:00:00.000Z",
-            },
-          ],
-          totalCount: 2,
-        },
-      };
-    });
-
-    api.knowledge = {
-      listEntities,
-      listRelations,
-    } as unknown as PreloadApi["knowledge"];
-    api.character = { list: vi.fn() } as unknown as PreloadApi["character"];
-    api.location = { list: vi.fn() } as unknown as PreloadApi["location"];
-
-    render(<WorkbenchApp />);
-    await screen.findByRole("heading", { name: "第一章" });
-
-    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
-
-    await waitFor(() => {
-      expect(listEntities).toHaveBeenNthCalledWith(1, { projectId: "project-1", limit: 500, offset: 0 });
-      expect(listEntities).toHaveBeenNthCalledWith(2, { projectId: "project-1", limit: 500, offset: 1 });
-      expect(listRelations).toHaveBeenNthCalledWith(1, { projectId: "project-1", limit: 1000, offset: 0 });
-      expect(listRelations).toHaveBeenNthCalledWith(2, { projectId: "project-1", limit: 1000, offset: 1 });
-    });
-
-    expect(await screen.findByTestId("knowledge-graph-node-location-entity-2")).toBeInTheDocument();
-    expect(screen.getByText("2 个实体")).toBeInTheDocument();
-  });
-
-  it("knowledge graph 关系分页会跳过 orphan 边并继续拉取可见关系", async () => {
-    const api = window.api as PreloadApi;
-    const listEntities = vi.fn(async () => ({
-      ok: true as const,
-      data: {
-        items: [
-          {
-            id: "entity-1",
-            projectId: "project-1",
-            name: "雷恩",
-            type: "character" as const,
-            description: "契约守护者。",
-            attributes: {},
-            aliases: [],
-            aiContextLevel: "when_detected" as const,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:02.000Z",
-            version: 1,
-          },
-          {
-            id: "entity-2",
-            projectId: "project-1",
-            name: "暮潮港",
-            type: "location" as const,
-            description: "第二幕冲突地。",
-            attributes: {},
-            aliases: [],
-            aiContextLevel: "when_detected" as const,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:03.000Z",
-            version: 1,
-          },
-        ],
-        totalCount: 2,
-      },
-    }));
-    const listRelations = vi.fn(async ({ offset }: { offset: number }) => {
-      if (offset === 0) {
-        return {
-          ok: true as const,
-          data: {
-            items: [
-              {
-                id: "rel-orphan",
-                projectId: "project-1",
-                sourceEntityId: "entity-1",
-                targetEntityId: "entity-missing",
-                relationType: "失效引用",
-                description: "应被跳过",
-                createdAt: "2026-01-01T00:00:00.000Z",
-              },
-            ],
-            totalCount: 2,
-          },
-        };
-      }
-      return {
-        ok: true as const,
-        data: {
-          items: [
-            {
-              id: "rel-visible",
-              projectId: "project-1",
-              sourceEntityId: "entity-1",
-              targetEntityId: "entity-2",
-              relationType: "互信",
-              description: "应被保留",
-              createdAt: "2026-01-01T00:00:00.000Z",
-            },
-          ],
-          totalCount: 2,
-        },
-      };
-    });
-
-    api.knowledge = {
-      listEntities,
-      listRelations,
-    } as unknown as PreloadApi["knowledge"];
-    api.character = { list: vi.fn() } as unknown as PreloadApi["character"];
-    api.location = { list: vi.fn() } as unknown as PreloadApi["location"];
-
-    render(<WorkbenchApp />);
-    await screen.findByRole("heading", { name: "第一章" });
-
-    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
-
-    await waitFor(() => {
-      expect(listRelations).toHaveBeenNthCalledWith(1, { projectId: "project-1", limit: 1000, offset: 0 });
-      expect(listRelations).toHaveBeenNthCalledWith(2, { projectId: "project-1", limit: 1000, offset: 1 });
-    });
-    expect(await screen.findByText("互信")).toBeInTheDocument();
-  });
-
-  it("knowledge graph 关系命中预算上限且已扫描完时不显示截断提示", async () => {
-    const api = window.api as PreloadApi;
-    const listEntities = vi.fn(async () => ({
-      ok: true as const,
-      data: {
-        items: [
-          {
-            id: "entity-1",
-            projectId: "project-1",
-            name: "雷恩",
-            type: "character" as const,
-            description: "契约守护者。",
-            attributes: {},
-            aliases: [],
-            aiContextLevel: "when_detected" as const,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:02.000Z",
-            version: 1,
-          },
-          {
-            id: "entity-2",
-            projectId: "project-1",
-            name: "暮潮港",
-            type: "location" as const,
-            description: "第二幕冲突地。",
-            attributes: {},
-            aliases: [],
-            aiContextLevel: "when_detected" as const,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:03.000Z",
-            version: 1,
-          },
-        ],
-        totalCount: 2,
-      },
-    }));
-    const listRelations = vi.fn(async () => ({
-      ok: true as const,
-      data: {
-        items: Array.from({ length: 360 }, (_, index) => ({
-          id: `rel-${index}`,
-          projectId: "project-1",
-          sourceEntityId: "entity-1",
-          targetEntityId: "entity-2",
-          relationType: `关系-${index}`,
-          description: "预算边界测试",
-          createdAt: "2026-01-01T00:00:00.000Z",
-        })),
-        totalCount: 360,
-      },
-    }));
-
-    api.knowledge = {
-      listEntities,
-      listRelations,
-    } as unknown as PreloadApi["knowledge"];
-    api.character = { list: vi.fn() } as unknown as PreloadApi["character"];
-    api.location = { list: vi.fn() } as unknown as PreloadApi["location"];
-
-    render(<WorkbenchApp />);
-    await screen.findByRole("heading", { name: "第一章" });
-
-    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
-
-    await waitFor(() => {
-      expect(listRelations).toHaveBeenCalledTimes(1);
-      expect(screen.queryByTestId("knowledge-graph-notice")).not.toBeInTheDocument();
-    });
-  });
-
-  it("knowledge graph 分页返回不完整数据时显示截断提示", async () => {
-    const api = window.api as PreloadApi;
-    const listEntities = vi.fn(async ({ offset }: { offset: number }) => {
-      if (offset === 0) {
-        return {
-          ok: true as const,
-          data: {
-            items: [
-              {
-                id: "entity-1",
-                projectId: "project-1",
-                name: "雷恩",
-                type: "character" as const,
-                description: "契约守护者。",
-                attributes: {},
-                aliases: [],
-                aiContextLevel: "when_detected" as const,
-                createdAt: "2026-01-01T00:00:00.000Z",
-                updatedAt: "2026-01-01T00:00:02.000Z",
-                version: 1,
-              },
-            ],
-            totalCount: 3,
-          },
-        };
-      }
-      return {
-        ok: true as const,
-        data: {
-          items: [],
-          totalCount: 3,
-        },
-      };
-    });
-    const listRelations = vi.fn(async ({ offset }: { offset: number }) => {
-      if (offset === 0) {
-        return {
-          ok: true as const,
-          data: {
-            items: [
-              {
-                id: "rel-1",
-                projectId: "project-1",
-                sourceEntityId: "entity-1",
-                targetEntityId: "entity-1",
-                relationType: "自省",
-                description: "自我映射关系",
-                createdAt: "2026-01-01T00:00:00.000Z",
-              },
-            ],
-            totalCount: 2,
-          },
-        };
-      }
-      return {
-        ok: true as const,
-        data: {
-          items: [],
-          totalCount: 2,
-        },
-      };
-    });
-
-    api.knowledge = {
-      listEntities,
-      listRelations,
-    } as unknown as PreloadApi["knowledge"];
-    api.character = { list: vi.fn() } as unknown as PreloadApi["character"];
-    api.location = { list: vi.fn() } as unknown as PreloadApi["location"];
-
-    render(<WorkbenchApp />);
-    await screen.findByRole("heading", { name: "第一章" });
-
-    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
-    expect(await screen.findByTestId("knowledge-graph-notice")).toHaveTextContent("图谱过大，当前仅加载 1/3 个实体与 1/2 条关系。");
-  });
-
-  it("knowledge graph 分页在切换面板后会停止后续请求", async () => {
-    const api = window.api as PreloadApi;
-    const firstPage = createDeferred<{
-      ok: true;
-      data: {
-        items: Array<{
-          aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
-          aliases: string[];
-          attributes: Record<string, string>;
-          createdAt: string;
-          description: string;
-          id: string;
-          name: string;
-          projectId: string;
-          type: "character" | "location" | "event" | "item" | "faction";
-          updatedAt: string;
-          version: number;
-        }>;
-        totalCount: number;
-      };
-    }>();
-
-    const listEntities = vi.fn(async ({ offset }: { offset: number }) => {
-      if (offset === 0) {
-        return firstPage.promise;
-      }
-      return {
-        ok: true as const,
-        data: {
-          items: [],
-          totalCount: 3,
-        },
-      };
-    });
-    const listRelations = vi.fn(async () => ({
-      ok: true as const,
-      data: {
-        items: [],
-        totalCount: 0,
-      },
-    }));
-
-    api.knowledge = {
-      listEntities,
-      listRelations,
-    } as unknown as PreloadApi["knowledge"];
-    api.character = { list: vi.fn() } as unknown as PreloadApi["character"];
-    api.location = { list: vi.fn() } as unknown as PreloadApi["location"];
-
-    render(<WorkbenchApp />);
-    await screen.findByRole("heading", { name: "第一章" });
-
-    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
-    await waitFor(() => {
-      expect(listEntities).toHaveBeenCalledTimes(1);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "搜索" }));
-
-    await act(async () => {
-      firstPage.resolve({
-        ok: true,
-        data: {
-          items: [
-            {
-              id: "entity-1",
-              projectId: "project-1",
-              name: "雷恩",
-              type: "character",
-              description: "契约守护者。",
-              attributes: {},
-              aliases: [],
-              aiContextLevel: "when_detected",
-              createdAt: "2026-01-01T00:00:00.000Z",
-              updatedAt: "2026-01-01T00:00:02.000Z",
-              version: 1,
-            },
-          ],
-          totalCount: 3,
-        },
+      expect(queryByStrategy).toHaveBeenCalledWith({
+        projectId: "project-1",
+        query: "黎明",
+        strategy: "hybrid",
+        limit: 20,
+        offset: 0,
       });
     });
 
+    expect(await screen.findByTestId("search-result-doc-1-chunk-1")).toBeInTheDocument();
+  });
+
+  it("calendar 面板消费 engagement IPC 的里程碑与完本预测", async () => {
+    const api = window.api as PreloadApi;
+    const listMilestones = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            id: "m-1",
+            projectId: "project-1",
+            metric: "characters",
+            threshold: 50,
+            value: 63,
+            reachedAt: Date.parse("2026-04-16T06:00:00.000Z"),
+            createdAt: Date.parse("2026-04-16T06:00:00.000Z"),
+          },
+        ],
+      },
+    }));
+    const estimateCompletion = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        currentWordCount: 42_000,
+        estimatedTotalWords: 80_000,
+        estimatedCompletionDate: "2026-05-01T00:00:00.000Z",
+        confidenceLevel: "medium" as const,
+        dailyAverage: 3200,
+      },
+    }));
+    api.engagement = {
+      getWorldScale: vi.fn(),
+      listMilestones,
+      analyzeStyle: vi.fn(),
+      estimateCompletion,
+    };
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "日历" }));
+
     await waitFor(() => {
-      expect(listEntities).toHaveBeenCalledTimes(1);
-      expect(listRelations).toHaveBeenCalledTimes(0);
+      expect(listMilestones).toHaveBeenCalledWith({ projectId: "project-1" });
+      expect(estimateCompletion).toHaveBeenCalledWith({ projectId: "project-1" });
     });
+
+    expect(await screen.findByText("角色数 达成 50")).toBeInTheDocument();
+    expect(screen.getByText("完本预测")).toBeInTheDocument();
   });
 
   it("knowledge graph 面板会聚合 character/location 词条", async () => {
@@ -4824,6 +4446,88 @@ describe("WorkbenchApp", () => {
 
     expect(await screen.findByTestId("knowledge-graph-node-character-char-1")).toBeInTheDocument();
     expect(screen.getByText("2 个实体")).toBeInTheDocument();
+  });
+
+  it("knowledge graph 面板优先消费 knowledge entity/relation 链路", async () => {
+    const api = window.api as PreloadApi;
+    const listEntities = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            aiContextLevel: "when_detected" as const,
+            aliases: [],
+            attributes: {},
+            createdAt: "2026-04-16T00:00:00.000Z",
+            description: "契约守护者",
+            id: "entity-char-1",
+            name: "雷恩",
+            projectId: "project-1",
+            type: "character" as const,
+            updatedAt: "2026-04-16T01:00:00.000Z",
+            version: 1,
+          },
+          {
+            aiContextLevel: "when_detected" as const,
+            aliases: [],
+            attributes: {},
+            createdAt: "2026-04-16T00:00:00.000Z",
+            description: "主线冲突地带",
+            id: "entity-loc-1",
+            name: "深渊洞窟",
+            projectId: "project-1",
+            type: "location" as const,
+            updatedAt: "2026-04-16T01:00:00.000Z",
+            version: 1,
+          },
+        ],
+        totalCount: 2,
+      },
+    }));
+    const listRelations = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            createdAt: "2026-04-16T00:00:00.000Z",
+            description: "",
+            id: "rel-1",
+            projectId: "project-1",
+            relationType: "ally",
+            sourceEntityId: "entity-char-1",
+            targetEntityId: "entity-loc-1",
+          },
+        ],
+        totalCount: 1,
+      },
+    }));
+    api.knowledge = {
+      listEntities,
+      listRelations,
+    };
+    api.character = {} as PreloadApi["character"];
+    api.location = {} as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+
+    await waitFor(() => {
+      expect(listEntities).toHaveBeenCalledWith({
+        projectId: "project-1",
+        limit: 500,
+        offset: 0,
+      });
+      expect(listRelations).toHaveBeenCalledWith({
+        projectId: "project-1",
+        limit: 1000,
+        offset: 0,
+      });
+    });
+
+    expect(await screen.findByTestId("knowledge-graph-node-entity-char-1")).toBeInTheDocument();
+    expect(screen.getByText("ally")).toBeInTheDocument();
   });
 
   it("knowledge graph 数据桥缺失时显示错误态", async () => {

@@ -11,6 +11,7 @@ export type AiProxySettings = {
   enabled: boolean;
   baseUrl: string;
   apiKeyConfigured: boolean;
+  personaHumorEnabled: boolean;
   providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
   openAiCompatibleBaseUrl: string;
   openAiCompatibleApiKeyConfigured: boolean;
@@ -27,6 +28,7 @@ type ProviderProxyCredentials = {
 
 export type AiProxySettingsRaw = {
   enabled: boolean;
+  personaHumorEnabled: boolean;
   providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
   openAiCompatible: ProviderProxyCredentials;
   openAiByok: ProviderProxyCredentials;
@@ -41,6 +43,7 @@ export type AiProxySettingsService = {
       enabled: boolean;
       baseUrl: string;
       apiKey: string;
+      personaHumorEnabled: boolean;
       providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
       openAiCompatibleBaseUrl: string;
       openAiCompatibleApiKey: string;
@@ -69,6 +72,7 @@ const SETTINGS_SCOPE = "app" as const;
 const KEY_ENABLED = "creonow.ai.proxy.enabled" as const;
 const KEY_BASE_URL = "creonow.ai.proxy.baseUrl" as const;
 const KEY_API_KEY = "creonow.ai.proxy.apiKey" as const;
+const KEY_PERSONA_HUMOR_ENABLED = "ai.persona.humor" as const;
 const KEY_PROVIDER_MODE = "creonow.ai.provider.mode" as const;
 const KEY_OA_COMPAT_BASE_URL =
   "creonow.ai.provider.openaiCompatible.baseUrl" as const;
@@ -351,6 +355,7 @@ export function normalizeProxySettings(raw: unknown): AiProxySettingsRaw {
 
   return {
     enabled: data.enabled === true,
+    personaHumorEnabled: data.personaHumorEnabled !== false,
     providerMode: normalizeProviderMode(data.providerMode),
     openAiCompatible: normalizeProviderCredentials({
       nested: data.openAiCompatible,
@@ -403,6 +408,11 @@ function readRawSettings(args: {
   const enabled = readSetting({ db: args.db, key: KEY_ENABLED, logger: args.logger });
   const baseUrl = readSetting({ db: args.db, key: KEY_BASE_URL, logger: args.logger });
   const apiKey = readSetting({ db: args.db, key: KEY_API_KEY, logger: args.logger });
+  const personaHumorEnabled = readSetting({
+    db: args.db,
+    key: KEY_PERSONA_HUMOR_ENABLED,
+    logger: args.logger,
+  });
   const providerMode = readSetting({
     db: args.db,
     key: KEY_PROVIDER_MODE,
@@ -441,6 +451,7 @@ function readRawSettings(args: {
 
   return normalizeProxySettings({
     enabled: enabled === true,
+    personaHumorEnabled,
     providerMode,
     baseUrl: normalizeBaseUrl(baseUrl),
     apiKey: decryptApiKey({
@@ -480,6 +491,7 @@ function toPublic(raw: AiProxySettingsRaw): AiProxySettings {
     apiKeyConfigured:
       typeof raw.openAiCompatible.apiKey === "string" &&
       raw.openAiCompatible.apiKey.length > 0,
+    personaHumorEnabled: raw.personaHumorEnabled,
     providerMode: raw.providerMode,
     openAiCompatibleBaseUrl: raw.openAiCompatible.baseUrl ?? "",
     openAiCompatibleApiKeyConfigured:
@@ -669,6 +681,7 @@ export function createAiProxySettingsService(deps: {
       enabled: boolean;
       baseUrl: string;
       apiKey: string;
+      personaHumorEnabled: boolean;
       providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
       openAiCompatibleBaseUrl: string;
       openAiCompatibleApiKey: string;
@@ -695,6 +708,8 @@ export function createAiProxySettingsService(deps: {
 
     const next: AiProxySettingsRaw = normalizeProxySettings({
       enabled: args.patch.enabled ?? existing.data.enabled,
+      personaHumorEnabled:
+        args.patch.personaHumorEnabled ?? existing.data.personaHumorEnabled,
       providerMode: normalizeProviderMode(
         args.patch.providerMode ?? existing.data.providerMode,
       ),
@@ -782,6 +797,14 @@ export function createAiProxySettingsService(deps: {
         ) {
           writeSetting(deps.db, KEY_ENABLED, next.enabled, ts);
         }
+        if (typeof args.patch.personaHumorEnabled === "boolean") {
+          writeSetting(
+            deps.db,
+            KEY_PERSONA_HUMOR_ENABLED,
+            next.personaHumorEnabled,
+            ts,
+          );
+        }
         if (typeof args.patch.providerMode === "string") {
           writeSetting(deps.db, KEY_PROVIDER_MODE, next.providerMode, ts);
         }
@@ -843,6 +866,7 @@ export function createAiProxySettingsService(deps: {
 
       deps.logger.info("ai_proxy_settings_updated", {
         enabled: next.enabled,
+        personaHumorEnabled: next.personaHumorEnabled,
         providerMode: next.providerMode,
         baseUrlConfigured: typeof next.openAiCompatible.baseUrl === "string",
         apiKeyConfigured: typeof next.openAiCompatible.apiKey === "string",
