@@ -4522,6 +4522,95 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByTestId("knowledge-graph-notice")).toHaveTextContent("图谱过大，当前仅加载 1/3 个实体与 1/2 条关系。");
   });
 
+  it("knowledge graph 分页在切换面板后会停止后续请求", async () => {
+    const api = window.api as PreloadApi;
+    const firstPage = createDeferred<{
+      ok: true;
+      data: {
+        items: Array<{
+          aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
+          aliases: string[];
+          attributes: Record<string, string>;
+          createdAt: string;
+          description: string;
+          id: string;
+          name: string;
+          projectId: string;
+          type: "character" | "location" | "event" | "item" | "faction";
+          updatedAt: string;
+          version: number;
+        }>;
+        totalCount: number;
+      };
+    }>();
+
+    const listEntities = vi.fn(async ({ offset }: { offset: number }) => {
+      if (offset === 0) {
+        return firstPage.promise;
+      }
+      return {
+        ok: true as const,
+        data: {
+          items: [],
+          totalCount: 3,
+        },
+      };
+    });
+    const listRelations = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [],
+        totalCount: 0,
+      },
+    }));
+
+    api.knowledge = {
+      listEntities,
+      listRelations,
+    } as unknown as PreloadApi["knowledge"];
+    api.character = { list: vi.fn() } as unknown as PreloadApi["character"];
+    api.location = { list: vi.fn() } as unknown as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+    await waitFor(() => {
+      expect(listEntities).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "搜索" }));
+
+    await act(async () => {
+      firstPage.resolve({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "entity-1",
+              projectId: "project-1",
+              name: "雷恩",
+              type: "character",
+              description: "契约守护者。",
+              attributes: {},
+              aliases: [],
+              aiContextLevel: "when_detected",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:02.000Z",
+              version: 1,
+            },
+          ],
+          totalCount: 3,
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(listEntities).toHaveBeenCalledTimes(1);
+      expect(listRelations).toHaveBeenCalledTimes(0);
+    });
+  });
+
   it("knowledge graph 面板会聚合 character/location 词条", async () => {
     const api = window.api as PreloadApi;
     const characterList = vi.fn(async () => ({

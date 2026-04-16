@@ -114,8 +114,8 @@ const MAX_REFERENCE_LENGTH = 120;
 const KNOWLEDGE_GRAPH_ENTITY_PAGE_SIZE = 500;
 const KNOWLEDGE_GRAPH_RELATION_PAGE_SIZE = 1000;
 const KNOWLEDGE_GRAPH_MAX_PAGE_REQUESTS = 12;
-const KNOWLEDGE_GRAPH_MAX_ENTITY_ITEMS = 6000;
-const KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS = 12000;
+const KNOWLEDGE_GRAPH_MAX_ENTITY_ITEMS = 180;
+const KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS = 360;
 const WELCOME_SCENARIOS_KEY = "creonow:onboarding:welcome-scenarios";
 type LocationListItem = IpcResponseData<"settings:location:list">["items"][number];
 type CharacterListItem = IpcResponseData<"settings:character:list">["items"][number];
@@ -160,17 +160,26 @@ type VersionPreviewState = {
 };
 
 async function loadPagedKnowledgeItems<TItem>(options: {
+  isCancelled?: () => boolean;
   maxItems: number;
   pageSize: number;
   queryPage: (offset: number, limit: number) => Promise<PagedKnowledgeResponse<TItem>>;
 }): Promise<PagedKnowledgeLoadResult<TItem>> {
-  const { maxItems, pageSize, queryPage } = options;
+  const { isCancelled, maxItems, pageSize, queryPage } = options;
   const collected: TItem[] = [];
   let totalCount = 0;
   let offset = 0;
 
   for (let pageIndex = 0; pageIndex < KNOWLEDGE_GRAPH_MAX_PAGE_REQUESTS; pageIndex += 1) {
+    if (isCancelled?.()) {
+      throw new Error("KNOWLEDGE_GRAPH_PAGINATION_CANCELLED");
+    }
+
     const pageResult = await queryPage(offset, pageSize);
+    if (isCancelled?.()) {
+      throw new Error("KNOWLEDGE_GRAPH_PAGINATION_CANCELLED");
+    }
+
     if (!pageResult.ok) {
       return {
         ok: false,
@@ -1224,6 +1233,7 @@ function WorkbenchShell() {
       if (hasKnowledgeApi && typeof listEntities === "function" && typeof listRelations === "function") {
         try {
           const entitiesResult = await loadPagedKnowledgeItems<KnowledgeEntityListItem>({
+            isCancelled: () => cancelled,
             maxItems: KNOWLEDGE_GRAPH_MAX_ENTITY_ITEMS,
             pageSize: KNOWLEDGE_GRAPH_ENTITY_PAGE_SIZE,
             queryPage: (offset, limit) =>
@@ -1248,6 +1258,7 @@ function WorkbenchShell() {
           }
 
           const relationsResult = await loadPagedKnowledgeItems<KnowledgeRelationListItem>({
+            isCancelled: () => cancelled,
             maxItems: KNOWLEDGE_GRAPH_MAX_RELATION_ITEMS,
             pageSize: KNOWLEDGE_GRAPH_RELATION_PAGE_SIZE,
             queryPage: (offset, limit) =>
