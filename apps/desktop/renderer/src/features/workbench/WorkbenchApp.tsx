@@ -1053,7 +1053,7 @@ function WorkbenchShell() {
           ) {
             setKnowledgeGraphNoticeMessage(
               t("sidebar.knowledgeGraph.notice.truncated", {
-                loadedEdges: relationsResult.data.items.length,
+                loadedEdges: visibleLinks.length,
                 loadedNodes: entitiesResult.data.items.length,
                 totalEdges: relationsResult.data.totalCount,
                 totalNodes: entitiesResult.data.totalCount,
