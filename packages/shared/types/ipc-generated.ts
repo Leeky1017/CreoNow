@@ -217,6 +217,10 @@ export const IPC_CHANNELS = [
   "embedding:index:reindex",
   "embedding:semantic:search",
   "embedding:text:generate",
+  "engagement:completion:estimate",
+  "engagement:milestone:list",
+  "engagement:style:analyze",
+  "engagement:worldscale:get",
   "export:document:docx",
   "export:document:markdown",
   "export:document:pdf",
@@ -427,6 +431,7 @@ export type IpcChannelSpec = {
       openAiByokBaseUrl: string;
       openAiCompatibleApiKeyConfigured: boolean;
       openAiCompatibleBaseUrl: string;
+      personaHumorEnabled: boolean;
       providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
     };
   };
@@ -583,6 +588,7 @@ export type IpcChannelSpec = {
         openAiByokBaseUrl?: string;
         openAiCompatibleApiKey?: string;
         openAiCompatibleBaseUrl?: string;
+        personaHumorEnabled?: boolean;
         providerMode?: "openai-compatible" | "openai-byok" | "anthropic-byok";
       };
     };
@@ -596,6 +602,7 @@ export type IpcChannelSpec = {
       openAiByokBaseUrl: string;
       openAiCompatibleApiKeyConfigured: boolean;
       openAiCompatibleBaseUrl: string;
+      personaHumorEnabled: boolean;
       providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
     };
   };
@@ -1323,6 +1330,78 @@ export type IpcChannelSpec = {
     response: {
       dimension: number;
       vectors: Array<Array<number>>;
+    };
+  };
+  "engagement:completion:estimate": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      confidenceLevel: "high" | "medium" | "low";
+      currentWordCount: number;
+      dailyAverage: number;
+      estimatedCompletionDate: string | null;
+      estimatedTotalWords: number;
+    };
+  };
+  "engagement:milestone:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        createdAt: number;
+        id: string;
+        metric: string;
+        projectId: string;
+        reachedAt: number;
+        threshold: number;
+        value: number;
+      }>;
+    };
+  };
+  "engagement:style:analyze": {
+    request: {
+      projectId: string;
+      scope?: "recent" | "full";
+    };
+    response: {
+      characterArchetypes: Array<{
+        archetype: string;
+        characters: Array<string>;
+        evidence: string;
+      }>;
+      narrativePatterns: Array<{
+        examples: Array<string>;
+        frequency: number;
+        pattern: string;
+      }>;
+      rhythmStats: {
+        avgChapterLength: number;
+        dialogueRatio: number;
+        paceVariation: number;
+      };
+      writingSchedule: {
+        avgSessionDuration: number;
+        peakHours: Array<number>;
+        streakDays: number;
+      };
+    };
+  };
+  "engagement:worldscale:get": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      chapters: number;
+      characters: number;
+      foreshadowings: {
+        resolved: number;
+        total: number;
+      };
+      locations: number;
+      relations: number;
+      totalWords: number;
     };
   };
   "export:document:docx": {

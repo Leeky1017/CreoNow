@@ -9,13 +9,19 @@ import {
   type KnowledgeGraphNode,
   type KnowledgeGraphNodeType,
 } from "@/features/workbench/components/KnowledgeGraphCanvas";
+export type {
+  KnowledgeGraphNode,
+  KnowledgeGraphNodeType,
+} from "@/features/workbench/components/KnowledgeGraphCanvas";
 
 export type KnowledgeGraphPanelStatus = "ready" | "loading" | "error";
 export type KnowledgeGraphPanelView = "graph" | "summary";
+export type KnowledgeGraphLink = KnowledgeGraphEdge;
 
 export interface KnowledgeGraphPanelProps {
-  edges: KnowledgeGraphEdge[];
+  edges?: KnowledgeGraphEdge[];
   errorMessage?: string | null;
+  links?: KnowledgeGraphEdge[];
   noticeMessage?: string | null;
   nodes: KnowledgeGraphNode[];
   onQueryChange?: (value: string) => void;
@@ -64,8 +70,9 @@ function toTestIdSuffix(value: string): string {
 export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
   const { t, i18n } = useTranslation();
   const {
-    edges,
+    edges: explicitEdges,
     errorMessage,
+    links,
     noticeMessage,
     nodes,
     onQueryChange,
@@ -77,6 +84,7 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
     status: statusProp,
     view: controlledView,
   } = props;
+  const edges = explicitEdges ?? links ?? [];
   const status = statusProp ?? "ready";
 
   const [internalQuery, setInternalQuery] = useState("");

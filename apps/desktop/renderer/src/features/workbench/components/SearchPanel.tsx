@@ -92,7 +92,11 @@ export function SearchPanel(props: SearchPanelProps) {
           <button
             key={item}
             type="button"
-            className={item === props.strategy ? "search-panel__strategy-button is-active" : "search-panel__strategy-button"}
+            className={
+              item === props.strategy
+                ? "search-panel__strategy-button is-active"
+                : "search-panel__strategy-button"
+            }
             onClick={() => props.onStrategyChange(item)}
             aria-pressed={item === props.strategy}
             data-testid={`search-strategy-${item}`}

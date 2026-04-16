@@ -17,6 +17,7 @@ function okGetConfig(providerMode: GetConfigOk["data"]["providerMode"]): GetConf
       providerMode,
       baseUrl: "",
       apiKeyConfigured: false,
+      personaHumorEnabled: true,
       openAiCompatibleBaseUrl: "",
       openAiCompatibleApiKeyConfigured: false,
       openAiByokBaseUrl: "",
@@ -130,9 +131,45 @@ describe("SettingsPage AI 配置闭环", () => {
 
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
     expect(update).toHaveBeenCalledWith({
+      personaHumorEnabled: true,
       providerMode: "openai-byok",
       openAiByokBaseUrl: "https://api.example.com/v1",
       openAiByokApiKey: "sk-live-123",
     });
+  });
+
+  it("S5: 人格幽默开关关闭后保存 patch", async () => {
+    const update = vi.fn(async (): Promise<IpcInvokeResult<"ai:config:update">> => ({
+      ok: true,
+      data: {
+        ...okGetConfig("openai-compatible").data,
+        personaHumorEnabled: false,
+      },
+    }));
+
+    render(
+      <SettingsPage
+        aiBridge={{
+          get: vi.fn(async () => okGetConfig("openai-compatible")),
+          test: vi.fn(async (): Promise<IpcInvokeResult<"ai:config:test">> => okTest(1)),
+          update,
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("ai-persona-humor")).toBeEnabled());
+
+    fireEvent.change(screen.getByTestId("ai-persona-humor"), {
+      target: { value: "disabled" },
+    });
+
+    fireEvent.click(screen.getByTestId("ai-save-btn"));
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        personaHumorEnabled: false,
+      }),
+    );
   });
 });

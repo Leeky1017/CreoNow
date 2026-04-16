@@ -270,6 +270,33 @@ async function main(): Promise<void> {
     },
   );
 
+  await runScenario(
+    "S2b should persist personaHumorEnabled flag through ai:config handlers",
+    async () => {
+      const harness = createIpcHarness();
+      const updated = await harness.invoke<{
+        ok: boolean;
+        data?: { personaHumorEnabled: boolean };
+      }>("ai:config:update", {
+        patch: {
+          personaHumorEnabled: false,
+        },
+      });
+
+      assert.equal(updated.ok, true);
+      assert.equal(updated.data?.personaHumorEnabled, false);
+
+      const got = await harness.invoke<{
+        ok: boolean;
+        data?: { personaHumorEnabled: boolean };
+      }>("ai:config:get", {});
+
+      assert.equal(got.ok, true);
+      assert.equal(got.data?.personaHumorEnabled, false);
+      assert.equal(harness.db.readJson("app", "ai.persona.humor"), false);
+    },
+  );
+
   // S3
   await runScenario(
     "S3 should store different provider keys independently",

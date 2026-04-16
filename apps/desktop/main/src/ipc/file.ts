@@ -24,6 +24,8 @@ import {
   type StateExtractor,
 } from "../services/kg/stateExtractor";
 import { createStatsService } from "../services/stats/statsService";
+import { createMilestoneService } from "../services/engagement/milestoneService";
+import { createWorldScaleService } from "../services/engagement/worldScaleService";
 
 type Actor = "user" | "auto" | "ai";
 type SaveReason =
@@ -194,7 +196,88 @@ type FileHandlerDeps = {
   embeddingQueueDebounceMs?: number;
 };
 
-function registerFileDocumentCrudHandlers(deps: FileHandlerDeps): void {
+type EngagementMilestoneUpdater = {
+  trigger: (args: { projectId: string; source: string }) => void;
+};
+
+function createEngagementMilestoneUpdater(args: {
+  db: Database.Database | null;
+  logger: Logger;
+}): EngagementMilestoneUpdater {
+  let services:
+    | {
+        worldScaleService: ReturnType<typeof createWorldScaleService>;
+        milestoneService: ReturnType<typeof createMilestoneService>;
+      }
+    | null
+    | undefined;
+
+  function resolveServices() {
+    if (services !== undefined) {
+      return services;
+    }
+    if (
+      !args.db ||
+      typeof (args.db as { prepare?: unknown }).prepare !== "function"
+    ) {
+      services = null;
+      return services;
+    }
+    try {
+      services = {
+        worldScaleService: createWorldScaleService({ db: args.db }),
+        milestoneService: createMilestoneService({ db: args.db }),
+      };
+    } catch (error) {
+      services = null;
+      args.logger.info("engagement_milestone_updater_unavailable", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return services;
+  }
+
+  return {
+    trigger({ projectId, source }) {
+      const normalizedProjectId = projectId.trim();
+      if (!normalizedProjectId) {
+        return;
+      }
+      const resolved = resolveServices();
+      if (!resolved) {
+        return;
+      }
+      try {
+        resolved.worldScaleService.invalidateCache(normalizedProjectId);
+        const current = resolved.worldScaleService.getWorldScale(
+          normalizedProjectId,
+        );
+        const events = resolved.milestoneService.evaluateFromCurrentScale({
+          projectId: normalizedProjectId,
+          current,
+        });
+        if (events.length > 0) {
+          args.logger.info("engagement_milestone_recorded", {
+            projectId: normalizedProjectId,
+            count: events.length,
+            source,
+          });
+        }
+      } catch (error) {
+        args.logger.error("engagement_milestone_writeback_failed", {
+          projectId: normalizedProjectId,
+          source,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+  };
+}
+
+function registerFileDocumentCrudHandlers(
+  deps: FileHandlerDeps,
+  engagementMilestoneUpdater: EngagementMilestoneUpdater,
+): void {
   deps.ipcMain.handle(
     "file:document:create",
     async (
@@ -233,6 +316,10 @@ function registerFileDocumentCrudHandlers(deps: FileHandlerDeps): void {
             message: inc.error.message,
           });
         }
+        engagementMilestoneUpdater.trigger({
+          projectId: payload.projectId,
+          source: "file:document:create",
+        });
       }
 
       return res.ok
@@ -375,6 +462,12 @@ function registerFileDocumentCrudHandlers(deps: FileHandlerDeps): void {
         sortOrder: payload.sortOrder,
         parentId: payload.parentId,
       });
+      if (res.ok) {
+        engagementMilestoneUpdater.trigger({
+          projectId: payload.projectId,
+          source: "file:document:update",
+        });
+      }
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
@@ -385,6 +478,7 @@ function registerFileDocumentCrudHandlers(deps: FileHandlerDeps): void {
 function registerFileDocumentContentHandlers(
   deps: FileHandlerDeps,
   semanticAutosaveEmbeddingRuntime: SemanticAutosaveEmbeddingRuntime | null,
+  engagementMilestoneUpdater: EngagementMilestoneUpdater,
 ): void {
   deps.ipcMain.handle(
     "file:document:save",
@@ -544,6 +638,11 @@ function registerFileDocumentContentHandlers(
             message: derived.error.message,
           });
         }
+
+        engagementMilestoneUpdater.trigger({
+          projectId: payload.projectId,
+          source: "file:document:save",
+        });
       }
 
       return res.ok
@@ -553,7 +652,10 @@ function registerFileDocumentContentHandlers(
   );
 }
 
-function registerFileDocumentOperationHandlers(deps: FileHandlerDeps): void {
+function registerFileDocumentOperationHandlers(
+  deps: FileHandlerDeps,
+  engagementMilestoneUpdater: EngagementMilestoneUpdater,
+): void {
   deps.ipcMain.handle(
     "file:document:getcurrent",
     async (
@@ -697,6 +799,13 @@ function registerFileDocumentOperationHandlers(deps: FileHandlerDeps): void {
         });
       }
 
+      if (res.ok) {
+        engagementMilestoneUpdater.trigger({
+          projectId: payload.projectId,
+          source: "file:document:updatestatus",
+        });
+      }
+
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
@@ -733,6 +842,12 @@ function registerFileDocumentOperationHandlers(deps: FileHandlerDeps): void {
         projectId: payload.projectId,
         documentId: payload.documentId,
       });
+      if (res.ok) {
+        engagementMilestoneUpdater.trigger({
+          projectId: payload.projectId,
+          source: "file:document:delete",
+        });
+      }
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
@@ -747,6 +862,10 @@ function registerFileDocumentOperationHandlers(deps: FileHandlerDeps): void {
  * back across restarts without leaking DB details across IPC.
  */
 export function registerFileIpcHandlers(deps: FileHandlerDeps): void {
+  const engagementMilestoneUpdater = createEngagementMilestoneUpdater({
+    db: deps.db,
+    logger: deps.logger,
+  });
   const semanticAutosaveEmbeddingRuntime =
     createSemanticAutosaveEmbeddingRuntime({
       logger: deps.logger,
@@ -755,7 +874,11 @@ export function registerFileIpcHandlers(deps: FileHandlerDeps): void {
       debounceMs: deps.embeddingQueueDebounceMs,
     });
 
-  registerFileDocumentCrudHandlers(deps);
-  registerFileDocumentContentHandlers(deps, semanticAutosaveEmbeddingRuntime);
-  registerFileDocumentOperationHandlers(deps);
+  registerFileDocumentCrudHandlers(deps, engagementMilestoneUpdater);
+  registerFileDocumentContentHandlers(
+    deps,
+    semanticAutosaveEmbeddingRuntime,
+    engagementMilestoneUpdater,
+  );
+  registerFileDocumentOperationHandlers(deps, engagementMilestoneUpdater);
 }

@@ -31,6 +31,8 @@ import {
   createKgMutationSkill,
   type KgMutationSkill,
 } from "../services/skills/kgMutationSkill";
+import { createMilestoneService } from "../services/engagement/milestoneService";
+import { createWorldScaleService } from "../services/engagement/worldScaleService";
 import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
@@ -229,6 +231,11 @@ type KgHandlerRegistrar = <TPayload, TResponse, TEvent = unknown>(
   ) => Promise<IpcResponse<TResponse>>,
 ) => void;
 
+type EngagementMilestoneTrigger = (args: {
+  projectId: string;
+  source: string;
+}) => void;
+
 /**
  * Register `knowledge:*` IPC handlers (Knowledge Graph).
  *
@@ -315,17 +322,87 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     });
   }
 
+  let cachedMilestoneServices:
+    | {
+        worldScaleService: ReturnType<typeof createWorldScaleService>;
+        milestoneService: ReturnType<typeof createMilestoneService>;
+      }
+    | null
+    | undefined;
+
+  function triggerEngagementMilestone(args: {
+    projectId: string;
+    source: string;
+  }): void {
+    const normalizedProjectId = args.projectId.trim();
+    if (!normalizedProjectId) {
+      return;
+    }
+    if (cachedMilestoneServices === undefined) {
+      if (
+        deps.db &&
+        typeof (deps.db as { prepare?: unknown }).prepare === "function"
+      ) {
+        try {
+          cachedMilestoneServices = {
+            worldScaleService: createWorldScaleService({ db: deps.db }),
+            milestoneService: createMilestoneService({ db: deps.db }),
+          };
+        } catch (error) {
+          cachedMilestoneServices = null;
+          deps.logger.info("engagement_milestone_trigger_unavailable", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      } else {
+        cachedMilestoneServices = null;
+      }
+    }
+
+    if (!cachedMilestoneServices) {
+      return;
+    }
+
+    try {
+      cachedMilestoneServices.worldScaleService.invalidateCache(normalizedProjectId);
+      const current =
+        cachedMilestoneServices.worldScaleService.getWorldScale(
+          normalizedProjectId,
+        );
+      const events =
+        cachedMilestoneServices.milestoneService.evaluateFromCurrentScale({
+          projectId: normalizedProjectId,
+          current,
+        });
+      if (events.length > 0) {
+        deps.logger.info("engagement_milestone_recorded", {
+          projectId: normalizedProjectId,
+          count: events.length,
+          source: args.source,
+        });
+      }
+    } catch (error) {
+      deps.logger.error("engagement_milestone_writeback_failed", {
+        projectId: normalizedProjectId,
+        source: args.source,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   registerKgEntityHandlers(
     deps,
     handleWithProjectAccess,
     createService,
     createWriteOrchestrator,
+    triggerEngagementMilestone,
   );
   registerKgRelationHandlers(
     deps,
     handleWithProjectAccess,
     createService,
     createWriteOrchestrator,
+    triggerEngagementMilestone,
   );
 
   handleWithProjectAccess(
@@ -456,9 +533,14 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
       }
 
       const res = recognitionRuntime.acceptSuggestion(payload);
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      if (!res.ok) {
+        return { ok: false, error: res.error };
+      }
+      triggerEngagementMilestone({
+        projectId: payload.projectId,
+        source: "knowledge:suggestion:accept",
+      });
+      return { ok: true, data: res.data };
     },
   );
 
@@ -555,6 +637,7 @@ function registerKgEntityHandlers(
   handleWithProjectAccess: KgHandlerRegistrar,
   createService: () => ReturnType<typeof createKnowledgeGraphService> | null,
   createWriteOrchestrator: () => KgWriteOrchestrator | null,
+  triggerEngagementMilestone: EngagementMilestoneTrigger,
 ): void {
   async function executeWrite<TPayload extends { projectId: string }, TResponse>(
     operation: KgWriteOperation,
@@ -573,6 +656,13 @@ function registerKgEntityHandlers(
         payload,
       },
     });
+
+    if (result.ok) {
+      triggerEngagementMilestone({
+        projectId: payload.projectId,
+        source: `knowledge:${operation}`,
+      });
+    }
 
     return result.ok
       ? { ok: true, data: result.data }
@@ -688,6 +778,7 @@ function registerKgRelationHandlers(
   handleWithProjectAccess: KgHandlerRegistrar,
   createService: () => ReturnType<typeof createKnowledgeGraphService> | null,
   createWriteOrchestrator: () => KgWriteOrchestrator | null,
+  triggerEngagementMilestone: EngagementMilestoneTrigger,
 ): void {
   async function executeWrite<TPayload extends { projectId: string }, TResponse>(
     operation: KgWriteOperation,
@@ -706,6 +797,13 @@ function registerKgRelationHandlers(
         payload,
       },
     });
+
+    if (result.ok) {
+      triggerEngagementMilestone({
+        projectId: payload.projectId,
+        source: `knowledge:${operation}`,
+      });
+    }
 
     return result.ok
       ? { ok: true, data: result.data }

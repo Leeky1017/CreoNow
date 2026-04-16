@@ -87,6 +87,7 @@ const mocks = vi.hoisted(() => {
   const registerAiIpcHandlers = vi.fn();
   const registerProjectIpcHandlers = vi.fn();
   const registerSettingsIpcHandlers = vi.fn();
+  const registerEngagementIpcHandlers = vi.fn();
   const createProjectContextRebinder = vi.fn();
   const createEpisodicMemoryService = vi.fn(() => ({
     listSemanticMemory: vi.fn(),
@@ -108,6 +109,7 @@ const mocks = vi.hoisted(() => {
     registerAiIpcHandlers,
     registerProjectIpcHandlers,
     registerSettingsIpcHandlers,
+    registerEngagementIpcHandlers,
     createProjectContextRebinder,
     createEpisodicMemoryService,
     createSqliteEpisodeRepository,
@@ -173,6 +175,9 @@ vi.mock("../../ipc/window", () => ({ registerWindowIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/rendererLog", () => ({ registerRendererLogIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/simpleMemory", () => ({ registerSimpleMemoryIpcHandlers: vi.fn() }));
 vi.mock("../../ipc/sessionMemory", () => ({ registerSessionMemoryIpcHandlers: vi.fn() }));
+vi.mock("../../ipc/engagement", () => ({
+  registerEngagementIpcHandlers: mocks.registerEngagementIpcHandlers,
+}));
 vi.mock("../../ipc/projectSessionBinding", () => ({
   createProjectSessionBindingRegistry: vi.fn(() => ({ clear: vi.fn() })),
 }));
@@ -285,6 +290,7 @@ describe("index.ts app/window/ipc 初始化", () => {
     expect(mocks.registerAiIpcHandlers).toHaveBeenCalledTimes(1);
     expect(mocks.registerProjectIpcHandlers).toHaveBeenCalledTimes(1);
     expect(mocks.registerSettingsIpcHandlers).toHaveBeenCalledTimes(1);
+    expect(mocks.registerEngagementIpcHandlers).toHaveBeenCalledTimes(1);
     expect(mocks.createProjectContextRebinder).toHaveBeenCalledTimes(1);
     expect(mocks.createProjectContextRebinder).toHaveBeenCalledWith(
       expect.objectContaining({

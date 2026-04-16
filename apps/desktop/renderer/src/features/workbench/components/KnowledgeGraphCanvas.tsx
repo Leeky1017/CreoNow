@@ -539,6 +539,7 @@ export function KnowledgeGraphCanvas(props: KnowledgeGraphCanvasProps) {
               transform={`translate(${node.x} ${node.y})`}
             >
               <circle
+                data-testid={`knowledge-graph-node-${node.id}`}
                 fill={nodeColors[node.type]}
                 r={radius}
                 stroke={isSelected ? "var(--color-accent)" : "var(--color-bg-surface)"}

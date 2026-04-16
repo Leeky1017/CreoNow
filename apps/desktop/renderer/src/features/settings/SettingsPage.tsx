@@ -171,6 +171,7 @@ export function SettingsPage({ aiBridge }: SettingsPageProps) {
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
+  const [personaHumorEnabled, setPersonaHumorEnabled] = useState(true);
   const [loadingAiConfig, setLoadingAiConfig] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<AiTestResult | null>(null);
@@ -232,6 +233,7 @@ export function SettingsPage({ aiBridge }: SettingsPageProps) {
       setProviderMode(result.data.providerMode);
       setBaseUrl(values.baseUrl);
       setApiKeyConfigured(values.apiKeyConfigured);
+      setPersonaHumorEnabled(result.data.personaHumorEnabled);
       setLoadingAiConfig(false);
     };
 
@@ -254,6 +256,7 @@ export function SettingsPage({ aiBridge }: SettingsPageProps) {
     }
 
     const patch = {
+      personaHumorEnabled,
       providerMode,
       ...createBaseUrlPatch(providerMode, baseUrl.trim()),
       ...(apiKey.trim().length > 0 ? createApiKeyPatch(providerMode, apiKey.trim()) : {}),
@@ -269,6 +272,7 @@ export function SettingsPage({ aiBridge }: SettingsPageProps) {
     setProviderMode(result.data.providerMode);
     setBaseUrl(values.baseUrl);
     setApiKeyConfigured(values.apiKeyConfigured);
+    setPersonaHumorEnabled(result.data.personaHumorEnabled);
     setApiKey("");
     setErrorMessage(null);
     setTestResult(null);
@@ -389,6 +393,21 @@ export function SettingsPage({ aiBridge }: SettingsPageProps) {
                 placeholder={apiKeyPlaceholder}
                 disabled={loadingAiConfig}
               />
+            </div>
+          </div>
+          <div className="cn-settings__row">
+            <span className="cn-settings__label">{t("settings.ai.personaHumor")}</span>
+            <div className="cn-settings__value">
+              <Select
+                className="cn-settings__select"
+                value={personaHumorEnabled ? "enabled" : "disabled"}
+                onChange={(event) => setPersonaHumorEnabled(event.target.value === "enabled")}
+                data-testid="ai-persona-humor"
+                disabled={loadingAiConfig}
+              >
+                <option value="enabled">{t("settings.ai.personaHumor.enabled")}</option>
+                <option value="disabled">{t("settings.ai.personaHumor.disabled")}</option>
+              </Select>
             </div>
           </div>
           <div className="cn-settings__row">

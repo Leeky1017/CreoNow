@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { IpcMain } from "electron";
 import { registerKnowledgeGraphIpcHandlers } from "../knowledgeGraph";
 
+const mockWorldScaleInvalidate = vi.fn();
+const mockWorldScaleGet = vi.fn().mockReturnValue({
+  entities: 1,
+  relations: 0,
+  constraints: 0,
+});
+const mockMilestoneEvaluate = vi.fn().mockReturnValue([]);
+
 vi.mock("../../services/kg/kgService", () => {
   const mockService = {
     entityCreate: vi.fn().mockReturnValue({ ok: true, data: { id: "ent-1", projectId: "p1", type: "character", name: "Alice" } }),
@@ -33,6 +41,19 @@ vi.mock("../../services/kg/kgRecognitionRuntime", () => ({
     stats: vi.fn().mockReturnValue({ ok: true, data: { pending: 0, running: 0, maxConcurrency: 3, peakRunning: 0, completed: 0, completionOrder: [], canceledTaskIds: [] } }),
     acceptSuggestion: vi.fn().mockReturnValue({ ok: true, data: { id: "ent-1", projectId: "p1", type: "character", name: "Alice" } }),
     dismissSuggestion: vi.fn().mockReturnValue({ ok: true, data: { dismissed: true } }),
+  })),
+}));
+
+vi.mock("../../services/engagement/worldScaleService", () => ({
+  createWorldScaleService: vi.fn(() => ({
+    invalidateCache: mockWorldScaleInvalidate,
+    getWorldScale: mockWorldScaleGet,
+  })),
+}));
+
+vi.mock("../../services/engagement/milestoneService", () => ({
+  createMilestoneService: vi.fn(() => ({
+    evaluateFromCurrentScale: mockMilestoneEvaluate,
   })),
 }));
 
@@ -542,6 +563,71 @@ describe("knowledgeGraph IPC handlers", () => {
       });
       expect(res.ok).toBe(true);
       expect(runtime.acceptSuggestion).toHaveBeenCalled();
+    });
+
+    it("triggers milestone evaluation when accepting suggestion succeeds", async () => {
+      const runtime = {
+        enqueue: vi.fn(),
+        cancel: vi.fn(),
+        stats: vi.fn(),
+        acceptSuggestion: vi.fn().mockReturnValue({
+          ok: true,
+          data: {
+            id: "ent-1",
+            projectId: "p1",
+            type: "character",
+            name: "Alice",
+          },
+        }),
+        dismissSuggestion: vi.fn(),
+      };
+      const { invoke } = createHarness({ recognitionRuntime: runtime });
+
+      const res = await invoke("knowledge:suggestion:accept", {
+        projectId: "p1",
+        sessionId: "s1",
+        suggestionId: "sug-1",
+      });
+
+      expect(res.ok).toBe(true);
+      expect(mockWorldScaleInvalidate).toHaveBeenCalledWith("p1");
+      expect(mockWorldScaleGet).toHaveBeenCalledWith("p1");
+      expect(mockMilestoneEvaluate).toHaveBeenCalledWith({
+        projectId: "p1",
+        current: {
+          entities: 1,
+          relations: 0,
+          constraints: 0,
+        },
+      });
+    });
+
+    it("does not trigger milestone evaluation when accepting suggestion fails", async () => {
+      const runtime = {
+        enqueue: vi.fn(),
+        cancel: vi.fn(),
+        stats: vi.fn(),
+        acceptSuggestion: vi.fn().mockReturnValue({
+          ok: false,
+          error: {
+            code: "NOT_FOUND",
+            message: "suggestion not found",
+          },
+        }),
+        dismissSuggestion: vi.fn(),
+      };
+      const { invoke } = createHarness({ recognitionRuntime: runtime });
+
+      const res = await invoke("knowledge:suggestion:accept", {
+        projectId: "p1",
+        sessionId: "s1",
+        suggestionId: "sug-missing",
+      });
+
+      expect(res.ok).toBe(false);
+      expect(mockWorldScaleInvalidate).not.toHaveBeenCalled();
+      expect(mockWorldScaleGet).not.toHaveBeenCalled();
+      expect(mockMilestoneEvaluate).not.toHaveBeenCalled();
     });
   });
 
