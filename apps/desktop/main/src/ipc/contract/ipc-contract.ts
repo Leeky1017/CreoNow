@@ -2087,6 +2087,55 @@ export const ipcContract = {
       }),
       response: s.object({ deleted: s.literal(true) }),
     },
+    "knowledge:impact:preview": {
+      request: s.object({
+        projectId: s.string(),
+        entityId: s.string(),
+      }),
+      response: s.object({
+        entity: s.object({
+          id: s.string(),
+          name: s.string(),
+          type: s.string(),
+        }),
+        incomingRelations: s.array(
+          s.object({
+            id: s.string(),
+            relationType: s.string(),
+            direction: s.union(s.literal("incoming"), s.literal("outgoing")),
+            otherEntityId: s.string(),
+            otherEntityName: s.string(),
+            otherEntityType: s.union(s.string(), s.literal(null)),
+          }),
+        ),
+        outgoingRelations: s.array(
+          s.object({
+            id: s.string(),
+            relationType: s.string(),
+            direction: s.union(s.literal("incoming"), s.literal("outgoing")),
+            otherEntityId: s.string(),
+            otherEntityName: s.string(),
+            otherEntityType: s.union(s.string(), s.literal(null)),
+          }),
+        ),
+        affectedForeshadows: s.array(
+          s.object({
+            id: s.string(),
+            name: s.string(),
+          }),
+        ),
+        totalRelationCount: s.number(),
+        unresolvedForeshadowCount: s.number(),
+        severity: s.union(
+          s.literal("low"),
+          s.literal("mid"),
+          s.literal("high"),
+          s.literal("critical"),
+        ),
+        requiresTypedConfirmation: s.boolean(),
+        queryCostMs: s.number(),
+      }),
+    },
     "knowledge:query:subgraph": {
       request: s.object({
         projectId: s.string(),

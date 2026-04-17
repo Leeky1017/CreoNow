@@ -137,6 +137,9 @@ const api = {
     listRelations: (
       payload: Parameters<typeof creonowInvoke<"knowledge:relation:list">>[1],
     ) => creonowInvoke("knowledge:relation:list", payload),
+    previewImpact: (
+      payload: Parameters<typeof creonowInvoke<"knowledge:impact:preview">>[1],
+    ) => creonowInvoke("knowledge:impact:preview", payload),
   },
   engagement: {
     getWorldScale: (

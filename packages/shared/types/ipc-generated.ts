@@ -245,6 +245,7 @@ export const IPC_CHANNELS = [
   "knowledge:entity:list",
   "knowledge:entity:read",
   "knowledge:entity:update",
+  "knowledge:impact:preview",
   "knowledge:query:byids",
   "knowledge:query:path",
   "knowledge:query:relevant",
@@ -2059,6 +2060,44 @@ export type IpcChannelSpec = {
       type: "character" | "location" | "event" | "item" | "faction";
       updatedAt: string;
       version: number;
+    };
+  };
+  "knowledge:impact:preview": {
+    request: {
+      entityId: string;
+      projectId: string;
+    };
+    response: {
+      affectedForeshadows: Array<{
+        id: string;
+        name: string;
+      }>;
+      entity: {
+        id: string;
+        name: string;
+        type: string;
+      };
+      incomingRelations: Array<{
+        direction: "incoming" | "outgoing";
+        id: string;
+        otherEntityId: string;
+        otherEntityName: string;
+        otherEntityType: string | null;
+        relationType: string;
+      }>;
+      outgoingRelations: Array<{
+        direction: "incoming" | "outgoing";
+        id: string;
+        otherEntityId: string;
+        otherEntityName: string;
+        otherEntityType: string | null;
+        relationType: string;
+      }>;
+      queryCostMs: number;
+      requiresTypedConfirmation: boolean;
+      severity: "low" | "mid" | "high" | "critical";
+      totalRelationCount: number;
+      unresolvedForeshadowCount: number;
     };
   };
   "knowledge:query:byids": {

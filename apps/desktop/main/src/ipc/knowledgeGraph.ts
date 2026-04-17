@@ -31,6 +31,10 @@ import {
   createKgMutationSkill,
   type KgMutationSkill,
 } from "../services/skills/kgMutationSkill";
+import {
+  createKgImpactAnalyzer,
+  type KgImpactPreview,
+} from "../services/kg/impactAnalyzer";
 import { createMilestoneService } from "../services/engagement/milestoneService";
 import { createWorldScaleService } from "../services/engagement/worldScaleService";
 import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
@@ -169,6 +173,11 @@ type QueryRelevantPayload = {
 type QueryByIdsPayload = {
   projectId: string;
   entityIds: string[];
+};
+
+type ImpactPreviewPayload = {
+  projectId: string;
+  entityId: string;
 };
 
 function normalizeQueryByIdsPayload(
@@ -628,6 +637,31 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
           traceId: payload.traceId,
         },
       };
+    },
+  );
+
+  // ── Read-only impact preview → direct service call (INV-6 exempt) ──
+  //
+  // Gates a destructive edit in the renderer; it never writes and therefore
+  // does not route through kgWriteOrchestrator / Permission Gate. The gate
+  // is still enforced on the subsequent entityDelete call (issue #195).
+  handleWithProjectAccess(
+    "knowledge:impact:preview",
+    async (
+      _event,
+      payload: ImpactPreviewPayload,
+    ): Promise<IpcResponse<KgImpactPreview>> => {
+      if (!deps.db) {
+        return notReady<KgImpactPreview>();
+      }
+      const analyzer = createKgImpactAnalyzer({
+        db: deps.db,
+        logger: deps.logger,
+      });
+      const res = analyzer.preview(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 }

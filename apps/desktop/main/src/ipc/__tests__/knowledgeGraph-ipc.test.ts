@@ -80,6 +80,7 @@ const EXPECTED_CHANNELS = [
   "knowledge:recognition:stats",
   "knowledge:suggestion:accept",
   "knowledge:suggestion:dismiss",
+  "knowledge:impact:preview",
 ] as const;
 
 function createMockEvent() {
@@ -206,6 +207,7 @@ describe("knowledgeGraph IPC handlers", () => {
       "knowledge:query:relevant",
       "knowledge:query:byids",
       "knowledge:rules:inject",
+      "knowledge:impact:preview",
     ] as const;
 
     const recognitionChannels = [
