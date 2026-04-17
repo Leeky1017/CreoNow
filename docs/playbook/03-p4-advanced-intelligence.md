@@ -22,13 +22,14 @@ P3 全部退出条件满足 + INV-1~INV-10 全部合规。
 - 检索路径：KG+FTS5 为主 → sqlite-vec 语义召回补充（INV-4）
 
 **文件**：
-- `apps/desktop/main/src/services/memory/episodicMemory.ts` — 已有空壳，填充实现
-- `apps/desktop/main/src/services/memory/semanticMemory.ts` — 已有空壳，填充实现
+- `apps/desktop/main/src/services/memory/episodicMemoryService.ts` — 情景记忆主服务（已落地）
+- `apps/desktop/main/src/services/skills/postWritingHooks.ts` — INV-8 hook 链（含 episodic 提取）
 - `apps/desktop/main/src/services/memory/userMemoryVec.ts` — sqlite-vec 已实现，优化召回精度
 
 **新 Migration**：
-- `0028_memory_episodic_events.sql`：episodic 事件表 (session_id, event_type, entity_refs, content, timestamp)
-- `0029_memory_semantic_profile.sql`：语义档案表 (user_id, profile_type, extracted_value, confidence, updated_at)
+- `0012_memory_episodic_storage.sql`：episodic + semantic placeholder 的当前 SSOT
+- `0028_memory_session_events.sql`：session memory 事件流（非 episodic 主表）
+- `0029_project_milestones.sql`：项目里程碑事件（Engagement，不是 semantic profile）
 
 **Skill 依赖**：
 - `extract-session-events` Skill：从写作 session 提取关键事件（LLM，post-writing hook）

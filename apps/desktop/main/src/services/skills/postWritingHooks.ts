@@ -20,6 +20,7 @@ import type { MatchResult, MatchableEntity } from "../kg/entityMatcher";
 import type { KnowledgeGraphService, KnowledgeEntity } from "../kg/types";
 import type { KgMutationSkill } from "./kgMutationSkill";
 import type { SessionMemoryService } from "../memory/sessionMemoryService";
+import type { EpisodicMemoryService } from "../memory/episodicMemoryService";
 import type { P3SkillExecutor } from "./p3Skills";
 import type { Logger } from "../../logging/logger";
 
@@ -32,6 +33,8 @@ import type { Logger } from "../../logging/logger";
 export const KG_UPDATE_PRIORITY = 30;
 /** Memory extract runs second — may reference entities recognized by kg-update. */
 export const MEMORY_EXTRACT_PRIORITY = 40;
+/** Episodic extract runs after L1 extraction and before quality check. */
+export const EPISODIC_EXTRACT_PRIORITY = 45;
 /** Quality check runs last — validates against the latest KG state. */
 export const QUALITY_CHECK_PRIORITY = 50;
 
@@ -186,6 +189,16 @@ export interface MemoryExtractHookDeps {
   logger: Pick<Logger, "info" | "error">;
 }
 
+export interface EpisodicExtractHookDeps {
+  skillExecutor: Pick<P3SkillExecutor, "executeSkill">;
+  episodicMemory: Pick<EpisodicMemoryService, "recordEpisode">;
+  logger: Pick<Logger, "info" | "error">;
+  eventBus?: {
+    emit: (event: Record<string, unknown>) => void;
+  };
+  now?: () => number;
+}
+
 /**
  * Heuristic extraction patterns for writing context.
  *
@@ -279,6 +292,161 @@ export function createMemoryExtractHook(
   };
 }
 
+type SessionEventCandidate = {
+  sceneType?: string;
+  summary?: string;
+  inputContext?: string;
+  finalText?: string;
+  skillUsed?: string;
+  chapterId?: string;
+  importance?: number;
+  editDistance?: number;
+};
+
+function asEventCandidates(data: unknown): SessionEventCandidate[] {
+  if (!data || typeof data !== "object") {
+    return [];
+  }
+  const maybeEvents = (data as { events?: unknown }).events;
+  if (!Array.isArray(maybeEvents)) {
+    return [];
+  }
+  return maybeEvents.filter(
+    (event): event is SessionEventCandidate =>
+      typeof event === "object" && event !== null,
+  );
+}
+
+function clampEpisodeImportance(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.min(1, value));
+  }
+  return 0.6;
+}
+
+/**
+ * Create a post-writing hook that routes extraction through Skill runtime
+ * and persists structured episode rows.
+ *
+ * @invariant INV-6 — extraction step always goes through registered Skill.
+ * @invariant INV-8 — hook executes after write-back, non-blocking for pipeline.
+ */
+export function createEpisodicExtractHook(
+  deps: EpisodicExtractHookDeps,
+): PostWritingHook {
+  return {
+    name: "episodic-extract",
+    priority: EPISODIC_EXTRACT_PRIORITY,
+    async execute(ctx: PostWritingHookContext): Promise<void> {
+      if (!hasProcessableText(ctx) || !ctx.projectId) {
+        return;
+      }
+
+      const text = truncateText(ctx.fullText);
+      const result = await deps.skillExecutor.executeSkill(
+        "builtin:extract-session-events",
+        {
+          projectId: ctx.projectId,
+          documentId: ctx.documentId,
+          documentContent: text,
+        },
+      );
+
+      if (!result.success) {
+        deps.logger.error("episodic-extract:skill-failed", {
+          projectId: ctx.projectId,
+          documentId: ctx.documentId,
+          code: result.error?.code,
+          message: result.error?.message,
+        });
+        return;
+      }
+
+      const extractedEvents = asEventCandidates(result.data);
+      if (extractedEvents.length === 0) {
+        return;
+      }
+
+      for (const extracted of extractedEvents) {
+        const finalText =
+          (typeof extracted.finalText === "string" &&
+          extracted.finalText.trim().length > 0
+            ? extracted.finalText
+            : typeof extracted.summary === "string" &&
+                extracted.summary.trim().length > 0
+              ? extracted.summary
+              : text
+          ).trim();
+        const inputContext =
+          (typeof extracted.inputContext === "string" &&
+          extracted.inputContext.trim().length > 0
+            ? extracted.inputContext
+            : text.slice(0, 800)
+          ).trim();
+        const sceneType =
+          typeof extracted.sceneType === "string" &&
+          extracted.sceneType.trim().length > 0
+            ? extracted.sceneType.trim()
+            : "general";
+        const editDistance =
+          typeof extracted.editDistance === "number" &&
+          Number.isFinite(extracted.editDistance) &&
+          extracted.editDistance >= 0
+            ? extracted.editDistance
+            : 0;
+
+        const recordResult = await deps.episodicMemory.recordEpisode({
+          projectId: ctx.projectId,
+          chapterId:
+            typeof extracted.chapterId === "string" &&
+            extracted.chapterId.trim().length > 0
+              ? extracted.chapterId.trim()
+              : ctx.documentId,
+          sceneType,
+          skillUsed:
+            typeof extracted.skillUsed === "string" &&
+            extracted.skillUsed.trim().length > 0
+              ? extracted.skillUsed.trim()
+              : "builtin:extract-session-events",
+          inputContext,
+          candidates: [finalText],
+          selectedIndex: 0,
+          finalText,
+          editDistance,
+          importance: clampEpisodeImportance(extracted.importance),
+          acceptedWithoutEdit: editDistance === 0,
+          userConfirmed: false,
+        });
+
+        if (!recordResult.ok) {
+          deps.logger.error("episodic-extract:record-failed", {
+            projectId: ctx.projectId,
+            documentId: ctx.documentId,
+            code: recordResult.error.code,
+            message: recordResult.error.message,
+          });
+          continue;
+        }
+
+        deps.logger.info("episodic-extract:episode-created", {
+          projectId: ctx.projectId,
+          documentId: ctx.documentId,
+          episodeId: recordResult.data.episodeId,
+        });
+        deps.eventBus?.emit({
+          type: "episode:created",
+          timestamp: deps.now ? deps.now() : Date.now(),
+          projectId: ctx.projectId,
+          documentId: ctx.documentId,
+          sessionId: ctx.sessionId,
+          episodeId: recordResult.data.episodeId,
+          sceneType,
+        });
+      }
+    },
+  };
+}
+
 // ─── Quality Check Hook ─────────────────────────────────────────────
 
 export interface QualityCheckHookDeps {
@@ -353,6 +521,7 @@ export function createQualityCheckHook(
 export interface PostWritingHookChainDeps {
   kgUpdate: KgUpdateHookDeps;
   memoryExtract: MemoryExtractHookDeps;
+  episodicExtract?: EpisodicExtractHookDeps;
   /**
    * Optional — some callers only have the fast local hook dependencies and
    * deliberately omit the LLM-backed quality-check leg.
@@ -378,6 +547,9 @@ export function buildPostWritingHookChain(
     createKgUpdateHook(deps.kgUpdate),
     createMemoryExtractHook(deps.memoryExtract),
   ];
+  if (deps.episodicExtract) {
+    hooks.push(createEpisodicExtractHook(deps.episodicExtract));
+  }
   if (deps.qualityCheck) {
     hooks.push(createQualityCheckHook(deps.qualityCheck));
   }

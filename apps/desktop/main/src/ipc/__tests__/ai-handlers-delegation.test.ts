@@ -249,6 +249,13 @@ function createHarness(
     debug: vi.fn(),
     logPath: "<test>",
   };
+  const eventBus = withEventBus
+    ? ({
+        emit: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
+      } as const)
+    : undefined;
 
   const db = dbNull
     ? null
@@ -286,15 +293,7 @@ function createHarness(
           } as unknown as never,
         }
       : {}),
-    ...(withEventBus
-      ? {
-          eventBus: {
-            emit: vi.fn(),
-            on: vi.fn(),
-            off: vi.fn(),
-          } as unknown as never,
-        }
-      : {}),
+    ...(eventBus ? { eventBus: eventBus as unknown as never } : {}),
   });
 
   return {
@@ -305,6 +304,7 @@ function createHarness(
     },
     handlers,
     logger,
+    eventBus,
   };
 }
 
@@ -337,6 +337,7 @@ describe("AI IPC channel registration", () => {
     vi.clearAllMocks();
     mocks.skillListMock.mockReturnValue({ ok: true, data: { items: [] } });
     mocks.skillResolveForRunMock.mockReturnValue(makeResolvedSkill("builtin:chat"));
+    mocks.createEpisodicMemoryServiceMock.mockReturnValue({});
   });
 
   it("注册所有预期通道", () => {
@@ -441,6 +442,87 @@ describe("AI IPC channel registration", () => {
         projectId: "proj-001",
         documentId: "doc-001",
         documentContent: "李明在青云城门口看见了与设定不符的细节。",
+      }),
+    );
+  });
+
+  it("触发 episodic-extract hook 时写入 episode 并发射 episode:created 事件", async () => {
+    const recordEpisode = vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        accepted: true,
+        episodeId: "ep-integration-1",
+        retryCount: 0,
+        implicitSignal: "DIRECT_ACCEPT",
+        implicitWeight: 1,
+      },
+    });
+    mocks.createEpisodicMemoryServiceMock.mockReturnValue({
+      listSemanticMemory: vi.fn().mockReturnValue({
+        ok: true,
+        data: { items: [], conflictQueue: [] },
+      }),
+      recordEpisode,
+    });
+
+    const harness = createHarness(false, true, true);
+    const firstCall =
+      mocks.createWritingOrchestratorMock.mock.calls[0] as unknown[] | undefined;
+    const orchestratorConfig = firstCall?.[0] as
+      | {
+          postWritingHooks?: Array<{
+            name: string;
+            execute: (ctx: {
+              requestId: string;
+              documentId: string;
+              projectId?: string;
+              sessionId?: string;
+              fullText: string;
+            }) => Promise<void>;
+          }>;
+        }
+      | undefined;
+    const episodicHook = orchestratorConfig?.postWritingHooks?.find(
+      (hook) => hook.name === "episodic-extract",
+    );
+    const executorInstance = mocks.createP3SkillExecutorMock.mock.results[0]?.value as
+      | { executeSkill: ReturnType<typeof vi.fn> }
+      | undefined;
+    executorInstance?.executeSkill.mockResolvedValue({
+      success: true,
+      data: {
+        events: [
+          {
+            sceneType: "turning_point",
+            summary: "主角在雨夜撕毁盟约",
+            importance: 0.88,
+          },
+        ],
+      },
+    });
+
+    expect(episodicHook).toBeDefined();
+    await episodicHook?.execute({
+      requestId: "req-ep-001",
+      documentId: "doc-ep-001",
+      projectId: "proj-ep-001",
+      sessionId: "sess-ep-001",
+      fullText: "在雨夜中，他当众撕毁了旧盟约。",
+    });
+
+    expect(recordEpisode).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "proj-ep-001",
+        chapterId: "doc-ep-001",
+        sceneType: "turning_point",
+      }),
+    );
+    expect(harness.eventBus?.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "episode:created",
+        projectId: "proj-ep-001",
+        documentId: "doc-ep-001",
+        episodeId: "ep-integration-1",
       }),
     );
   });
