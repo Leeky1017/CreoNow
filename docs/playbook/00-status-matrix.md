@@ -1,99 +1,66 @@
 # 模块成熟度矩阵 + INV 合规现状
 
-> 最后更新：2026-04-11
+> 最后更新：2026-04-17
 >
-> 本文件记录 CN 各后端模块的成熟度评分、所属阶段、关键问题，以及 10 条全局不变量（INV）的合规状态。
-> 任何任务开始前，先来这里确认目标模块的当前状态。
+> 本文件记录 **当前主分支真实状态**，不是 2026-04-11 的初版估计。任何任务开始前，先看这里再判断从哪一层下手。
 
 ---
 
 ## 一、模块成熟度矩阵
 
-| 模块 | 分数 | P 阶段 | 状态 | 关键问题 |
-|------|------|--------|------|---------|
-| Context Engine | 9/10 | P1 ✅ | 生产就绪 | 无（50+ 测试，CJK 正确） |
-| Version Control | 8.5/10 | P1 ✅ | 生产就绪 | 压缩仅占位；Hook 框架已建但未全激活 |
-| Search (FTS5) | 8/10 | P1 ✅ | 生产就绪 | 跨表联合搜索未完成 |
-| Export | 7/10 | P1 ⚠️ | 功能可用 | 静默错误处理违反 INV-10，无导出进度回调 |
-| AI Service | 6/10 | P1 ⚠️ | 部分完成 | INV-6/7 违规：IPC 直调 Service 绕过 Skill；4 个 silent catch；Agentic loop 未完成 |
-| Knowledge Graph | 6.5/10 | P3 ⚠️ | 范围蔓延 | CRUD 扎实但 Mock recognizer 在生产；Aho-Corasick 无缓存 |
-| Documents | 6/10 | P1 ⚠️ | 部分完成 | ProseMirror JSON 存储 ✓；分支代码属 P3+ 范围蔓延 |
-| Skills | 6/10 | P1 ⚠️ | 部分完成 | Orchestrator 9 阶段正确；Manifest Loader 孤立未调用；写回路径歧义 |
-| Memory | 5.5/10 | P3 ⚠️ | 部分完成 | 简单 CRUD ✓；Episodic/Semantic 为空壳 |
-| Diff | 6/10 | P2 ✅ | 功能可用 | Myers 算法正确 20 测试 ✓；未集成到编辑器 |
-| Judge | 5/10 | P2 ⚠️ | 骨架 | 状态机有模型无 E2E |
-| Editor Backend | 3/10 | P1 ❌ | 仅 Stub | 只有类型定义，逻辑在 Renderer |
+| 模块 | 分数 | 阶段 | 当前状态 | 主要缺口 |
+|------|------|------|------|------|
+| Context Engine | 9/10 | P1 ✅ | 生产就绪 | 高阶记忆与 AutoCompact 仍未完全纳入默认主链 |
+| Version Control | 8.5/10 | P1 ✅ | 生产就绪 | 压缩/整理仍偏轻；部分高级 UX 仍待补 |
+| Search | 8.5/10 | P3 ✅ | FTS5 + semantic / hybrid 已可用 | `semanticSearch.ts` 独立服务边界与写时索引 hook 仍待抽出（#192） |
+| Export | 7.5/10 | P3 ⚠️ | 后端与前端弹窗已可用 | Publish/send 仍偏占位；错误与进度体验还可加固 |
+| AI Service / Orchestration | 7.5/10 | P1 ✅ / P4 ⚠️ | INV-6/7 主路已打通 | Agentic loop 高阶控制未完成（#194） |
+| Knowledge Graph | 8/10 | P3 ✅ | CRUD、recognizer、trie cache、graph panel 都已落地 | 大图性能 / 删除确认流 / 更深产品入口待补（#191, #195） |
+| Documents | 7.5/10 | P1 ✅ | 闭环写回、版本、确认流已可用 | 更重的后端编辑抽象仍不是主重点 |
+| Skills | 8/10 | P1 ✅ / P3 ✅ | Manifest loader、P3 skills、写回路径、hook 工厂均已落地 | 更完整 dispatcher / task ledger 仍属后续架构工作 |
+| Memory | 7/10 | P3 ⚠️ | L0、episodic、session memory、semantic 蒸馏骨架均在 | L1 主注入、前端消费、profile 调度仍未收口 |
+| Engagement | 7/10 | P3/P5 ⚠️ | story status / flow / foreshadow / quick capture / style / world scale / milestone / persona / completion 均有后端基础 | 大量前台接线与高阶机制仍待完成（#189, #195-#208） |
+| Diff | 6.5/10 | P2 ✅ | 核心算法稳定 | 更多编辑器可视化细节仍可增强 |
+| Judge | 5.5/10 | P2 ⚠️ | 能力存在但非当前主战场 | 缺完整产品化入口 |
+| Editor Backend | 5/10 | P1 ⚠️ | 闭环通路已可用，不再只是 stub | 真正的“后端化编辑器”仍不是现阶段主目标 |
 
-### 评分标准
-
-- **9-10**：生产就绪，测试充分，INV 合规
-- **7-8**：功能可用，有小问题但不阻塞闭环
-- **5-6**：部分完成，核心路径可走但有 INV 违规或空壳
-- **3-4**：骨架/Stub，不可用于闭环 Demo
-- **1-2**：仅文件存在，无实质逻辑
+### 评分解释
+- **9-10**：主链稳定、测试充分、当前可当事实依赖
+- **7-8**：功能已成形，可交付，但仍有明显 follow-up
+- **5-6**：核心能力存在，产品化或结构化仍不足
+- **3-4**：局部骨架
+- **1-2**：几乎只有名字
 
 ---
 
-## 二、INV 合规状态
+## 二、INV 合规快照
 
-| INV | 名称 | 当前状态 | 修复优先级 | 说明 |
-|-----|------|---------|-----------|------|
-| INV-1 | 原稿保护 | ✅ | — | `orchestrator.ts` 写前检查已实现 |
-| INV-2 | 并发安全 | ✅ | — | `toolRegistry.ts:76` 强制 `isConcurrencySafe` 默认 false |
-| INV-3 | CJK Token | ⚠️ | P1 | `services/context/tokenEstimation.ts` 正确；`packages/shared/tokenBudget.ts` 仍用 4:1 |
-| INV-4 | Memory-First | ⚠️ | P3 | L0 (user_memory 表) + L2 (KG + FTS5) 有；L1 (daily journal / session-aware) 未实现 |
-| INV-5 | 叙事压缩 | ❌ | P4+ | `narrativeCompact.ts` 仅占位，无实际压缩逻辑 |
-| INV-6 | 一切皆 Skill | ❌ | **P1 关键** | IPC handlers 绕过 Skill 系统直调 AI Service |
-| INV-7 | 统一入口 | ❌ | **P1 关键** | CommandDispatcher 未实现，IPC handler 直调 Service |
-| INV-8 | Hook 链 | ⚠️ | P3 | 框架在 `orchestrator.ts` Stage 8，仅 cost-tracking + auto-save 启用 |
-| INV-9 | 成本追踪 | ⚠️ | P3 | costTracker 存在但 `cachedTokens` 未传入 |
-| INV-10 | 错误不丢上下文 | ⚠️ | P1 | `makeFailureEvent` 存在，4+ 模块 silent catch 违规 |
+| INV | 名称 | 当前状态 | 说明 |
+|-----|------|---------|------|
+| INV-1 | 原稿保护 | ✅ | 写前快照 + preview/confirm 主链已在主路径中 |
+| INV-2 | 并发安全 | ✅ | `toolRegistry` fail-closed 默认成立 |
+| INV-3 | CJK Token | ✅ | `packages/shared/tokenBudget.ts` 已迁移为 CJK-aware |
+| INV-4 | Memory-First | ⚠️ | L0 / KG+FTS5 / episodic / session memory 都在；但 session-aware 注入与前端消费未完全收口 |
+| INV-5 | 叙事压缩 | ⚠️ | `narrativeCompact.ts` 已有实现与测试，但尚未形成完整用户可感知主链 |
+| INV-6 | 一切皆 Skill | ✅（主干） | AI/KG 写路径已走 Skill / Orchestrator；仍有少量高阶 follow-up |
+| INV-7 | 统一入口 | ✅（主干） | IPC 主路径已不再直调关键变更服务；完整 `CommandDispatcher` 仍属后续架构演进 |
+| INV-8 | Hook 链 | ⚠️ | 已接 cost-tracking / auto-save / kg-update / memory-extract / quality-check / engagement-milestone；仍有 P4 级 hook 待补 |
+| INV-9 | 成本追踪 | ✅（主干） | `cachedTokens` 已接通；持久化账本仍属下一层架构工作 |
+| INV-10 | 错误不丢上下文 | ⚠️ | 典型 silent catch 已大幅清理；仍需持续守卫 |
 
-### INV 合规路线图
+### 当前优先级
 
-```
-P1 必须修复：INV-3, INV-6, INV-7, INV-10
-P3 必须修复：INV-4, INV-8, INV-9
-P4+ 必须修复：INV-5
-已合规：INV-1, INV-2
+```text
+继续收口：INV-4 / INV-5 / INV-8 / INV-10
+主要已过主线门槛：INV-1 / INV-2 / INV-3 / INV-6 / INV-7 / INV-9
 ```
 
 ---
 
-## 三、DB 表清单
+## 三、关键现实提醒
 
-27 migrations 产出的关键表：
-
-| 表名 | 所属模块 | 说明 |
-|------|---------|------|
-| `documents` | Documents | 文档主表（ProseMirror JSON） |
-| `document_versions` | Version Control | 版本快照 |
-| `kg_entities` | Knowledge Graph | KG 实体（角色/地点/阵营/道具/事件） |
-| `kg_relations` | Knowledge Graph | KG 关系（实体间边） |
-| `documents_fts` | Search | FTS5 全文搜索虚拟表 |
-| `user_memory_vectors` | Memory | sqlite-vec 语义向量（L2 补充路径） |
-| `chat_sessions` | AI Service | 对话会话 |
-| `chat_messages` | AI Service | 对话消息 |
-| `write_sessions` | AI Service | 写作会话（Skill 执行上下文） |
-| `projects` | Project Management | 项目元数据 |
-| `custom_skills_definition` | Skills | 用户自定义 Skill 定义 |
-| `judgment_record` | Judge | 质量评判记录 |
-| `skill_executions` | Skills | Skill 执行日志（含 cost） |
-
----
-
-## 四、关键文件路径速查
-
-| 关注点 | 路径 |
-|--------|------|
-| Skill Orchestrator（9 阶段 pipeline） | `apps/desktop/main/src/core/skillOrchestrator.ts` |
-| AI IPC（INV-6 违规点） | `apps/desktop/main/src/ipc/ai.ts`, `apps/desktop/main/src/ipc/aiProxy.ts` |
-| KG IPC（INV-6 违规点） | `apps/desktop/main/src/ipc/knowledgeGraph.ts` |
-| Token 估算（正确版） | `apps/desktop/main/src/services/context/tokenEstimation.ts` |
-| Token 预算（INV-3 违规） | `packages/shared/tokenBudget.ts` |
-| 叙事压缩占位 | `apps/desktop/main/src/services/ai/compact/narrativeCompact.ts` |
-| Skill Manifest Loader（孤立） | `apps/desktop/main/src/services/skills/` |
-| Memory 服务 | `apps/desktop/main/src/services/memory/` |
-| Cost Tracker | `apps/desktop/main/src/core/skillOrchestrator.ts`（Stage 8 内） |
-| Hook 框架 | `apps/desktop/main/src/core/skillOrchestrator.ts`（Stage 8） |
-| 后端质量评估（完整版） | `docs/references/backend-quality-assessment.md` |
+1. **P1 不再是“等实现”**：它现在是“主闭环已成，剩加固”。
+2. **P3 不是空架子**：recognizer、trie cache、project switch、P3 skills、hook 工厂都已落地。
+3. **P4 不再纯规划**：KG graph canvas 与 semantic / hybrid search 已在 renderer/workbench 中可见。
+4. **Engagement 不是从零开始**：已有一批后端服务，只是前端接线没跟上。
+5. **文档判断必须服从代码与测试**：旧版 `backend-quality-assessment.md` / 初版 playbook 只能作历史参考，不能直接当现状。
