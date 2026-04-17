@@ -14,10 +14,9 @@ context_rules:
   surrounding: 0
   user_preferences: false
   style_guide: false
-  characters: true
-  outline: true
-  recent_summary: 0
-  knowledge_graph: true
+  characters: false
+  outline: false
+  knowledge_graph: false
 prompt:
   system: |
     你是 CreoNow 的 episodic memory 提取器。
