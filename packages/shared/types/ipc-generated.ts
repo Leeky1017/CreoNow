@@ -59,6 +59,7 @@ export type IpcErrorCode =
   | "IPC_TIMEOUT"
   | "KG_ATTRIBUTE_KEYS_EXCEEDED"
   | "KG_CAPACITY_EXCEEDED"
+  | "KG_CONFIRMATION_REQUIRED"
   | "KG_ENTITY_CONFLICT"
   | "KG_ENTITY_DUPLICATE"
   | "KG_QUERY_TIMEOUT"
@@ -66,6 +67,7 @@ export type IpcErrorCode =
   | "KG_RELATION_INVALID"
   | "KG_RELEVANT_QUERY_FAILED"
   | "KG_SCOPE_VIOLATION"
+  | "KG_STALE_PREVIEW"
   | "KG_SUBGRAPH_K_EXCEEDED"
   | "LLM_API_ERROR"
   | "LOCATION_ATTR_KEY_TOO_LONG"
@@ -487,6 +489,8 @@ export type IpcChannelSpec = {
           | "KG_RELATION_INVALID"
           | "KG_SCOPE_VIOLATION"
           | "KG_SUBGRAPH_K_EXCEEDED"
+          | "KG_CONFIRMATION_REQUIRED"
+          | "KG_STALE_PREVIEW"
           | "PROJECT_SWITCH_TIMEOUT"
           | "DOCUMENT_SAVE_CONFLICT"
           | "MEMORY_BACKPRESSURE"
@@ -1687,6 +1691,8 @@ export type IpcChannelSpec = {
                 | "KG_RELATION_INVALID"
                 | "KG_SCOPE_VIOLATION"
                 | "KG_SUBGRAPH_K_EXCEEDED"
+                | "KG_CONFIRMATION_REQUIRED"
+                | "KG_STALE_PREVIEW"
                 | "PROJECT_SWITCH_TIMEOUT"
                 | "DOCUMENT_SAVE_CONFLICT"
                 | "MEMORY_BACKPRESSURE"
@@ -1839,6 +1845,8 @@ export type IpcChannelSpec = {
                 | "KG_RELATION_INVALID"
                 | "KG_SCOPE_VIOLATION"
                 | "KG_SUBGRAPH_K_EXCEEDED"
+                | "KG_CONFIRMATION_REQUIRED"
+                | "KG_STALE_PREVIEW"
                 | "PROJECT_SWITCH_TIMEOUT"
                 | "DOCUMENT_SAVE_CONFLICT"
                 | "MEMORY_BACKPRESSURE"
@@ -1977,6 +1985,7 @@ export type IpcChannelSpec = {
   };
   "knowledge:entity:delete": {
     request: {
+      confirmationToken?: string;
       id: string;
       projectId: string;
     };
@@ -2095,6 +2104,7 @@ export type IpcChannelSpec = {
       }>;
       queryCostMs: number;
       requiresTypedConfirmation: boolean;
+      revisionFingerprint: string;
       severity: "low" | "mid" | "high" | "critical";
       totalRelationCount: number;
       unresolvedForeshadowCount: number;
@@ -2463,6 +2473,8 @@ export type IpcChannelSpec = {
         | "KG_RELATION_INVALID"
         | "KG_SCOPE_VIOLATION"
         | "KG_SUBGRAPH_K_EXCEEDED"
+        | "KG_CONFIRMATION_REQUIRED"
+        | "KG_STALE_PREVIEW"
         | "PROJECT_SWITCH_TIMEOUT"
         | "DOCUMENT_SAVE_CONFLICT"
         | "MEMORY_BACKPRESSURE"
@@ -2608,6 +2620,8 @@ export type IpcChannelSpec = {
         | "KG_RELATION_INVALID"
         | "KG_SCOPE_VIOLATION"
         | "KG_SUBGRAPH_K_EXCEEDED"
+        | "KG_CONFIRMATION_REQUIRED"
+        | "KG_STALE_PREVIEW"
         | "PROJECT_SWITCH_TIMEOUT"
         | "DOCUMENT_SAVE_CONFLICT"
         | "MEMORY_BACKPRESSURE"
@@ -4082,6 +4096,8 @@ export type IpcChannelSpec = {
           | "KG_RELATION_INVALID"
           | "KG_SCOPE_VIOLATION"
           | "KG_SUBGRAPH_K_EXCEEDED"
+          | "KG_CONFIRMATION_REQUIRED"
+          | "KG_STALE_PREVIEW"
           | "PROJECT_SWITCH_TIMEOUT"
           | "DOCUMENT_SAVE_CONFLICT"
           | "MEMORY_BACKPRESSURE"

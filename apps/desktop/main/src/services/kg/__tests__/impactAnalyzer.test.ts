@@ -51,18 +51,25 @@ interface MockPlan {
     otherEntityType: string | null;
   }>;
   foreshadowRows: Array<{ id: string; name: string }>;
+  fingerprintRow?: { entities: string; relations: string };
 }
 
 /**
  * Build a mock better-sqlite3 database that returns canned rows for each
- * of the three prepared statements used by impactAnalyzer, in prepare()
- * registration order.
+ * of the prepared statements used by impactAnalyzer, in prepare()
+ * registration order: entity, neighbor-relations, affected-foreshadows,
+ * revision-fingerprint.
  */
 function buildMockDb(plan: MockPlan): MockDb {
+  const fingerprintRow = plan.fingerprintRow ?? {
+    entities: "0:0",
+    relations: "0:0",
+  };
   const statements: PreparedStatement[] = [
     { get: vi.fn().mockReturnValue(plan.entityRow), all: vi.fn() },
     { get: vi.fn(), all: vi.fn().mockReturnValue(plan.neighborRows) },
     { get: vi.fn(), all: vi.fn().mockReturnValue(plan.foreshadowRows) },
+    { get: vi.fn().mockReturnValue(fingerprintRow), all: vi.fn() },
   ];
   let index = 0;
   return {
@@ -305,6 +312,152 @@ describe("createKgImpactAnalyzer.preview", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe("DB_ERROR");
+    expect(logger.error).toHaveBeenCalled();
+  });
+});
+
+// ── Audit round-1 additions (Issue #195) ──────────────────────────────
+//
+// N6 in the round-1 findings explicitly asked for boundary tests at
+// (HIGH_RELATION_COUNT - 1 / HIGH_RELATION_COUNT) and
+// (CRITICAL_UNRESOLVED_FORESHADOW_COUNT - 1 / CRITICAL_UNRESOLVED_FORESHADOW_COUNT)
+// so the severity ladder stays pinned. Changing the constants must break
+// these tests — that is the whole point.
+
+describe("classifyImpactSeverity — exact boundary guards", () => {
+  it("stays mid at HIGH_RELATION_COUNT - 1", () => {
+    expect(
+      classifyImpactSeverity({
+        relationCount: HIGH_RELATION_COUNT - 1,
+        unresolvedForeshadowCount: 0,
+      }),
+    ).toBe("mid");
+  });
+
+  it("jumps to high exactly at HIGH_RELATION_COUNT", () => {
+    expect(
+      classifyImpactSeverity({
+        relationCount: HIGH_RELATION_COUNT,
+        unresolvedForeshadowCount: 0,
+      }),
+    ).toBe("high");
+  });
+
+  it("stays high at CRITICAL_RELATION_COUNT - 1", () => {
+    expect(
+      classifyImpactSeverity({
+        relationCount: CRITICAL_RELATION_COUNT - 1,
+        unresolvedForeshadowCount: 0,
+      }),
+    ).toBe("high");
+  });
+
+  it("jumps to critical exactly at CRITICAL_RELATION_COUNT", () => {
+    expect(
+      classifyImpactSeverity({
+        relationCount: CRITICAL_RELATION_COUNT,
+        unresolvedForeshadowCount: 0,
+      }),
+    ).toBe("critical");
+  });
+
+  it("stays high at CRITICAL_UNRESOLVED_FORESHADOW_COUNT - 1", () => {
+    expect(
+      classifyImpactSeverity({
+        relationCount: 0,
+        unresolvedForeshadowCount: CRITICAL_UNRESOLVED_FORESHADOW_COUNT - 1,
+      }),
+    ).toBe("high");
+  });
+
+  it("jumps to critical exactly at CRITICAL_UNRESOLVED_FORESHADOW_COUNT", () => {
+    expect(
+      classifyImpactSeverity({
+        relationCount: 0,
+        unresolvedForeshadowCount: CRITICAL_UNRESOLVED_FORESHADOW_COUNT,
+      }),
+    ).toBe("critical");
+  });
+});
+
+describe("createKgImpactAnalyzer — revisionFingerprint", () => {
+  it("preview() embeds a non-empty fingerprint", () => {
+    const analyzer = createKgImpactAnalyzer({
+      db: buildMockDb({
+        entityRow: { id: ENTITY_ID, name: "Alice", type: "character" },
+        neighborRows: [],
+        foreshadowRows: [],
+        fingerprintRow: { entities: "3:2026-01-01", relations: "1:2026-01-02" },
+      }) as unknown as Parameters<typeof createKgImpactAnalyzer>[0]["db"],
+      logger: createMockLogger(),
+    });
+    const result = analyzer.preview({
+      projectId: PROJECT_ID,
+      entityId: ENTITY_ID,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.revisionFingerprint).toBe(
+      "e=3:2026-01-01;r=1:2026-01-02",
+    );
+  });
+
+  it("computeRevisionFingerprint() returns the same fingerprint as preview()", () => {
+    const plan: MockPlan = {
+      entityRow: { id: ENTITY_ID, name: "Alice", type: "character" },
+      neighborRows: [],
+      foreshadowRows: [],
+      fingerprintRow: { entities: "7:2026-04-01", relations: "2:2026-04-02" },
+    };
+    const analyzer = createKgImpactAnalyzer({
+      db: buildMockDb(plan) as unknown as Parameters<
+        typeof createKgImpactAnalyzer
+      >[0]["db"],
+      logger: createMockLogger(),
+    });
+    const fp = analyzer.computeRevisionFingerprint({ projectId: PROJECT_ID });
+    expect(fp.ok).toBe(true);
+    if (!fp.ok) return;
+    expect(fp.data.fingerprint).toBe("e=7:2026-04-01;r=2:2026-04-02");
+  });
+
+  it("computeRevisionFingerprint() rejects blank projectId with INVALID_ARGUMENT", () => {
+    const analyzer = createKgImpactAnalyzer({
+      db: buildMockDb({
+        entityRow: undefined,
+        neighborRows: [],
+        foreshadowRows: [],
+      }) as unknown as Parameters<typeof createKgImpactAnalyzer>[0]["db"],
+      logger: createMockLogger(),
+    });
+    const res = analyzer.computeRevisionFingerprint({ projectId: "" });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.code).toBe("INVALID_ARGUMENT");
+  });
+
+  it("computeRevisionFingerprint() returns DB_ERROR when the database throws", () => {
+    const logger = createMockLogger();
+    const failingDb = {
+      prepare: vi.fn().mockImplementation(() => ({
+        get: vi.fn().mockImplementation(() => {
+          throw new Error("boom");
+        }),
+        all: vi.fn(),
+      })),
+    };
+    const analyzer = createKgImpactAnalyzer({
+      db: failingDb as unknown as Parameters<
+        typeof createKgImpactAnalyzer
+      >[0]["db"],
+      logger,
+    });
+    const res = analyzer.computeRevisionFingerprint({
+      projectId: PROJECT_ID,
+    });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.code).toBe("DB_ERROR");
     expect(logger.error).toHaveBeenCalled();
   });
 });

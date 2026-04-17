@@ -47,6 +47,8 @@ export const IPC_ERROR_CODES = [
   "KG_RELATION_INVALID",
   "KG_SCOPE_VIOLATION",
   "KG_SUBGRAPH_K_EXCEEDED",
+  "KG_CONFIRMATION_REQUIRED",
+  "KG_STALE_PREVIEW",
   "PROJECT_SWITCH_TIMEOUT",
   "DOCUMENT_SAVE_CONFLICT",
   "MEMORY_BACKPRESSURE",
@@ -2040,6 +2042,14 @@ export const ipcContract = {
       request: s.object({
         projectId: s.string(),
         id: s.string(),
+        /**
+         * Opaque revision fingerprint returned by `knowledge:impact:preview`.
+         * The backend re-checks it against the current KG revision; a missing
+         * token yields `KG_CONFIRMATION_REQUIRED`, a stale one yields
+         * `KG_STALE_PREVIEW`. This binds the destructive write to a fresh
+         * impact preview (Issue #195, audit B1/B3).
+         */
+        confirmationToken: s.optional(s.string()),
       }),
       response: s.object({
         deleted: s.literal(true),
@@ -2133,6 +2143,7 @@ export const ipcContract = {
           s.literal("critical"),
         ),
         requiresTypedConfirmation: s.boolean(),
+        revisionFingerprint: s.string(),
         queryCostMs: s.number(),
       }),
     },

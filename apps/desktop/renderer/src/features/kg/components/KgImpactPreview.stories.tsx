@@ -42,6 +42,7 @@ const lowPreview: KgImpactPreviewPayload = {
   unresolvedForeshadowCount: 0,
   requiresTypedConfirmation: false,
   queryCostMs: 12,
+  revisionFingerprint: "e=1:2026-01-01;r=1:2026-01-01",
 };
 
 const midPreview: KgImpactPreviewPayload = {
@@ -54,6 +55,7 @@ const midPreview: KgImpactPreviewPayload = {
   unresolvedForeshadowCount: 0,
   requiresTypedConfirmation: false,
   queryCostMs: 18,
+  revisionFingerprint: "e=3:2026-01-02;r=3:2026-01-02",
 };
 
 const criticalPreview: KgImpactPreviewPayload = {
@@ -70,6 +72,7 @@ const criticalPreview: KgImpactPreviewPayload = {
   unresolvedForeshadowCount: 3,
   requiresTypedConfirmation: true,
   queryCostMs: 24,
+  revisionFingerprint: "e=12:2026-01-03;r=12:2026-01-03",
 };
 
 export const Low: Story = {

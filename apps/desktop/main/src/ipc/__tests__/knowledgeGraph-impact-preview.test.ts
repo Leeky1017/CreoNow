@@ -195,4 +195,45 @@ describe("knowledge:impact:preview IPC handler", () => {
     expect(res.ok).toBe(false);
     expect(res.error?.code).toBe("NOT_FOUND");
   });
+
+  // ── Payload shape validation (audit B4, INV-10) ─────────────────────────
+
+  it("rejects non-object payload with INVALID_ARGUMENT", async () => {
+    const { invoke } = createHarness();
+    const res = await invoke("knowledge:impact:preview", "not-an-object");
+    expect(res.ok).toBe(false);
+    expect(res.error?.code).toBe("INVALID_ARGUMENT");
+    expect(impactPreviewSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing projectId with INVALID_ARGUMENT", async () => {
+    const { invoke } = createHarness();
+    const res = await invoke("knowledge:impact:preview", {
+      entityId: "e1",
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error?.code).toBe("INVALID_ARGUMENT");
+    expect(impactPreviewSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-string entityId with INVALID_ARGUMENT", async () => {
+    const { invoke } = createHarness();
+    const res = await invoke("knowledge:impact:preview", {
+      projectId: "p1",
+      entityId: 123,
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error?.code).toBe("INVALID_ARGUMENT");
+    expect(impactPreviewSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects empty entityId with INVALID_ARGUMENT", async () => {
+    const { invoke } = createHarness();
+    const res = await invoke("knowledge:impact:preview", {
+      projectId: "p1",
+      entityId: "",
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error?.code).toBe("INVALID_ARGUMENT");
+  });
 });

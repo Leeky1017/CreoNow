@@ -42,8 +42,13 @@
  * Why these numbers: 10 / 3 match the issue body verbatim; 5 / 2 are
  * chosen to give a smooth ladder where each step doubles roughly, so
  * users do not see a sudden jump from "no confirmation needed" to
- * "type the name". Change these only together with the UX copy.
- */
+ * "type the name". Change these only together with the UX copy. *
+ * Thresholds are **heuristic** — v1 baseline. They are unsourced product
+ * judgement and must be tuned against real telemetry before calling them
+ * final. Tune via Issue #195 follow-up or by folding ENG-21 milestone
+ * event feedback into the severity decision.
+ * TODO(leeky 2026-06-30): replace heuristics with telemetry-driven
+ * thresholds once we have 4+ weeks of production confirm/cancel counters. */
 
 import type Database from "better-sqlite3";
 
@@ -90,6 +95,15 @@ export type KgImpactPreview = {
   severity: KgImpactSeverity;
   /** Whether the UI must require the user to type the entity name. */
   requiresTypedConfirmation: boolean;
+  /**
+   * Opaque fingerprint of the project's KG revision at preview time. The
+   * renderer passes this back on `entity:delete` as `confirmationToken`.
+   * If the KG has been mutated by a concurrent write between preview and
+   * confirm, the backend recomputes the fingerprint, notices the drift,
+   * and returns `KG_STALE_PREVIEW` — forcing the renderer to refetch and
+   * re-confirm instead of deleting against stale assumptions (B3).
+   */
+  revisionFingerprint: string;
   queryCostMs: number;
 };
 
@@ -98,6 +112,14 @@ export type KgImpactAnalyzer = {
     projectId: string;
     entityId: string;
   }): ServiceResult<KgImpactPreview>;
+  /**
+   * Recompute just the project revision fingerprint. Used by the
+   * `knowledge:entity:delete` gate to detect stale previews without
+   * recomputing the full relation/foreshadow scan.
+   */
+  computeRevisionFingerprint(args: {
+    projectId: string;
+  }): ServiceResult<{ fingerprint: string }>;
 };
 
 type EntityRow = {
@@ -218,7 +240,47 @@ export function createKgImpactAnalyzer(deps: {
         AND (r.source_entity_id = ? OR r.target_entity_id = ?)`,
   );
 
+  // Fingerprint query — cheap scan over both kg_entities and kg_relations,
+  // scoped by project_id. We concatenate count + MAX(updated_at) for each
+  // table so any insert / update / delete inside the project bumps the
+  // fingerprint. Opaque to the renderer; only equality matters.
+  const selectRevisionFingerprint = db.prepare<
+    [string, string],
+    { entities: string; relations: string }
+  >(
+    `SELECT
+       (SELECT COUNT(*) || ':' || COALESCE(MAX(updated_at), '0')
+          FROM kg_entities  WHERE project_id = ?) AS entities,
+       (SELECT COUNT(*) || ':' || COALESCE(MAX(updated_at), '0')
+          FROM kg_relations WHERE project_id = ?) AS relations`,
+  );
+
+  function readFingerprint(projectId: string): string {
+    const row = selectRevisionFingerprint.get(projectId, projectId);
+    // Row is guaranteed by SQL shape; fall back to an empty fingerprint if
+    // the driver returns undefined so downstream equality fails loudly
+    // rather than silently matching.
+    return row ? `e=${row.entities};r=${row.relations}` : "e=;r=";
+  }
+
   return {
+    computeRevisionFingerprint({ projectId }) {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      try {
+        return {
+          ok: true,
+          data: { fingerprint: readFingerprint(projectId.trim()) },
+        };
+      } catch (error) {
+        logger.error("kg_impact_fingerprint_failed", {
+          projectId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to compute KG revision fingerprint");
+      }
+    },
     preview({ projectId, entityId }) {
       const invalid = validateInputs({ projectId, entityId });
       if (invalid) {
@@ -299,6 +361,7 @@ export function createKgImpactAnalyzer(deps: {
             unresolvedForeshadowCount,
             severity,
             requiresTypedConfirmation,
+            revisionFingerprint: readFingerprint(normalizedProjectId),
             queryCostMs: Date.now() - startedAt,
           },
         };
