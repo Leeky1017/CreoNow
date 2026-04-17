@@ -131,6 +131,9 @@ const api = {
     ) => creonowInvoke("search:query:strategy", payload),
   },
   knowledge: {
+    deleteEntity: (
+      payload: Parameters<typeof creonowInvoke<"knowledge:entity:delete">>[1],
+    ) => creonowInvoke("knowledge:entity:delete", payload),
     listEntities: (
       payload: Parameters<typeof creonowInvoke<"knowledge:entity:list">>[1],
     ) => creonowInvoke("knowledge:entity:list", payload),

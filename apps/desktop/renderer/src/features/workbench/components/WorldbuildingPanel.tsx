@@ -1,4 +1,4 @@
-import { Globe, Grid3X3, History, Map, Plus, Search } from "lucide-react";
+import { Globe, Grid3X3, History, Map, Plus, Search, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
@@ -17,9 +17,11 @@ export interface WorldbuildingEntry {
 }
 
 interface WorldbuildingPanelProps {
+  deletingEntryId?: string | null;
   entries: WorldbuildingEntry[];
   errorMessage: string | null;
   onCreateEntry: () => void;
+  onDeleteEntry?: (entry: WorldbuildingEntry) => void;
   onQueryChange: (value: string) => void;
   onRetry: () => void;
   onTabChange: (tab: WorldbuildingTab) => void;
@@ -146,9 +148,25 @@ export function WorldbuildingPanel(props: WorldbuildingPanelProps) {
                     <h3 className="worldbuilding-entry-card__title">{entry.name}</h3>
                     <p className="worldbuilding-entry-card__type">{entry.typeLabel}</p>
                   </div>
-                  <span className={`worldbuilding-entry-card__status${entry.status === "detailed" ? " is-detailed" : ""}`}>
-                    {statusLabel(entry.status, t)}
-                  </span>
+                  <div className="worldbuilding-entry-card__actions">
+                    <span className={`worldbuilding-entry-card__status${entry.status === "detailed" ? " is-detailed" : ""}`}>
+                      {statusLabel(entry.status, t)}
+                    </span>
+                    {props.onDeleteEntry ? (
+                      <Button
+                        tone="ghost"
+                        onClick={() => props.onDeleteEntry?.(entry)}
+                        disabled={props.deletingEntryId === entry.id}
+                        data-testid={`worldbuilding-entry-delete-${entry.id}`}
+                        aria-label={t("sidebar.worldbuilding.deleteAria", { name: entry.name })}
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                        {props.deletingEntryId === entry.id
+                          ? t("sidebar.worldbuilding.deleting")
+                          : t("sidebar.worldbuilding.delete")}
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
                 <p className="worldbuilding-entry-card__desc">
                   {entry.description.length > 0 ? entry.description : t("sidebar.worldbuilding.entryDescriptionEmpty")}

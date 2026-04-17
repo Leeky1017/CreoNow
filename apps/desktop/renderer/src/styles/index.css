@@ -1721,6 +1721,11 @@ button {
   font-size: var(--text-status-size);
 }
 
+.knowledge-graph-summary-card__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .worldbuilding-panel {
   display: flex;
   flex-direction: column;
@@ -1840,6 +1845,13 @@ button {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.worldbuilding-entry-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: var(--space-2);
 }
 

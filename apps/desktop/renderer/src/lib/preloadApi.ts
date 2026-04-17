@@ -76,8 +76,10 @@ export interface PreloadApi {
     queryByStrategy?: InvokeHandler<"search:query:strategy">;
   };
   knowledge?: {
+    deleteEntity?: InvokeHandler<"knowledge:entity:delete">;
     listEntities: InvokeHandler<"knowledge:entity:list">;
     listRelations: InvokeHandler<"knowledge:relation:list">;
+    previewImpact?: InvokeHandler<"knowledge:impact:preview">;
   };
   engagement?: {
     getWorldScale: InvokeHandler<"engagement:worldscale:get">;
