@@ -101,7 +101,7 @@ export function ConfirmDialog({
         <AlertDialog.Overlay className="cn-confirm-dialog__overlay" />
         <AlertDialog.Content
           className={cn("cn-confirm-dialog", className)}
-          aria-describedby={description ? descriptionId : undefined}
+          aria-describedby={descriptionId}
           onEscapeKeyDown={(event) => {
             // Radix already closes on Escape; preventDefault is only here to
             // document intent — destructive dialogs must not close on Esc if
@@ -112,14 +112,12 @@ export function ConfirmDialog({
           <AlertDialog.Title className="cn-confirm-dialog__title">
             {title}
           </AlertDialog.Title>
-          {description && (
-            <AlertDialog.Description
-              id={descriptionId}
-              className="cn-confirm-dialog__description"
-            >
-              {description}
-            </AlertDialog.Description>
-          )}
+          <AlertDialog.Description
+            id={descriptionId}
+            className="cn-confirm-dialog__description"
+          >
+            {description ?? " "}
+          </AlertDialog.Description>
           {children && <div className="cn-confirm-dialog__body">{children}</div>}
           {typedConfirmValue != null && (
             <div className="cn-confirm-dialog__typed">

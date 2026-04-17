@@ -43,6 +43,12 @@ import {
   type CalendarMilestone,
   type CalendarPanelStatus,
 } from "@/features/workbench/components/CalendarPanel";
+import {
+  CharactersPanel,
+  type CharacterPanelEntry,
+  type CharacterPanelEntryStatus,
+  type CharactersPanelStatus,
+} from "@/features/workbench/components/CharactersPanel";
 import { CommandPalette, type CommandPaletteItem } from "@/features/workbench/components/CommandPalette";
 import { EditorSelectionToolbar } from "@/features/workbench/components/EditorSelectionToolbar";
 import {
@@ -194,13 +200,6 @@ function isScenarioId(value: string): value is ScenarioId {
   return SCENARIO_ITEMS.some((scenario) => scenario.id === value);
 }
 
-const QUICK_TOOL_ITEMS = [
-  "sidebar.quickTools.search",
-  "sidebar.quickTools.tree",
-  "sidebar.quickTools.conflict",
-  "sidebar.quickTools.export",
-] as const;
-
 function toWorldbuildingStatus(rawStatus: string | undefined, description: string): WorldbuildingEntryStatus {
   const normalized = rawStatus?.trim().toLocaleLowerCase();
   if (normalized === "detailed") {
@@ -233,6 +232,27 @@ function mapLocationToWorldbuildingEntry(
     status: toWorldbuildingStatus(location.attributes.status, location.description ?? ""),
     typeLabel,
     updatedAt: location.updatedAt,
+  };
+}
+
+function toCharacterEntryStatus(rawStatus: string | undefined): CharacterPanelEntryStatus {
+  const normalized = rawStatus?.trim().toLocaleLowerCase();
+  if (normalized === "active") {
+    return "active";
+  }
+  if (normalized === "draft") {
+    return "draft";
+  }
+  return "unknown";
+}
+
+function mapCharacterToPanelEntry(character: CharacterListItem): CharacterPanelEntry {
+  return {
+    description: character.description ?? "",
+    id: character.id,
+    name: character.name,
+    role: character.attributes.role?.trim() ?? "",
+    status: toCharacterEntryStatus(character.attributes.status),
   };
 }
 
@@ -482,6 +502,11 @@ function WorkbenchShell() {
   const [activeScenarioId, setActiveScenarioId] = useState<ScenarioId>("novel");
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [scenarioMenuOpen, setScenarioMenuOpen] = useState(false);
+  const [characterEntries, setCharacterEntries] = useState<CharacterPanelEntry[]>([]);
+  const [charactersStatus, setCharactersStatus] = useState<CharactersPanelStatus>("loading");
+  const [charactersErrorMessage, setCharactersErrorMessage] = useState<string | null>(null);
+  const [charactersQuery, setCharactersQuery] = useState("");
+  const [charactersReloadToken, setCharactersReloadToken] = useState(0);
   const [worldbuildingEntries, setWorldbuildingEntries] = useState<WorldbuildingEntry[]>([]);
   const [worldbuildingStatus, setWorldbuildingStatus] = useState<WorldbuildingPanelStatus>("loading");
   const [worldbuildingErrorMessage, setWorldbuildingErrorMessage] = useState<string | null>(null);
@@ -645,6 +670,10 @@ function WorkbenchShell() {
     setWorldbuildingReloadToken((value) => value + 1);
   }, []);
 
+  const triggerCharactersReload = useCallback(() => {
+    setCharactersReloadToken((value) => value + 1);
+  }, []);
+
   const triggerKnowledgeGraphReload = useCallback(() => {
     setKnowledgeGraphReloadToken((value) => value + 1);
   }, []);
@@ -741,6 +770,7 @@ function WorkbenchShell() {
           variant: "success",
         });
         closeKgDeleteDialog();
+        triggerCharactersReload();
         triggerWorldbuildingReload();
         triggerKnowledgeGraphReload();
       })
@@ -759,6 +789,7 @@ function WorkbenchShell() {
     project,
     showToast,
     t,
+    triggerCharactersReload,
     triggerKnowledgeGraphReload,
     triggerWorldbuildingReload,
   ]);
@@ -813,13 +844,6 @@ function WorkbenchShell() {
     [documents],
   );
 
-  const openExportModal = useCallback((mode: ExportPublishMode = "export") => {
-    setExportModalMode(mode);
-    setExportErrorMessage(null);
-    setExportResultPath(null);
-    setExportModalOpen(true);
-  }, []);
-
   const handleExportDocument = useCallback(async (format: ExportFormat) => {
     if (project === null) {
       setExportErrorMessage(t("export.modal.error.noProject"));
@@ -858,6 +882,13 @@ function WorkbenchShell() {
     }
   }, [activeDocument?.documentId, api, project, t]);
 
+  const openExportModal = useCallback((mode: ExportPublishMode = "export") => {
+    setExportModalMode(mode);
+    setExportErrorMessage(null);
+    setExportResultPath(null);
+    setExportModalOpen(true);
+  }, []);
+
   const handleScenarioRetry = useCallback(() => {
     setScenariosStatus("ready");
     setScenariosErrorMessage(null);
@@ -870,6 +901,13 @@ function WorkbenchShell() {
   const handleCreateWorldbuildingEntry = useCallback(() => {
     layout.setActiveLeftPanel("settings");
   }, [layout]);
+
+  useEffect(() => {
+    if (project === null) {
+      return;
+    }
+    setCharactersQuery("");
+  }, [project?.projectId]);
 
   useEffect(() => {
     if (project === null) {
@@ -1047,6 +1085,59 @@ function WorkbenchShell() {
     searchStrategy,
     t,
   ]);
+
+  useEffect(() => {
+    if (layout.activeLeftPanel !== "characters") {
+      return;
+    }
+    if (project === null) {
+      setCharacterEntries([]);
+      setCharactersStatus("error");
+      setCharactersErrorMessage(t("sidebar.characters.errorNoProject"));
+      return;
+    }
+
+    const listCharacters = (api.character as Partial<PreloadApi["character"]>).list;
+    if (typeof listCharacters !== "function") {
+      setCharacterEntries([]);
+      setCharactersStatus("error");
+      setCharactersErrorMessage(t("sidebar.characters.errorBridgeUnavailable"));
+      return;
+    }
+
+    let cancelled = false;
+    setCharacterEntries([]);
+    setCharactersStatus("loading");
+    setCharactersErrorMessage(null);
+
+    void listCharacters({ projectId: project.projectId })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        if (!result.ok) {
+          setCharacterEntries([]);
+          setCharactersStatus("error");
+          setCharactersErrorMessage(getHumanErrorMessage(result.error, t));
+          return;
+        }
+        setCharacterEntries(result.data.items.map(mapCharacterToPanelEntry));
+        setCharactersStatus("ready");
+        setCharactersErrorMessage(null);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setCharacterEntries([]);
+        setCharactersStatus("error");
+        setCharactersErrorMessage(getHumanErrorMessage(error as Error, t));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, charactersReloadToken, layout.activeLeftPanel, project?.projectId, t]);
 
   useEffect(() => {
     if (layout.activeLeftPanel !== "worldbuilding") {
@@ -2307,44 +2398,31 @@ function WorkbenchShell() {
     }
 
     if (layout.activeLeftPanel === "characters") {
-      return <div className="sidebar-surface">
-        <div className="panel-section">
-          <h1 className="screen-title">{t(`sidebar.${layout.activeLeftPanel}.title`)}</h1>
-          <p className="panel-subtitle">{t(`sidebar.${layout.activeLeftPanel}.subtitle`)}</p>
-        </div>
-        <div className="sidebar-quick-tools">
-          {QUICK_TOOL_ITEMS.map((toolKey) => (
-            <button
-              key={toolKey}
-              type="button"
-              className="sidebar-quick-tools__item"
-              onClick={() => {
-                if (toolKey === "sidebar.quickTools.search") {
-                  layout.setActiveLeftPanel("search");
-                  return;
-                }
-                if (toolKey === "sidebar.quickTools.tree") {
-                  layout.setActiveLeftPanel("knowledgeGraph");
-                  return;
-                }
-                if (toolKey === "sidebar.quickTools.conflict") {
-                  layout.handleRightPanelSelect("quality");
-                  return;
-                }
-                if (toolKey === "sidebar.quickTools.export") {
-                  openExportModal("export");
-                }
-              }}
-            >
-              {t(toolKey)}
-            </button>
-          ))}
-        </div>
-        <div className="sidebar-summary-card">
-          <p className="sidebar-label">{t("sidebar.quickTools.summary")}</p>
-          <p className="panel-meta">{t(`sidebar.${layout.activeLeftPanel}.state`)}</p>
-        </div>
-      </div>;
+      return <CharactersPanel
+        deletingEntryId={
+          kgDeleteInFlight && kgDeleteTarget?.source === "knowledgeGraph"
+            ? kgDeleteTarget.entityId
+            : null
+        }
+        entries={characterEntries}
+        errorMessage={charactersErrorMessage}
+        onConflictQuickTool={() => layout.handleRightPanelSelect("quality")}
+        onCreateEntry={handleCreateWorldbuildingEntry}
+        onDeleteEntry={(entry) => {
+          beginKgDeleteFlow({
+            entityId: entry.id,
+            entityName: entry.name,
+            source: "knowledgeGraph",
+          });
+        }}
+        onExportQuickTool={() => openExportModal("export")}
+        onKnowledgeGraphQuickTool={() => layout.setActiveLeftPanel("knowledgeGraph")}
+        onQueryChange={setCharactersQuery}
+        onRetry={triggerCharactersReload}
+        onSearchQuickTool={() => layout.setActiveLeftPanel("search")}
+        query={charactersQuery}
+        status={charactersStatus}
+      />;
     }
 
     if (layout.activeLeftPanel === "versionHistory") {

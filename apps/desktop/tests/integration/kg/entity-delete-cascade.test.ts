@@ -14,6 +14,10 @@ type RelationListDto = {
   items: RelationDto[];
 };
 
+type ImpactPreviewDto = {
+  revisionFingerprint: string;
+};
+
 type DeleteEntityDto = {
   deleted: true;
   deletedRelationCount: number;
@@ -56,9 +60,22 @@ type DeleteEntityDto = {
       assert.fail("expected success");
     }
 
+    const previewRes = await harness.invoke<ImpactPreviewDto>(
+      "knowledge:impact:preview",
+      {
+        projectId: harness.projectId,
+        entityId: aRes.data.id,
+      },
+    );
+    assert.equal(previewRes.ok, true);
+    if (!previewRes.ok) {
+      assert.fail("expected preview success");
+    }
+
     const delRes = await harness.invoke<DeleteEntityDto>(
       "knowledge:entity:delete",
       {
+        confirmationToken: previewRes.data.revisionFingerprint,
         projectId: harness.projectId,
         id: aRes.data.id,
       },

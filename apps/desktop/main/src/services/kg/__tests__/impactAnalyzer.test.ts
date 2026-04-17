@@ -41,6 +41,7 @@ interface MockDb {
 }
 
 interface MockPlan {
+  entityColumns?: string[];
   entityRow: { id: string; name: string; type: string } | undefined;
   neighborRows: Array<{
     id: string;
@@ -52,6 +53,7 @@ interface MockPlan {
   }>;
   foreshadowRows: Array<{ id: string; name: string }>;
   fingerprintRow?: { entities: string; relations: string };
+  relationColumns?: string[];
 }
 
 /**
@@ -66,6 +68,18 @@ function buildMockDb(plan: MockPlan): MockDb {
     relations: "0:0",
   };
   const statements: PreparedStatement[] = [
+    {
+      get: vi.fn(),
+      all: vi.fn().mockReturnValue(
+        (plan.entityColumns ?? ["updated_at"]).map((name) => ({ name })),
+      ),
+    },
+    {
+      get: vi.fn(),
+      all: vi.fn().mockReturnValue(
+        (plan.relationColumns ?? ["updated_at"]).map((name) => ({ name })),
+      ),
+    },
     { get: vi.fn().mockReturnValue(plan.entityRow), all: vi.fn() },
     { get: vi.fn(), all: vi.fn().mockReturnValue(plan.neighborRows) },
     { get: vi.fn(), all: vi.fn().mockReturnValue(plan.foreshadowRows) },
@@ -459,5 +473,24 @@ describe("createKgImpactAnalyzer — revisionFingerprint", () => {
     if (res.ok) return;
     expect(res.error.code).toBe("DB_ERROR");
     expect(logger.error).toHaveBeenCalled();
+  });
+
+  it("falls back to created_at when kg_relations has no updated_at column", () => {
+    const analyzer = createKgImpactAnalyzer({
+      db: buildMockDb({
+        entityColumns: ["updated_at"],
+        relationColumns: ["created_at"],
+        entityRow: { id: ENTITY_ID, name: "Alice", type: "character" },
+        neighborRows: [],
+        foreshadowRows: [],
+        fingerprintRow: { entities: "2:2026-04-01", relations: "1:2026-04-02" },
+      }) as unknown as Parameters<typeof createKgImpactAnalyzer>[0]["db"],
+      logger: createMockLogger(),
+    });
+
+    const result = analyzer.computeRevisionFingerprint({ projectId: PROJECT_ID });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.fingerprint).toBe("e=2:2026-04-01;r=1:2026-04-02");
   });
 });

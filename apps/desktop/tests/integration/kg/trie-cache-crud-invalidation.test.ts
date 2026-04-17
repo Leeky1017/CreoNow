@@ -23,6 +23,10 @@ type EntityListDto = {
   totalCount: number;
 };
 
+type ImpactPreviewDto = {
+  revisionFingerprint: string;
+};
+
 // Reset cache state before integration tests
 trieCacheInvalidate();
 
@@ -192,7 +196,19 @@ trieCacheInvalidate();
     assert.equal(trieCacheHas(projectId), true, "cache seeded before delete");
 
     // Delete entity
+    const previewRes = await harness.invoke<ImpactPreviewDto>(
+      "knowledge:impact:preview",
+      {
+        projectId,
+        entityId,
+      },
+    );
+    if (!previewRes.ok) {
+      assert.fail("impact preview failed before delete");
+    }
+
     await harness.invoke("knowledge:entity:delete", {
+      confirmationToken: previewRes.data.revisionFingerprint,
       projectId,
       id: entityId,
     });

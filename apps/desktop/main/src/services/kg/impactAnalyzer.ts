@@ -142,6 +142,10 @@ type ForeshadowRow = {
   name: string;
 };
 
+type TableInfoRow = {
+  name: string;
+};
+
 /**
  * Decide severity from relation / foreshadow counts.
  *
@@ -185,6 +189,30 @@ export function createKgImpactAnalyzer(deps: {
   logger: Logger;
 }): KgImpactAnalyzer {
   const { db, logger } = deps;
+
+  function resolveTimestampColumn(
+    tableName: "kg_entities" | "kg_relations",
+  ): "updated_at" | "created_at" {
+    try {
+      const columns = db
+        .prepare(`PRAGMA table_info(${tableName})`)
+        .all() as TableInfoRow[];
+      const names = new Set(
+        columns
+          .map((column) => column.name)
+          .filter((name): name is string => typeof name === "string"),
+      );
+      if (names.has("updated_at")) {
+        return "updated_at";
+      }
+    } catch {
+      // Fall through to created_at for older schemas or lightweight harnesses.
+    }
+    return "created_at";
+  }
+
+  const entityTimestampColumn = resolveTimestampColumn("kg_entities");
+  const relationTimestampColumn = resolveTimestampColumn("kg_relations");
 
   // Pull the target entity. Scoped by project_id to prevent cross-project
   // leakage even if the renderer passes a mismatched pair.
@@ -249,9 +277,9 @@ export function createKgImpactAnalyzer(deps: {
     { entities: string; relations: string }
   >(
     `SELECT
-       (SELECT COUNT(*) || ':' || COALESCE(MAX(updated_at), '0')
+       (SELECT COUNT(*) || ':' || COALESCE(MAX(${entityTimestampColumn}), '0')
           FROM kg_entities  WHERE project_id = ?) AS entities,
-       (SELECT COUNT(*) || ':' || COALESCE(MAX(updated_at), '0')
+       (SELECT COUNT(*) || ':' || COALESCE(MAX(${relationTimestampColumn}), '0')
           FROM kg_relations WHERE project_id = ?) AS relations`,
   );
 
