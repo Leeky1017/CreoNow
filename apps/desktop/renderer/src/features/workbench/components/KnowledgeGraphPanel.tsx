@@ -1,4 +1,4 @@
-import { Info, Search } from "lucide-react";
+import { Info, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -19,10 +19,12 @@ export type KnowledgeGraphPanelView = "graph" | "summary";
 export type KnowledgeGraphLink = KnowledgeGraphEdge;
 
 export interface KnowledgeGraphPanelProps {
+  deletingNodeId?: string | null;
   edges?: KnowledgeGraphEdge[];
   errorMessage?: string | null;
   links?: KnowledgeGraphEdge[];
   noticeMessage?: string | null;
+  onDeleteNode?: (node: KnowledgeGraphNode) => void;
   nodes: KnowledgeGraphNode[];
   onQueryChange?: (value: string) => void;
   onRetry?: () => void;
@@ -70,10 +72,12 @@ function toTestIdSuffix(value: string): string {
 export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
   const { t, i18n } = useTranslation();
   const {
+    deletingNodeId = null,
     edges: explicitEdges,
     errorMessage,
     links,
     noticeMessage,
+    onDeleteNode,
     nodes,
     onQueryChange,
     onRetry,
@@ -221,6 +225,17 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
       onSelectNode?.(nodeId);
     },
     [controlledSelectedNodeId, onSelectNode],
+  );
+
+  const handleNodeContextMenu = useCallback(
+    (nodeId: string) => {
+      const node = filteredNodes.find((candidate) => candidate.id === nodeId);
+      if (node === undefined) {
+        return;
+      }
+      onDeleteNode?.(node);
+    },
+    [filteredNodes, onDeleteNode],
   );
 
   const handleTypeToggle = useCallback((type: KnowledgeGraphNodeType) => {
@@ -396,6 +411,7 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
                 edges={filteredEdges}
                 nodeColorMap={NODE_TYPE_COLORS}
                 nodes={filteredNodes}
+                onNodeContextMenu={handleNodeContextMenu}
                 selectedNodeId={selectedNodeId}
                 onNodeSelect={handleNodeSelect}
               />
@@ -435,6 +451,20 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
                         {resolveNodeTypeLabel(selectedNode.type)}
                       </p>
                     </div>
+                    {onDeleteNode ? (
+                      <Button
+                        tone="ghost"
+                        onClick={() => onDeleteNode(selectedNode)}
+                        disabled={deletingNodeId === selectedNode.id}
+                        data-testid={`knowledge-graph-detail-delete-${toTestIdSuffix(selectedNode.id)}`}
+                        aria-label={t("sidebar.knowledgeGraph.deleteAria", { name: selectedNode.name })}
+                      >
+                        <Trash2 size={14} aria-hidden />
+                        {deletingNodeId === selectedNode.id
+                          ? t("sidebar.knowledgeGraph.deleting")
+                          : t("sidebar.knowledgeGraph.delete")}
+                      </Button>
+                    ) : null}
 
                     <dl className="details-grid">
                       <div className="details-row">
@@ -511,6 +541,22 @@ export function KnowledgeGraphPanel(props: KnowledgeGraphPanelProps) {
                   timestamp: summaryTimestampFormatter.format(node.updatedAt ?? 0),
                 })}
               </p>
+              {onDeleteNode ? (
+                <div className="knowledge-graph-summary-card__actions">
+                  <Button
+                    tone="ghost"
+                    onClick={() => onDeleteNode(node)}
+                    disabled={deletingNodeId === node.id}
+                    data-testid={`knowledge-graph-summary-delete-${toTestIdSuffix(node.id)}`}
+                    aria-label={t("sidebar.knowledgeGraph.deleteAria", { name: node.name })}
+                  >
+                    <Trash2 size={14} aria-hidden />
+                    {deletingNodeId === node.id
+                      ? t("sidebar.knowledgeGraph.deleting")
+                      : t("sidebar.knowledgeGraph.delete")}
+                  </Button>
+                </div>
+              ) : null}
             </article>
           ))}
         </section>

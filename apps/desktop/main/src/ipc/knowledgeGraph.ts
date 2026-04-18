@@ -31,6 +31,11 @@ import {
   createKgMutationSkill,
   type KgMutationSkill,
 } from "../services/skills/kgMutationSkill";
+import {
+  createKgImpactAnalyzer,
+  type KgImpactAnalyzer,
+  type KgImpactPreview,
+} from "../services/kg/impactAnalyzer";
 import { createMilestoneService } from "../services/engagement/milestoneService";
 import { createWorldScaleService } from "../services/engagement/worldScaleService";
 import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
@@ -79,6 +84,7 @@ type EntityUpdatePayload = {
 type EntityDeletePayload = {
   projectId: string;
   id: string;
+  confirmationToken?: string;
 };
 
 type RelationCreatePayload = {
@@ -171,6 +177,56 @@ type QueryByIdsPayload = {
   entityIds: string[];
 };
 
+type ImpactPreviewPayload = {
+  projectId: string;
+  entityId: string;
+};
+
+/**
+ * Shape-validate a raw `knowledge:impact:preview` payload from the renderer.
+ *
+ * Mirrors {@link normalizeQueryByIdsPayload} so malformed input yields a
+ * typed `INVALID_ARGUMENT` response instead of letting a stray `TypeError`
+ * bubble out of `analyzer.preview(...)` — which would violate INV-10 by
+ * dropping the trace context on the floor (audit B4).
+ */
+function normalizeImpactPreviewPayload(
+  payload: unknown,
+):
+  | { ok: true; payload: ImpactPreviewPayload }
+  | { ok: false; message: string } {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { ok: false, message: "payload must be an object" };
+  }
+
+  const candidate = payload as {
+    projectId?: unknown;
+    entityId?: unknown;
+  };
+
+  if (
+    typeof candidate.projectId !== "string" ||
+    candidate.projectId.length === 0
+  ) {
+    return { ok: false, message: "projectId is required" };
+  }
+
+  if (
+    typeof candidate.entityId !== "string" ||
+    candidate.entityId.length === 0
+  ) {
+    return { ok: false, message: "entityId is required" };
+  }
+
+  return {
+    ok: true,
+    payload: {
+      projectId: candidate.projectId,
+      entityId: candidate.entityId,
+    },
+  };
+}
+
 function normalizeQueryByIdsPayload(
   payload: unknown,
 ): { ok: true; payload: QueryByIdsPayload } | { ok: false; message: string } {
@@ -257,6 +313,13 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   kgWriteOrchestrator?: KgWriteOrchestrator | null;
   /** Override for testing — inject a pre-built KgMutationSkill */
   kgMutationSkill?: KgMutationSkill | null;
+  /**
+   * Override for testing — inject a pre-built KgImpactAnalyzer. When
+   * omitted in production, the handler factory creates one from `deps.db`
+   * lazily the first time either `knowledge:impact:preview` or the
+   * `knowledge:entity:delete` confirmation gate needs it.
+   */
+  impactAnalyzer?: KgImpactAnalyzer | null;
 }): void {
   const recognitionRuntime: KgRecognitionRuntime | null = deps.db
     ? (deps.recognitionRuntime ??
@@ -300,6 +363,32 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     }
 
     return createKgWriteOrchestrator({ kgMutationSkill: mutationSkill });
+  }
+
+  // Impact analyzer is needed by both `knowledge:impact:preview` (read path)
+  // and by the `knowledge:entity:delete` confirmation gate (write path),
+  // so it must live at factory scope and be memoized — otherwise we would
+  // rebuild prepared statements on every IPC call. The `undefined` vs
+  // `null` distinction mirrors the other createX helpers: `undefined` =
+  // "not injected, build from db"; `null` = "explicitly disabled for this
+  // harness" (used by tests that don't want the gate enforced).
+  let cachedImpactAnalyzer: KgImpactAnalyzer | null | undefined;
+  function getImpactAnalyzer(): KgImpactAnalyzer | null {
+    if (deps.impactAnalyzer !== undefined) {
+      return deps.impactAnalyzer;
+    }
+    if (cachedImpactAnalyzer !== undefined) {
+      return cachedImpactAnalyzer;
+    }
+    if (!deps.db) {
+      cachedImpactAnalyzer = null;
+      return null;
+    }
+    cachedImpactAnalyzer = createKgImpactAnalyzer({
+      db: deps.db,
+      logger: deps.logger,
+    });
+    return cachedImpactAnalyzer;
   }
 
   function handleWithProjectAccess<TPayload, TResponse, TEvent = unknown>(
@@ -396,6 +485,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     createService,
     createWriteOrchestrator,
     triggerEngagementMilestone,
+    getImpactAnalyzer,
   );
   registerKgRelationHandlers(
     deps,
@@ -630,6 +720,39 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
       };
     },
   );
+
+  // ── Read-only impact preview → direct service call ──
+  //
+  // Read-only path: no writes, no LLM. INV-6 governs skill-mediated writes;
+  // a pure SQL read needs neither kgWriteOrchestrator nor Permission Gate.
+  // The gate is still enforced on the subsequent entityDelete call (Issue
+  // #195) via the confirmationToken check in registerKgEntityHandlers.
+  handleWithProjectAccess(
+    "knowledge:impact:preview",
+    async (
+      _event,
+      payload: unknown,
+    ): Promise<IpcResponse<KgImpactPreview>> => {
+      if (!deps.db) {
+        return notReady<KgImpactPreview>();
+      }
+      const normalized = normalizeImpactPreviewPayload(payload);
+      if (!normalized.ok) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: normalized.message },
+        };
+      }
+      const analyzer = getImpactAnalyzer();
+      if (!analyzer) {
+        return notReady<KgImpactPreview>();
+      }
+      const res = analyzer.preview(normalized.payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
 }
 
 function registerKgEntityHandlers(
@@ -638,6 +761,7 @@ function registerKgEntityHandlers(
   createService: () => ReturnType<typeof createKnowledgeGraphService> | null,
   createWriteOrchestrator: () => KgWriteOrchestrator | null,
   triggerEngagementMilestone: EngagementMilestoneTrigger,
+  getImpactAnalyzer: () => KgImpactAnalyzer | null,
 ): void {
   async function executeWrite<TPayload extends { projectId: string }, TResponse>(
     operation: KgWriteOperation,
@@ -763,6 +887,53 @@ function registerKgEntityHandlers(
     > => {
       if (!deps.db) {
         return notReady<{ deleted: true; deletedRelationCount: number }>();
+      }
+
+      // ── Confirmation gate (Issue #195, audit B1/B3) ──
+      //
+      // Any caller of `knowledge:entity:delete` must first have fetched a
+      // fresh `knowledge:impact:preview`; the preview ships a revision
+      // fingerprint that we re-verify here. Missing token → the renderer
+      // never showed the ritual. Stale token → the KG was mutated between
+      // preview and confirm, and the user's mental model is out of date.
+      //
+      // Analyzer may be intentionally null in test harnesses that pre-date
+      // this gate; in production wiring (main/index.ts) `deps.db` is always
+      // present so `getImpactAnalyzer()` returns a real instance.
+      const analyzer = getImpactAnalyzer();
+      if (analyzer) {
+        if (
+          typeof payload.confirmationToken !== "string" ||
+          payload.confirmationToken.length === 0
+        ) {
+          return {
+            ok: false,
+            error: {
+              code: "KG_CONFIRMATION_REQUIRED",
+              message:
+                "entity:delete requires a confirmationToken from knowledge:impact:preview",
+            },
+          };
+        }
+        const fingerprintResult = analyzer.computeRevisionFingerprint({
+          entityId: payload.id,
+          projectId: payload.projectId,
+        });
+        if (!fingerprintResult.ok) {
+          return { ok: false, error: fingerprintResult.error };
+        }
+        if (
+          fingerprintResult.data.fingerprint !== payload.confirmationToken
+        ) {
+          return {
+            ok: false,
+            error: {
+              code: "KG_STALE_PREVIEW",
+              message:
+                "Knowledge graph changed since the impact preview; refetch and re-confirm",
+            },
+          };
+        }
       }
 
       return executeWrite<

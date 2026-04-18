@@ -43,6 +43,12 @@ import {
   type CalendarMilestone,
   type CalendarPanelStatus,
 } from "@/features/workbench/components/CalendarPanel";
+import {
+  CharactersPanel,
+  type CharacterPanelEntry,
+  type CharacterPanelEntryStatus,
+  type CharactersPanelStatus,
+} from "@/features/workbench/components/CharactersPanel";
 import { CommandPalette, type CommandPaletteItem } from "@/features/workbench/components/CommandPalette";
 import { EditorSelectionToolbar } from "@/features/workbench/components/EditorSelectionToolbar";
 import {
@@ -58,6 +64,10 @@ import {
   type KnowledgeGraphPanelStatus,
   type KnowledgeGraphPanelView,
 } from "@/features/workbench/components/KnowledgeGraphPanel";
+import {
+  KgImpactPreview,
+  type KgImpactPreviewPayload,
+} from "@/features/kg/components/KgImpactPreview";
 import {
   SearchPanel,
   type SearchPanelResult,
@@ -122,6 +132,12 @@ type EngagementMilestoneItem = IpcResponseData<"engagement:milestone:list">["ite
 type EngagementCompletionEstimate = IpcResponseData<"engagement:completion:estimate">;
 
 type BootstrapStatus = "loading" | "ready" | "error";
+type KgDeleteTargetSource = "knowledgeGraph" | "worldbuilding";
+type KgDeleteTarget = {
+  entityId: string;
+  entityName: string;
+  source: KgDeleteTargetSource;
+};
 
 type VersionPreviewState = {
   currentContentJson: string;
@@ -184,13 +200,6 @@ function isScenarioId(value: string): value is ScenarioId {
   return SCENARIO_ITEMS.some((scenario) => scenario.id === value);
 }
 
-const QUICK_TOOL_ITEMS = [
-  "sidebar.quickTools.search",
-  "sidebar.quickTools.tree",
-  "sidebar.quickTools.conflict",
-  "sidebar.quickTools.export",
-] as const;
-
 function toWorldbuildingStatus(rawStatus: string | undefined, description: string): WorldbuildingEntryStatus {
   const normalized = rawStatus?.trim().toLocaleLowerCase();
   if (normalized === "detailed") {
@@ -223,6 +232,46 @@ function mapLocationToWorldbuildingEntry(
     status: toWorldbuildingStatus(location.attributes.status, location.description ?? ""),
     typeLabel,
     updatedAt: location.updatedAt,
+  };
+}
+
+function toCharacterEntryStatus(rawStatus: string | undefined): CharacterPanelEntryStatus {
+  const normalized = rawStatus?.trim().toLocaleLowerCase();
+  if (normalized === "active") {
+    return "active";
+  }
+  if (normalized === "draft") {
+    return "draft";
+  }
+  return "unknown";
+}
+
+function mapCharacterToPanelEntry(character: CharacterListItem): CharacterPanelEntry {
+  return {
+    description: character.description ?? "",
+    id: character.id,
+    name: character.name,
+    role: character.attributes.role?.trim() ?? "",
+    status: toCharacterEntryStatus(character.attributes.status),
+  };
+}
+
+function mapKnowledgeEntityToWorldbuildingEntry(
+  entity: KnowledgeEntityListItem,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): WorldbuildingEntry {
+  const statusSeed = typeof entity.attributes.status === "string"
+    ? entity.attributes.status
+    : entity.lastSeenState;
+  return {
+    description: entity.description ?? "",
+    id: entity.id,
+    name: entity.name,
+    status: toWorldbuildingStatus(statusSeed, entity.description ?? ""),
+    typeLabel: t("sidebar.worldbuilding.entryType.tagged", {
+      type: t(`sidebar.knowledgeGraph.type.${entity.type}`),
+    }),
+    updatedAt: parseTimestampToMs(entity.updatedAt),
   };
 }
 
@@ -427,6 +476,7 @@ export function WorkbenchApp() {
 
 function WorkbenchShell() {
   const { t } = useTranslation();
+  const { showToast } = useAppToast();
   const api = useMemo(() => getPreloadApi(), []);
   const exportProgress = useExportProgress();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -452,6 +502,11 @@ function WorkbenchShell() {
   const [activeScenarioId, setActiveScenarioId] = useState<ScenarioId>("novel");
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [scenarioMenuOpen, setScenarioMenuOpen] = useState(false);
+  const [characterEntries, setCharacterEntries] = useState<CharacterPanelEntry[]>([]);
+  const [charactersStatus, setCharactersStatus] = useState<CharactersPanelStatus>("loading");
+  const [charactersErrorMessage, setCharactersErrorMessage] = useState<string | null>(null);
+  const [charactersQuery, setCharactersQuery] = useState("");
+  const [charactersReloadToken, setCharactersReloadToken] = useState(0);
   const [worldbuildingEntries, setWorldbuildingEntries] = useState<WorldbuildingEntry[]>([]);
   const [worldbuildingStatus, setWorldbuildingStatus] = useState<WorldbuildingPanelStatus>("loading");
   const [worldbuildingErrorMessage, setWorldbuildingErrorMessage] = useState<string | null>(null);
@@ -466,6 +521,10 @@ function WorkbenchShell() {
   const [knowledgeGraphQuery, setKnowledgeGraphQuery] = useState("");
   const [knowledgeGraphView, setKnowledgeGraphView] = useState<KnowledgeGraphPanelView>("graph");
   const [knowledgeGraphReloadToken, setKnowledgeGraphReloadToken] = useState(0);
+  const [kgDeleteTarget, setKgDeleteTarget] = useState<KgDeleteTarget | null>(null);
+  const [kgDeletePreview, setKgDeletePreview] = useState<KgImpactPreviewPayload | null>(null);
+  const [kgDeleteErrorMessage, setKgDeleteErrorMessage] = useState<string | null>(null);
+  const [kgDeleteInFlight, setKgDeleteInFlight] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchPanelResult[]>([]);
   const [searchStatus, setSearchStatus] = useState<SearchPanelStatus>("ready");
   const [searchErrorMessage, setSearchErrorMessage] = useState<string | null>(null);
@@ -611,6 +670,10 @@ function WorkbenchShell() {
     setWorldbuildingReloadToken((value) => value + 1);
   }, []);
 
+  const triggerCharactersReload = useCallback(() => {
+    setCharactersReloadToken((value) => value + 1);
+  }, []);
+
   const triggerKnowledgeGraphReload = useCallback(() => {
     setKnowledgeGraphReloadToken((value) => value + 1);
   }, []);
@@ -622,6 +685,114 @@ function WorkbenchShell() {
   const triggerMemoryReload = useCallback(() => {
     setMemoryReloadToken((value) => value + 1);
   }, []);
+
+  const closeKgDeleteDialog = useCallback(() => {
+    setKgDeleteTarget(null);
+    setKgDeletePreview(null);
+    setKgDeleteErrorMessage(null);
+    setKgDeleteInFlight(false);
+  }, []);
+
+  const beginKgDeleteFlow = useCallback(
+    (target: KgDeleteTarget) => {
+      if (project === null) {
+        showToast({
+          title: t("kg.impact.error"),
+          description: t("sidebar.knowledgeGraph.errorNoProject"),
+          variant: "error",
+        });
+        return;
+      }
+
+      const previewImpact = api.knowledge?.previewImpact;
+      const deleteEntity = api.knowledge?.deleteEntity;
+      if (typeof previewImpact !== "function" || typeof deleteEntity !== "function") {
+        showToast({
+          title: t("kg.impact.error"),
+          description: t("kg.impact.errorBridgeUnavailable"),
+          variant: "error",
+        });
+        return;
+      }
+
+      setKgDeleteTarget(target);
+      setKgDeletePreview(null);
+      setKgDeleteErrorMessage(null);
+      setKgDeleteInFlight(false);
+
+      void previewImpact({
+        entityId: target.entityId,
+        projectId: project.projectId,
+      })
+        .then((result) => {
+          if (!result.ok) {
+            setKgDeletePreview(null);
+            setKgDeleteErrorMessage(getHumanErrorMessage(result.error, t));
+            return;
+          }
+          setKgDeletePreview(result.data);
+          setKgDeleteErrorMessage(null);
+        })
+        .catch((error) => {
+          setKgDeletePreview(null);
+          setKgDeleteErrorMessage(getHumanErrorMessage(error as Error, t));
+        });
+    },
+    [api, project, showToast, t],
+  );
+
+  const handleConfirmKgDelete = useCallback(() => {
+    if (kgDeleteTarget === null || kgDeletePreview === null || project === null || kgDeleteInFlight) {
+      return;
+    }
+
+    const deleteEntity = api.knowledge?.deleteEntity;
+    if (typeof deleteEntity !== "function") {
+      setKgDeleteErrorMessage(t("kg.impact.errorBridgeUnavailable"));
+      return;
+    }
+
+    setKgDeleteInFlight(true);
+    setKgDeleteErrorMessage(null);
+    void deleteEntity({
+      confirmationToken: kgDeletePreview.revisionFingerprint,
+      id: kgDeleteTarget.entityId,
+      projectId: project.projectId,
+    })
+      .then((result) => {
+        if (!result.ok) {
+          setKgDeleteErrorMessage(getHumanErrorMessage(result.error, t));
+          return;
+        }
+        showToast({
+          title: t("kg.impact.deleteSuccessTitle", { name: kgDeleteTarget.entityName }),
+          description: t("kg.impact.deleteSuccessDescription"),
+          variant: "success",
+        });
+        closeKgDeleteDialog();
+        triggerCharactersReload();
+        triggerWorldbuildingReload();
+        triggerKnowledgeGraphReload();
+      })
+      .catch((error) => {
+        setKgDeleteErrorMessage(getHumanErrorMessage(error as Error, t));
+      })
+      .finally(() => {
+        setKgDeleteInFlight(false);
+      });
+  }, [
+    api,
+    closeKgDeleteDialog,
+    kgDeleteInFlight,
+    kgDeletePreview,
+    kgDeleteTarget,
+    project,
+    showToast,
+    t,
+    triggerCharactersReload,
+    triggerKnowledgeGraphReload,
+    triggerWorldbuildingReload,
+  ]);
 
   const scenarioTemplates = useMemo<ScenarioTemplate[]>(
     () =>
@@ -673,13 +844,6 @@ function WorkbenchShell() {
     [documents],
   );
 
-  const openExportModal = useCallback((mode: ExportPublishMode = "export") => {
-    setExportModalMode(mode);
-    setExportErrorMessage(null);
-    setExportResultPath(null);
-    setExportModalOpen(true);
-  }, []);
-
   const handleExportDocument = useCallback(async (format: ExportFormat) => {
     if (project === null) {
       setExportErrorMessage(t("export.modal.error.noProject"));
@@ -718,6 +882,13 @@ function WorkbenchShell() {
     }
   }, [activeDocument?.documentId, api, project, t]);
 
+  const openExportModal = useCallback((mode: ExportPublishMode = "export") => {
+    setExportModalMode(mode);
+    setExportErrorMessage(null);
+    setExportResultPath(null);
+    setExportModalOpen(true);
+  }, []);
+
   const handleScenarioRetry = useCallback(() => {
     setScenariosStatus("ready");
     setScenariosErrorMessage(null);
@@ -735,6 +906,13 @@ function WorkbenchShell() {
     if (project === null) {
       return;
     }
+    setCharactersQuery("");
+  }, [project?.projectId]);
+
+  useEffect(() => {
+    if (project === null) {
+      return;
+    }
     setWorldbuildingQuery("");
     setWorldbuildingTab("encyclopedia");
   }, [project?.projectId]);
@@ -746,6 +924,10 @@ function WorkbenchShell() {
     setKnowledgeGraphQuery("");
     setKnowledgeGraphView("graph");
   }, [project?.projectId]);
+
+  useEffect(() => {
+    closeKgDeleteDialog();
+  }, [closeKgDeleteDialog, project?.projectId]);
 
   useEffect(() => {
     setMemoryQuery("");
@@ -905,6 +1087,59 @@ function WorkbenchShell() {
   ]);
 
   useEffect(() => {
+    if (layout.activeLeftPanel !== "characters") {
+      return;
+    }
+    if (project === null) {
+      setCharacterEntries([]);
+      setCharactersStatus("error");
+      setCharactersErrorMessage(t("sidebar.characters.errorNoProject"));
+      return;
+    }
+
+    const listCharacters = (api.character as Partial<PreloadApi["character"]>).list;
+    if (typeof listCharacters !== "function") {
+      setCharacterEntries([]);
+      setCharactersStatus("error");
+      setCharactersErrorMessage(t("sidebar.characters.errorBridgeUnavailable"));
+      return;
+    }
+
+    let cancelled = false;
+    setCharacterEntries([]);
+    setCharactersStatus("loading");
+    setCharactersErrorMessage(null);
+
+    void listCharacters({ projectId: project.projectId })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        if (!result.ok) {
+          setCharacterEntries([]);
+          setCharactersStatus("error");
+          setCharactersErrorMessage(getHumanErrorMessage(result.error, t));
+          return;
+        }
+        setCharacterEntries(result.data.items.map(mapCharacterToPanelEntry));
+        setCharactersStatus("ready");
+        setCharactersErrorMessage(null);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setCharacterEntries([]);
+        setCharactersStatus("error");
+        setCharactersErrorMessage(getHumanErrorMessage(error as Error, t));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, charactersReloadToken, layout.activeLeftPanel, project?.projectId, t]);
+
+  useEffect(() => {
     if (layout.activeLeftPanel !== "worldbuilding") {
       return;
     }
@@ -915,8 +1150,9 @@ function WorkbenchShell() {
       return;
     }
 
+    const listKnowledgeEntities = api.knowledge?.listEntities;
     const listLocations = (api.location as Partial<PreloadApi["location"]>).list;
-    if (typeof listLocations !== "function") {
+    if (typeof listKnowledgeEntities !== "function" && typeof listLocations !== "function") {
       setWorldbuildingEntries([]);
       setWorldbuildingStatus("error");
       setWorldbuildingErrorMessage(t("sidebar.worldbuilding.errorBridgeUnavailable"));
@@ -928,8 +1164,55 @@ function WorkbenchShell() {
     setWorldbuildingStatus("loading");
     setWorldbuildingErrorMessage(null);
 
-    void listLocations({ projectId: project.projectId })
-      .then((result) => {
+    void (async () => {
+      if (typeof listKnowledgeEntities === "function") {
+        try {
+          const result = await listKnowledgeEntities({
+            projectId: project.projectId,
+            limit: KNOWLEDGE_GRAPH_ENTITY_PAGE_LIMIT,
+            offset: 0,
+          });
+          if (cancelled) {
+            return;
+          }
+          if (result.ok) {
+            const entries = result.data.items
+              .filter((entity) => entity.type !== "character")
+              .map((entity) => mapKnowledgeEntityToWorldbuildingEntry(entity, t))
+              .sort((left, right) => right.updatedAt - left.updatedAt);
+            setWorldbuildingEntries(entries);
+            setWorldbuildingStatus("ready");
+            setWorldbuildingErrorMessage(null);
+            return;
+          }
+          if (typeof listLocations !== "function") {
+            setWorldbuildingEntries([]);
+            setWorldbuildingStatus("error");
+            setWorldbuildingErrorMessage(getHumanErrorMessage(result.error, t));
+            return;
+          }
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+          if (typeof listLocations !== "function") {
+            setWorldbuildingEntries([]);
+            setWorldbuildingStatus("error");
+            setWorldbuildingErrorMessage(getHumanErrorMessage(error as Error, t));
+            return;
+          }
+        }
+      }
+
+      if (typeof listLocations !== "function") {
+        setWorldbuildingEntries([]);
+        setWorldbuildingStatus("error");
+        setWorldbuildingErrorMessage(t("sidebar.worldbuilding.errorBridgeUnavailable"));
+        return;
+      }
+
+      try {
+        const result = await listLocations({ projectId: project.projectId });
         if (cancelled) {
           return;
         }
@@ -942,15 +1225,16 @@ function WorkbenchShell() {
         const entries = result.data.items.map((location) => mapLocationToWorldbuildingEntry(location, t));
         setWorldbuildingEntries(entries);
         setWorldbuildingStatus("ready");
-      })
-      .catch((error) => {
+        setWorldbuildingErrorMessage(null);
+      } catch (error) {
         if (cancelled) {
           return;
         }
         setWorldbuildingEntries([]);
         setWorldbuildingStatus("error");
         setWorldbuildingErrorMessage(getHumanErrorMessage(error as Error, t));
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -2051,9 +2335,21 @@ function WorkbenchShell() {
 
     if (layout.activeLeftPanel === "worldbuilding") {
       return <WorldbuildingPanel
+        deletingEntryId={
+          kgDeleteInFlight && kgDeleteTarget?.source === "worldbuilding"
+            ? kgDeleteTarget.entityId
+            : null
+        }
         entries={worldbuildingEntries}
         errorMessage={worldbuildingErrorMessage}
         onCreateEntry={handleCreateWorldbuildingEntry}
+        onDeleteEntry={(entry) => {
+          beginKgDeleteFlow({
+            entityId: entry.id,
+            entityName: entry.name,
+            source: "worldbuilding",
+          });
+        }}
         onQueryChange={setWorldbuildingQuery}
         onRetry={triggerWorldbuildingReload}
         onTabChange={setWorldbuildingTab}
@@ -2065,10 +2361,22 @@ function WorkbenchShell() {
 
     if (layout.activeLeftPanel === "knowledgeGraph") {
       return <KnowledgeGraphPanel
+        deletingNodeId={
+          kgDeleteInFlight && kgDeleteTarget?.source === "knowledgeGraph"
+            ? kgDeleteTarget.entityId
+            : null
+        }
         errorMessage={knowledgeGraphErrorMessage}
         links={knowledgeGraphLinks}
         noticeMessage={knowledgeGraphNoticeMessage}
         nodes={knowledgeGraphNodes}
+        onDeleteNode={(node) => {
+          beginKgDeleteFlow({
+            entityId: node.id,
+            entityName: node.name,
+            source: "knowledgeGraph",
+          });
+        }}
         onQueryChange={setKnowledgeGraphQuery}
         onRetry={triggerKnowledgeGraphReload}
         onViewChange={setKnowledgeGraphView}
@@ -2090,44 +2398,31 @@ function WorkbenchShell() {
     }
 
     if (layout.activeLeftPanel === "characters") {
-      return <div className="sidebar-surface">
-        <div className="panel-section">
-          <h1 className="screen-title">{t(`sidebar.${layout.activeLeftPanel}.title`)}</h1>
-          <p className="panel-subtitle">{t(`sidebar.${layout.activeLeftPanel}.subtitle`)}</p>
-        </div>
-        <div className="sidebar-quick-tools">
-          {QUICK_TOOL_ITEMS.map((toolKey) => (
-            <button
-              key={toolKey}
-              type="button"
-              className="sidebar-quick-tools__item"
-              onClick={() => {
-                if (toolKey === "sidebar.quickTools.search") {
-                  layout.setActiveLeftPanel("search");
-                  return;
-                }
-                if (toolKey === "sidebar.quickTools.tree") {
-                  layout.setActiveLeftPanel("knowledgeGraph");
-                  return;
-                }
-                if (toolKey === "sidebar.quickTools.conflict") {
-                  layout.handleRightPanelSelect("quality");
-                  return;
-                }
-                if (toolKey === "sidebar.quickTools.export") {
-                  openExportModal("export");
-                }
-              }}
-            >
-              {t(toolKey)}
-            </button>
-          ))}
-        </div>
-        <div className="sidebar-summary-card">
-          <p className="sidebar-label">{t("sidebar.quickTools.summary")}</p>
-          <p className="panel-meta">{t(`sidebar.${layout.activeLeftPanel}.state`)}</p>
-        </div>
-      </div>;
+      return <CharactersPanel
+        deletingEntryId={
+          kgDeleteInFlight && kgDeleteTarget?.source === "knowledgeGraph"
+            ? kgDeleteTarget.entityId
+            : null
+        }
+        entries={characterEntries}
+        errorMessage={charactersErrorMessage}
+        onConflictQuickTool={() => layout.handleRightPanelSelect("quality")}
+        onCreateEntry={handleCreateWorldbuildingEntry}
+        onDeleteEntry={(entry) => {
+          beginKgDeleteFlow({
+            entityId: entry.id,
+            entityName: entry.name,
+            source: "knowledgeGraph",
+          });
+        }}
+        onExportQuickTool={() => openExportModal("export")}
+        onKnowledgeGraphQuickTool={() => layout.setActiveLeftPanel("knowledgeGraph")}
+        onQueryChange={setCharactersQuery}
+        onRetry={triggerCharactersReload}
+        onSearchQuickTool={() => layout.setActiveLeftPanel("search")}
+        query={charactersQuery}
+        status={charactersStatus}
+      />;
     }
 
     if (layout.activeLeftPanel === "versionHistory") {
@@ -2615,6 +2910,14 @@ function WorkbenchShell() {
     <SettingsModal
       isOpen={settingsModalOpen}
       onClose={() => setSettingsModalOpen(false)}
+    />
+
+    <KgImpactPreview
+      open={kgDeleteTarget !== null}
+      preview={kgDeletePreview}
+      errorMessage={kgDeleteErrorMessage ?? undefined}
+      onCancel={closeKgDeleteDialog}
+      onConfirm={handleConfirmKgDelete}
     />
 
     {restoreDialogSnapshot === null ? null : <div className="version-restore-dialog-backdrop">

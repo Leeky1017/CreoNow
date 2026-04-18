@@ -131,12 +131,18 @@ const api = {
     ) => creonowInvoke("search:query:strategy", payload),
   },
   knowledge: {
+    deleteEntity: (
+      payload: Parameters<typeof creonowInvoke<"knowledge:entity:delete">>[1],
+    ) => creonowInvoke("knowledge:entity:delete", payload),
     listEntities: (
       payload: Parameters<typeof creonowInvoke<"knowledge:entity:list">>[1],
     ) => creonowInvoke("knowledge:entity:list", payload),
     listRelations: (
       payload: Parameters<typeof creonowInvoke<"knowledge:relation:list">>[1],
     ) => creonowInvoke("knowledge:relation:list", payload),
+    previewImpact: (
+      payload: Parameters<typeof creonowInvoke<"knowledge:impact:preview">>[1],
+    ) => creonowInvoke("knowledge:impact:preview", payload),
   },
   engagement: {
     getWorldScale: (

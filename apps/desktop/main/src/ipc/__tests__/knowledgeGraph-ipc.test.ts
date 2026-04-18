@@ -59,6 +59,14 @@ vi.mock("../../services/engagement/milestoneService", () => ({
 
 type Handler = (event: unknown, payload: unknown) => Promise<unknown>;
 
+/**
+ * Stub fingerprint returned by the default harness analyzer. Matches the
+ * `confirmationToken` supplied by tests that exercise the write path but
+ * don't care about the confirmation gate itself. Gate-specific tests
+ * inject a different analyzer with a different fingerprint.
+ */
+const STUB_FINGERPRINT = "e=0:0;r=0:0";
+
 const EXPECTED_CHANNELS = [
   "knowledge:entity:create",
   "knowledge:entity:read",
@@ -80,6 +88,7 @@ const EXPECTED_CHANNELS = [
   "knowledge:recognition:stats",
   "knowledge:suggestion:accept",
   "knowledge:suggestion:dismiss",
+  "knowledge:impact:preview",
 ] as const;
 
 function createMockEvent() {
@@ -90,6 +99,7 @@ function createHarness(opts?: {
   db?: unknown;
   recognitionRuntime?: unknown;
   kgWriteOrchestrator?: unknown;
+  impactAnalyzer?: unknown;
 }) {
   const handlers = new Map<string, Handler>();
 
@@ -130,12 +140,32 @@ function createHarness(opts?: {
       ? undefined
       : opts.kgWriteOrchestrator;
 
+  // Default analyzer for this harness: the `entity:delete` confirmation
+  // gate (Issue #195) requires an analyzer when db is present. These legacy
+  // tests predate the gate; we supply a permissive analyzer that returns a
+  // fixed fingerprint equal to STUB_FINGERPRINT so callers can pass that
+  // string as confirmationToken. Individual tests that exercise the gate
+  // itself inject a different analyzer.
+  const impactAnalyzer =
+    opts?.impactAnalyzer === undefined
+      ? {
+          preview: vi.fn(),
+          computeRevisionFingerprint: vi
+            .fn()
+            .mockReturnValue({
+              ok: true,
+              data: { fingerprint: STUB_FINGERPRINT },
+            }),
+        }
+      : opts.impactAnalyzer;
+
   registerKnowledgeGraphIpcHandlers({
     ipcMain,
     db: db as never,
     logger: logger as never,
     recognitionRuntime: recognitionRuntime as never,
     kgWriteOrchestrator: kgWriteOrchestrator as never,
+    impactAnalyzer: impactAnalyzer as never,
   });
 
   return {
@@ -159,6 +189,7 @@ function createHarness(opts?: {
     ipcMain,
     logger,
     db,
+    impactAnalyzer,
   };
 }
 
@@ -206,6 +237,7 @@ describe("knowledgeGraph IPC handlers", () => {
       "knowledge:query:relevant",
       "knowledge:query:byids",
       "knowledge:rules:inject",
+      "knowledge:impact:preview",
     ] as const;
 
     const recognitionChannels = [
@@ -318,8 +350,30 @@ describe("knowledgeGraph IPC handlers", () => {
       const res = await invoke("knowledge:entity:delete", {
         projectId: "proj1",
         id: "ent-1",
+        confirmationToken: STUB_FINGERPRINT,
       });
       expect(res.ok).toBe(true);
+    });
+
+    it("rejects delete without a confirmationToken", async () => {
+      const { invoke } = createHarness();
+      const res = await invoke("knowledge:entity:delete", {
+        projectId: "proj1",
+        id: "ent-1",
+      });
+      expect(res.ok).toBe(false);
+      expect(res.error?.code).toBe("KG_CONFIRMATION_REQUIRED");
+    });
+
+    it("rejects delete with a stale confirmationToken", async () => {
+      const { invoke } = createHarness();
+      const res = await invoke("knowledge:entity:delete", {
+        projectId: "proj1",
+        id: "ent-1",
+        confirmationToken: "e=1:stale;r=1:stale",
+      });
+      expect(res.ok).toBe(false);
+      expect(res.error?.code).toBe("KG_STALE_PREVIEW");
     });
   });
 
@@ -728,6 +782,20 @@ describe("knowledgeGraph IPC handlers", () => {
         db: db as never,
         logger: logger as never,
         kgWriteOrchestrator: mockKgWriteOrchestrator,
+        // entity:delete now enforces an impact-preview confirmation gate
+        // (Issue #195). Supply a permissive analyzer whose fingerprint
+        // matches STUB_FINGERPRINT so the parametric WRITE_CHANNELS test
+        // can still assert orchestrator routing without cross-cutting the
+        // gate's own test coverage above.
+        impactAnalyzer: {
+          preview: vi.fn(),
+          computeRevisionFingerprint: vi
+            .fn()
+            .mockReturnValue({
+              ok: true,
+              data: { fingerprint: STUB_FINGERPRINT },
+            }),
+        } as never,
       });
 
       return {
@@ -760,7 +828,11 @@ describe("knowledgeGraph IPC handlers", () => {
       },
       {
         channel: "knowledge:entity:delete",
-        payload: { projectId: "p1", id: "e1" },
+        payload: {
+          projectId: "p1",
+          id: "e1",
+          confirmationToken: STUB_FINGERPRINT,
+        },
         mutationType: "entity:delete",
       },
       {

@@ -47,6 +47,8 @@ export const IPC_ERROR_CODES = [
   "KG_RELATION_INVALID",
   "KG_SCOPE_VIOLATION",
   "KG_SUBGRAPH_K_EXCEEDED",
+  "KG_CONFIRMATION_REQUIRED",
+  "KG_STALE_PREVIEW",
   "PROJECT_SWITCH_TIMEOUT",
   "DOCUMENT_SAVE_CONFLICT",
   "MEMORY_BACKPRESSURE",
@@ -2040,6 +2042,14 @@ export const ipcContract = {
       request: s.object({
         projectId: s.string(),
         id: s.string(),
+        /**
+         * Opaque revision fingerprint returned by `knowledge:impact:preview`.
+         * The backend re-checks it against the current KG revision; a missing
+         * token yields `KG_CONFIRMATION_REQUIRED`, a stale one yields
+         * `KG_STALE_PREVIEW`. This binds the destructive write to a fresh
+         * impact preview (Issue #195, audit B1/B3).
+         */
+        confirmationToken: s.optional(s.string()),
       }),
       response: s.object({
         deleted: s.literal(true),
@@ -2086,6 +2096,56 @@ export const ipcContract = {
         id: s.string(),
       }),
       response: s.object({ deleted: s.literal(true) }),
+    },
+    "knowledge:impact:preview": {
+      request: s.object({
+        projectId: s.string(),
+        entityId: s.string(),
+      }),
+      response: s.object({
+        entity: s.object({
+          id: s.string(),
+          name: s.string(),
+          type: s.string(),
+        }),
+        incomingRelations: s.array(
+          s.object({
+            id: s.string(),
+            relationType: s.string(),
+            direction: s.union(s.literal("incoming"), s.literal("outgoing")),
+            otherEntityId: s.string(),
+            otherEntityName: s.string(),
+            otherEntityType: s.union(s.string(), s.literal(null)),
+          }),
+        ),
+        outgoingRelations: s.array(
+          s.object({
+            id: s.string(),
+            relationType: s.string(),
+            direction: s.union(s.literal("incoming"), s.literal("outgoing")),
+            otherEntityId: s.string(),
+            otherEntityName: s.string(),
+            otherEntityType: s.union(s.string(), s.literal(null)),
+          }),
+        ),
+        affectedForeshadows: s.array(
+          s.object({
+            id: s.string(),
+            name: s.string(),
+          }),
+        ),
+        totalRelationCount: s.number(),
+        unresolvedForeshadowCount: s.number(),
+        severity: s.union(
+          s.literal("low"),
+          s.literal("mid"),
+          s.literal("high"),
+          s.literal("critical"),
+        ),
+        requiresTypedConfirmation: s.boolean(),
+        revisionFingerprint: s.string(),
+        queryCostMs: s.number(),
+      }),
     },
     "knowledge:query:subgraph": {
       request: s.object({

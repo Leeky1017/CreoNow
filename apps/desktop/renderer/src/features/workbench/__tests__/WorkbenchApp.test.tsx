@@ -4220,6 +4220,111 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByTestId("worldbuilding-entry-loc-1")).toBeInTheDocument();
   });
 
+  it("characters 面板会从 character IPC 加载词条", async () => {
+    const api = window.api as PreloadApi;
+    const characterList = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            id: "char-1",
+            projectId: "project-1",
+            name: "零号",
+            description: "前特种部队成员。",
+            attributes: { role: "主角", status: "active" },
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+      },
+    }));
+    api.character = { list: characterList } as unknown as PreloadApi["character"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "人物" }));
+
+    await waitFor(() => {
+      expect(characterList).toHaveBeenCalledWith({ projectId: "project-1" });
+    });
+    expect(await screen.findByTestId("characters-entry-char-1")).toBeInTheDocument();
+  });
+
+  it("characters 删除入口会先请求 impact preview，再携带 confirmationToken 执行删除", async () => {
+    const api = window.api as PreloadApi;
+    const characterList = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            id: "entity-char-1",
+            projectId: "project-1",
+            name: "零号",
+            description: "前特种部队成员。",
+            attributes: { role: "主角", status: "active" },
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        ],
+      },
+    }));
+    const previewImpact = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        affectedForeshadows: [],
+        entity: { id: "entity-char-1", name: "零号", type: "character" },
+        incomingRelations: [],
+        outgoingRelations: [],
+        queryCostMs: 8,
+        requiresTypedConfirmation: false,
+        revisionFingerprint: "e=1:2026-04-16;r=1:2026-04-16",
+        severity: "low" as const,
+        totalRelationCount: 0,
+        unresolvedForeshadowCount: 0,
+      },
+    }));
+    const deleteEntity = vi.fn(async () => ({
+      ok: true as const,
+      data: { deleted: true as const, deletedRelationCount: 0 },
+    }));
+    api.character = { list: characterList } as unknown as PreloadApi["character"];
+    api.knowledge = {
+      deleteEntity,
+      listEntities: vi.fn(async () => ({
+        ok: true as const,
+        data: { items: [], totalCount: 0 },
+      })),
+      listRelations: vi.fn(async () => ({
+        ok: true as const,
+        data: { items: [], totalCount: 0 },
+      })),
+      previewImpact,
+    };
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "人物" }));
+    expect(await screen.findByTestId("characters-entry-entity-char-1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("characters-entry-delete-entity-char-1"));
+    await waitFor(() => {
+      expect(previewImpact).toHaveBeenCalledWith({
+        entityId: "entity-char-1",
+        projectId: "project-1",
+      });
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "确认删除" }));
+    await waitFor(() => {
+      expect(deleteEntity).toHaveBeenCalledWith({
+        confirmationToken: "e=1:2026-04-16;r=1:2026-04-16",
+        id: "entity-char-1",
+        projectId: "project-1",
+      });
+    });
+  });
+
   it("worldbuilding 数据桥缺失时显示错误态", async () => {
     const api = window.api as PreloadApi;
     api.location = {} as PreloadApi["location"];
@@ -4280,6 +4385,90 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByTestId("worldbuilding-entry-loc-unknown")).toBeInTheDocument();
     expect(screen.getByText("未归类")).toBeInTheDocument();
     expect(screen.getByText("1 未归类")).toBeInTheDocument();
+  });
+
+  it("worldbuilding 删除入口会先请求 impact preview，再携带 confirmationToken 执行删除", async () => {
+    const api = window.api as PreloadApi;
+    const listEntities = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            aiContextLevel: "when_detected" as const,
+            aliases: [],
+            attributes: {},
+            createdAt: "2026-04-16T00:00:00.000Z",
+            description: "霓虹都市核心区。",
+            id: "entity-loc-1",
+            name: "阿卡迪亚",
+            projectId: "project-1",
+            type: "location" as const,
+            updatedAt: "2026-04-16T01:00:00.000Z",
+            version: 1,
+          },
+        ],
+        totalCount: 1,
+      },
+    }));
+    const previewImpact = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        affectedForeshadows: [],
+        entity: {
+          id: "entity-loc-1",
+          name: "阿卡迪亚",
+          type: "location",
+        },
+        incomingRelations: [],
+        outgoingRelations: [],
+        queryCostMs: 8,
+        requiresTypedConfirmation: false,
+        revisionFingerprint: "e=1:2026-04-16;r=1:2026-04-16",
+        severity: "low" as const,
+        totalRelationCount: 0,
+        unresolvedForeshadowCount: 0,
+      },
+    }));
+    const deleteEntity = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        deleted: true as const,
+        deletedRelationCount: 0,
+      },
+    }));
+    api.knowledge = {
+      deleteEntity,
+      listEntities,
+      listRelations: vi.fn(async () => ({
+        ok: true as const,
+        data: { items: [], totalCount: 0 },
+      })),
+      previewImpact,
+    };
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "世界观" }));
+    expect(await screen.findByTestId("worldbuilding-entry-entity-loc-1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("worldbuilding-entry-delete-entity-loc-1"));
+    await waitFor(() => {
+      expect(previewImpact).toHaveBeenCalledWith({
+        entityId: "entity-loc-1",
+        projectId: "project-1",
+      });
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "确认删除" }));
+    await waitFor(() => {
+      expect(deleteEntity).toHaveBeenCalledWith({
+        confirmationToken: "e=1:2026-04-16;r=1:2026-04-16",
+        id: "entity-loc-1",
+        projectId: "project-1",
+      });
+    });
+    expect(await screen.findByText("已删除「阿卡迪亚」")).toBeInTheDocument();
   });
 
   it("search 面板通过 strategy IPC 渲染动态结果", async () => {
@@ -4597,6 +4786,170 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByTestId("knowledge-graph-notice")).toHaveTextContent("图谱过大");
     expect(screen.getByTestId("knowledge-graph-notice")).toHaveTextContent("1/1200");
     expect(screen.getByTestId("knowledge-graph-notice")).toHaveTextContent("0/1800");
+  });
+
+  it("knowledge graph 清单删除入口会先 preview 再删除", async () => {
+    const api = window.api as PreloadApi;
+    const listEntities = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            aiContextLevel: "when_detected" as const,
+            aliases: [],
+            attributes: {},
+            createdAt: "2026-04-16T00:00:00.000Z",
+            description: "契约守护者",
+            id: "entity-char-1",
+            name: "雷恩",
+            projectId: "project-1",
+            type: "character" as const,
+            updatedAt: "2026-04-16T01:00:00.000Z",
+            version: 1,
+          },
+        ],
+        totalCount: 1,
+      },
+    }));
+    const listRelations = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [],
+        totalCount: 0,
+      },
+    }));
+    const previewImpact = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        affectedForeshadows: [],
+        entity: {
+          id: "entity-char-1",
+          name: "雷恩",
+          type: "character",
+        },
+        incomingRelations: [],
+        outgoingRelations: [],
+        queryCostMs: 8,
+        requiresTypedConfirmation: false,
+        revisionFingerprint: "e=1:2026-04-16;r=1:2026-04-16",
+        severity: "mid" as const,
+        totalRelationCount: 0,
+        unresolvedForeshadowCount: 0,
+      },
+    }));
+    const deleteEntity = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        deleted: true as const,
+        deletedRelationCount: 0,
+      },
+    }));
+    api.knowledge = {
+      deleteEntity,
+      listEntities,
+      listRelations,
+      previewImpact,
+    };
+    api.character = {} as PreloadApi["character"];
+    api.location = {} as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+    await screen.findByTestId("knowledge-graph-node-entity-char-1");
+
+    fireEvent.click(screen.getByTestId("knowledge-graph-view-summary"));
+    fireEvent.click(await screen.findByTestId("knowledge-graph-summary-delete-entity-char-1"));
+
+    await waitFor(() => {
+      expect(previewImpact).toHaveBeenCalledWith({
+        entityId: "entity-char-1",
+        projectId: "project-1",
+      });
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "确认删除" }));
+    await waitFor(() => {
+      expect(deleteEntity).toHaveBeenCalledWith({
+        confirmationToken: "e=1:2026-04-16;r=1:2026-04-16",
+        id: "entity-char-1",
+        projectId: "project-1",
+      });
+    });
+  });
+
+  it("knowledge graph 画布右键节点会触发删除预览", async () => {
+    const api = window.api as PreloadApi;
+    const listEntities = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          {
+            aiContextLevel: "when_detected" as const,
+            aliases: [],
+            attributes: {},
+            createdAt: "2026-04-16T00:00:00.000Z",
+            description: "契约守护者",
+            id: "entity-char-ctx-1",
+            name: "洛特",
+            projectId: "project-1",
+            type: "character" as const,
+            updatedAt: "2026-04-16T01:00:00.000Z",
+            version: 1,
+          },
+        ],
+        totalCount: 1,
+      },
+    }));
+    const previewImpact = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        affectedForeshadows: [],
+        entity: {
+          id: "entity-char-ctx-1",
+          name: "洛特",
+          type: "character",
+        },
+        incomingRelations: [],
+        outgoingRelations: [],
+        queryCostMs: 8,
+        requiresTypedConfirmation: false,
+        revisionFingerprint: "e=1:2026-04-16;r=1:2026-04-16",
+        severity: "low" as const,
+        totalRelationCount: 0,
+        unresolvedForeshadowCount: 0,
+      },
+    }));
+    api.knowledge = {
+      deleteEntity: vi.fn(async () => ({
+        ok: true as const,
+        data: { deleted: true as const, deletedRelationCount: 0 },
+      })),
+      listEntities,
+      listRelations: vi.fn(async () => ({
+        ok: true as const,
+        data: { items: [], totalCount: 0 },
+      })),
+      previewImpact,
+    };
+    api.character = {} as PreloadApi["character"];
+    api.location = {} as PreloadApi["location"];
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
+
+    const node = await screen.findByTestId("knowledge-graph-node-character-entity-char-ctx-1");
+    fireEvent.contextMenu(node);
+
+    await waitFor(() => {
+      expect(previewImpact).toHaveBeenCalledWith({
+        entityId: "entity-char-ctx-1",
+        projectId: "project-1",
+      });
+    });
+    expect(await screen.findByText("确认删除「洛特」")).toBeInTheDocument();
   });
 
   it("knowledge graph 数据桥缺失时显示错误态", async () => {

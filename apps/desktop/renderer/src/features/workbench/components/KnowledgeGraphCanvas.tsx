@@ -37,6 +37,7 @@ interface KnowledgeGraphCanvasProps {
   edges: KnowledgeGraphEdge[];
   height?: number;
   nodeColorMap?: Partial<Record<KnowledgeGraphNodeType, string>>;
+  onNodeContextMenu?: (nodeId: string) => void;
   nodes: KnowledgeGraphNode[];
   onNodeSelect?: (nodeId: string | null) => void;
   selectedNodeId: string | null;
@@ -522,6 +523,12 @@ export function KnowledgeGraphCanvas(props: KnowledgeGraphCanvasProps) {
               tabIndex={0}
               onClick={(event) => {
                 handleNodeSelect(event, node.id);
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                props.onNodeSelect?.(node.id);
+                props.onNodeContextMenu?.(node.id);
               }}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" && event.key !== " ") {

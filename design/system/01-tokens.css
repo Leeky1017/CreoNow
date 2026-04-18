@@ -22,6 +22,10 @@
   --color-separator-bold: rgba(0, 0, 0, 0.12);
   --color-focus-ring: #000000;
 
+  /* Modal / dialog scrim overlay. Used by ConfirmDialog and other full-screen
+     overlays to dim the background while preserving readable foreground. */
+  --color-overlay-scrim: rgba(0, 0, 0, 0.4);
+
   --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.12);
   --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.24);
 
@@ -85,6 +89,10 @@
   --color-separator: rgba(255, 255, 255, 0.08);
   --color-separator-bold: rgba(255, 255, 255, 0.12);
   --color-focus-ring: #ffffff;
+
+  /* Dark-mode scrim needs slightly more opacity because the surface is darker
+     and the contrast against unstyled backdrops is otherwise too subtle. */
+  --color-overlay-scrim: rgba(0, 0, 0, 0.6);
 
   --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.28);
   --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.36);

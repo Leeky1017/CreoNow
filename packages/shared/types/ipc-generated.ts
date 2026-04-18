@@ -59,6 +59,7 @@ export type IpcErrorCode =
   | "IPC_TIMEOUT"
   | "KG_ATTRIBUTE_KEYS_EXCEEDED"
   | "KG_CAPACITY_EXCEEDED"
+  | "KG_CONFIRMATION_REQUIRED"
   | "KG_ENTITY_CONFLICT"
   | "KG_ENTITY_DUPLICATE"
   | "KG_QUERY_TIMEOUT"
@@ -66,6 +67,7 @@ export type IpcErrorCode =
   | "KG_RELATION_INVALID"
   | "KG_RELEVANT_QUERY_FAILED"
   | "KG_SCOPE_VIOLATION"
+  | "KG_STALE_PREVIEW"
   | "KG_SUBGRAPH_K_EXCEEDED"
   | "LLM_API_ERROR"
   | "LOCATION_ATTR_KEY_TOO_LONG"
@@ -245,6 +247,7 @@ export const IPC_CHANNELS = [
   "knowledge:entity:list",
   "knowledge:entity:read",
   "knowledge:entity:update",
+  "knowledge:impact:preview",
   "knowledge:query:byids",
   "knowledge:query:path",
   "knowledge:query:relevant",
@@ -486,6 +489,8 @@ export type IpcChannelSpec = {
           | "KG_RELATION_INVALID"
           | "KG_SCOPE_VIOLATION"
           | "KG_SUBGRAPH_K_EXCEEDED"
+          | "KG_CONFIRMATION_REQUIRED"
+          | "KG_STALE_PREVIEW"
           | "PROJECT_SWITCH_TIMEOUT"
           | "DOCUMENT_SAVE_CONFLICT"
           | "MEMORY_BACKPRESSURE"
@@ -1686,6 +1691,8 @@ export type IpcChannelSpec = {
                 | "KG_RELATION_INVALID"
                 | "KG_SCOPE_VIOLATION"
                 | "KG_SUBGRAPH_K_EXCEEDED"
+                | "KG_CONFIRMATION_REQUIRED"
+                | "KG_STALE_PREVIEW"
                 | "PROJECT_SWITCH_TIMEOUT"
                 | "DOCUMENT_SAVE_CONFLICT"
                 | "MEMORY_BACKPRESSURE"
@@ -1838,6 +1845,8 @@ export type IpcChannelSpec = {
                 | "KG_RELATION_INVALID"
                 | "KG_SCOPE_VIOLATION"
                 | "KG_SUBGRAPH_K_EXCEEDED"
+                | "KG_CONFIRMATION_REQUIRED"
+                | "KG_STALE_PREVIEW"
                 | "PROJECT_SWITCH_TIMEOUT"
                 | "DOCUMENT_SAVE_CONFLICT"
                 | "MEMORY_BACKPRESSURE"
@@ -1976,6 +1985,7 @@ export type IpcChannelSpec = {
   };
   "knowledge:entity:delete": {
     request: {
+      confirmationToken?: string;
       id: string;
       projectId: string;
     };
@@ -2059,6 +2069,45 @@ export type IpcChannelSpec = {
       type: "character" | "location" | "event" | "item" | "faction";
       updatedAt: string;
       version: number;
+    };
+  };
+  "knowledge:impact:preview": {
+    request: {
+      entityId: string;
+      projectId: string;
+    };
+    response: {
+      affectedForeshadows: Array<{
+        id: string;
+        name: string;
+      }>;
+      entity: {
+        id: string;
+        name: string;
+        type: string;
+      };
+      incomingRelations: Array<{
+        direction: "incoming" | "outgoing";
+        id: string;
+        otherEntityId: string;
+        otherEntityName: string;
+        otherEntityType: string | null;
+        relationType: string;
+      }>;
+      outgoingRelations: Array<{
+        direction: "incoming" | "outgoing";
+        id: string;
+        otherEntityId: string;
+        otherEntityName: string;
+        otherEntityType: string | null;
+        relationType: string;
+      }>;
+      queryCostMs: number;
+      requiresTypedConfirmation: boolean;
+      revisionFingerprint: string;
+      severity: "low" | "mid" | "high" | "critical";
+      totalRelationCount: number;
+      unresolvedForeshadowCount: number;
     };
   };
   "knowledge:query:byids": {
@@ -2424,6 +2473,8 @@ export type IpcChannelSpec = {
         | "KG_RELATION_INVALID"
         | "KG_SCOPE_VIOLATION"
         | "KG_SUBGRAPH_K_EXCEEDED"
+        | "KG_CONFIRMATION_REQUIRED"
+        | "KG_STALE_PREVIEW"
         | "PROJECT_SWITCH_TIMEOUT"
         | "DOCUMENT_SAVE_CONFLICT"
         | "MEMORY_BACKPRESSURE"
@@ -2569,6 +2620,8 @@ export type IpcChannelSpec = {
         | "KG_RELATION_INVALID"
         | "KG_SCOPE_VIOLATION"
         | "KG_SUBGRAPH_K_EXCEEDED"
+        | "KG_CONFIRMATION_REQUIRED"
+        | "KG_STALE_PREVIEW"
         | "PROJECT_SWITCH_TIMEOUT"
         | "DOCUMENT_SAVE_CONFLICT"
         | "MEMORY_BACKPRESSURE"
@@ -4043,6 +4096,8 @@ export type IpcChannelSpec = {
           | "KG_RELATION_INVALID"
           | "KG_SCOPE_VIOLATION"
           | "KG_SUBGRAPH_K_EXCEEDED"
+          | "KG_CONFIRMATION_REQUIRED"
+          | "KG_STALE_PREVIEW"
           | "PROJECT_SWITCH_TIMEOUT"
           | "DOCUMENT_SAVE_CONFLICT"
           | "MEMORY_BACKPRESSURE"
