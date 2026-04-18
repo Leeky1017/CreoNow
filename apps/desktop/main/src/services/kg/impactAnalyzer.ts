@@ -118,6 +118,7 @@ export type KgImpactAnalyzer = {
    * recomputing the full relation/foreshadow scan.
    */
   computeRevisionFingerprint(args: {
+    entityId?: string;
     projectId: string;
   }): ServiceResult<{ fingerprint: string }>;
 };
@@ -283,26 +284,31 @@ export function createKgImpactAnalyzer(deps: {
           FROM kg_relations WHERE project_id = ?) AS relations`,
   );
 
-  function readFingerprint(projectId: string): string {
+  function readFingerprint(projectId: string, entityId?: string): string {
     const row = selectRevisionFingerprint.get(projectId, projectId);
     // Row is guaranteed by SQL shape; fall back to an empty fingerprint if
     // the driver returns undefined so downstream equality fails loudly
     // rather than silently matching.
-    return row ? `e=${row.entities};r=${row.relations}` : "e=;r=";
+    const baseFingerprint = row ? `e=${row.entities};r=${row.relations}` : "e=;r=";
+    if (typeof entityId !== "string" || entityId.trim().length === 0) {
+      return baseFingerprint;
+    }
+    return `id=${entityId.trim()};${baseFingerprint}`;
   }
 
   return {
-    computeRevisionFingerprint({ projectId }) {
+    computeRevisionFingerprint({ projectId, entityId }) {
       if (projectId.trim().length === 0) {
         return ipcError("INVALID_ARGUMENT", "projectId is required");
       }
       try {
         return {
           ok: true,
-          data: { fingerprint: readFingerprint(projectId.trim()) },
+          data: { fingerprint: readFingerprint(projectId.trim(), entityId) },
         };
       } catch (error) {
         logger.error("kg_impact_fingerprint_failed", {
+          entityId,
           projectId,
           message: error instanceof Error ? error.message : String(error),
         });
@@ -389,7 +395,10 @@ export function createKgImpactAnalyzer(deps: {
             unresolvedForeshadowCount,
             severity,
             requiresTypedConfirmation,
-            revisionFingerprint: readFingerprint(normalizedProjectId),
+            revisionFingerprint: readFingerprint(
+              normalizedProjectId,
+              normalizedEntityId,
+            ),
             queryCostMs: Date.now() - startedAt,
           },
         };

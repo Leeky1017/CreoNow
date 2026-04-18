@@ -916,6 +916,7 @@ function registerKgEntityHandlers(
           };
         }
         const fingerprintResult = analyzer.computeRevisionFingerprint({
+          entityId: payload.id,
           projectId: payload.projectId,
         });
         if (!fingerprintResult.ok) {

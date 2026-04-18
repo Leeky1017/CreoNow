@@ -412,7 +412,7 @@ describe("createKgImpactAnalyzer — revisionFingerprint", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.revisionFingerprint).toBe(
-      "e=3:2026-01-01;r=1:2026-01-02",
+      "id=ent-target;e=3:2026-01-01;r=1:2026-01-02",
     );
   });
 
@@ -429,10 +429,13 @@ describe("createKgImpactAnalyzer — revisionFingerprint", () => {
       >[0]["db"],
       logger: createMockLogger(),
     });
-    const fp = analyzer.computeRevisionFingerprint({ projectId: PROJECT_ID });
+    const fp = analyzer.computeRevisionFingerprint({
+      projectId: PROJECT_ID,
+      entityId: ENTITY_ID,
+    });
     expect(fp.ok).toBe(true);
     if (!fp.ok) return;
-    expect(fp.data.fingerprint).toBe("e=7:2026-04-01;r=2:2026-04-02");
+    expect(fp.data.fingerprint).toBe("id=ent-target;e=7:2026-04-01;r=2:2026-04-02");
   });
 
   it("computeRevisionFingerprint() rejects blank projectId with INVALID_ARGUMENT", () => {
@@ -444,10 +447,39 @@ describe("createKgImpactAnalyzer — revisionFingerprint", () => {
       }) as unknown as Parameters<typeof createKgImpactAnalyzer>[0]["db"],
       logger: createMockLogger(),
     });
-    const res = analyzer.computeRevisionFingerprint({ projectId: "" });
+    const res = analyzer.computeRevisionFingerprint({
+      projectId: "",
+      entityId: ENTITY_ID,
+    });
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.error.code).toBe("INVALID_ARGUMENT");
+  });
+
+  it("entityId participates in the fingerprint so one preview cannot delete another entity", () => {
+    const analyzer = createKgImpactAnalyzer({
+      db: buildMockDb({
+        entityRow: { id: ENTITY_ID, name: "Alice", type: "character" },
+        neighborRows: [],
+        foreshadowRows: [],
+        fingerprintRow: { entities: "7:2026-04-01", relations: "2:2026-04-02" },
+      }) as unknown as Parameters<typeof createKgImpactAnalyzer>[0]["db"],
+      logger: createMockLogger(),
+    });
+
+    const targetA = analyzer.computeRevisionFingerprint({
+      projectId: PROJECT_ID,
+      entityId: "entity-a",
+    });
+    const targetB = analyzer.computeRevisionFingerprint({
+      projectId: PROJECT_ID,
+      entityId: "entity-b",
+    });
+
+    expect(targetA.ok).toBe(true);
+    expect(targetB.ok).toBe(true);
+    if (!targetA.ok || !targetB.ok) return;
+    expect(targetA.data.fingerprint).not.toBe(targetB.data.fingerprint);
   });
 
   it("computeRevisionFingerprint() returns DB_ERROR when the database throws", () => {
@@ -468,6 +500,7 @@ describe("createKgImpactAnalyzer — revisionFingerprint", () => {
     });
     const res = analyzer.computeRevisionFingerprint({
       projectId: PROJECT_ID,
+      entityId: ENTITY_ID,
     });
     expect(res.ok).toBe(false);
     if (res.ok) return;
