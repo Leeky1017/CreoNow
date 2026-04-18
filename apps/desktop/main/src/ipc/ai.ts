@@ -1193,7 +1193,8 @@ type AiIpcDeps = {
   projectSessionBinding?: ProjectSessionBindingRegistry;
   costTracker?: CostTracker;
   eventBus?: EventBusLike;
-  episodicMemoryService?: Pick<EpisodicMemoryService, "listSemanticMemory">;
+  episodicMemoryService?: Pick<EpisodicMemoryService, "listSemanticMemory"> &
+    Partial<Pick<EpisodicMemoryService, "recordEpisode">>;
 };
 
 type AiIpcContext = {
@@ -1542,6 +1543,19 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           logger: deps.logger,
         })
       : undefined);
+  const episodicMemoryServiceForHooks = (() => {
+    const maybeRecordEpisode = (
+      episodicMemoryServiceForContext as
+        | Partial<Pick<EpisodicMemoryService, "recordEpisode">>
+        | undefined
+    )?.recordEpisode;
+    if (typeof maybeRecordEpisode !== "function") {
+      return undefined;
+    }
+    return {
+      recordEpisode: maybeRecordEpisode.bind(episodicMemoryServiceForContext),
+    };
+  })();
   const contextAssemblyService = createContextLayerAssemblyService(
     undefined,
     deps.db
@@ -1804,7 +1818,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         bridgeAiService,
       })
     : createNullWritingOrchestratorAiService();
-  const p3QualityCheckExecutor =
+  const p3HookSkillExecutor =
     bridgeAiService && deps.eventBus
         ? createP3SkillExecutor({
             aiService: createP3AiServiceAdapter({
@@ -1821,7 +1835,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               get: () => undefined,
               unregister: () => undefined,
             },
-          })
+        })
         : undefined;
   const generateText = createWritingGenerateText({
     aiService,
@@ -1940,10 +1954,20 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               },
           logger: deps.logger,
         },
-        ...(p3QualityCheckExecutor
+        ...(p3HookSkillExecutor && episodicMemoryServiceForHooks
+          ? {
+              episodicExtract: {
+                skillExecutor: p3HookSkillExecutor,
+                episodicMemory: episodicMemoryServiceForHooks,
+                logger: deps.logger,
+                eventBus: deps.eventBus,
+              },
+            }
+          : {}),
+        ...(p3HookSkillExecutor
           ? {
               qualityCheck: {
-                skillExecutor: p3QualityCheckExecutor,
+                skillExecutor: p3HookSkillExecutor,
                 logger: deps.logger,
               },
             }

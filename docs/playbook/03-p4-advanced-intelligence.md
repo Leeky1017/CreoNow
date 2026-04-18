@@ -24,10 +24,15 @@
 - `0028_memory_session_events.sql`：session memory 事件流（非 episodic 主表）
 - `0029_project_milestones.sql`：项目里程碑事件（Engagement，不是 semantic profile）
 
+**Skill 依赖**：
+- `extract-session-events` Skill：从写作 session 提取关键事件（LLM，post-writing hook，已接入主链）
+- `update-writing-profile` Skill：从累积 session 事件中提取持久偏好（LLM，能力已注册，但调度仍未接入）
+
 **仍需完成**：
-- `extract-session-events` Skill / hook 收口（见 `#190`）
 - `update-writing-profile` 调度与前台消费
 - episodic / semantic 在 renderer 中成为真实能力，而不只是后台结构
+
+**INV**：INV-4（Memory-First），INV-6（Skill 注册），INV-8（Hook 触发）
 
 ### TASK-P4-02: KG 高级可视化
 

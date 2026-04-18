@@ -388,6 +388,43 @@ System prompt.`;
       expect(result.success).toBe(true);
     });
 
+    it("extract-session-events 在没有角色/地点设定时仍可执行", async () => {
+      contextEngine.assembleContext.mockResolvedValue({
+        success: true,
+        data: {
+          prompt: "纯正文输入",
+          hasCharacterSettings: false,
+          hasLocationSettings: false,
+        },
+      });
+      aiService.complete.mockResolvedValue({
+        content: JSON.stringify({
+          events: [
+            {
+              sceneType: "general",
+              summary: "章节开场建立了新的行动目标",
+              finalText: "角色确认新的行动目标。",
+              importance: 0.8,
+              editDistance: 0,
+            },
+          ],
+        }),
+      });
+
+      const result = await executor.executeSkill("builtin:extract-session-events", {
+        projectId: "proj-1",
+        documentId: "doc-1",
+        documentContent: "角色确认新的行动目标。",
+      });
+
+      expect(result.success).toBe(true);
+      expect(aiService.complete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skillId: "builtin:extract-session-events",
+        }),
+      );
+    });
+
     it("minInputLength 不满足时返回错误", async () => {
       const result = await executor.executeSkill("dialogue-gen", {
         projectId: "proj-1",

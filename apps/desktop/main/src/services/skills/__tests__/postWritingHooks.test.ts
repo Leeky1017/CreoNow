@@ -17,24 +17,32 @@ import { describe, it, expect, vi } from "vitest";
 import {
   createKgUpdateHook,
   createMemoryExtractHook,
+  createEpisodicExtractHook,
   createQualityCheckHook,
   buildPostWritingHookChain,
   extractWritingContext,
   KG_UPDATE_PRIORITY,
   MEMORY_EXTRACT_PRIORITY,
+  EPISODIC_EXTRACT_PRIORITY,
   QUALITY_CHECK_PRIORITY,
 } from "../postWritingHooks";
 import type {
+  EpisodicExtractHookDeps,
   KgUpdateHookDeps,
   MemoryExtractHookDeps,
   QualityCheckHookDeps,
 } from "../postWritingHooks";
 import type { PostWritingHookContext } from "../orchestrator";
+import {
+  createEpisodicMemoryService,
+  createInMemoryEpisodeRepository,
+} from "../../memory/episodicMemoryService";
 
 // ─── Mock factories ─────────────────────────────────────────────────
 
 function makeLogger() {
   return {
+    logPath: "/tmp/post-writing-hooks.test.log",
     info: vi.fn(),
     error: vi.fn(),
   };
@@ -120,6 +128,44 @@ function makeQualityCheckDeps(overrides: Partial<QualityCheckHookDeps> = {}): Qu
       }),
     },
     logger: makeLogger(),
+    ...overrides,
+  };
+}
+
+function makeEpisodicExtractDeps(
+  overrides: Partial<EpisodicExtractHookDeps> = {},
+): EpisodicExtractHookDeps {
+  return {
+    skillExecutor: {
+      executeSkill: vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          events: [
+            {
+              sceneType: "dialogue",
+              summary: "李明首次公开青云城身世",
+              importance: 0.92,
+            },
+          ],
+        },
+      }),
+    },
+    episodicMemory: {
+      recordEpisode: vi.fn().mockResolvedValue({
+        ok: true,
+        data: {
+          accepted: true,
+          episodeId: "ep-001",
+          retryCount: 0,
+          implicitSignal: "DIRECT_ACCEPT",
+          implicitWeight: 1,
+        },
+      }),
+    },
+    logger: makeLogger(),
+    eventBus: {
+      emit: vi.fn(),
+    },
     ...overrides,
   };
 }
@@ -395,6 +441,125 @@ describe("createMemoryExtractHook", () => {
   });
 });
 
+// ─── Episodic Extract Hook ─────────────────────────────────────────
+
+describe("createEpisodicExtractHook", () => {
+  it("has correct name and priority", () => {
+    const hook = createEpisodicExtractHook(makeEpisodicExtractDeps());
+    expect(hook.name).toBe("episodic-extract");
+    expect(hook.priority).toBe(EPISODIC_EXTRACT_PRIORITY);
+  });
+
+  it("通过 Skill 提取事件并写入 episodic memory，然后发射 episode:created", async () => {
+    const deps = makeEpisodicExtractDeps();
+    const hook = createEpisodicExtractHook(deps);
+    const ctx = makeContext({
+      fullText: "李明在青云城门口揭露真实身份，众人震惊。",
+    });
+
+    await hook.execute(ctx);
+
+    expect(deps.skillExecutor.executeSkill).toHaveBeenCalledWith(
+      "builtin:extract-session-events",
+      expect.objectContaining({
+        projectId: "proj-001",
+        documentId: "doc-001",
+        documentContent: ctx.fullText,
+      }),
+    );
+    expect(deps.episodicMemory.recordEpisode).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "proj-001",
+        chapterId: "doc-001",
+        sceneType: "dialogue",
+        finalText: expect.stringContaining("李明首次公开"),
+      }),
+    );
+    expect(deps.eventBus?.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "episode:created",
+        projectId: "proj-001",
+        documentId: "doc-001",
+        episodeId: "ep-001",
+      }),
+    );
+  });
+
+  it("hook 执行后 episodic 查询可见新增行", async () => {
+    const repo = createInMemoryEpisodeRepository();
+    const episodicSvc = createEpisodicMemoryService({
+      repository: repo,
+      logger: {
+        logPath: "/tmp/post-writing-hooks.episodic.log",
+        info: () => undefined,
+        error: () => undefined,
+      },
+      semanticRecall: () => [],
+    });
+    const hook = createEpisodicExtractHook({
+      skillExecutor: {
+        executeSkill: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            events: [
+              {
+                sceneType: "turning_point",
+                summary: "主角决定背叛旧盟约",
+                importance: 0.86,
+              },
+            ],
+          },
+        }),
+      },
+      episodicMemory: episodicSvc,
+      logger: makeLogger(),
+      eventBus: {
+        emit: vi.fn(),
+      },
+    });
+
+    await hook.execute(
+      makeContext({
+        projectId: "proj-episodic",
+        documentId: "chapter-7",
+        fullText: "在雨夜中，他撕毁了旧盟约，决定独自前行。",
+      }),
+    );
+
+    const queried = episodicSvc.queryEpisodes({
+      projectId: "proj-episodic",
+      sceneType: "turning_point",
+      queryText: "背叛 盟约",
+    });
+    expect(queried.ok).toBe(true);
+    if (!queried.ok) {
+      return;
+    }
+    expect(queried.data.items.length).toBe(1);
+    expect(queried.data.items[0]?.chapterId).toBe("chapter-7");
+  });
+
+  it("skill 执行失败时只记录错误，不写 episodic", async () => {
+    const deps = makeEpisodicExtractDeps({
+      skillExecutor: {
+        executeSkill: vi.fn().mockResolvedValue({
+          success: false,
+          error: { code: "AI_SERVICE_ERROR", message: "timeout" },
+        }),
+      },
+    });
+    const hook = createEpisodicExtractHook(deps);
+
+    await hook.execute(makeContext());
+
+    expect(deps.episodicMemory.recordEpisode).not.toHaveBeenCalled();
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      "episodic-extract:skill-failed",
+      expect.objectContaining({ code: "AI_SERVICE_ERROR" }),
+    );
+  });
+});
+
 // ─── Quality Check Hook ─────────────────────────────────────────────
 
 describe("createQualityCheckHook", () => {
@@ -524,30 +689,34 @@ describe("createQualityCheckHook", () => {
 // ─── Priority ordering ──────────────────────────────────────────────
 
 describe("hook priority ordering", () => {
-  it("priorities are in correct order: kg-update < memory-extract < quality-check", () => {
+  it("priorities are in correct order: kg-update < memory-extract < episodic-extract < quality-check", () => {
     expect(KG_UPDATE_PRIORITY).toBeLessThan(MEMORY_EXTRACT_PRIORITY);
-    expect(MEMORY_EXTRACT_PRIORITY).toBeLessThan(QUALITY_CHECK_PRIORITY);
+    expect(MEMORY_EXTRACT_PRIORITY).toBeLessThan(EPISODIC_EXTRACT_PRIORITY);
+    expect(EPISODIC_EXTRACT_PRIORITY).toBeLessThan(QUALITY_CHECK_PRIORITY);
   });
 
-  it("hooks from buildPostWritingHookChain are sorted by priority (with qualityCheck)", () => {
+  it("hooks from buildPostWritingHookChain are sorted by priority (with episodic + qualityCheck)", () => {
     const hooks = buildPostWritingHookChain({
       kgUpdate: makeKgUpdateDeps(),
       memoryExtract: makeMemoryExtractDeps(),
+      episodicExtract: makeEpisodicExtractDeps(),
       qualityCheck: makeQualityCheckDeps(),
     });
 
-    expect(hooks).toHaveLength(3);
+    expect(hooks).toHaveLength(4);
     expect(hooks[0]!.name).toBe("kg-update");
     expect(hooks[1]!.name).toBe("memory-extract");
-    expect(hooks[2]!.name).toBe("quality-check");
+    expect(hooks[2]!.name).toBe("episodic-extract");
+    expect(hooks[3]!.name).toBe("quality-check");
 
     // Verify priority is set
     expect(hooks[0]!.priority).toBe(KG_UPDATE_PRIORITY);
     expect(hooks[1]!.priority).toBe(MEMORY_EXTRACT_PRIORITY);
-    expect(hooks[2]!.priority).toBe(QUALITY_CHECK_PRIORITY);
+    expect(hooks[2]!.priority).toBe(EPISODIC_EXTRACT_PRIORITY);
+    expect(hooks[3]!.priority).toBe(QUALITY_CHECK_PRIORITY);
   });
 
-  it("hooks from buildPostWritingHookChain omits quality-check when deps absent", () => {
+  it("hooks from buildPostWritingHookChain omits optional hooks when deps absent", () => {
     const hooks = buildPostWritingHookChain({
       kgUpdate: makeKgUpdateDeps(),
       memoryExtract: makeMemoryExtractDeps(),
@@ -625,21 +794,23 @@ describe("error isolation across hooks", () => {
 // ─── buildPostWritingHookChain ──────────────────────────────────────
 
 describe("buildPostWritingHookChain", () => {
-  it("creates all 3 hooks when qualityCheck deps are provided", () => {
+  it("creates all 4 hooks when episodic+quality deps are provided", () => {
     const hooks = buildPostWritingHookChain({
       kgUpdate: makeKgUpdateDeps(),
       memoryExtract: makeMemoryExtractDeps(),
+      episodicExtract: makeEpisodicExtractDeps(),
       qualityCheck: makeQualityCheckDeps(),
     });
 
-    expect(hooks).toHaveLength(3);
+    expect(hooks).toHaveLength(4);
     const names = hooks.map((h) => h.name);
     expect(names).toContain("kg-update");
     expect(names).toContain("memory-extract");
+    expect(names).toContain("episodic-extract");
     expect(names).toContain("quality-check");
   });
 
-  it("creates only 2 hooks when qualityCheck deps are omitted", () => {
+  it("creates only 2 hooks when optional deps are omitted", () => {
     const hooks = buildPostWritingHookChain({
       kgUpdate: makeKgUpdateDeps(),
       memoryExtract: makeMemoryExtractDeps(),

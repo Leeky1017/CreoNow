@@ -44,6 +44,8 @@ const P3_SKILL_CANONICAL_IDS = [
   "consistency-check",
   "dialogue-gen",
   "outline-expand",
+  "extract-session-events",
+  "update-writing-profile",
 ] as const;
 
 const P3_SKILL_CANONICAL_ID_SET = new Set<string>(P3_SKILL_CANONICAL_IDS);
